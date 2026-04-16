@@ -143,8 +143,8 @@ def color_score(val):
 
 styled = (
     table_df.style
-    .applymap(color_risk, subset=['Risk'])
-    .applymap(color_score, subset=['Score'])
+    .map(color_risk, subset=['Risk'])
+    .map(color_score, subset=['Score'])
     .format({'Score': '{:.1f}', 'Beneish': '{:.2f}', 'Accruals': '{:.3f}', 'CF Divergence': '{:.3f}'}, na_rep='N/A')
 )
 
