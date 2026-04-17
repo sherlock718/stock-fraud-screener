@@ -200,6 +200,7 @@ def calculate_all_signals(companies: list) -> list:
             'name': c['name'],
             'ticker': c['ticker'],
             'exchange': c.get('exchange'),
+            'market_cap': c.get('market_cap'),
             'total_assets': c.get('total_assets'),
             'revenue': c.get('revenue'),
             'beneish': beneish_m_score(c),

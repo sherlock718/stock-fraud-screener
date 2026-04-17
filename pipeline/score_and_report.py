@@ -79,6 +79,7 @@ def generate_report(signals_list: list) -> list:
             'ticker': s.get('ticker', 'N/A'),
             'name': s['name'],
             'exchange': s.get('exchange', 'N/A'),
+            'market_cap': s.get('market_cap'),
             'fraud_score': fraud_score,
             'risk': risk_label(fraud_score),
             'beneish_score': s['beneish'].get('score'),

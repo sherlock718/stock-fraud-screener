@@ -1,6 +1,9 @@
 """
-Step 1: Fetch all US companies in the $150M - $1B market cap range
-Uses SEC EDGAR company facts API (free, no API key needed)
+Step 1: Fetch all US companies from SEC EDGAR with financials + market cap.
+Uses SEC EDGAR company facts API (free, no API key needed) + yfinance for market cap.
+
+Checkpoint/resume: saves progress to data/fetch_checkpoint.json every 100 companies.
+If interrupted, re-running will resume from where it left off.
 """
 
 import requests
@@ -8,10 +11,15 @@ import json
 import time
 import os
 
+import yfinance as yf
+
 DATA_DIR = os.path.join(os.path.dirname(__file__), '..', 'data')
 os.makedirs(DATA_DIR, exist_ok=True)
 
 HEADERS = {'User-Agent': 'StockFraudScreener contact@example.com'}
+CHECKPOINT_PATH = os.path.join(DATA_DIR, 'fetch_checkpoint.json')
+OUTPUT_PATH = os.path.join(DATA_DIR, 'companies_financials.json')
+CHECKPOINT_EVERY = 100
 
 
 def get_all_companies():
@@ -33,19 +41,28 @@ def get_company_facts(cik: str):
     response = requests.get(url, headers=HEADERS)
     if response.status_code == 404:
         return None
+    if response.status_code == 429:
+        raise RuntimeError("rate_limited")
     response.raise_for_status()
     return response.json()
+
+
+def get_market_cap(ticker: str):
+    """Fetch market cap for a ticker via yfinance."""
+    try:
+        info = yf.Ticker(ticker).info
+        return info.get('marketCap')
+    except Exception:
+        return None
 
 
 def extract_latest_value(facts: dict, concept: str, unit: str = 'USD'):
     """Extract the most recent annual value for a given accounting concept."""
     try:
         entries = facts['facts']['us-gaap'][concept]['units'][unit]
-        # Filter for 10-K annual filings only
         annual = [e for e in entries if e.get('form') == '10-K']
         if not annual:
             return None
-        # Return most recent
         latest = sorted(annual, key=lambda x: x['end'])[-1]
         return latest['val']
     except (KeyError, IndexError):
@@ -82,61 +99,107 @@ def extract_financials(facts: dict) -> dict:
     }
 
 
-def fetch_and_save_companies(limit: int = None):
+def load_checkpoint():
+    """Load saved checkpoint (processed CIKs + results so far)."""
+    if os.path.exists(CHECKPOINT_PATH):
+        with open(CHECKPOINT_PATH) as f:
+            return json.load(f)
+    return {'processed_ciks': [], 'results': []}
+
+
+def save_checkpoint(processed_ciks: list, results: list):
+    """Save progress to checkpoint file."""
+    with open(CHECKPOINT_PATH, 'w') as f:
+        json.dump({'processed_ciks': processed_ciks, 'results': results}, f)
+
+
+def fetch_and_save_companies(limit: int = None, resume: bool = True):
     """
-    Main function: fetch companies, pull financials, save to JSON.
-    limit: for testing, set to small number like 50. None = all companies.
+    Fetch all companies from SEC EDGAR, enrich with market cap, save to JSON.
+
+    Args:
+        limit:  cap the number of companies processed (None = all).
+        resume: if True, load checkpoint and skip already-processed CIKs.
     """
     companies = get_all_companies()
-
-    # SEC data: [cik, name, ticker, exchange]
-    results = []
-    errors = []
-
     target = companies[:limit] if limit else companies
     print(f"Processing {len(target)} companies...")
+
+    checkpoint = load_checkpoint() if resume else {'processed_ciks': [], 'results': []}
+    processed_ciks = set(checkpoint['processed_ciks'])
+    results = checkpoint['results']
+    errors = []
+
+    if processed_ciks:
+        print(f"Resuming: {len(processed_ciks)} already done, {len(results)} results so far")
+
+    new_this_run = 0
 
     for i, company in enumerate(target):
         cik, name, ticker, exchange = company[0], company[1], company[2], company[3]
 
-        if i % 50 == 0:
-            print(f"Progress: {i}/{len(target)} — {name}")
+        if str(cik) in processed_ciks:
+            continue
 
-        try:
-            facts = get_company_facts(cik)
-            if not facts:
-                continue
+        if new_this_run % 100 == 0 and new_this_run > 0:
+            total_done = len(processed_ciks) + new_this_run
+            print(f"Progress: {total_done}/{len(target)} — {name} — {len(results)} saved so far")
 
+        # Fetch SEC financials
+        facts = None
+        rate_limit_retries = 0
+        while True:
+            try:
+                facts = get_company_facts(cik)
+                break
+            except RuntimeError as e:
+                if str(e) == "rate_limited":
+                    rate_limit_retries += 1
+                    wait = 5 * rate_limit_retries
+                    print(f"  Rate limited. Waiting {wait}s... (attempt {rate_limit_retries})")
+                    time.sleep(wait)
+                    if rate_limit_retries >= 5:
+                        print(f"  Giving up on CIK {cik} after 5 retries.")
+                        break
+                else:
+                    errors.append({'cik': cik, 'name': name, 'error': str(e)})
+                    break
+            except Exception as e:
+                errors.append({'cik': cik, 'name': name, 'error': str(e)})
+                break
+
+        if facts is not None:
             financials = extract_financials(facts)
+            if financials['total_assets'] and financials['revenue']:
+                market_cap = get_market_cap(ticker) if ticker else None
+                results.append({
+                    'cik': cik,
+                    'name': name,
+                    'ticker': ticker,
+                    'exchange': exchange,
+                    'market_cap': market_cap,
+                    **financials
+                })
 
-            # Skip if we can't get basic data
-            if not financials['total_assets'] or not financials['revenue']:
-                continue
+        processed_ciks.add(str(cik))
+        new_this_run += 1
 
-            results.append({
-                'cik': cik,
-                'name': name,
-                'ticker': ticker,
-                'exchange': exchange,
-                **financials
-            })
+        if new_this_run % CHECKPOINT_EVERY == 0:
+            save_checkpoint(list(processed_ciks), results)
 
-        except Exception as e:
-            errors.append({'cik': cik, 'name': name, 'error': str(e)})
+        time.sleep(0.12)
 
-        # Respect SEC rate limit: max 10 requests/second
-        time.sleep(0.15)
-
-    # Save results
-    output_path = os.path.join(DATA_DIR, 'companies_financials.json')
-    with open(output_path, 'w') as f:
+    # Final save
+    save_checkpoint(list(processed_ciks), results)
+    with open(OUTPUT_PATH, 'w') as f:
         json.dump(results, f, indent=2)
 
-    print(f"\nDone. Saved {len(results)} companies to {output_path}")
-    print(f"Errors: {len(errors)}")
+    print(f"\nDone.")
+    print(f"  Total with valid financials: {len(results)}")
+    print(f"  Total processed: {len(processed_ciks)}")
+    print(f"  Errors this run: {len(errors)}")
     return results
 
 
 if __name__ == '__main__':
-    # Start with 100 companies to test, remove limit= to run full dataset
-    fetch_and_save_companies(limit=100)
+    fetch_and_save_companies()

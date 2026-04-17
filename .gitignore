@@ -1,0 +1,7 @@
+data/companies_financials.json
+data/companies_filtered.json
+data/fetch_checkpoint.json
+data/last_update.json
+__pycache__/
+*.pyc
+.DS_Store
