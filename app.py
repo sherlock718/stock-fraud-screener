@@ -74,20 +74,29 @@ st.markdown("---")
 st.sidebar.header("Filters")
 
 # Market cap filter
-st.sidebar.markdown("**Market Cap ($M)**")
-mc_col1, mc_col2 = st.sidebar.columns(2)
-mc_min_input = mc_col1.number_input("Min", min_value=0, max_value=1_000_000, value=0, step=50)
-mc_max_input = mc_col2.number_input("Max", min_value=0, max_value=1_000_000, value=1_000_000, step=50)
+st.sidebar.markdown("**Market Cap**")
+preset = st.sidebar.radio(
+    "Quick select:",
+    ["All sizes", "Micro (<$300M)", "Small ($150M-$1B)", "Mid ($1B-$10B)", "Large (>$10B)", "Custom"],
+    index=0,
+    horizontal=False
+)
 
-# Quick presets
-st.sidebar.markdown("**Quick presets:**")
-preset_cols = st.sidebar.columns(3)
-if preset_cols[0].button("Micro\n<$300M"):
-    mc_min_input, mc_max_input = 0, 300
-if preset_cols[1].button("Small\n$150M–$1B"):
-    mc_min_input, mc_max_input = 150, 1000
-if preset_cols[2].button("Mid\n$1B–$10B"):
-    mc_min_input, mc_max_input = 1000, 10000
+preset_ranges = {
+    "All sizes":        (0, 10_000_000),
+    "Micro (<$300M)":   (0, 300),
+    "Small ($150M-$1B)":(150, 1_000),
+    "Mid ($1B-$10B)":   (1_000, 10_000),
+    "Large (>$10B)":    (10_000, 10_000_000),
+    "Custom":           None,
+}
+
+if preset != "Custom":
+    mc_min_input, mc_max_input = preset_ranges[preset]
+else:
+    mc_col1, mc_col2 = st.sidebar.columns(2)
+    mc_min_input = mc_col1.number_input("Min ($M)", min_value=0, max_value=10_000_000, value=0, step=50)
+    mc_max_input = mc_col2.number_input("Max ($M)", min_value=0, max_value=10_000_000, value=10_000_000, step=50)
 
 mc_min = mc_min_input * 1_000_000
 mc_max = mc_max_input * 1_000_000
