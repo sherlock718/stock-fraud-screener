@@ -61,14 +61,8 @@ if 'market_cap' not in df.columns:
 
 df['market_cap'] = pd.to_numeric(df['market_cap'], errors='coerce')
 
-# ── Summary metrics ───────────────────────────────────────────────────────────
-st.markdown("---")
-c1, c2, c3, c4 = st.columns(4)
-c1.metric("Total Companies", len(df))
-c2.metric("🔴 High Risk",   len(df[df['risk'] == 'HIGH RISK']))
-c3.metric("🟡 Medium Risk", len(df[df['risk'] == 'MEDIUM RISK']))
-c4.metric("🟢 Low Risk",    len(df[df['risk'] == 'LOW RISK']))
-st.markdown("---")
+# ── Summary metrics (calculated after filters — see below) ───────────────────
+METRICS_PLACEHOLDER = st.empty()
 
 # ── Sidebar filters ───────────────────────────────────────────────────────────
 st.sidebar.header("Filters")
@@ -139,6 +133,16 @@ if search:
         filtered['name'].str.contains(search, case=False, na=False)
     )
     filtered = filtered[mask]
+
+# ── Summary metrics (reflect current filters) ────────────────────────────────
+with METRICS_PLACEHOLDER.container():
+    st.markdown("---")
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Total Companies", len(filtered))
+    c2.metric("🔴 High Risk",   len(filtered[filtered['risk'] == 'HIGH RISK']))
+    c3.metric("🟡 Medium Risk", len(filtered[filtered['risk'] == 'MEDIUM RISK']))
+    c4.metric("🟢 Low Risk",    len(filtered[filtered['risk'] == 'LOW RISK']))
+    st.markdown("---")
 
 st.markdown(f"**Showing {len(filtered)} companies**")
 
