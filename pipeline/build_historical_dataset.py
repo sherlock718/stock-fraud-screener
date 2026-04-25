@@ -1,0 +1,373 @@
+"""
+Build a historical dataset for ML training.
+
+For each company, pulls multi-year 10-K financial data from EDGAR's company-facts
+API (which stores full time-series history), then aligns each annual filing with:
+  - Stock price on the filing date (entry price)
+  - Stock price 12 months later (exit price)
+  - 12-month forward return = (exit - entry) / entry
+
+EDGAR company-facts API stores all historical values per concept — we extract
+annual 10-K values for each fiscal year going back up to 5 years.
+
+Output: data/historical_dataset.parquet
+  Rows: one per (company, fiscal_year) — typically 4-5 rows per company
+  Columns: all fraud signals + value metrics + forward_return_12m + beat_sp500
+
+Usage:
+  python3 pipeline/build_historical_dataset.py
+  python3 pipeline/build_historical_dataset.py --limit 500   # test run
+  python3 pipeline/build_historical_dataset.py --years 3     # last 3 fiscal years
+"""
+
+import json
+import os
+import time
+import argparse
+import requests
+import pandas as pd
+import numpy as np
+import yfinance as yf
+from datetime import datetime, timedelta
+from collections import defaultdict
+
+try:
+    from fraud_signals import (
+        beneish_m_score, piotroski_f_score, accruals_ratio,
+        cash_flow_divergence, altman_z_score, revenue_quality,
+        earnings_quality, going_concern
+    )
+    from value_metrics import calculate_value_metrics
+except ImportError:
+    from pipeline.fraud_signals import (
+        beneish_m_score, piotroski_f_score, accruals_ratio,
+        cash_flow_divergence, altman_z_score, revenue_quality,
+        earnings_quality, going_concern
+    )
+    from pipeline.value_metrics import calculate_value_metrics
+
+DATA_DIR = os.path.join(os.path.dirname(__file__), '..', 'data')
+FINANCIALS_PATH = os.path.join(DATA_DIR, 'companies_financials.json')
+OUTPUT_PATH = os.path.join(DATA_DIR, 'historical_dataset.parquet')
+CHECKPOINT_PATH = os.path.join(DATA_DIR, 'historical_checkpoint.json')
+
+EDGAR_FACTS_URL = "https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json"
+HEADERS = {'User-Agent': 'stock-fraud-screener research@example.com'}
+
+# EDGAR concept → our field name
+CONCEPT_MAP = {
+    'us-gaap/Revenues':                         'revenue',
+    'us-gaap/RevenueFromContractWithCustomerExcludingAssessedTax': 'revenue',
+    'us-gaap/SalesRevenueNet':                  'revenue',
+    'us-gaap/NetIncomeLoss':                    'net_income',
+    'us-gaap/OperatingIncomeLoss':              'operating_income',
+    'us-gaap/GrossProfit':                      'gross_profit',
+    'us-gaap/Assets':                           'total_assets',
+    'us-gaap/AssetsCurrent':                    'current_assets',
+    'us-gaap/Liabilities':                      'total_liabilities',
+    'us-gaap/LiabilitiesCurrent':               'current_liabilities',
+    'us-gaap/LongTermDebt':                     'long_term_debt',
+    'us-gaap/LongTermDebtNoncurrent':           'long_term_debt',
+    'us-gaap/RetainedEarningsAccumulatedDeficit': 'retained_earnings',
+    'us-gaap/AccountsReceivableNetCurrent':     'receivables',
+    'us-gaap/InventoryNet':                     'inventory',
+    'us-gaap/PropertyPlantAndEquipmentNet':     'ppe_net',
+    'us-gaap/DepreciationDepletionAndAmortization': 'depreciation',
+    'us-gaap/Depreciation':                     'depreciation',
+    'us-gaap/NetCashProvidedByUsedInOperatingActivities': 'operating_cash_flow',
+    'us-gaap/PaymentsToAcquirePropertyPlantAndEquipment': 'capex',
+    'us-gaap/CostsAndExpenses':                 'total_expenses',
+}
+
+MIN_FISCAL_YEAR = datetime.now().year - 5   # last 5 fiscal years
+
+
+# ── EDGAR helpers ─────────────────────────────────────────────────────────────
+
+def fetch_company_facts(cik: str) -> dict:
+    """Fetch all historical XBRL facts for a company from EDGAR."""
+    cik_padded = str(cik).zfill(10)
+    url = EDGAR_FACTS_URL.format(cik=cik_padded)
+    try:
+        resp = requests.get(url, headers=HEADERS, timeout=15)
+        if resp.status_code == 200:
+            return resp.json()
+    except Exception:
+        pass
+    return {}
+
+
+def extract_annual_values(facts: dict, concept_path: str) -> dict:
+    """
+    Extract annual 10-K values for a concept from EDGAR facts.
+    Returns {fiscal_year: (value, filed_date)}.
+    concept_path e.g. 'us-gaap/Revenues'
+    """
+    namespace, concept = concept_path.split('/')
+    try:
+        units = facts.get('facts', {}).get(namespace, {}).get(concept, {}).get('units', {})
+        values = units.get('USD', units.get('shares', []))
+    except Exception:
+        return {}
+
+    annual = {}
+    for item in values:
+        if item.get('form') not in ('10-K', '10-K/A'):
+            continue
+        fy = item.get('fy')
+        fp = item.get('fp', '')
+        if not fy or fp != 'FY':
+            continue
+        if fy < MIN_FISCAL_YEAR:
+            continue
+        filed = item.get('filed', '')
+        val = item.get('val')
+        if val is None:
+            continue
+        # Keep most recent filing for this FY (10-K/A supersedes 10-K)
+        if fy not in annual or filed > annual[fy][1]:
+            annual[fy] = (val, filed)
+
+    return annual  # {fy: (value, filed_date)}
+
+
+def build_annual_financials(cik: str) -> list:
+    """
+    Build a list of annual financial snapshots for a company.
+    Returns list of dicts, one per fiscal year.
+    """
+    facts = fetch_company_facts(cik)
+    if not facts:
+        return []
+
+    # Collect values per concept per year
+    by_year = defaultdict(dict)
+    filed_dates = {}
+
+    for concept_path, field_name in CONCEPT_MAP.items():
+        annual = extract_annual_values(facts, concept_path)
+        for fy, (val, filed) in annual.items():
+            # Don't overwrite if already set (first match wins for same field)
+            if field_name not in by_year[fy]:
+                by_year[fy][field_name] = val
+            if fy not in filed_dates or filed > filed_dates[fy]:
+                filed_dates[fy] = filed
+
+    snapshots = []
+    for fy in sorted(by_year.keys()):
+        row = dict(by_year[fy])
+        row['fiscal_year'] = fy
+        row['filed_date'] = filed_dates.get(fy)
+        snapshots.append(row)
+
+    return snapshots
+
+
+# ── Price helpers ─────────────────────────────────────────────────────────────
+
+def get_price_on_date(ticker: str, date_str: str) -> float | None:
+    """Get closing price on or just after a given date."""
+    try:
+        start = pd.Timestamp(date_str)
+        end = start + timedelta(days=10)  # allow a few trading days
+        hist = yf.Ticker(ticker).history(start=start.strftime('%Y-%m-%d'),
+                                          end=end.strftime('%Y-%m-%d'))
+        if not hist.empty:
+            return float(hist['Close'].iloc[0])
+    except Exception:
+        pass
+    return None
+
+
+def get_sp500_return(start_date: str, end_date: str) -> float | None:
+    """Get S&P 500 (SPY) return between two dates."""
+    try:
+        hist = yf.Ticker('SPY').history(
+            start=start_date,
+            end=(pd.Timestamp(end_date) + timedelta(days=5)).strftime('%Y-%m-%d')
+        )
+        if len(hist) < 2:
+            return None
+        start_price = float(hist['Close'].iloc[0])
+        end_price = float(hist['Close'].iloc[-1])
+        return (end_price - start_price) / start_price if start_price > 0 else None
+    except Exception:
+        return None
+
+
+def compute_forward_return(ticker: str, filed_date: str) -> dict:
+    """
+    Compute 12-month forward return from filing date.
+    Returns entry_price, exit_price, forward_return_12m, sp500_return_12m, beat_sp500.
+    """
+    result = {
+        'entry_price': None, 'exit_price': None,
+        'forward_return_12m': None, 'sp500_return_12m': None,
+        'beat_sp500': None
+    }
+    if not filed_date or not ticker:
+        return result
+
+    # Only compute if we're at least 12 months in the past
+    filing_ts = pd.Timestamp(filed_date)
+    cutoff = pd.Timestamp.now() - timedelta(days=365)
+    if filing_ts > cutoff:
+        return result  # too recent — forward return not yet knowable
+
+    exit_date = (filing_ts + timedelta(days=365)).strftime('%Y-%m-%d')
+
+    entry = get_price_on_date(ticker, filed_date)
+    exit_ = get_price_on_date(ticker, exit_date)
+
+    if entry and exit_ and entry > 0:
+        fwd = (exit_ - entry) / entry
+        sp500 = get_sp500_return(filed_date, exit_date)
+        result.update({
+            'entry_price': round(entry, 4),
+            'exit_price': round(exit_, 4),
+            'forward_return_12m': round(fwd, 4),
+            'sp500_return_12m': round(sp500, 4) if sp500 else None,
+            'beat_sp500': bool(sp500 is not None and fwd > sp500),
+        })
+
+    return result
+
+
+# ── Signal computation ────────────────────────────────────────────────────────
+
+def compute_signals(c: dict) -> dict:
+    """Run all fraud signals + value metrics on a financial snapshot."""
+    b = beneish_m_score(c)
+    p = piotroski_f_score(c)
+    a = accruals_ratio(c)
+    cfd = cash_flow_divergence(c)
+    alt = altman_z_score(c)
+    rq = revenue_quality(c)
+    eq = earnings_quality(c)
+    vm = calculate_value_metrics(c)
+
+    return {
+        # Beneish
+        'beneish_score': b.get('score'),
+        'beneish_flag': b.get('manipulator', False),
+        # Piotroski
+        'piotroski_score': p.get('score'),
+        'piotroski_weak': p.get('weak', False),
+        # Accruals
+        'accruals_ratio': a.get('ratio'),
+        'accruals_flag': a.get('red_flag', False),
+        # Cash flow divergence
+        'cfd_ratio': cfd.get('divergence'),
+        'cfd_flag': cfd.get('red_flag', False),
+        # Altman
+        'altman_score': alt.get('score'),
+        'altman_zone': alt.get('zone'),
+        'altman_flag': alt.get('distress', False),
+        # Revenue quality
+        'ar_ratio': rq.get('ar_ratio'),
+        'dso': rq.get('dso'),
+        'revenue_quality_flag': rq.get('red_flag', False),
+        # Earnings quality
+        'non_op_ratio': eq.get('non_op_ratio'),
+        'earnings_quality_flag': eq.get('red_flag', False),
+        # Value metrics
+        **{k: vm.get(k) for k in [
+            'pe_ratio', 'pb_ratio', 'ev_ebitda', 'fcf_yield', 'fcf',
+            'roe', 'roa', 'gross_margin', 'net_margin',
+            'debt_to_equity', 'current_ratio',
+            'earnings_yield', 'return_on_capital', 'acquirers_multiple',
+            'ncav', 'ncav_ratio', 'net_net_flag',
+            'gross_profitability', 'croic', 'invested_capital',
+            'market_cap_segment',
+        ]},
+    }
+
+
+# ── Main ──────────────────────────────────────────────────────────────────────
+
+def load_checkpoint() -> set:
+    if os.path.exists(CHECKPOINT_PATH):
+        with open(CHECKPOINT_PATH) as f:
+            return set(json.load(f))
+    return set()
+
+
+def save_checkpoint(done: set):
+    with open(CHECKPOINT_PATH, 'w') as f:
+        json.dump(list(done), f)
+
+
+def build_dataset(limit: int = None, years: int = 5):
+    global MIN_FISCAL_YEAR
+    MIN_FISCAL_YEAR = datetime.now().year - years
+
+    with open(FINANCIALS_PATH) as f:
+        companies = json.load(f)
+
+    if limit:
+        companies = companies[:limit]
+
+    done_ciks = load_checkpoint()
+    remaining = [c for c in companies if c.get('ticker') and c['cik'] not in done_ciks]
+    print(f"Total: {len(companies)} | Done: {len(done_ciks)} | Remaining: {len(remaining)}")
+
+    rows = []
+    # Load existing rows if resuming
+    if os.path.exists(OUTPUT_PATH):
+        existing_df = pd.read_parquet(OUTPUT_PATH)
+        rows = existing_df.to_dict('records')
+        print(f"Loaded {len(rows)} existing rows from checkpoint")
+
+    for i, company in enumerate(remaining):
+        cik = company['cik']
+        ticker = company['ticker']
+        name = company['name']
+
+        snapshots = build_annual_financials(cik)
+
+        for snap in snapshots:
+            # Add identity fields and market cap from current data
+            snap['cik'] = cik
+            snap['ticker'] = ticker
+            snap['name'] = name
+            snap['exchange'] = company.get('exchange')
+            snap['market_cap'] = company.get('market_cap')  # current only
+
+            # Compute all signals
+            signals = compute_signals(snap)
+            snap.update(signals)
+
+            # Compute forward return
+            fwd = compute_forward_return(ticker, snap.get('filed_date'))
+            snap.update(fwd)
+
+            rows.append(snap)
+
+        done_ciks.add(cik)
+
+        if (i + 1) % 20 == 0:
+            print(f"  {i+1}/{len(remaining)} — {ticker} — {len(snapshots)} years — total rows: {len(rows)}")
+            # Save checkpoint
+            df = pd.DataFrame(rows)
+            df.to_parquet(OUTPUT_PATH, index=False)
+            save_checkpoint(done_ciks)
+
+        time.sleep(0.3)  # be gentle with EDGAR + yfinance
+
+    # Final save
+    df = pd.DataFrame(rows)
+    df.to_parquet(OUTPUT_PATH, index=False)
+    save_checkpoint(done_ciks)
+
+    print(f"\nDone. {len(rows)} rows across {len(done_ciks)} companies → {OUTPUT_PATH}")
+    print(f"Forward returns available: {df['forward_return_12m'].notna().sum()}/{len(df)}")
+    return df
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--limit', type=int, default=None, help='Limit to N companies (for testing)')
+    parser.add_argument('--years', type=int, default=5, help='How many fiscal years back (default 5)')
+    args = parser.parse_args()
+
+    build_dataset(limit=args.limit, years=args.years)
