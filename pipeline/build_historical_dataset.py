@@ -78,6 +78,10 @@ CONCEPT_MAP = {
     'us-gaap/NetCashProvidedByUsedInOperatingActivities': 'operating_cash_flow',
     'us-gaap/PaymentsToAcquirePropertyPlantAndEquipment': 'capex',
     'us-gaap/CostsAndExpenses':                 'total_expenses',
+    # Added for YoY features + new cross-sectional metrics
+    'us-gaap/InterestExpense':                  'interest_expense',
+    'us-gaap/InterestAndDebtExpense':           'interest_expense',
+    'us-gaap/CommonStockSharesOutstanding':     'shares_outstanding',
 }
 
 MIN_FISCAL_YEAR = datetime.now().year - 5   # last 5 fiscal years
@@ -135,6 +139,76 @@ def extract_annual_values(facts: dict, concept_path: str) -> dict:
     return annual  # {fy: (value, filed_date)}
 
 
+def add_yoy_features(snapshots: list) -> list:
+    """
+    Compute year-over-year change features between consecutive fiscal years.
+    Requires snapshots sorted by fiscal_year. First year gets None for all YoY fields.
+
+    YoY features capture *change* signals that fraud detectors miss on a single snapshot:
+    - Revenue growing slower than receivables → earnings manipulation
+    - Asset growth outpacing revenue → empire building / low-quality growth
+    - Share count rising → dilution, often ahead of bad news
+    """
+    snapshots = sorted(snapshots, key=lambda x: x['fiscal_year'])
+
+    def _yoy(curr_val, prev_val):
+        """Safe YoY growth rate."""
+        if curr_val is not None and prev_val is not None and prev_val != 0:
+            return round((curr_val - prev_val) / abs(prev_val), 4)
+        return None
+
+    for i, snap in enumerate(snapshots):
+        if i == 0 or (snap['fiscal_year'] - snapshots[i-1]['fiscal_year']) != 1:
+            # No prior year or non-consecutive — leave YoY fields as None
+            snap['revenue_growth_yoy']    = None
+            snap['asset_growth_yoy']      = None
+            snap['receivables_growth_yoy']= None
+            snap['inventory_growth_yoy']  = None
+            snap['net_income_growth_yoy'] = None
+            snap['capex_growth_yoy']      = None
+            snap['shares_dilution']       = None
+            snap['ar_to_revenue_change']  = None
+            snap['gross_margin_change']   = None
+            continue
+
+        prev = snapshots[i-1]
+
+        snap['revenue_growth_yoy']     = _yoy(snap.get('revenue'),      prev.get('revenue'))
+        snap['asset_growth_yoy']       = _yoy(snap.get('total_assets'),  prev.get('total_assets'))
+        snap['receivables_growth_yoy'] = _yoy(snap.get('receivables'),   prev.get('receivables'))
+        snap['inventory_growth_yoy']   = _yoy(snap.get('inventory'),     prev.get('inventory'))
+        snap['net_income_growth_yoy']  = _yoy(snap.get('net_income'),    prev.get('net_income'))
+        snap['capex_growth_yoy']       = _yoy(snap.get('capex'),         prev.get('capex'))
+        snap['shares_dilution']        = _yoy(snap.get('shares_outstanding'), prev.get('shares_outstanding'))
+
+        # AR-to-revenue ratio change (Beneish DSRI component)
+        # Rising = receivables growing faster than revenue = earnings quality warning
+        def _ar_rev(s):
+            r, rev = s.get('receivables'), s.get('revenue')
+            return r / rev if (r is not None and rev and rev > 0) else None
+
+        curr_ar_rev = _ar_rev(snap)
+        prev_ar_rev = _ar_rev(prev)
+        snap['ar_to_revenue_change'] = (
+            round(curr_ar_rev - prev_ar_rev, 4)
+            if curr_ar_rev is not None and prev_ar_rev is not None else None
+        )
+
+        # Gross margin change (level, not %)
+        def _gm(s):
+            gp, rev = s.get('gross_profit'), s.get('revenue')
+            return gp / rev if (gp is not None and rev and rev > 0) else None
+
+        curr_gm = _gm(snap)
+        prev_gm = _gm(prev)
+        snap['gross_margin_change'] = (
+            round(curr_gm - prev_gm, 4)
+            if curr_gm is not None and prev_gm is not None else None
+        )
+
+    return snapshots
+
+
 def build_annual_financials(cik: str) -> list:
     """
     Build a list of annual financial snapshots for a company.
@@ -163,6 +237,9 @@ def build_annual_financials(cik: str) -> list:
         row['fiscal_year'] = fy
         row['filed_date'] = filed_dates.get(fy)
         snapshots.append(row)
+
+    # Add YoY change features (requires sorted multi-year data)
+    snapshots = add_yoy_features(snapshots)
 
     return snapshots
 
@@ -301,6 +378,23 @@ def compute_signals(c: dict) -> dict:
             'gross_profitability', 'croic', 'invested_capital',
             'market_cap_segment',
         ]},
+        # Cross-sectional features (no prior year needed)
+        'capex_to_assets': (
+            round(c.get('capex') / c.get('total_assets'), 4)
+            if c.get('capex') is not None and c.get('total_assets') else None
+        ),
+        'capex_to_revenue': (
+            round(c.get('capex') / c.get('revenue'), 4)
+            if c.get('capex') is not None and c.get('revenue') else None
+        ),
+        'interest_coverage': (
+            round(c.get('operating_income') / c.get('interest_expense'), 2)
+            if c.get('operating_income') is not None and c.get('interest_expense') and c['interest_expense'] > 0 else None
+        ),
+        'retained_earnings_ratio': (
+            round(c.get('retained_earnings') / c.get('total_assets'), 4)
+            if c.get('retained_earnings') is not None and c.get('total_assets') else None
+        ),
     }
 
 
