@@ -119,6 +119,9 @@ def extract_annual_values(facts: dict, concept_path: str) -> dict:
         fp = item.get('fp', '')
         if not fy or fp != 'FY':
             continue
+        # Filter out malformed values (e.g. Excel serial numbers)
+        if not isinstance(fy, int) or fy < 2000 or fy > datetime.now().year + 1:
+            continue
         if fy < MIN_FISCAL_YEAR:
             continue
         filed = item.get('filed', '')
