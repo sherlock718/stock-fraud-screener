@@ -30,6 +30,7 @@ import numpy as np
 import yfinance as yf
 from datetime import datetime, timedelta
 from collections import defaultdict
+from typing import Optional
 
 try:
     from fraud_signals import (
@@ -165,7 +166,7 @@ def build_annual_financials(cik: str) -> list:
 
 # ── Price helpers ─────────────────────────────────────────────────────────────
 
-def get_price_on_date(ticker: str, date_str: str) -> float | None:
+def get_price_on_date(ticker: str, date_str: str) -> Optional[float]:
     """Get closing price on or just after a given date."""
     try:
         start = pd.Timestamp(date_str)
@@ -179,7 +180,7 @@ def get_price_on_date(ticker: str, date_str: str) -> float | None:
     return None
 
 
-def get_sp500_return(start_date: str, end_date: str) -> float | None:
+def get_sp500_return(start_date: str, end_date: str) -> Optional[float]:
     """Get S&P 500 (SPY) return between two dates."""
     try:
         hist = yf.Ticker('SPY').history(
