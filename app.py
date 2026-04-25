@@ -121,12 +121,25 @@ min_flags = st.sidebar.selectbox("Minimum Red Flags", [0, 1, 2, 3, 4, 5], index=
 search = st.sidebar.text_input("Search by ticker or name", "")
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("**Phase 2 signal filters**")
-show_going_concern   = st.sidebar.checkbox("Going concern only", value=False)
-show_pump_dump       = st.sidebar.checkbox("Pump & dump only", value=False)
-show_insider_selling = st.sidebar.checkbox("Insider selling only", value=False)
-show_altman_distress = st.sidebar.checkbox("Altman distress zone only", value=False)
-show_small_auditor   = st.sidebar.checkbox("Small auditor only", value=False)
+st.sidebar.markdown("**Signal filters**")
+show_beneish         = st.sidebar.checkbox("Beneish flagged", value=False)
+show_altman_distress = st.sidebar.checkbox("Altman distress zone", value=False)
+show_going_concern   = st.sidebar.checkbox("Going concern", value=False)
+show_rev_quality     = st.sidebar.checkbox("Revenue quality risk", value=False)
+show_earn_quality    = st.sidebar.checkbox("Earnings quality risk", value=False)
+show_pump_dump       = st.sidebar.checkbox("Pump & dump", value=False)
+show_illiquid        = st.sidebar.checkbox("Illiquid stock", value=False)
+show_insider_selling = st.sidebar.checkbox("Insider selling", value=False)
+show_small_auditor   = st.sidebar.checkbox("Small auditor", value=False)
+
+st.sidebar.markdown("---")
+st.sidebar.markdown("**Signal codes (table):**")
+st.sidebar.markdown(
+    "Ben · Pio · Acc · CFD · Alt · RevQ · EarQ · GC · Liq · P&D · Ins\n\n"
+    "*Ben*=Beneish &nbsp; *Pio*=Piotroski &nbsp; *Acc*=Accruals &nbsp; *CFD*=CF Div  \n"
+    "*Alt*=Altman Z &nbsp; *RevQ*=Rev Quality &nbsp; *EarQ*=Earn Quality  \n"
+    "*GC*=Going Concern &nbsp; *Liq*=Illiquid &nbsp; *P&D*=Pump&Dump &nbsp; *Ins*=Insider"
+)
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("**Score guide:**")
@@ -169,6 +182,18 @@ if show_altman_distress:
 if show_small_auditor:
     filtered = filtered[filtered['small_auditor_flag'] == True]
 
+if show_beneish:
+    filtered = filtered[filtered['beneish_flag'] == True]
+
+if show_rev_quality:
+    filtered = filtered[filtered['revenue_quality_flag'] == True]
+
+if show_earn_quality:
+    filtered = filtered[filtered['earnings_quality_flag'] == True]
+
+if show_illiquid:
+    filtered = filtered[filtered['illiquid_flag'] == True]
+
 # ── Summary metrics (reflect current filters) ─────────────────────────────────
 with METRICS_PLACEHOLDER.container():
     st.markdown("---")
@@ -180,6 +205,27 @@ with METRICS_PLACEHOLDER.container():
     st.markdown("---")
 
 st.markdown(f"**Showing {len(filtered)} companies**")
+
+# ── Signal heatmap ────────────────────────────────────────────────────────────
+with st.expander("Signal breakdown — how many companies are flagged per signal", expanded=False):
+    sig_cols = st.columns(4)
+    _sig_display = [
+        ('beneish_flag',          'Beneish'),
+        ('piotroski_weak',        'Piotroski'),
+        ('accruals_flag',         'Accruals'),
+        ('cfd_flag',              'CF Div.'),
+        ('altman_flag',           'Altman Z'),
+        ('revenue_quality_flag',  'Rev Quality'),
+        ('earnings_quality_flag', 'Earn Quality'),
+        ('going_concern_flag',    'Going Concern'),
+        ('illiquid_flag',         'Illiquid'),
+        ('pump_dump_flag',        'Pump & Dump'),
+        ('insider_selling_flag',  'Insider Selling'),
+    ]
+    for i, (col, label) in enumerate(_sig_display):
+        count = int(filtered[col].sum()) if col in filtered.columns else 0
+        pct   = f"{count/len(filtered)*100:.0f}%" if len(filtered) > 0 else "—"
+        sig_cols[i % 4].metric(label, count, pct)
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 def fmt_market_cap(val):
@@ -202,30 +248,37 @@ def fmt_volume(val):
 
 # ── Main table ────────────────────────────────────────────────────────────────
 
-# Build flag icon columns — 🔴 if flagged, blank if clean
-def flags_icon(row):
-    icons = []
-    if row.get('going_concern_flag'):  icons.append('💀')
-    if row.get('pump_dump_flag'):      icons.append('📈')
-    if row.get('insider_selling_flag'): icons.append('👤')
-    if row.get('small_auditor_flag'):  icons.append('🏢')
-    return ' '.join(icons) if icons else '—'
+# Compact flag codes for every active signal — shown only when flagged
+_FLAG_CODES = [
+    ('beneish_flag',          'Ben'),
+    ('piotroski_weak',        'Pio'),
+    ('accruals_flag',         'Acc'),
+    ('cfd_flag',              'CFD'),
+    ('altman_flag',           'Alt'),
+    ('revenue_quality_flag',  'RevQ'),
+    ('earnings_quality_flag', 'EarQ'),
+    ('going_concern_flag',    'GC'),
+    ('illiquid_flag',         'Liq'),
+    ('pump_dump_flag',        'P&D'),
+    ('insider_selling_flag',  'Ins'),
+]
+
+def flags_summary(row):
+    active = [code for col, code in _FLAG_CODES if row.get(col)]
+    return ' · '.join(active) if active else '—'
 
 filtered = filtered.copy()
-filtered['Signals'] = filtered.apply(flags_icon, axis=1)
+filtered['Signals'] = filtered.apply(flags_summary, axis=1)
 
 display_cols = {
     'ticker':          'Ticker',
     'risk':            'Risk',
     'fraud_score':     'Score',
     'red_flags_count': 'Flags',
+    'Signals':         'Signals',
     'market_cap':      'Mkt Cap',
     'beneish_score':   'Beneish',
-    'piotroski_score': 'Piotroski',
     'altman_score':    'Altman Z',
-    'accruals_ratio':  'Accruals',
-    'cfd_ratio':       'CF Div.',
-    'Signals':         'Signals',
     'name':            'Company',
 }
 
@@ -233,8 +286,6 @@ table_df = filtered[list(display_cols.keys())].rename(columns=display_cols).copy
 table_df['Score']     = table_df['Score'].round(1)
 table_df['Beneish']   = table_df['Beneish'].round(2)
 table_df['Altman Z']  = table_df['Altman Z'].round(2)
-table_df['Accruals']  = table_df['Accruals'].round(3)
-table_df['CF Div.']   = table_df['CF Div.'].round(3)
 table_df['Mkt Cap']   = table_df['Mkt Cap'].apply(fmt_market_cap)
 
 
@@ -275,8 +326,6 @@ styled = (
         'Score':    '{:.1f}',
         'Beneish':  '{:.2f}',
         'Altman Z': '{:.2f}',
-        'Accruals': '{:.3f}',
-        'CF Div.':  '{:.3f}',
     }, na_rep='N/A')
 )
 
