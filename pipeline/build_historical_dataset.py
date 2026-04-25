@@ -201,38 +201,55 @@ def get_sp500_return(start_date: str, end_date: str) -> Optional[float]:
 
 def compute_forward_return(ticker: str, filed_date: str) -> dict:
     """
-    Compute 12-month forward return from filing date.
-    Returns entry_price, exit_price, forward_return_12m, sp500_return_12m, beat_sp500.
+    Compute 12-month and 24-month forward returns from filing date.
+    Returns entry_price, exit_price, forward_return_12m, sp500_return_12m, beat_sp500,
+            forward_return_24m, sp500_return_24m, beat_sp500_24m.
     """
     result = {
         'entry_price': None, 'exit_price': None,
-        'forward_return_12m': None, 'sp500_return_12m': None,
-        'beat_sp500': None
+        'forward_return_12m': None, 'sp500_return_12m': None, 'beat_sp500': None,
+        'forward_return_24m': None, 'sp500_return_24m': None, 'beat_sp500_24m': None,
     }
     if not filed_date or not ticker:
         return result
 
-    # Only compute if we're at least 12 months in the past
     filing_ts = pd.Timestamp(filed_date)
-    cutoff = pd.Timestamp.now() - timedelta(days=365)
-    if filing_ts > cutoff:
-        return result  # too recent — forward return not yet knowable
+    now = pd.Timestamp.now()
 
-    exit_date = (filing_ts + timedelta(days=365)).strftime('%Y-%m-%d')
+    entry = None  # fetch once, reuse for both horizons
 
-    entry = get_price_on_date(ticker, filed_date)
-    exit_ = get_price_on_date(ticker, exit_date)
+    # ── 12-month return ───────────────────────────────────────────────────────
+    cutoff_12m = now - timedelta(days=365)
+    if filing_ts <= cutoff_12m:
+        exit_date_12m = (filing_ts + timedelta(days=365)).strftime('%Y-%m-%d')
+        entry = get_price_on_date(ticker, filed_date)
+        exit_12 = get_price_on_date(ticker, exit_date_12m)
+        if entry and exit_12 and entry > 0:
+            fwd_12 = (exit_12 - entry) / entry
+            sp500_12 = get_sp500_return(filed_date, exit_date_12m)
+            result.update({
+                'entry_price': round(entry, 4),
+                'exit_price': round(exit_12, 4),
+                'forward_return_12m': round(fwd_12, 4),
+                'sp500_return_12m': round(sp500_12, 4) if sp500_12 else None,
+                'beat_sp500': bool(sp500_12 is not None and fwd_12 > sp500_12),
+            })
 
-    if entry and exit_ and entry > 0:
-        fwd = (exit_ - entry) / entry
-        sp500 = get_sp500_return(filed_date, exit_date)
-        result.update({
-            'entry_price': round(entry, 4),
-            'exit_price': round(exit_, 4),
-            'forward_return_12m': round(fwd, 4),
-            'sp500_return_12m': round(sp500, 4) if sp500 else None,
-            'beat_sp500': bool(sp500 is not None and fwd > sp500),
-        })
+    # ── 24-month return ───────────────────────────────────────────────────────
+    cutoff_24m = now - timedelta(days=730)
+    if filing_ts <= cutoff_24m:
+        if entry is None:
+            entry = get_price_on_date(ticker, filed_date)
+        exit_date_24m = (filing_ts + timedelta(days=730)).strftime('%Y-%m-%d')
+        exit_24 = get_price_on_date(ticker, exit_date_24m)
+        if entry and exit_24 and entry > 0:
+            fwd_24 = (exit_24 - entry) / entry
+            sp500_24 = get_sp500_return(filed_date, exit_date_24m)
+            result.update({
+                'forward_return_24m': round(fwd_24, 4),
+                'sp500_return_24m': round(sp500_24, 4) if sp500_24 else None,
+                'beat_sp500_24m': bool(sp500_24 is not None and fwd_24 > sp500_24),
+            })
 
     return result
 
