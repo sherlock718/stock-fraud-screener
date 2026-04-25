@@ -20,6 +20,11 @@ import os
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), '..', 'data')
 
+try:
+    from value_metrics import calculate_value_metrics
+except ImportError:
+    from pipeline.value_metrics import calculate_value_metrics
+
 
 def safe_div(a, b):
     """Safe division — returns None if dividing by zero or None inputs."""
@@ -391,6 +396,7 @@ def calculate_all_signals(companies: list) -> list:
             'auditor':             auditor_signals(c),
             'market':              market_signals(c),
             'insider':             insider_signals(c),
+            'value':               calculate_value_metrics(c),
         }
         results.append(signals)
 

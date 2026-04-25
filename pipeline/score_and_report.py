@@ -163,6 +163,7 @@ def generate_report(signals_list: list) -> list:
         auditor  = s.get('auditor', {})
         market   = s.get('market', {})
         insider  = s.get('insider', {})
+        value    = s.get('value', {})
 
         red_flags = sum(filter(None, [
             beneish.get('manipulator', False),
@@ -229,6 +230,19 @@ def generate_report(signals_list: list) -> list:
             'insider_sale_count':   insider.get('insider_sale_count'),
             'insider_buy_count':    insider.get('insider_buy_count'),
             'insider_selling_flag': insider.get('insider_selling_flag', False),
+
+            # Phase 3 — value metrics (descriptive, not scored)
+            'pe_ratio':      value.get('pe_ratio'),
+            'pb_ratio':      value.get('pb_ratio'),
+            'ev_ebitda':     value.get('ev_ebitda'),
+            'fcf_yield':     value.get('fcf_yield'),
+            'fcf':           value.get('fcf'),
+            'roe':           value.get('roe'),
+            'roa':           value.get('roa'),
+            'gross_margin':  value.get('gross_margin'),
+            'net_margin':    value.get('net_margin'),
+            'debt_to_equity': value.get('debt_to_equity'),
+            'current_ratio': value.get('current_ratio'),
         })
 
     scored.sort(key=lambda x: x['fraud_score'] or 0, reverse=True)

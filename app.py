@@ -67,6 +67,11 @@ _defaults = {
     'price_change_90d': None, 'illiquid_flag': False, 'pump_dump_flag': False,
     'net_insider_shares': None, 'insider_sale_count': None,
     'insider_buy_count': None, 'insider_selling_flag': False,
+    # Phase 3
+    'pe_ratio': None, 'pb_ratio': None, 'ev_ebitda': None,
+    'fcf_yield': None, 'fcf': None, 'roe': None, 'roa': None,
+    'gross_margin': None, 'net_margin': None,
+    'debt_to_equity': None, 'current_ratio': None,
 }
 for col, default in _defaults.items():
     if col not in df.columns:
@@ -119,6 +124,13 @@ risk_filter = st.sidebar.multiselect(
 min_score = st.sidebar.slider("Minimum Fraud Score", 0, 100, 0)
 min_flags = st.sidebar.selectbox("Minimum Red Flags", [0, 1, 2, 3, 4, 5], index=0)
 search = st.sidebar.text_input("Search by ticker or name", "")
+
+st.sidebar.markdown("---")
+st.sidebar.markdown("**Value metric filters**")
+max_pe    = st.sidebar.number_input("Max P/E (0 = off)", min_value=0, value=0, step=5)
+max_pb    = st.sidebar.number_input("Max P/B (0 = off)", min_value=0, value=0, step=1)
+min_fcf_yield = st.sidebar.number_input("Min FCF Yield % (0 = off)", min_value=-100, value=0, step=1)
+min_roe   = st.sidebar.number_input("Min ROE % (0 = off)", min_value=-100, value=0, step=5)
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("**Signal filters**")
@@ -193,6 +205,21 @@ if show_earn_quality:
 
 if show_illiquid:
     filtered = filtered[filtered['illiquid_flag'] == True]
+
+# Value metric filters
+if max_pe > 0:
+    filtered = filtered[filtered['pe_ratio'].isna() | (filtered['pe_ratio'] <= max_pe)]
+
+if max_pb > 0:
+    filtered = filtered[filtered['pb_ratio'].isna() | (filtered['pb_ratio'] <= max_pb)]
+
+if min_fcf_yield != 0:
+    min_fcf_dec = min_fcf_yield / 100
+    filtered = filtered[filtered['fcf_yield'].notna() & (filtered['fcf_yield'] >= min_fcf_dec)]
+
+if min_roe != 0:
+    min_roe_dec = min_roe / 100
+    filtered = filtered[filtered['roe'].notna() & (filtered['roe'] >= min_roe_dec)]
 
 # ── Summary metrics (reflect current filters) ─────────────────────────────────
 with METRICS_PLACEHOLDER.container():
@@ -484,6 +511,54 @@ if selected:
     a4.metric("Exchange",
               row.get('exchange') or 'N/A',
               help="Stock exchange where the company is listed")
+
+    # ── Phase 3 — Value Metrics ────────────────────────────────────────────────
+    st.markdown("#### Phase 3 — Value Metrics")
+
+    def fmt_pct(val, decimals=1):
+        return f"{val*100:.{decimals}f}%" if pd.notna(val) else "N/A"
+
+    def fmt_x(val, decimals=1):
+        return f"{val:.{decimals}f}x" if pd.notna(val) else "N/A"
+
+    def fmt_ratio(val, decimals=2):
+        return f"{val:.{decimals}f}" if pd.notna(val) else "N/A"
+
+    def fmt_billions(val):
+        if pd.isna(val) or val is None: return "N/A"
+        if abs(val) >= 1e9:  return f"${val/1e9:.1f}B"
+        if abs(val) >= 1e6:  return f"${val/1e6:.0f}M"
+        return f"${val/1e3:.0f}K"
+
+    v1, v2, v3, v4 = st.columns(4)
+    v1.metric("P/E Ratio",     fmt_ratio(row.get('pe_ratio'), 1),
+              help="Price-to-Earnings. Lower = cheaper relative to earnings. N/A when earnings are negative.")
+    v2.metric("P/B Ratio",     fmt_ratio(row.get('pb_ratio'), 1),
+              help="Price-to-Book. Market cap / shareholders' equity. <1 = trading below book value.")
+    v3.metric("EV/EBITDA",     fmt_x(row.get('ev_ebitda')),
+              help="Enterprise Value / EBITDA. <10 often considered undervalued. N/A when EBITDA is negative.")
+    v4.metric("FCF Yield",     fmt_pct(row.get('fcf_yield')),
+              help="Free Cash Flow / Market Cap. Higher = more cash generated relative to price. Negative = burning cash.")
+
+    v5, v6, v7, v8 = st.columns(4)
+    v5.metric("ROE",           fmt_pct(row.get('roe')),
+              help="Return on Equity. Net income / shareholders' equity. Measures how efficiently equity is used.")
+    v6.metric("ROA",           fmt_pct(row.get('roa')),
+              help="Return on Assets. Net income / total assets. Measures asset efficiency.")
+    v7.metric("Gross Margin",  fmt_pct(row.get('gross_margin')),
+              help="Gross Profit / Revenue. Higher = more pricing power and efficient production.")
+    v8.metric("Net Margin",    fmt_pct(row.get('net_margin')),
+              help="Net Income / Revenue. What percentage of revenue becomes profit after all costs.")
+
+    v9, v10, v11, v12 = st.columns(4)
+    v9.metric("Debt/Equity",   fmt_ratio(row.get('debt_to_equity')),
+              help="Long-term debt / shareholders' equity. Higher = more leveraged. >2 is generally high.")
+    v10.metric("Current Ratio", fmt_ratio(row.get('current_ratio')),
+               help="Current assets / current liabilities. >1 = can cover short-term obligations. <1 = liquidity risk.")
+    v11.metric("FCF",          fmt_billions(row.get('fcf')),
+               help="Free Cash Flow = Operating Cash Flow - Capex. The actual cash the business generates.")
+    v12.metric("EV",           fmt_billions(row.get('ev')),
+               help="Enterprise Value = Market Cap + Debt - Cash. The 'true cost' to acquire the whole business.")
 
     # ── Signal explanations ────────────────────────────────────────────────────
     st.markdown("#### What the signals mean")
