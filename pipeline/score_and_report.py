@@ -114,7 +114,6 @@ def composite_score(signals: dict) -> float:
             spike = market['volume_spike_ratio']
             severity = min((spike - 3.0) / 7.0, 1)
             score += 5 * (0.5 + 0.5 * severity)
-
     # Insider Selling (weight: 5)
     insider = signals.get('insider', {})
     if insider.get('net_insider_shares') is not None:
@@ -224,6 +223,9 @@ def generate_report(signals_list: list) -> list:
             'price_change_90d':   market.get('price_change_90d'),
             'illiquid_flag':      market.get('illiquid_flag', False),
             'pump_dump_flag':     market.get('pump_dump_flag', False),
+            'volatility_90d':     market.get('volatility_90d'),
+            'beta':               market.get('beta'),
+            'bid_ask_spread':     market.get('bid_ask_spread'),
 
             # Phase 2 — insider
             'net_insider_shares':   insider.get('net_insider_shares'),
@@ -243,11 +245,49 @@ def generate_report(signals_list: list) -> list:
             'net_margin':    value.get('net_margin'),
             'debt_to_equity': value.get('debt_to_equity'),
             'current_ratio': value.get('current_ratio'),
+
+            # Phase 3 — Sprint 1 additions
+            'earnings_yield':      value.get('earnings_yield'),
+            'return_on_capital':   value.get('return_on_capital'),
+            'acquirers_multiple':  value.get('acquirers_multiple'),
+            'ncav':                value.get('ncav'),
+            'ncav_ratio':          value.get('ncav_ratio'),
+            'net_net_flag':        value.get('net_net_flag', False),
+            'gross_profitability': value.get('gross_profitability'),
+            'croic':               value.get('croic'),
+            'invested_capital':    value.get('invested_capital'),
+            'market_cap_segment':  value.get('market_cap_segment'),
+
+            # Magic Formula ranks — computed below after all companies are scored
+            'earnings_yield_rank': None,
+            'roc_rank':            None,
+            'magic_formula_rank':  None,
         })
+
+    # ── Magic Formula cross-company rankings ─────────────────────────────────
+    # earnings_yield_rank: rank by earnings yield DESCENDING (higher yield = cheaper = rank 1)
+    # roc_rank:            rank by return_on_capital DESCENDING (higher ROC = better = rank 1)
+    # magic_formula_rank:  sum of both ranks — LOWER combined rank = better stock
+    # Only companies with both metrics are ranked; others get None.
+
+    ey_companies = [(i, c['earnings_yield']) for i, c in enumerate(scored) if c['earnings_yield'] is not None]
+    roc_companies = [(i, c['return_on_capital']) for i, c in enumerate(scored) if c['return_on_capital'] is not None]
+
+    # Sort by value descending, assign rank 1 = best
+    ey_sorted = sorted(ey_companies, key=lambda x: x[1], reverse=True)
+    roc_sorted = sorted(roc_companies, key=lambda x: x[1], reverse=True)
+
+    ey_rank = {idx: rank + 1 for rank, (idx, _) in enumerate(ey_sorted)}
+    roc_rank = {idx: rank + 1 for rank, (idx, _) in enumerate(roc_sorted)}
+
+    for i, c in enumerate(scored):
+        c['earnings_yield_rank'] = ey_rank.get(i)
+        c['roc_rank'] = roc_rank.get(i)
+        if c['earnings_yield_rank'] is not None and c['roc_rank'] is not None:
+            c['magic_formula_rank'] = c['earnings_yield_rank'] + c['roc_rank']
 
     scored.sort(key=lambda x: x['fraud_score'] or 0, reverse=True)
     return scored
-
 
 def print_report(scored: list, top_n: int = 20):
     """Print top N most suspicious companies to terminal."""

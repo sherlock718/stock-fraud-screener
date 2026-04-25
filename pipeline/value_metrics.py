@@ -5,7 +5,7 @@ These are descriptive investment ratios — they do NOT contribute to the fraud 
 They are stored in the report and displayed in the UI for investment analysis.
 In Phase 4b they become ML features alongside the fraud signals.
 
-Metrics:
+Metrics (original):
   P/E        Price-to-Earnings        market_cap / net_income
   P/B        Price-to-Book            market_cap / shareholders_equity
   EV/EBITDA  Enterprise Value ratio   (market_cap + debt - cash) / (op_income + depreciation)
@@ -16,6 +16,18 @@ Metrics:
   Net Margin                          net_income / revenue
   Debt/Equity                         long_term_debt / shareholders_equity
   Current Ratio                       current_assets / current_liabilities
+
+Metrics (Sprint 1 additions — Greenblatt / Carlisle / Graham / Novy-Marx):
+  Earnings Yield         EBIT / EV                            (Magic Formula component 1)
+  Return on Capital      EBIT / (NWC + ppe_net)               (Magic Formula component 2)
+  Acquirer's Multiple    EV / EBIT                            (Carlisle deep value)
+  NCAV                   current_assets - total_liabilities   (Graham net-net floor)
+  NCAV Ratio             market_cap / NCAV                    (<1 = net-net territory)
+  Net-Net Flag           market_cap < NCAV
+  Gross Profitability    gross_profit / total_assets          (Novy-Marx quality factor)
+  CROIC                  FCF / invested_capital               (cash return on capital)
+  Invested Capital       equity + long_term_debt
+  Market Cap Segment     micro / small / mid / large
 """
 
 
@@ -126,5 +138,80 @@ def calculate_value_metrics(c: dict) -> dict:
         result['current_ratio'] = round(current_assets / current_liabilities, 2)
     else:
         result['current_ratio'] = None
+
+    # ── Sprint 1 additions ────────────────────────────────────────────────────
+
+    # EBIT proxy (operating_income)
+    ebit = operating_income
+
+    # EV (already computed above for EV/EBITDA — recompute cleanly here)
+    if market_cap is not None and ebit is not None:
+        cash_proxy = max(0, current_assets - receivables - inventory)
+        ev = market_cap + long_term_debt - cash_proxy
+        result['ev_clean'] = round(ev)
+
+        # ── Earnings Yield (Magic Formula component 1) ────────────────────────
+        result['earnings_yield'] = round(ebit / ev, 4) if ev > 0 else None
+
+        # ── Acquirer's Multiple (EV / EBIT) ──────────────────────────────────
+        result['acquirers_multiple'] = round(ev / ebit, 2) if ebit > 0 else None
+
+        # ── Return on Capital (Magic Formula component 2) ─────────────────────
+        # NWC = current_assets - current_liabilities (operating working capital)
+        nwc = current_assets - current_liabilities
+        ppe = c.get('ppe_net') or 0
+        invested_in_ops = nwc + ppe
+        result['return_on_capital'] = round(ebit / invested_in_ops, 4) if invested_in_ops > 0 else None
+    else:
+        result['ev_clean'] = None
+        result['earnings_yield'] = None
+        result['acquirers_multiple'] = None
+        result['return_on_capital'] = None
+
+    # ── Invested Capital & CROIC ──────────────────────────────────────────────
+    # Invested Capital = equity + long_term_debt
+    if equity is not None:
+        invested_capital = equity + long_term_debt
+        result['invested_capital'] = round(invested_capital) if invested_capital else None
+
+        # CROIC = FCF / invested_capital
+        if operating_cf is not None and invested_capital and invested_capital > 0:
+            fcf = operating_cf - capex
+            result['croic'] = round(fcf / invested_capital, 4)
+        else:
+            result['croic'] = None
+    else:
+        result['invested_capital'] = None
+        result['croic'] = None
+
+    # ── NCAV (Graham Net-Net) ─────────────────────────────────────────────────
+    total_liabilities = c.get('total_liabilities')
+    if current_assets and total_liabilities is not None:
+        ncav = current_assets - total_liabilities
+        result['ncav'] = round(ncav)
+        result['ncav_ratio'] = round(market_cap / ncav, 2) if (market_cap and ncav > 0) else None
+        result['net_net_flag'] = bool(market_cap and ncav > 0 and market_cap < ncav)
+    else:
+        result['ncav'] = None
+        result['ncav_ratio'] = None
+        result['net_net_flag'] = False
+
+    # ── Gross Profitability (Novy-Marx quality factor) ────────────────────────
+    if gross_profit is not None and total_assets and total_assets > 0:
+        result['gross_profitability'] = round(gross_profit / total_assets, 4)
+    else:
+        result['gross_profitability'] = None
+
+    # ── Market Cap Segment ────────────────────────────────────────────────────
+    if market_cap is None:
+        result['market_cap_segment'] = None
+    elif market_cap < 150_000_000:
+        result['market_cap_segment'] = 'micro'
+    elif market_cap < 1_000_000_000:
+        result['market_cap_segment'] = 'small'
+    elif market_cap < 10_000_000_000:
+        result['market_cap_segment'] = 'mid'
+    else:
+        result['market_cap_segment'] = 'large'
 
     return result

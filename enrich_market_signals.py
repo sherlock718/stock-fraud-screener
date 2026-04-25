@@ -5,6 +5,9 @@ Enrich companies_financials.json with market-based signals:
 - price_change_90d:    price percentage change over 90 days
 - illiquid_flag:       avg daily volume < 10,000 shares (thin market = manipulation risk)
 - pump_dump_flag:      volume spike >3x AND price up >50% in 30 days
+- volatility_90d:      annualised std dev of daily returns (high vol = user preference signal)
+- beta:                market beta vs S&P 500 (systematic risk)
+- bid_ask_spread:      (ask - bid) / mid-price — proxy for transaction cost / liquidity quality
 
 Checkpointed — safe to interrupt and resume.
 Run: python3 enrich_market_signals.py
@@ -41,7 +44,8 @@ def save_checkpoint(done_tickers):
 def get_market_signals(ticker: str) -> dict:
     """Fetch 90-day price + volume history and compute signals."""
     try:
-        hist = yf.Ticker(ticker).history(period='90d')
+        tk = yf.Ticker(ticker)
+        hist = tk.history(period='90d')
         if hist.empty or len(hist) < 10:
             return {}
 
@@ -66,12 +70,44 @@ def get_market_signals(ticker: str) -> dict:
             and price_change_30d is not None and price_change_30d > PRICE_PUMP_THRESHOLD
         )
 
+        # ── Sprint 1B: volatility, beta, bid/ask spread ───────────────────────
+
+        # Annualised volatility = std dev of daily returns × √252
+        daily_returns = hist['Close'].pct_change().dropna()
+        volatility_90d = float(daily_returns.std() * (252 ** 0.5)) if len(daily_returns) >= 10 else None
+
+        # Beta from yfinance .info (pre-computed by Yahoo against S&P 500)
+        beta = None
+        try:
+            info = tk.info
+            beta_raw = info.get('beta')
+            if beta_raw is not None:
+                beta = round(float(beta_raw), 3)
+        except Exception:
+            pass
+
+        # Bid/ask spread = (ask - bid) / mid — proxy for transaction cost
+        bid_ask_spread = None
+        try:
+            if info is None:
+                info = tk.info
+            bid = info.get('bid') or 0
+            ask = info.get('ask') or 0
+            if bid > 0 and ask > 0 and ask >= bid:
+                mid = (bid + ask) / 2
+                bid_ask_spread = round((ask - bid) / mid, 4) if mid > 0 else None
+        except Exception:
+            pass
+
         return {
             'avg_volume_90d':     round(avg_volume_90d),
             'volume_spike_ratio': round(volume_spike_ratio, 3) if volume_spike_ratio else None,
             'price_change_90d':   round(price_change_90d, 4) if price_change_90d is not None else None,
             'illiquid_flag':      illiquid_flag,
             'pump_dump_flag':     pump_dump_flag,
+            'volatility_90d':     round(volatility_90d, 4) if volatility_90d is not None else None,
+            'beta':               beta,
+            'bid_ask_spread':     bid_ask_spread,
         }
     except Exception:
         return {}
@@ -82,7 +118,9 @@ def run_enrichment():
         companies = json.load(f)
 
     # Only enrich companies that have a ticker and are missing market signal data
-    missing = [c for c in companies if c.get('ticker') and c.get('avg_volume_90d') is None]
+    missing = [c for c in companies if c.get('ticker') and (
+        c.get('avg_volume_90d') is None or c.get('volatility_90d') is None
+    )]
     print(f"Total companies: {len(companies)}")
     print(f"Need market signal enrichment: {len(missing)}")
 

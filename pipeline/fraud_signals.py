@@ -350,6 +350,9 @@ def market_signals(c: dict) -> dict:
         'price_change_90d':   c.get('price_change_90d'),
         'illiquid_flag':      bool(c.get('illiquid_flag', False)),
         'pump_dump_flag':     bool(c.get('pump_dump_flag', False)),
+        'volatility_90d':     c.get('volatility_90d'),
+        'beta':               c.get('beta'),
+        'bid_ask_spread':     c.get('bid_ask_spread'),
     }
 
 

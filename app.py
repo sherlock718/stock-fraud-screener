@@ -72,6 +72,14 @@ _defaults = {
     'fcf_yield': None, 'fcf': None, 'roe': None, 'roa': None,
     'gross_margin': None, 'net_margin': None,
     'debt_to_equity': None, 'current_ratio': None,
+    # Phase 3 — Sprint 1
+    'earnings_yield': None, 'return_on_capital': None,
+    'acquirers_multiple': None, 'ncav': None, 'ncav_ratio': None,
+    'net_net_flag': False, 'gross_profitability': None,
+    'croic': None, 'invested_capital': None, 'market_cap_segment': None,
+    'earnings_yield_rank': None, 'roc_rank': None, 'magic_formula_rank': None,
+    # Sprint 1B market
+    'volatility_90d': None, 'beta': None, 'bid_ask_spread': None,
 }
 for col, default in _defaults.items():
     if col not in df.columns:
@@ -131,6 +139,10 @@ max_pe    = st.sidebar.number_input("Max P/E (0 = off)", min_value=0, value=0, s
 max_pb    = st.sidebar.number_input("Max P/B (0 = off)", min_value=0, value=0, step=1)
 min_fcf_yield = st.sidebar.number_input("Min FCF Yield % (0 = off)", min_value=-100, value=0, step=1)
 min_roe   = st.sidebar.number_input("Min ROE % (0 = off)", min_value=-100, value=0, step=5)
+max_mf_rank   = st.sidebar.number_input("Max Magic Formula Rank (0 = off)", min_value=0, value=0, step=50,
+                                         help="Lower rank = better (cheap + high return on capital). Top 50 = elite.")
+show_net_net  = st.sidebar.checkbox("Net-net stocks only", value=False,
+                                     help="Show only companies trading below Graham NCAV (market cap < current assets - total liabilities)")
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("**Signal filters**")
@@ -220,6 +232,12 @@ if min_fcf_yield != 0:
 if min_roe != 0:
     min_roe_dec = min_roe / 100
     filtered = filtered[filtered['roe'].notna() & (filtered['roe'] >= min_roe_dec)]
+
+if max_mf_rank > 0:
+    filtered = filtered[filtered['magic_formula_rank'].notna() & (filtered['magic_formula_rank'] <= max_mf_rank)]
+
+if show_net_net:
+    filtered = filtered[filtered['net_net_flag'] == True]
 
 # ── Summary metrics (reflect current filters) ─────────────────────────────────
 with METRICS_PLACEHOLDER.container():
@@ -559,6 +577,62 @@ if selected:
                help="Free Cash Flow = Operating Cash Flow - Capex. The actual cash the business generates.")
     v12.metric("EV",           fmt_billions(row.get('ev')),
                help="Enterprise Value = Market Cap + Debt - Cash. The 'true cost' to acquire the whole business.")
+
+    # ── Phase 3 — Deep Value / Quality (Sprint 1) ──────────────────────────────
+    st.markdown("#### Phase 3 — Deep Value & Quality (Greenblatt / Carlisle / Graham)")
+
+    g1, g2, g3, g4 = st.columns(4)
+    mf_rank = row.get('magic_formula_rank')
+    mf_icon = "⭐" if (mf_rank and mf_rank <= 100) else ""
+    g1.metric(f"{mf_icon} Magic Formula Rank",
+              f"#{int(mf_rank)}" if pd.notna(mf_rank) else "N/A",
+              help="Greenblatt: rank by Earnings Yield + Return on Capital. Lower rank = better. Top 50 = elite.")
+    g2.metric("Earnings Yield",
+              fmt_pct(row.get('earnings_yield')),
+              help="EBIT / EV. The earnings you get per dollar of enterprise value. Higher = cheaper.")
+    g3.metric("Return on Capital",
+              fmt_pct(row.get('return_on_capital')),
+              help="EBIT / (Net Working Capital + Fixed Assets). How efficiently the business uses its capital. Higher = better moat.")
+    g4.metric("Acquirer's Multiple",
+              fmt_x(row.get('acquirers_multiple')),
+              help="EV / EBIT (Tobias Carlisle). Lower = deeper value. <8 = historically attractive.")
+
+    g5, g6, g7, g8 = st.columns(4)
+    ncav_ratio = row.get('ncav_ratio')
+    net_net = row.get('net_net_flag', False)
+    ncav_icon = "⭐" if net_net else ""
+    g5.metric(f"{ncav_icon} NCAV Ratio",
+              fmt_ratio(ncav_ratio, 2) if pd.notna(ncav_ratio) else "N/A",
+              help="Market Cap / (Current Assets - Total Liabilities). <1 = net-net — trading below Graham's liquidation floor.")
+    g6.metric("NCAV",
+              fmt_billions(row.get('ncav')),
+              help="Net Current Asset Value = Current Assets - Total Liabilities. Positive = company could theoretically pay all debts with current assets.")
+    g7.metric("Gross Profitability",
+              fmt_pct(row.get('gross_profitability')),
+              help="Gross Profit / Total Assets (Novy-Marx). Measures fundamental quality — high gross profitability persists and predicts returns.")
+    g8.metric("CROIC",
+              fmt_pct(row.get('croic')),
+              help="Cash Return on Invested Capital = FCF / (Equity + LT Debt). Buffett-style capital efficiency.")
+
+    # ── Phase 2 — Market extra (Sprint 1B) ────────────────────────────────────
+    st.markdown("#### Phase 2 — Market Risk & Cost")
+    mk1, mk2, mk3, mk4 = st.columns(4)
+    vol = row.get('volatility_90d')
+    beta_val = row.get('beta')
+    spread = row.get('bid_ask_spread')
+    segment = row.get('market_cap_segment') or 'N/A'
+    mk1.metric("Volatility (90d ann.)",
+               fmt_pct(vol) if pd.notna(vol) else "N/A",
+               help="Annualised std dev of daily returns over 90 days. High volatility = wider price swings.")
+    mk2.metric("Beta",
+               f"{beta_val:.2f}" if pd.notna(beta_val) else "N/A",
+               help="Market beta vs S&P 500. >1 = amplifies market moves. <1 = lower systematic risk.")
+    mk3.metric("Bid/Ask Spread",
+               fmt_pct(spread) if pd.notna(spread) else "N/A",
+               help="(Ask - Bid) / Mid-price. Invisible transaction cost per trade. High spread = expensive to trade.")
+    mk4.metric("Market Cap Segment",
+               segment.title(),
+               help="Micro <$150M | Small $150M–$1B | Mid $1B–$10B | Large >$10B")
 
     # ── Signal explanations ────────────────────────────────────────────────────
     st.markdown("#### What the signals mean")
