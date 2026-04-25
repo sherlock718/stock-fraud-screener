@@ -69,6 +69,22 @@ def extract_latest_value(facts: dict, concept: str, unit: str = 'USD'):
         return None
 
 
+def extract_going_concern(facts: dict) -> bool:
+    """Check if the company has disclosed going concern doubts in SEC filing."""
+    try:
+        us_gaap = facts['facts'].get('us-gaap', {})
+        going_concern_keys = [
+            'SubstantialDoubtAboutGoingConcernTextBlock',
+            'GoingConcernDisclosureTextBlock',
+        ]
+        for key in going_concern_keys:
+            if key in us_gaap:
+                return True
+        return False
+    except Exception:
+        return False
+
+
 def extract_financials(facts: dict) -> dict:
     """Extract all financial fields needed for fraud signal calculation."""
     return {
@@ -96,6 +112,9 @@ def extract_financials(facts: dict) -> dict:
         'operating_cash_flow':  extract_latest_value(facts, 'NetCashProvidedByUsedInOperatingActivities'),
         'capex':                extract_latest_value(facts, 'PaymentsToAcquirePropertyPlantAndEquipment'),
         'depreciation':         extract_latest_value(facts, 'DepreciationDepletionAndAmortization'),
+
+        # Governance
+        'going_concern':        extract_going_concern(facts),
     }
 
 
