@@ -134,17 +134,6 @@ min_flags = st.sidebar.selectbox("Minimum Red Flags", [0, 1, 2, 3, 4, 5], index=
 search = st.sidebar.text_input("Search by ticker or name", "")
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("**Value metric filters**")
-max_pe    = st.sidebar.number_input("Max P/E (0 = off)", min_value=0, value=0, step=5)
-max_pb    = st.sidebar.number_input("Max P/B (0 = off)", min_value=0, value=0, step=1)
-min_fcf_yield = st.sidebar.number_input("Min FCF Yield % (0 = off)", min_value=-100, value=0, step=1)
-min_roe   = st.sidebar.number_input("Min ROE % (0 = off)", min_value=-100, value=0, step=5)
-max_mf_rank   = st.sidebar.number_input("Max Magic Formula Rank (0 = off)", min_value=0, value=0, step=50,
-                                         help="Lower rank = better (cheap + high return on capital). Top 50 = elite.")
-show_net_net  = st.sidebar.checkbox("Net-net stocks only", value=False,
-                                     help="Show only companies trading below Graham NCAV (market cap < current assets - total liabilities)")
-
-st.sidebar.markdown("---")
 st.sidebar.markdown("**Signal filters**")
 show_beneish         = st.sidebar.checkbox("Beneish flagged", value=False)
 show_altman_distress = st.sidebar.checkbox("Altman distress zone", value=False)
@@ -232,12 +221,6 @@ if min_fcf_yield != 0:
 if min_roe != 0:
     min_roe_dec = min_roe / 100
     filtered = filtered[filtered['roe'].notna() & (filtered['roe'] >= min_roe_dec)]
-
-if max_mf_rank > 0:
-    filtered = filtered[filtered['magic_formula_rank'].notna() & (filtered['magic_formula_rank'] <= max_mf_rank)]
-
-if show_net_net:
-    filtered = filtered[filtered['net_net_flag'] == True]
 
 # ── Summary metrics (reflect current filters) ─────────────────────────────────
 with METRICS_PLACEHOLDER.container():
