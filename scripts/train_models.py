@@ -14,12 +14,14 @@ Feature selection pipeline (on TRAIN split only):
 
 Output: models/model_{h}.joblib + models/model_meta.json
          reports/feature_importance_{h}.csv
+         reports/shap_importance_{h}.csv  (mean |SHAP| per feature)
 
 Usage:
     python3 scripts/train_models.py
     python3 scripts/train_models.py --top-n 50    # allow more features
     python3 scripts/train_models.py --no-dedup    # skip correlation pruning
     python3 scripts/train_models.py --train-cutoff 2020  # earlier cutoff
+    python3 scripts/train_models.py --no-shap     # skip SHAP computation
 """
 from __future__ import annotations
 
@@ -38,6 +40,12 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
+
+try:
+    import shap as _shap
+    SHAP_AVAILABLE = True
+except ImportError:
+    SHAP_AVAILABLE = False
 
 BASE       = Path(__file__).parent.parent
 DATA_PATH  = BASE / 'data' / 'historical_dataset_clean.parquet'
@@ -245,6 +253,30 @@ def feature_importance_df(clf: lgb.LGBMClassifier, feats: list[str]) -> pd.DataF
               .reset_index(drop=True))
 
 
+def compute_shap_importance(clf: lgb.LGBMClassifier, X: pd.DataFrame,
+                             max_rows: int = 5_000) -> pd.DataFrame | None:
+    """Compute mean absolute SHAP value per feature using a sample of training data.
+
+    Returns a DataFrame with columns [feature, shap_mean_abs] sorted descending,
+    or None if shap is not installed.
+    """
+    if not SHAP_AVAILABLE:
+        return None
+    sample = X if len(X) <= max_rows else X.sample(max_rows, random_state=42)
+    explainer = _shap.TreeExplainer(clf)
+    shap_values = explainer.shap_values(sample)
+    # shap_values is list[ndarray] for multi-class or ndarray for binary
+    if isinstance(shap_values, list):
+        # Take positive class (index 1) for binary classification
+        sv = shap_values[1] if len(shap_values) == 2 else shap_values[0]
+    else:
+        sv = shap_values
+    mean_abs = np.abs(sv).mean(axis=0)
+    return (pd.DataFrame({'feature': sample.columns.tolist(), 'shap_mean_abs': mean_abs})
+              .sort_values('shap_mean_abs', ascending=False)
+              .reset_index(drop=True))
+
+
 def train_baseline(df_train: pd.DataFrame, features: list[str], beat_col: str,
                    train_medians: dict) -> Pipeline:
     sub = df_train[df_train[beat_col].notna()].copy()
@@ -274,6 +306,8 @@ def main() -> None:
                         help=f'Last fiscal_year in training set (default: {TRAIN_CUTOFF})')
     parser.add_argument('--val-end', type=int, default=VAL_END,
                         help=f'Last fiscal_year in validation set (default: {VAL_END})')
+    parser.add_argument('--no-shap', action='store_true',
+                        help='Skip SHAP computation (faster run)')
     args = parser.parse_args()
 
     train_cutoff = args.train_cutoff
@@ -356,6 +390,16 @@ def main() -> None:
         imp_df = feature_importance_df(clf, feats)
         imp_df.to_csv(REPORTS / f'feature_importance_{h}.csv', index=False)
 
+        shap_top: list[str] = []
+        if not args.no_shap:
+            _sub = df_train[df_train[beat_col].notna()].copy()
+            _feats_avail = [f for f in feats if f in _sub.columns]
+            X_train_df = _sub[_feats_avail].fillna(pd.Series(train_medians))
+            shap_df = compute_shap_importance(clf, X_train_df)
+            if shap_df is not None:
+                shap_df.to_csv(REPORTS / f'shap_importance_{h}.csv', index=False)
+                shap_top = shap_df['feature'].head(10).tolist()
+
         model_meta[h] = {
             'features':       feats,
             'ret_col':        ret_col,
@@ -370,6 +414,7 @@ def main() -> None:
             'lr_val_auc':     round(lr_val_auc,  4),
             'lr_test_auc':    round(lr_test_auc, 4),
             'train_medians':  train_medians,
+            'shap_top_features': shap_top,
         }
         print(f'done ({len(feats)} features, {len(y_train):,} rows, '
               f'LGBM val={val_auc:.3f}/test={test_auc:.3f} | '
