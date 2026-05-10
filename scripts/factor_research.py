@@ -178,6 +178,42 @@ def compute_turnover(df: pd.DataFrame, feature: str) -> float | None:
     return float(np.mean(corrs)) if corrs else None
 
 
+def _compute_quintile_spread(df: pd.DataFrame, feature: str, ret_col: str,
+                              n_quantiles: int = 5) -> dict | None:
+    """Mean forward return per factor quintile (Alphalens-style).
+
+    Returns q1_ret (bottom quintile), q5_ret (top quintile), q_spread = Q5 - Q1.
+    High positive spread → factor monotonically predicts returns.
+    """
+    sub = df[df[ret_col].notna() & df[feature].notna()].copy()
+    if len(sub) < 100:
+        return None
+    quantile_rets: dict[int, list[float]] = {q: [] for q in range(1, n_quantiles + 1)}
+    for yr in sorted(sub['fiscal_year'].unique()):
+        g = sub[sub['fiscal_year'] == yr].copy()
+        if len(g) < n_quantiles * 5:
+            continue
+        try:
+            g['_q'] = pd.qcut(g[feature], n_quantiles, labels=False, duplicates='drop') + 1
+        except ValueError:
+            continue
+        for q in range(1, n_quantiles + 1):
+            qret = g[g['_q'] == q][ret_col].mean()
+            if pd.notna(qret):
+                quantile_rets[q].append(qret)
+    mean_by_q = {q: float(np.mean(v)) for q, v in quantile_rets.items() if v}
+    if len(mean_by_q) < 2:
+        return None
+    q_low  = mean_by_q.get(1, np.nan)
+    q_high = mean_by_q.get(n_quantiles, np.nan)
+    spread = q_high - q_low if pd.notna(q_high) and pd.notna(q_low) else np.nan
+    return {
+        'q1_ret':   round(q_low,   4),
+        'q5_ret':   round(q_high,  4),
+        'q_spread': round(spread,  4) if pd.notna(spread) else None,
+    }
+
+
 def analyse_factor(df: pd.DataFrame, feature: str, ret_col: str,
                    sector_neutral: bool = False) -> dict:
     ics = compute_ic_series(df, feature, ret_col, sector_neutral=sector_neutral)
@@ -189,6 +225,7 @@ def analyse_factor(df: pd.DataFrame, feature: str, ret_col: str,
     icir    = mean_ic / std_ic
     ic_tstat = mean_ic * np.sqrt(n) / std_ic  # t-statistic for H0: mean_ic = 0
     turnover = compute_turnover(df, feature)
+    q_spread = _compute_quintile_spread(df, feature, ret_col)
     return {
         'feature':         feature,
         'mean_ic':         round(mean_ic, 5),
@@ -200,6 +237,9 @@ def analyse_factor(df: pd.DataFrame, feature: str, ret_col: str,
         'turnover':        round(turnover, 4) if turnover is not None else None,
         'ic_min':          round(min(ics), 4),
         'ic_max':          round(max(ics), 4),
+        'q1_ret':          q_spread['q1_ret'] if q_spread else None,
+        'q5_ret':          q_spread['q5_ret'] if q_spread else None,
+        'q_spread':        q_spread['q_spread'] if q_spread else None,
     }
 
 
@@ -211,13 +251,14 @@ def print_table(rows: list[dict], top_n: int, min_icir: float) -> None:
         print('  No factors passed the filter.')
         return
     print(f'\n  {"Feature":<40} {"MeanIC":>8} {"ICIR":>7} {"t-stat":>7} '
-          f'{"%+IC":>6} {"Turn":>6} {"Yrs":>4}')
-    print('  ' + '─' * 90)
+          f'{"%+IC":>6} {"Turn":>6} {"Yrs":>4} {"QSpread":>8}')
+    print('  ' + '─' * 100)
     for r in filtered:
-        turn = f'{r["turnover"]:.3f}' if r['turnover'] is not None else '  N/A'
+        turn  = f'{r["turnover"]:.3f}' if r['turnover'] is not None else '  N/A'
+        qspr  = f'{r["q_spread"]:+.3f}' if r.get('q_spread') is not None else '    N/A'
         print(f'  {r["feature"]:<40} {r["mean_ic"]:>+8.4f} {r["icir"]:>7.3f} '
               f'{r["ic_tstat"]:>7.2f} {r["pct_positive_ic"]:>6.0%} '
-              f'{turn:>6} {r["n_years"]:>4}')
+              f'{turn:>6} {r["n_years"]:>4} {qspr:>8}')
 
 
 def main() -> None:

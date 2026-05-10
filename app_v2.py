@@ -1117,6 +1117,624 @@ FRED (macroeconomic context)
         """)
 
 
+# ── Company Profile ───────────────────────────────────────────────────────────
+
+_FEATURE_GROUPS: dict[str, list[str]] = {
+    '🚨 Fraud Signals': [
+        'beneish_m_score', 'altman_z_score', 'piotroski_f_score',
+        'sloan_accruals', 'accruals_to_assets', 'wc_accruals_to_assets',
+        'beneish_m_score_sector_pct', 'altman_z_score_sector_pct', 'sloan_accruals_sector_pct',
+    ],
+    '📊 Beneish Components': [
+        'beneish_dsri', 'beneish_gmi', 'beneish_aqi', 'beneish_sgi',
+        'beneish_depi', 'beneish_sgai', 'beneish_lvgi', 'beneish_tata',
+    ],
+    '💉 Dilution & Shares': [
+        'shares_dilution', 'shares_growth', 'eps_diluted', 'shares_outstanding',
+        'common_shares_outstanding', 'dividends_per_share',
+    ],
+    '💰 Valuation': [
+        'pe_ratio', 'pb_ratio', 'ps_ratio', 'ev_ebitda', 'ev_revenue', 'ev_ocf',
+        'earnings_yield', 'fcf_yield', 'value_composite', 'pe_ratio_sector_pct',
+    ],
+    '⚙️ Quality': [
+        'roa', 'roe', 'roic', 'gross_margin', 'operating_margin', 'net_margin',
+        'current_ratio', 'net_debt_to_equity', 'quality_composite', 'accruals_avg_3y',
+    ],
+    '📈 Momentum & Growth': [
+        'revenue_growth_yoy', 'eps_growth_yoy', 'ocf_growth_yoy', 'debt_growth_yoy',
+        'roa_trend_3y', 'gross_margin_trend_3y', 'revenue_cagr_3y',
+        'momentum_12m_prior', 'momentum_6m_prior', 'momentum_3m_prior',
+    ],
+    '🏗️ Balance Sheet': [
+        'total_assets', 'total_debt', 'long_term_debt', 'short_term_debt',
+        'cash', 'equity', 'retained_earnings', 'receivables', 'inventory',
+        'current_assets', 'current_liabilities', 'operating_cash_flow',
+    ],
+}
+
+_BENEISH_LABELS = {
+    'beneish_dsri':  'DSRI (Receivables)',
+    'beneish_gmi':   'GMI (Gross Margin)',
+    'beneish_aqi':   'AQI (Asset Quality)',
+    'beneish_sgi':   'SGI (Sales Growth)',
+    'beneish_depi':  'DEPI (Depreciation)',
+    'beneish_sgai':  'SGAI (SGA)',
+    'beneish_lvgi':  'LVGI (Leverage)',
+    'beneish_tata':  'TATA (Accruals)',
+}
+
+# Plain-English descriptions for SHAP narrative.
+# 'high_is': 'bad' = high value increases fraud risk; 'good' = reduces it; 'neutral' = context-dependent.
+_FEATURE_DESCRIPTIONS: dict[str, dict] = {
+    'beneish_m_score':       {'label': 'Beneish M-Score',            'high_is': 'bad',     'fmt': '.2f',  'desc': 'Composite manipulation score. Values above -2.22 are a manipulation warning.'},
+    'altman_z_score':        {'label': 'Altman Z-Score',             'high_is': 'good',    'fmt': '.2f',  'desc': 'Solvency score. Above 2.99 is safe; below 1.81 is distress zone.'},
+    'piotroski_f_score':     {'label': 'Piotroski F-Score',          'high_is': 'good',    'fmt': '.0f',  'desc': '9-point quality test across profitability, leverage, and efficiency. Scores ≥ 6 indicate strong fundamentals.'},
+    'sloan_accruals':        {'label': 'Sloan Accruals',             'high_is': 'bad',     'fmt': '.4f',  'desc': 'Difference between accounting income and cash income. Positive values signal earnings not backed by cash.'},
+    'accruals_to_assets':    {'label': 'Accruals / Total Assets',    'high_is': 'bad',     'fmt': '.4f',  'desc': '(Net income − operating cash flow) / total assets. Values far above zero indicate low earnings quality.'},
+    'wc_accruals_to_assets': {'label': 'Working Capital Accruals',   'high_is': 'bad',     'fmt': '.4f',  'desc': 'Change in non-cash working capital relative to assets. Persistent build-up may indicate earnings management.'},
+    'accruals_avg_3y':       {'label': 'Avg Accruals (3-Year)',      'high_is': 'bad',     'fmt': '.4f',  'desc': 'Three-year average accruals ratio. A sustained pattern of high accruals is a stronger signal than a single-year spike.'},
+    'beneish_dsri':          {'label': 'DSRI — Receivables Index',   'high_is': 'bad',     'fmt': '.3f',  'desc': 'Receivables-to-sales ratio vs prior year. Values above 1.0 mean receivables are growing faster than revenue — a classic revenue recognition warning.'},
+    'beneish_gmi':           {'label': 'GMI — Gross Margin Index',   'high_is': 'bad',     'fmt': '.3f',  'desc': 'Prior gross margin / current gross margin. Above 1.0 signals deteriorating margins, which can create incentive to manipulate earnings.'},
+    'beneish_aqi':           {'label': 'AQI — Asset Quality Index',  'high_is': 'bad',     'fmt': '.3f',  'desc': 'Ratio of non-current, non-physical assets. Values above 1.0 indicate increasing capitalisation of expenses.'},
+    'beneish_sgi':           {'label': 'SGI — Sales Growth Index',   'high_is': 'bad',     'fmt': '.3f',  'desc': 'Current revenue / prior revenue. High growth can increase pressure to maintain momentum through manipulation.'},
+    'beneish_depi':          {'label': 'DEPI — Depreciation Index',  'high_is': 'bad',     'fmt': '.3f',  'desc': 'Change in depreciation rate. Above 1.0 suggests a slowing depreciation policy, which inflates reported assets.'},
+    'beneish_sgai':          {'label': 'SGAI — SGA Expense Index',   'high_is': 'bad',     'fmt': '.3f',  'desc': 'SG&A expenses relative to revenue vs prior year. Rising overhead relative to sales is a warning sign.'},
+    'beneish_lvgi':          {'label': 'LVGI — Leverage Index',      'high_is': 'bad',     'fmt': '.3f',  'desc': 'Change in total leverage. Rising debt increases pressure to meet earnings covenants.'},
+    'beneish_tata':          {'label': 'TATA — Total Accruals',      'high_is': 'bad',     'fmt': '.3f',  'desc': 'Total accruals to total assets — similar to Sloan accruals within the Beneish framework.'},
+    'roa':                   {'label': 'Return on Assets',           'high_is': 'good',    'fmt': '.3f',  'desc': 'Net income as a share of total assets. Higher values indicate efficient asset use.'},
+    'roe':                   {'label': 'Return on Equity',           'high_is': 'good',    'fmt': '.3f',  'desc': 'Net income relative to shareholder equity. High ROE signals strong earnings power.'},
+    'roic':                  {'label': 'Return on Invested Capital', 'high_is': 'good',    'fmt': '.3f',  'desc': 'After-tax operating profit relative to invested capital. Strong ROIC indicates a defensible business.'},
+    'gross_margin':          {'label': 'Gross Margin',               'high_is': 'good',    'fmt': '.3f',  'desc': 'Revenue minus COGS as a % of revenue. Stable or expanding margin is a quality signal.'},
+    'operating_margin':      {'label': 'Operating Margin',           'high_is': 'good',    'fmt': '.3f',  'desc': 'Operating income as a % of revenue — core profitability before interest and taxes.'},
+    'net_margin':            {'label': 'Net Profit Margin',          'high_is': 'good',    'fmt': '.3f',  'desc': 'Net income as a % of revenue after all expenses.'},
+    'current_ratio':         {'label': 'Current Ratio',              'high_is': 'good',    'fmt': '.2f',  'desc': 'Current assets / current liabilities. Below 1.0 signals near-term liquidity stress.'},
+    'net_debt_to_equity':    {'label': 'Net Debt / Equity',          'high_is': 'bad',     'fmt': '.2f',  'desc': '(Total debt − cash) / equity. High values indicate financial leverage risk.'},
+    'fcf_to_ni':             {'label': 'FCF / Net Income',           'high_is': 'good',    'fmt': '.3f',  'desc': 'Free cash flow relative to reported net income. Values near or above 1.0 confirm that earnings are backed by real cash.'},
+    'fcf_yield':             {'label': 'FCF Yield',                  'high_is': 'good',    'fmt': '.3f',  'desc': 'Free cash flow relative to market cap. A high FCF yield indicates the company generates real cash relative to its price.'},
+    'revenue_growth_yoy':    {'label': 'Revenue Growth (YoY)',       'high_is': 'neutral', 'fmt': '.3f',  'desc': 'Year-on-year revenue change. Very rapid growth can increase the incentive to sustain momentum through manipulation.'},
+    'eps_growth_yoy':        {'label': 'EPS Growth (YoY)',           'high_is': 'good',    'fmt': '.3f',  'desc': 'Year-on-year earnings-per-share growth.'},
+    'debt_growth_yoy':       {'label': 'Debt Growth (YoY)',          'high_is': 'bad',     'fmt': '.3f',  'desc': 'Year-on-year growth in total debt. Rapid debt growth alongside weak cash flow is a risk factor.'},
+    'roa_trend_3y':          {'label': 'ROA Trend (3-Year)',         'high_is': 'good',    'fmt': '.4f',  'desc': 'Slope of ROA over three years. A positive trend signals a strengthening business.'},
+    'gross_margin_trend_3y': {'label': 'Gross Margin Trend (3-Year)','high_is': 'good',    'fmt': '.4f',  'desc': 'Slope of gross margin over three years. Declining margins can motivate aggressive accounting.'},
+    'revenue_cagr_3y':       {'label': 'Revenue CAGR (3-Year)',      'high_is': 'good',    'fmt': '.3f',  'desc': 'Compound annual revenue growth over three years.'},
+    'momentum_12m_prior':    {'label': '12-Month Price Momentum',    'high_is': 'neutral', 'fmt': '.3f',  'desc': 'Stock return over the prior 12 months (excluding last month).'},
+    'pe_ratio':              {'label': 'P/E Ratio',                  'high_is': 'neutral', 'fmt': '.1f',  'desc': 'Price relative to earnings. An extremely high P/E sets expectations that can be hard to meet honestly.'},
+    'pb_ratio':              {'label': 'P/B Ratio',                  'high_is': 'neutral', 'fmt': '.2f',  'desc': 'Market value relative to book value.'},
+    'ev_ebitda':             {'label': 'EV / EBITDA',                'high_is': 'neutral', 'fmt': '.1f',  'desc': 'Enterprise value relative to operating earnings.'},
+    'earnings_yield':        {'label': 'Earnings Yield',             'high_is': 'good',    'fmt': '.3f',  'desc': 'Inverse of P/E. A higher earnings yield signals potential value.'},
+    'shares_dilution':       {'label': 'Share Dilution',             'high_is': 'bad',     'fmt': '.4f',  'desc': 'Change in diluted share count. Persistent dilution transfers value away from existing shareholders.'},
+}
+
+
+def _generate_narrative(
+    shap_df_full: 'pd.DataFrame',
+    row: 'pd.Series',
+    ticker: str,
+    year: int,
+    horizon: str,
+    df_all: 'pd.DataFrame',
+    prob: float,
+) -> None:
+    """Render a strengths/weaknesses story for the selected company."""
+    # Market medians from the most recent fiscal year in the dataset
+    latest_year = int(df_all['fiscal_year'].max())
+    ref = df_all[df_all['fiscal_year'] == latest_year]
+    medians = ref.median(numeric_only=True)
+
+    # Top drivers: positive SHAP = elevates fraud score (concern); negative = reduces it (strength)
+    concerns  = shap_df_full[shap_df_full['SHAP'] > 0].head(4)
+    strengths = shap_df_full[shap_df_full['SHAP'] < 0].head(4)
+
+    def _bullet(feat: str) -> str:
+        info  = _FEATURE_DESCRIPTIONS.get(feat, {})
+        label = info.get('label', feat.replace('_', ' ').title())
+        fmt   = info.get('fmt', '.3f')
+        desc  = info.get('desc', '')
+        val   = row.get(feat)
+        med   = medians.get(feat)
+
+        val_str = f'{val:{fmt}}' if pd.notna(val) else 'N/A'
+        if pd.notna(val) and feat in ref.columns and ref[feat].notna().any():
+            pct = float((ref[feat].dropna() < val).mean()) * 100
+            comparison = f'top {100 - pct:.0f}% of market' if pct >= 50 else f'bottom {pct:.0f}% of market'
+            med_str = f'; median {med:{fmt}}' if pd.notna(med) else ''
+            context = f'({comparison}{med_str})'
+        elif pd.notna(med):
+            context = f'(market median: {med:{fmt}})'
+        else:
+            context = ''
+
+        return f'**{label}** = {val_str} {context}. {desc}'
+
+    score_label = 'High Risk' if prob > 0.70 else 'Elevated Risk' if prob > 0.40 else 'Low Risk'
+
+    st.markdown(f'#### 📖 Model Story — {ticker} · FY{year} · {horizon} horizon')
+    st.caption(
+        f'Composite fraud probability: **{prob:.3f}** ({score_label}). '
+        f'The features below had the largest influence on this score.'
+    )
+
+    col_s, col_c = st.columns(2)
+
+    with col_s:
+        st.markdown('**✅ Strengths** — features *reducing* fraud probability')
+        if strengths.empty:
+            st.write('No dominant strength signals for this horizon.')
+        else:
+            for _, r in strengths.iterrows():
+                st.markdown(f'- {_bullet(r["Feature"])}')
+
+    with col_c:
+        st.markdown('**⚠️ Concerns** — features *elevating* fraud probability')
+        if concerns.empty:
+            st.write('No dominant concern signals for this horizon.')
+        else:
+            for _, r in concerns.iterrows():
+                st.markdown(f'- {_bullet(r["Feature"])}')
+
+
+def _beneish_radar(row: pd.Series) -> 'go.Figure':
+    components = list(_BENEISH_LABELS.keys())
+    vals = [row.get(c, np.nan) for c in components]
+    labels = list(_BENEISH_LABELS.values())
+    if all(np.isnan(v) for v in vals):
+        return None
+    # Normalise to [0, 2] range for display
+    vals_clamped = [max(0.0, min(float(v) if not np.isnan(v) else 1.0, 2.0)) for v in vals]
+    vals_clamped.append(vals_clamped[0])
+    labels.append(labels[0])
+    fig = go.Figure(go.Scatterpolar(
+        r=vals_clamped, theta=labels, fill='toself',
+        fillcolor='rgba(239, 83, 80, 0.25)',
+        line=dict(color='#EF5350', width=2),
+        name='Beneish Components',
+    ))
+    fig.add_trace(go.Scatterpolar(
+        r=[1.0] * len(labels), theta=labels,
+        line=dict(color='grey', width=1, dash='dot'),
+        name='Baseline (1.0)', showlegend=False,
+    ))
+    fig.update_layout(
+        polar=dict(radialaxis=dict(visible=True, range=[0, 2.2])),
+        showlegend=False,
+        margin=dict(t=30, b=20, l=40, r=40),
+        height=320,
+    )
+    return fig
+
+
+def tab_company_profile(df_all: pd.DataFrame, models: dict, meta: dict) -> None:
+    st.title('🏢 Company Deep Dive')
+
+    tickers = sorted(df_all['ticker'].unique().tolist())
+    col_sel, col_year = st.columns([3, 1])
+    with col_sel:
+        selected_ticker = st.selectbox('Select ticker', tickers, key='profile_ticker')
+    company_df = df_all[df_all['ticker'] == selected_ticker].sort_values('fiscal_year')
+    if company_df.empty:
+        st.warning('No data found for this ticker.')
+        return
+
+    avail_years = sorted(company_df['fiscal_year'].unique().tolist(), reverse=True)
+    with col_year:
+        selected_year = st.selectbox('Fiscal year', avail_years, index=0, key='profile_year')
+
+    row = company_df[company_df['fiscal_year'] == selected_year].iloc[0]
+    name_label = str(row.get('name', selected_ticker) or selected_ticker)
+    mkt_label  = str(row.get('market', ''))
+
+    st.subheader(f'{name_label}  ·  {selected_ticker}  ·  {mkt_label}  ·  FY{int(selected_year)}')
+
+    # ── Hero metrics ────────────────────────────────────────────────────────
+    def _fmt(v, decimals=2, suffix=''):
+        return f'{v:.{decimals}f}{suffix}' if pd.notna(v) else '—'
+
+    cols = st.columns(6)
+    bm  = row.get('beneish_m_score')
+    az  = row.get('altman_z_score')
+    pf  = row.get('piotroski_f_score')
+    cs  = row.get('composite_score')
+    sl  = row.get('sloan_accruals')
+    lmc = row.get('log_market_cap')
+
+    cols[0].metric('Beneish M',
+                   _fmt(bm),
+                   delta='⚠️ manipulator' if pd.notna(bm) and bm > -2.22 else '✅ safe',
+                   delta_color='inverse' if pd.notna(bm) and bm > -2.22 else 'off')
+    cols[1].metric('Altman Z',
+                   _fmt(az),
+                   delta='distress' if pd.notna(az) and az < 1.81 else
+                         'grey' if pd.notna(az) and az < 2.99 else 'safe')
+    cols[2].metric('Piotroski F', f'{int(pf)}/9' if pd.notna(pf) else '—')
+    cols[3].metric('Composite Score', _fmt(cs))
+    cols[4].metric('Sloan Accruals', _fmt(sl, 3))
+    cols[5].metric('Log Market Cap', _fmt(lmc, 1))
+
+    # ── Score trend ─────────────────────────────────────────────────────────
+    st.markdown('---')
+    trend_cols = [c for c in ['beneish_m_score', 'altman_z_score', 'composite_score',
+                               'piotroski_f_score', 'sloan_accruals'] if c in company_df.columns]
+    if trend_cols:
+        st.subheader('Score History')
+        selected_trends = st.multiselect(
+            'Metrics to plot', trend_cols,
+            default=[c for c in ['beneish_m_score', 'altman_z_score'] if c in trend_cols],
+            key='profile_trends',
+        )
+        if selected_trends:
+            fig_trend = go.Figure()
+            colors = ['#EF5350', '#42A5F5', '#66BB6A', '#FFA726', '#AB47BC']
+            for i, sc in enumerate(selected_trends):
+                data_sc = company_df[['fiscal_year', sc]].dropna()
+                fig_trend.add_trace(go.Scatter(
+                    x=data_sc['fiscal_year'], y=data_sc[sc],
+                    mode='lines+markers',
+                    name=sc.replace('_', ' ').title(),
+                    line=dict(color=colors[i % len(colors)], width=2),
+                    marker=dict(size=7),
+                ))
+            # Beneish threshold
+            if 'beneish_m_score' in selected_trends:
+                fig_trend.add_hline(y=-2.22, line_dash='dash', line_color='red',
+                                    annotation_text='Beneish threshold (-2.22)')
+            fig_trend.update_layout(height=320, margin=dict(t=10, b=20),
+                                    xaxis_title='Fiscal Year', yaxis_title='Score')
+            st.plotly_chart(fig_trend, use_container_width=True)
+
+    # ── Beneish radar ────────────────────────────────────────────────────────
+    beneish_available = [c for c in _BENEISH_LABELS if c in row.index and pd.notna(row.get(c))]
+    if beneish_available:
+        st.markdown('---')
+        c1, c2 = st.columns([1, 1])
+        with c1:
+            st.subheader('Beneish Component Radar')
+            radar_fig = _beneish_radar(row)
+            if radar_fig:
+                st.plotly_chart(radar_fig, use_container_width=True)
+        with c2:
+            st.subheader('Beneish Component Values')
+            beneish_df = pd.DataFrame([
+                {'Component': _BENEISH_LABELS[c], 'Value': round(float(row[c]), 4),
+                 'Flag': '⚠️' if float(row[c]) > 1.0 else '✅'}
+                for c in _BENEISH_LABELS if c in row.index and pd.notna(row.get(c))
+            ])
+            st.dataframe(beneish_df, use_container_width=True, hide_index=True)
+
+    # ── Feature groups ───────────────────────────────────────────────────────
+    st.markdown('---')
+    st.subheader('Feature Deep Dive')
+    for group_name, feature_list in _FEATURE_GROUPS.items():
+        avail = [f for f in feature_list if f in row.index and pd.notna(row.get(f))]
+        if not avail:
+            continue
+        with st.expander(f'{group_name}  ({len(avail)} features)', expanded=(group_name == '🚨 Fraud Signals')):
+            n_per_row = 4
+            for chunk_start in range(0, len(avail), n_per_row):
+                chunk = avail[chunk_start:chunk_start + n_per_row]
+                metric_cols = st.columns(n_per_row)
+                for j, feat in enumerate(chunk):
+                    val = row[feat]
+                    metric_cols[j].metric(feat.replace('_', ' ').title(), f'{val:.4f}')
+
+    # ── Full feature table ───────────────────────────────────────────────────
+    with st.expander('📋 All numeric features (latest year)', expanded=False):
+        numeric_row = {
+            k: round(float(v), 5)
+            for k, v in row.items()
+            if isinstance(v, (int, float, np.floating, np.integer)) and pd.notna(v)
+        }
+        full_df = pd.DataFrame(list(numeric_row.items()), columns=['Feature', 'Value'])
+        st.dataframe(full_df, use_container_width=True, height=420, hide_index=True)
+
+    # ── ML model score drill-down ────────────────────────────────────────────
+    if models and meta:
+        st.markdown('---')
+        st.subheader('ML Score Breakdown')
+        horizon_sel = st.selectbox('Horizon', [h for h in ['1y', '3y', '5y'] if h in models],
+                                   key='profile_ml_horizon')
+        if horizon_sel and horizon_sel in meta:
+            m = meta[horizon_sel]
+            feats = [f for f in m['features'] if f in row.index]
+            fill_vals = m.get('train_medians', {})
+            X_single = pd.DataFrame([{f: (row[f] if pd.notna(row.get(f)) else fill_vals.get(f, 0.0))
+                                       for f in feats}])
+            try:
+                prob = models[horizon_sel].predict_proba(X_single)[0, 1]
+                st.metric(f'ML Score ({horizon_sel})', f'{prob:.4f}',
+                          delta='High risk' if prob > 0.7 else 'Medium' if prob > 0.4 else 'Low risk')
+                # Try SHAP if available
+                try:
+                    import shap
+                    explainer = shap.TreeExplainer(models[horizon_sel])
+                    shap_vals = explainer.shap_values(X_single)
+                    if isinstance(shap_vals, list):
+                        sv = shap_vals[1][0]
+                    else:
+                        sv = shap_vals[0] if shap_vals.ndim == 2 else shap_vals
+                    shap_df_full = pd.DataFrame({'Feature': feats, 'SHAP': sv}).sort_values('SHAP', key=abs, ascending=False)
+                    shap_df = shap_df_full.head(15)
+                    fig_shap = px.bar(shap_df, x='SHAP', y='Feature', orientation='h',
+                                      color='SHAP', color_continuous_scale='RdBu_r',
+                                      title=f'Top 15 SHAP values ({horizon_sel})')
+                    fig_shap.update_layout(height=420, margin=dict(t=40, b=20))
+                    st.plotly_chart(fig_shap, use_container_width=True)
+                    st.markdown('---')
+                    with st.expander('📖 Strengths & Weaknesses Story', expanded=True):
+                        _generate_narrative(
+                            shap_df_full, row, selected_ticker, int(selected_year),
+                            horizon_sel, df_all, prob,
+                        )
+                except ImportError:
+                    st.info('Install shap (`pip install shap`) to see feature-level SHAP explanations.')
+                except Exception:
+                    pass
+            except Exception as e:
+                st.error(f'Could not score: {e}')
+
+
+# ── Realtime Chart ────────────────────────────────────────────────────────────
+
+def tab_realtime_chart(df_all: pd.DataFrame) -> None:
+    st.title('📈 Realtime Price Chart')
+    st.caption('Live price data via yfinance · fraud score overlay from screener dataset')
+
+    col1, col2, col3 = st.columns([3, 1, 1])
+    tickers = sorted(df_all['ticker'].unique().tolist())
+    with col1:
+        ticker = st.selectbox('Ticker', tickers, key='chart_ticker')
+    with col2:
+        period = st.selectbox('Period', ['6mo', '1y', '2y', '3y', '5y'], index=2, key='chart_period')
+    with col3:
+        chart_type = st.selectbox('Chart type', ['Candlestick', 'Line', 'OHLC'], key='chart_type')
+
+    # ── Price chart ─────────────────────────────────────────────────────────
+    try:
+        import yfinance as yf
+        with st.spinner(f'Fetching {ticker}…'):
+            hist = yf.Ticker(ticker).history(period=period)
+
+        if hist.empty:
+            st.warning(f'No price data for {ticker}. Try a US-listed ticker (e.g. AAPL, MSFT).')
+        else:
+            hist.index = pd.to_datetime(hist.index)
+
+            fig_price = go.Figure()
+            if chart_type == 'Candlestick':
+                fig_price.add_trace(go.Candlestick(
+                    x=hist.index, open=hist['Open'], high=hist['High'],
+                    low=hist['Low'], close=hist['Close'],
+                    name=ticker, increasing_line_color='#26A69A', decreasing_line_color='#EF5350',
+                ))
+            elif chart_type == 'OHLC':
+                fig_price.add_trace(go.Ohlc(
+                    x=hist.index, open=hist['Open'], high=hist['High'],
+                    low=hist['Low'], close=hist['Close'], name=ticker,
+                ))
+            else:
+                fig_price.add_trace(go.Scatter(
+                    x=hist.index, y=hist['Close'], mode='lines',
+                    name=ticker, line=dict(color='#42A5F5', width=2),
+                ))
+
+            # Overlay fraud score vertical bands from screener data
+            co_df = df_all[df_all['ticker'] == ticker].sort_values('fiscal_year')
+            if not co_df.empty and 'beneish_m_score' in co_df.columns:
+                for _, yr_row in co_df.iterrows():
+                    bm = yr_row.get('beneish_m_score')
+                    fy = yr_row.get('fiscal_year')
+                    if pd.isna(bm) or pd.isna(fy):
+                        continue
+                    color = 'rgba(239,83,80,0.12)' if bm > -2.22 else 'rgba(38,166,154,0.08)'
+                    x_pos = f'{int(fy)}-12-31'
+                    fig_price.add_vline(x=x_pos, line_dash='dot', line_color='grey',
+                                        annotation_text=f'FY{int(fy)} M={bm:.1f}',
+                                        annotation_font_size=9)
+
+            fig_price.update_layout(
+                title=f'{ticker} — {period} Price Chart',
+                xaxis_rangeslider_visible=False,
+                height=460,
+                margin=dict(t=50, b=20),
+                yaxis_title='Price (USD)',
+            )
+            st.plotly_chart(fig_price, use_container_width=True)
+
+            # Volume chart
+            fig_vol = go.Figure(go.Bar(
+                x=hist.index, y=hist['Volume'],
+                marker_color='#78909C', name='Volume', opacity=0.6,
+            ))
+            fig_vol.update_layout(height=150, margin=dict(t=5, b=20),
+                                  yaxis_title='Volume', showlegend=False)
+            st.plotly_chart(fig_vol, use_container_width=True)
+
+    except ImportError:
+        st.error('yfinance is not installed — run `pip install yfinance`')
+    except Exception as e:
+        st.error(f'Could not load price data: {e}')
+
+    # ── Fraud score timeline for this company ───────────────────────────────
+    co_df = df_all[df_all['ticker'] == ticker].sort_values('fiscal_year')
+    if not co_df.empty:
+        st.markdown('---')
+        st.subheader(f'Fraud Score Timeline — {ticker}')
+
+        score_options = [c for c in ['beneish_m_score', 'altman_z_score', 'piotroski_f_score',
+                                      'composite_score', 'sloan_accruals', 'value_composite',
+                                      'quality_composite'] if c in co_df.columns]
+        selected_scores = st.multiselect(
+            'Scores to overlay', score_options,
+            default=[c for c in ['beneish_m_score', 'composite_score'] if c in co_df.columns],
+            key='chart_scores_overlay',
+        )
+        if selected_scores:
+            fig_scores = go.Figure()
+            colors = ['#EF5350', '#42A5F5', '#66BB6A', '#FFA726', '#AB47BC', '#26C6DA', '#EC407A']
+            for i, sc in enumerate(selected_scores):
+                data_sc = co_df[['fiscal_year', sc]].dropna()
+                fig_scores.add_trace(go.Bar(
+                    x=data_sc['fiscal_year'], y=data_sc[sc],
+                    name=sc.replace('_', ' ').title(),
+                    marker_color=colors[i % len(colors)],
+                    opacity=0.75,
+                ))
+            if 'beneish_m_score' in selected_scores:
+                fig_scores.add_hline(y=-2.22, line_dash='dash', line_color='red',
+                                     annotation_text='Beneish threshold')
+            fig_scores.update_layout(height=300, barmode='group',
+                                     margin=dict(t=10, b=20),
+                                     xaxis_title='Fiscal Year')
+            st.plotly_chart(fig_scores, use_container_width=True)
+
+        # Key financials table
+        with st.expander('Key financials by year', expanded=False):
+            fin_cols = [c for c in ['fiscal_year', 'revenue', 'net_income', 'total_assets',
+                                     'total_debt', 'cash', 'operating_cash_flow',
+                                     'gross_margin', 'net_margin', 'roe', 'roa']
+                        if c in co_df.columns]
+            st.dataframe(co_df[fin_cols].set_index('fiscal_year').sort_index(ascending=False),
+                         use_container_width=True)
+
+
+# ── Market Overview ───────────────────────────────────────────────────────────
+
+def tab_market_overview(df_all: pd.DataFrame) -> None:
+    st.title('🌍 Market Risk Overview')
+
+    latest_year = int(df_all['fiscal_year'].max())
+    col_yr, col_metric = st.columns([1, 2])
+    with col_yr:
+        year_sel = st.selectbox(
+            'Year', sorted(df_all['fiscal_year'].unique().tolist(), reverse=True),
+            index=0, key='overview_year',
+        )
+    df_yr = df_all[df_all['fiscal_year'] == year_sel].copy()
+
+    risk_metric_options = [c for c in ['beneish_m_score', 'altman_z_score', 'composite_score',
+                                        'sloan_accruals', 'piotroski_f_score'] if c in df_yr.columns]
+    with col_metric:
+        risk_metric = st.selectbox('Risk metric', risk_metric_options, key='overview_metric')
+
+    if not risk_metric:
+        st.warning('No risk metrics found in dataset.')
+        return
+
+    st.markdown(f'**FY{int(year_sel)} · {len(df_yr):,} companies · metric: `{risk_metric}`**')
+
+    # ── Summary KPIs ────────────────────────────────────────────────────────
+    kpi_cols = st.columns(4)
+    metric_vals = df_yr[risk_metric].dropna()
+    kpi_cols[0].metric('Companies', f'{len(df_yr):,}')
+    kpi_cols[1].metric('Mean', f'{metric_vals.mean():.3f}' if len(metric_vals) else '—')
+    kpi_cols[2].metric('Median', f'{metric_vals.median():.3f}' if len(metric_vals) else '—')
+    if risk_metric == 'beneish_m_score':
+        pct_risky = (metric_vals > -2.22).mean() * 100 if len(metric_vals) else 0
+        kpi_cols[3].metric('% Risky (M > −2.22)', f'{pct_risky:.1f}%')
+    elif risk_metric == 'altman_z_score':
+        pct_distress = (metric_vals < 1.81).mean() * 100 if len(metric_vals) else 0
+        kpi_cols[3].metric('% Distress (Z < 1.81)', f'{pct_distress:.1f}%')
+    else:
+        kpi_cols[3].metric('Std Dev', f'{metric_vals.std():.3f}' if len(metric_vals) else '—')
+
+    st.markdown('---')
+
+    # ── Score distribution ──────────────────────────────────────────────────
+    col_dist, col_top = st.columns([1, 1])
+    with col_dist:
+        st.subheader('Score Distribution')
+        fig_dist = px.histogram(df_yr, x=risk_metric, nbins=60,
+                                color_discrete_sequence=['#42A5F5'],
+                                labels={risk_metric: risk_metric.replace('_', ' ').title()})
+        if risk_metric == 'beneish_m_score':
+            fig_dist.add_vline(x=-2.22, line_dash='dash', line_color='red',
+                               annotation_text='Manipulation threshold (−2.22)')
+        elif risk_metric == 'altman_z_score':
+            fig_dist.add_vline(x=1.81, line_dash='dash', line_color='red',
+                               annotation_text='Distress threshold (1.81)')
+            fig_dist.add_vline(x=2.99, line_dash='dash', line_color='orange',
+                               annotation_text='Grey zone (2.99)')
+        fig_dist.update_layout(height=350, margin=dict(t=20, b=20))
+        st.plotly_chart(fig_dist, use_container_width=True)
+
+    with col_top:
+        st.subheader('Top 20 Highest Risk')
+        ascending = risk_metric in ('piotroski_f_score',)
+        top_risky = df_yr.nsmallest(20, risk_metric) if not ascending else df_yr.nsmallest(20, risk_metric)
+        if risk_metric == 'beneish_m_score':
+            top_risky = df_yr.nlargest(20, risk_metric)
+
+        show_cols = [c for c in ['ticker', 'name', 'market', 'exchange', risk_metric,
+                                  'altman_z_score', 'piotroski_f_score', 'composite_score']
+                     if c in top_risky.columns]
+        st.dataframe(top_risky[show_cols].reset_index(drop=True),
+                     use_container_width=True, hide_index=True)
+
+    # ── By-market bar chart ──────────────────────────────────────────────────
+    if 'market' in df_yr.columns:
+        st.markdown('---')
+        st.subheader(f'{risk_metric.replace("_", " ").title()} by Market')
+        mkt_agg = (df_yr.groupby('market')[risk_metric]
+                      .agg(['mean', 'median', 'count'])
+                      .rename(columns={'mean': 'Mean', 'median': 'Median', 'count': 'Count'})
+                      .reset_index()
+                      .sort_values('Mean', ascending=(risk_metric not in ('beneish_m_score',))))
+
+        fig_mkt = go.Figure()
+        fig_mkt.add_trace(go.Bar(x=mkt_agg['market'], y=mkt_agg['Mean'],
+                                  name='Mean', marker_color='#EF5350'))
+        fig_mkt.add_trace(go.Bar(x=mkt_agg['market'], y=mkt_agg['Median'],
+                                  name='Median', marker_color='#42A5F5'))
+        fig_mkt.update_layout(barmode='group', height=350, margin=dict(t=20, b=20),
+                               yaxis_title=risk_metric.replace('_', ' ').title())
+        st.plotly_chart(fig_mkt, use_container_width=True)
+
+    # ── Score over time ──────────────────────────────────────────────────────
+    st.markdown('---')
+    st.subheader(f'{risk_metric.replace("_", " ").title()} Over Time')
+    time_agg = (df_all.groupby('fiscal_year')[risk_metric]
+                    .agg(['mean', 'median'])
+                    .rename(columns={'mean': 'Mean', 'median': 'Median'})
+                    .reset_index())
+    fig_time = go.Figure()
+    fig_time.add_trace(go.Scatter(x=time_agg['fiscal_year'], y=time_agg['Mean'],
+                                   mode='lines+markers', name='Mean',
+                                   line=dict(color='#EF5350', width=2)))
+    fig_time.add_trace(go.Scatter(x=time_agg['fiscal_year'], y=time_agg['Median'],
+                                   mode='lines+markers', name='Median',
+                                   line=dict(color='#42A5F5', width=2, dash='dot')))
+    if risk_metric == 'beneish_m_score':
+        fig_time.add_hline(y=-2.22, line_dash='dash', line_color='red',
+                           annotation_text='Threshold')
+    fig_time.update_layout(height=320, margin=dict(t=10, b=20),
+                            xaxis_title='Fiscal Year',
+                            yaxis_title=risk_metric.replace('_', ' ').title())
+    st.plotly_chart(fig_time, use_container_width=True)
+
+    # ── Scatter: risk vs quality ─────────────────────────────────────────────
+    scatter_y = 'quality_composite' if 'quality_composite' in df_yr.columns else 'piotroski_f_score'
+    if scatter_y in df_yr.columns:
+        st.markdown('---')
+        st.subheader(f'Risk vs Quality Scatter — FY{int(year_sel)}')
+        scatter_df = df_yr[[risk_metric, scatter_y, 'ticker', 'market']].dropna()
+        if len(scatter_df) > 10:
+            fig_scatter = px.scatter(
+                scatter_df.head(2000),
+                x=risk_metric, y=scatter_y,
+                color='market',
+                hover_data=['ticker'],
+                opacity=0.55,
+                labels={
+                    risk_metric: risk_metric.replace('_', ' ').title(),
+                    scatter_y:   scatter_y.replace('_', ' ').title(),
+                },
+            )
+            if risk_metric == 'beneish_m_score':
+                fig_scatter.add_vline(x=-2.22, line_dash='dash', line_color='red')
+            fig_scatter.update_layout(height=400, margin=dict(t=20, b=20))
+            st.plotly_chart(fig_scatter, use_container_width=True)
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main() -> None:
@@ -1134,9 +1752,12 @@ def main() -> None:
     with st.sidebar:
         _sidebar_refresh()
 
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
         '📊 Screener',
-        '📈 Backtester',
+        '🏢 Company Profile',
+        '📈 Realtime Chart',
+        '🌍 Market Overview',
+        '📉 Backtester',
         '⭐ Watchlist',
         '🎯 Strategies',
         '📖 User Guide',
@@ -1145,12 +1766,18 @@ def main() -> None:
     with tab1:
         tab_screener(df_all, models, meta)
     with tab2:
-        tab_backtester()
+        tab_company_profile(df_all, models, meta)
     with tab3:
-        tab_watchlist()
+        tab_realtime_chart(df_all)
     with tab4:
-        tab_strategies()
+        tab_market_overview(df_all)
     with tab5:
+        tab_backtester()
+    with tab6:
+        tab_watchlist()
+    with tab7:
+        tab_strategies()
+    with tab8:
         tab_guide()
 
 

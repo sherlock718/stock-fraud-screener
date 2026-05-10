@@ -38,6 +38,7 @@ SMALLCAP_COST_BPS = 60    # Illiquidity premium for micro/small caps
 RISK_FREE = 0.03          # Annual risk-free rate for Sharpe/Sortino
 MIN_MARKET_CAP    = 50_000_000  # $50M floor — removes truly illiquid stocks
 MAX_POSITION_WEIGHT = 0.20      # Max weight per stock in vol-scaled portfolio
+MAX_SECTOR_WEIGHT   = 0.35      # Max total weight in any single SIC sector
 
 
 # ── Data helpers ──────────────────────────────────────────────────────────────
@@ -363,16 +364,97 @@ STRATEGIES = {
 
 # ── Walk-forward engine ───────────────────────────────────────────────────────
 
+MAX_FILING_LAG_MONTHS = 18   # reject filings > 18 months after fiscal year-end
+
+
+def _apply_filing_lag_filter(yr_df: pd.DataFrame, yr: int,
+                              max_lag_months: int) -> pd.DataFrame:
+    """Drop rows where filed_date is implausibly late (look-ahead protection).
+
+    A 10-K filed 18+ months after fiscal year-end is suspicious —
+    it would not have been available at the typical Jan portfolio selection date.
+    """
+    if 'filed_date' not in yr_df.columns:
+        return yr_df
+    filed = pd.to_datetime(yr_df['filed_date'], errors='coerce')
+    # Cutoff = fiscal year-end + max_lag_months
+    cutoff = pd.Timestamp(f'{yr}-12-31') + pd.DateOffset(months=max_lag_months)
+    mask = filed.isna() | (filed <= cutoff)
+    n_dropped = (~mask).sum()
+    if n_dropped > 0:
+        pass  # caller can log if needed
+    return yr_df[mask]
+
+
+def _sic_to_sector(sic: pd.Series) -> pd.Series:
+    s = pd.to_numeric(sic, errors='coerce').fillna(0).astype(int)
+    sector = pd.Series('Other', index=s.index)
+    sector[s.between(100,  999)]  = 'Agriculture/Mining'
+    sector[s.between(1000, 1499)] = 'Mining/Resources'
+    sector[s.between(1500, 1999)] = 'Construction'
+    sector[s.between(2000, 3999)] = 'Manufacturing'
+    sector[s.between(4000, 4999)] = 'Utilities/Transport'
+    sector[s.between(5000, 5999)] = 'Trade'
+    sector[s.between(6000, 6799)] = 'Finance/Insurance/RE'
+    sector[s.between(7000, 7999)] = 'Services/Hospitality'
+    sector[s.between(8000, 8999)] = 'Services/Professional'
+    return sector
+
+
+def _apply_sector_cap(weights: np.ndarray, picks_df: pd.DataFrame,
+                      max_sector_weight: float) -> np.ndarray:
+    """Scale down weights so no SIC sector exceeds max_sector_weight.
+
+    Iteratively scales overweight sectors toward the cap, redistributing
+    excess to under-weight sectors. Converges in ≤ N_sectors iterations.
+    """
+    if 'sic_code' not in picks_df.columns:
+        return weights
+    sectors = _sic_to_sector(picks_df['sic_code'].reset_index(drop=True)
+                              if hasattr(picks_df, 'reset_index') else picks_df['sic_code'])
+    w = weights.copy()
+    for _ in range(len(w)):  # max iterations bounded by portfolio size
+        sector_totals = {}
+        for i, sec in enumerate(sectors):
+            sector_totals[sec] = sector_totals.get(sec, 0.0) + w[i]
+        overweight = {s: t for s, t in sector_totals.items() if t > max_sector_weight + 1e-9}
+        if not overweight:
+            break
+        for sec, total in overweight.items():
+            scale = max_sector_weight / total
+            mask = sectors == sec
+            w[mask.values] *= scale
+        w = w / w.sum()  # renormalise
+    return w
+
+
 def run_backtest(df: pd.DataFrame, filter_fn, label: str,
                  top_n: int, market: str | None,
                  cost_bps: int, smallcap_cost_bps: int,
                  min_market_cap: int = MIN_MARKET_CAP,
-                 vol_weighted: bool = True) -> dict:
+                 vol_weighted: bool = True,
+                 fill_missing_return: float | None = None,
+                 max_filing_lag_months: int = MAX_FILING_LAG_MONTHS) -> dict:
+    """Walk-forward backtest engine.
+
+    Args:
+        fill_missing_return: If set, impute this return for picked stocks with
+            NaN forward_return_1y instead of dropping them. Use -0.5 to
+            model worst-case survivorship (missing = delisted).
+        max_filing_lag_months: Drop filings received more than N months after
+            fiscal year-end (look-ahead protection). Default 18.
+    """
     years = sorted(y for y in df['fiscal_year'].unique() if y <= 2023)
     annual_rows = []
+    total_survivorship_dropped = 0
+    total_picks_attempted = 0
 
     for yr in years:
         yr_df = df[df['fiscal_year'] == yr].copy()
+
+        # ── Look-ahead protection: drop implausibly late filings ──────────────
+        yr_df = _apply_filing_lag_filter(yr_df, yr, max_filing_lag_months)
+
         # Liquidity pre-filter: remove stocks below market cap threshold
         if min_market_cap > 0 and 'market_cap_at_filing' in yr_df.columns:
             yr_df = yr_df[yr_df['market_cap_at_filing'].fillna(0) >= min_market_cap]
@@ -382,14 +464,26 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
         if 'forward_return_1y' not in picks.columns:
             continue
 
-        # Only keep picks with observable 1y forward returns
-        valid = picks['forward_return_1y'].notna()
-        picks_valid = picks[valid]
+        n_picks_raw = len(picks)
+        total_picks_attempted += n_picks_raw
+
+        # ── Survivorship bias handling ────────────────────────────────────────
+        missing_mask = picks['forward_return_1y'].isna()
+        n_missing = int(missing_mask.sum())
+        total_survivorship_dropped += n_missing
+
+        if fill_missing_return is not None and n_missing > 0:
+            picks = picks.copy()
+            picks.loc[missing_mask, 'forward_return_1y'] = fill_missing_return
+            picks_valid = picks
+        else:
+            picks_valid = picks[~missing_mask]
+
         rets = picks_valid['forward_return_1y']
         if len(rets) < 3:
             continue
 
-        # Per-pick cost aligned to valid picks (NaN rows already dropped above)
+        # Per-pick cost aligned to valid picks
         if 'size_category_label' in picks_valid.columns:
             is_small = picks_valid['size_category_label'].isin(['micro', 'small'])
             per_pick_cost = np.where(is_small,
@@ -409,27 +503,35 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
             # Cap at max position weight and renormalise
             weights = np.minimum(weights, MAX_POSITION_WEIGHT)
             weights = weights / weights.sum()
+            # Cap sector concentration and renormalise
+            weights = _apply_sector_cap(weights, picks_valid.reset_index(drop=True),
+                                        MAX_SECTOR_WEIGHT)
         else:
             weights = np.ones(len(net_rets)) / len(net_rets)
 
         port_ret = float(np.dot(weights, net_rets))
         cost_drag = float(np.dot(weights, per_pick_cost))
 
-        # Benchmark: equal-weight all valid stocks in same market/year
+        # ── Benchmark: equal-weight all eligible stocks in same market/year ──
         bench_df = yr_df.copy()
         if market:
             bench_df = bench_df[bench_df['market'] == market]
-        bench_rets = bench_df['forward_return_1y'].dropna()
-        bench_ret = bench_rets.mean() if len(bench_rets) > 5 else np.nan
+        if fill_missing_return is not None:
+            bench_df['forward_return_1y'] = bench_df['forward_return_1y'].fillna(fill_missing_return)
+        bench_rets_s = bench_df['forward_return_1y'].dropna()
+        bench_ret = bench_rets_s.mean() if len(bench_rets_s) > 5 else np.nan
+        bench_coverage = len(bench_rets_s) / max(len(bench_df), 1)
 
         annual_rows.append({
-            'year':      yr,
-            'port_ret':  port_ret,
-            'bench_ret': bench_ret,
-            'excess':    port_ret - bench_ret if pd.notna(bench_ret) else np.nan,
-            'cost_drag': cost_drag,
-            'n_picks':   len(rets),
-            'hit_rate':  (rets.values > 0).mean(),
+            'year':            yr,
+            'port_ret':        port_ret,
+            'bench_ret':       bench_ret,
+            'excess':          port_ret - bench_ret if pd.notna(bench_ret) else np.nan,
+            'cost_drag':       cost_drag,
+            'n_picks':         len(rets),
+            'hit_rate':        (rets.values > 0).mean(),
+            'n_missing_ret':   n_missing,
+            'bench_coverage':  round(bench_coverage, 3),
         })
 
     if not annual_rows:
@@ -489,7 +591,8 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
         'hit_rate_pct':      round(res['hit_rate'].mean() * 100, 1),
         'avg_cost_drag_bps': round(res['cost_drag'].mean() * 10000, 1),
         'best_year_pct':     round(res['port_ret'].max() * 100, 2),
-        'worst_year_pct':    round(res['port_ret'].min() * 100, 2),
+        'worst_year_pct':      round(res['port_ret'].min() * 100, 2),
+        'survivorship_pct':    round(total_survivorship_dropped / max(total_picks_attempted, 1) * 100, 1),
         'annual_returns': [
             {
                 'year':            int(r['year']),
@@ -497,6 +600,8 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
                 'bench_pct':       round(r['bench_ret'] * 100, 2) if pd.notna(r['bench_ret']) else None,
                 'excess_pct':      round(r['excess'] * 100, 2) if pd.notna(r['excess']) else None,
                 'n_picks':         int(r['n_picks']),
+                'n_missing_ret':   int(r['n_missing_ret']),
+                'bench_coverage':  r['bench_coverage'],
                 'rolling_sharpe':  rolling_sharpe_3y[i],
             }
             for i, (_, r) in enumerate(res.iterrows())
@@ -523,14 +628,17 @@ def print_tearsheet(result: dict) -> None:
     print(f'  Max Drawdown:  {result["max_drawdown_pct"]:.1f}%')
     print(f'  Hit Rate:      {result["hit_rate_pct"]:.0f}%')
     print(f'  Avg Cost Drag: {result["avg_cost_drag_bps"]:.0f} bps')
+    print(f'  Survivorship:  {result.get("survivorship_pct", 0):.1f}% picks had missing return')
     print(f'  Best Year:     {result["best_year_pct"]:+.1f}%')
     print(f'  Worst Year:    {result["worst_year_pct"]:+.1f}%')
-    print(f'\n  Year    Port%   Bench%  Excess%  Picks  Roll3ySharpe')
+    print(f'\n  Year    Port%   Bench%  Excess%  Picks  Missing  BenchCov  Roll3ySharpe')
     for row in result['annual_returns']:
-        bp = f'{row["bench_pct"]:+.1f}' if row['bench_pct'] is not None else '  N/A '
-        ep = f'{row["excess_pct"]:+.1f}' if row['excess_pct'] is not None else '  N/A '
-        rs = f'{row["rolling_sharpe"]:.2f}' if row['rolling_sharpe'] is not None else '  — '
-        print(f'  {row["year"]}   {row["port_pct"]:+5.1f}   {bp:>6}  {ep:>7}   {row["n_picks"]:3d}    {rs}')
+        bp  = f'{row["bench_pct"]:+.1f}' if row['bench_pct'] is not None else '  N/A '
+        ep  = f'{row["excess_pct"]:+.1f}' if row['excess_pct'] is not None else '  N/A '
+        rs  = f'{row["rolling_sharpe"]:.2f}' if row['rolling_sharpe'] is not None else '  — '
+        mis = row.get('n_missing_ret', 0)
+        cov = f'{row.get("bench_coverage", 0):.0%}'
+        print(f'  {row["year"]}   {row["port_pct"]:+5.1f}   {bp:>6}  {ep:>7}   {row["n_picks"]:3d}      {mis:3d}    {cov:>7}    {rs}')
     print(sep)
 
 
@@ -550,6 +658,12 @@ def main():
                         help=f'Min market cap filter in USD (default {MIN_MARKET_CAP:,}, 0 to disable)')
     parser.add_argument('--equal-weight', action='store_true',
                         help='Use equal-weight instead of inverse-volatility weighting')
+    parser.add_argument('--fill-missing', type=float, default=None, metavar='RETURN',
+                        help='Impute this return for picks with missing forward_return_1y '
+                             '(e.g. -0.5 for worst-case survivorship bias)')
+    parser.add_argument('--max-filing-lag', type=int, default=MAX_FILING_LAG_MONTHS,
+                        help=f'Max months between fiscal year-end and filed_date '
+                             f'(look-ahead filter, default {MAX_FILING_LAG_MONTHS})')
     parser.add_argument('--tearsheet', action='store_true',
                         help='Print detailed tearsheet for each strategy')
     args = parser.parse_args()
@@ -570,7 +684,9 @@ def main():
         result = run_backtest(df, fn, label, args.top, args.market,
                               args.cost, args.smallcap_cost,
                               min_market_cap=args.min_cap,
-                              vol_weighted=not args.equal_weight)
+                              vol_weighted=not args.equal_weight,
+                              fill_missing_return=args.fill_missing,
+                              max_filing_lag_months=args.max_filing_lag)
         results[key] = result
 
         if result.get('n_years', 0) > 0:
@@ -590,13 +706,15 @@ def main():
             print_tearsheet(result)
 
     out = {
-        'generated_at': pd.Timestamp.now().isoformat(),
-        'cost_bps':     args.cost,
-        'top_n':        args.top,
-        'market':       args.market,
-        'min_market_cap': args.min_cap,
-        'vol_weighted': not args.equal_weight,
-        'strategies':   results,
+        'generated_at':      pd.Timestamp.now().isoformat(),
+        'cost_bps':          args.cost,
+        'top_n':             args.top,
+        'market':            args.market,
+        'min_market_cap':    args.min_cap,
+        'vol_weighted':      not args.equal_weight,
+        'fill_missing':      args.fill_missing,
+        'max_filing_lag':    args.max_filing_lag,
+        'strategies':        results,
     }
     OUT_PATH.write_text(json.dumps(out, indent=2, default=str))
     print(f'\nSaved: {OUT_PATH}')
