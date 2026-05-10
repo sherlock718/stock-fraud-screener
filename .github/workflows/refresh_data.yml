@@ -96,6 +96,11 @@ jobs:
           print(json.dumps(status, indent=2))
           "
 
+      - name: Generate reports
+        if: success()
+        run: |
+          python3 scripts/generate_reports.py --top 25 || echo "Report generation failed (non-fatal)"
+
       - name: Push updated dataset to HuggingFace
         if: success()
         env:
@@ -134,3 +139,14 @@ jobs:
             logs/
             data/refresh_status.json
           retention-days: 30
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports-${{ github.run_id }}
+          path: |
+            reports/tearsheet.pdf
+            reports/weekly_picks.csv
+            reports/rolling_oos_auc.png
+          retention-days: 90
