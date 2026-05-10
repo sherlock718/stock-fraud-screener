@@ -1,0 +1,136 @@
+name: Weekly Data Refresh
+
+on:
+  schedule:
+    # Run every Sunday at 05:00 UTC (before market open Monday)
+    - cron: '0 5 * * 0'
+  workflow_dispatch:
+    inputs:
+      markets:
+        description: 'Space-separated market codes to refresh (e.g. US JP DE), or "all"'
+        required: false
+        default: 'US'
+
+jobs:
+  refresh-data:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Download existing dataset from HuggingFace (incremental base)
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python3 -c "
+          import os
+          from huggingface_hub import hf_hub_download
+          import shutil, pathlib
+          try:
+            path = hf_hub_download(
+              repo_id=os.environ['HF_REPO'],
+              filename='historical_dataset_clean.parquet',
+              repo_type='dataset',
+              token=os.environ.get('HF_TOKEN')
+            )
+            pathlib.Path('data').mkdir(exist_ok=True)
+            shutil.copy(path, 'data/historical_dataset_clean.parquet')
+            print('Existing dataset downloaded as base')
+          except Exception as e:
+            print(f'No existing dataset (starting fresh): {e}')
+          " || echo "Dataset base download skipped"
+        env:
+          HF_REPO: ${{ secrets.HF_REPO }}
+
+      - name: Run data pipeline
+        env:
+          MARKETS: ${{ github.event.inputs.markets || 'US' }}
+        run: |
+          if [ "$MARKETS" = "all" ]; then
+            python3 scripts/run_pipeline.py
+          else
+            for market in $MARKETS; do
+              echo "=== Refreshing $market ==="
+              case $market in
+                EU|DE|FR|IT|ES|SE|NL|PT|DK|FI)
+                  python3 scripts/run_pipeline_eu.py --market $market ;;
+                KR)
+                  python3 scripts/run_pipeline_kr.py ;;
+                *)
+                  python3 scripts/run_pipeline.py --market $market ;;
+              esac
+            done
+          fi
+
+      - name: Write health status
+        if: always()
+        run: |
+          python3 -c "
+          import json, datetime, pathlib, sys
+          status = {
+            'last_refresh': datetime.datetime.utcnow().isoformat() + 'Z',
+            'trigger': 'github_actions',
+            'markets': '${{ github.event.inputs.markets || 'US' }}',
+            'workflow_run': '${{ github.run_id }}',
+            'status': 'success' if '--no-error' not in sys.argv else 'error',
+          }
+          pathlib.Path('data').mkdir(exist_ok=True)
+          pathlib.Path('data/refresh_status.json').write_text(json.dumps(status, indent=2))
+          print(json.dumps(status, indent=2))
+          "
+
+      - name: Push updated dataset to HuggingFace
+        if: success()
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_REPO: ${{ secrets.HF_REPO }}
+        run: |
+          python3 -c "
+          import os
+          from huggingface_hub import HfApi
+          api = HfApi(token=os.environ.get('HF_TOKEN'))
+          repo_id = os.environ.get('HF_REPO', '')
+          if not repo_id:
+            print('HF_REPO not set — skipping upload')
+          else:
+            api.upload_file(
+              path_or_fileobj='data/historical_dataset_clean.parquet',
+              path_in_repo='historical_dataset_clean.parquet',
+              repo_id=repo_id,
+              repo_type='dataset',
+            )
+            api.upload_file(
+              path_or_fileobj='data/refresh_status.json',
+              path_in_repo='refresh_status.json',
+              repo_id=repo_id,
+              repo_type='dataset',
+            )
+            print(f'Uploaded to {repo_id}')
+          " || echo "HuggingFace upload skipped (no HF_TOKEN/HF_REPO)"
+
+      - name: Upload pipeline logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline-logs-${{ github.run_id }}
+          path: |
+            logs/
+            data/refresh_status.json
+          retention-days: 30
