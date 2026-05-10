@@ -113,6 +113,56 @@ def run(src: Path = SRC, verbose: bool = False, fail_fast: bool = False) -> bool
     dup_count = ann.duplicated(['ticker', 'fiscal_year']).sum()
     check('no_annual_dups', dup_count == 0, f'{dup_count} duplicate (ticker, fiscal_year)')
 
+    # ── Time-series continuity ────────────────────────────────────────────────
+    print('\nTime-series continuity:')
+    max_gap = 0
+    n_gapped = 0
+    for _tick, grp in ann.groupby('ticker'):
+        yrs = sorted(grp['fiscal_year'].dropna().unique())
+        if len(yrs) < 2:
+            continue
+        gaps = [yrs[i + 1] - yrs[i] for i in range(len(yrs) - 1)]
+        g = max(gaps)
+        if g > 2:
+            n_gapped += 1
+        if g > max_gap:
+            max_gap = g
+    check('ts_max_gap_le_5', max_gap <= 5,
+          f'largest single-ticker gap = {max_gap} years; {n_gapped} tickers with gap > 2y')
+
+    # ── Null-rate audit: core ML features ─────────────────────────────────────
+    print('\nNull rate — core ML features (annual rows):')
+    CORE_FEATURES = [
+        'gross_margin', 'roe', 'debt_to_equity', 'current_ratio', 'pe_ratio',
+        'piotroski_f_score', 'beneish_m_score', 'momentum_12m_prior',
+        'value_composite', 'quality_composite',
+    ]
+    MAX_NULL_PCT = 40.0
+    for feat in CORE_FEATURES:
+        if feat not in ann.columns:
+            check(f'feature_present:{feat}', False, 'MISSING column')
+            continue
+        null_pct = ann[feat].isna().mean() * 100
+        check(f'null_rate:{feat}', null_pct <= MAX_NULL_PCT,
+              f'{null_pct:.1f}% null (max {MAX_NULL_PCT:.0f}%)')
+
+    # ── Cross-market return normalization ─────────────────────────────────────
+    print('\nCross-market return sanity (forward_return_1y):')
+    if 'forward_return_1y' in ann.columns:
+        mkt_stats = (
+            ann[ann['forward_return_1y'].notna()]
+            .groupby('market')['forward_return_1y']
+            .agg(median='median', p99=lambda x: x.quantile(0.99), n='count')
+        )
+        for mkt, row2 in mkt_stats.iterrows():
+            if row2['n'] < 30:
+                continue
+            # Warn if median is implausibly extreme (>30% or <-20%) — suggests FX issue
+            check(f'return_median_{mkt}',
+                  -0.20 <= row2['median'] <= 0.30,
+                  f'median={row2["median"]:+.3f}  p99={row2["p99"]:+.3f}  n={int(row2["n"])}')
+
+
     # ── Market presence ──────────────────────────────────────────────────────
     print('\nMarket presence:')
     markets = df['market'].unique().tolist()
