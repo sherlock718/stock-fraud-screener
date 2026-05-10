@@ -38,6 +38,7 @@ SMALLCAP_COST_BPS = 60    # Illiquidity premium for micro/small caps
 RISK_FREE = 0.03          # Annual risk-free rate for Sharpe/Sortino
 MIN_MARKET_CAP    = 50_000_000  # $50M floor — removes truly illiquid stocks
 MAX_POSITION_WEIGHT = 0.20      # Max weight per stock in vol-scaled portfolio
+MAX_SECTOR_WEIGHT   = 0.35      # Max total weight in any single SIC sector
 
 
 # ── Data helpers ──────────────────────────────────────────────────────────────
@@ -385,6 +386,48 @@ def _apply_filing_lag_filter(yr_df: pd.DataFrame, yr: int,
     return yr_df[mask]
 
 
+def _sic_to_sector(sic: pd.Series) -> pd.Series:
+    s = pd.to_numeric(sic, errors='coerce').fillna(0).astype(int)
+    sector = pd.Series('Other', index=s.index)
+    sector[s.between(100,  999)]  = 'Agriculture/Mining'
+    sector[s.between(1000, 1499)] = 'Mining/Resources'
+    sector[s.between(1500, 1999)] = 'Construction'
+    sector[s.between(2000, 3999)] = 'Manufacturing'
+    sector[s.between(4000, 4999)] = 'Utilities/Transport'
+    sector[s.between(5000, 5999)] = 'Trade'
+    sector[s.between(6000, 6799)] = 'Finance/Insurance/RE'
+    sector[s.between(7000, 7999)] = 'Services/Hospitality'
+    sector[s.between(8000, 8999)] = 'Services/Professional'
+    return sector
+
+
+def _apply_sector_cap(weights: np.ndarray, picks_df: pd.DataFrame,
+                      max_sector_weight: float) -> np.ndarray:
+    """Scale down weights so no SIC sector exceeds max_sector_weight.
+
+    Iteratively scales overweight sectors toward the cap, redistributing
+    excess to under-weight sectors. Converges in ≤ N_sectors iterations.
+    """
+    if 'sic_code' not in picks_df.columns:
+        return weights
+    sectors = _sic_to_sector(picks_df['sic_code'].reset_index(drop=True)
+                              if hasattr(picks_df, 'reset_index') else picks_df['sic_code'])
+    w = weights.copy()
+    for _ in range(len(w)):  # max iterations bounded by portfolio size
+        sector_totals = {}
+        for i, sec in enumerate(sectors):
+            sector_totals[sec] = sector_totals.get(sec, 0.0) + w[i]
+        overweight = {s: t for s, t in sector_totals.items() if t > max_sector_weight + 1e-9}
+        if not overweight:
+            break
+        for sec, total in overweight.items():
+            scale = max_sector_weight / total
+            mask = sectors == sec
+            w[mask.values] *= scale
+        w = w / w.sum()  # renormalise
+    return w
+
+
 def run_backtest(df: pd.DataFrame, filter_fn, label: str,
                  top_n: int, market: str | None,
                  cost_bps: int, smallcap_cost_bps: int,
@@ -460,6 +503,9 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
             # Cap at max position weight and renormalise
             weights = np.minimum(weights, MAX_POSITION_WEIGHT)
             weights = weights / weights.sum()
+            # Cap sector concentration and renormalise
+            weights = _apply_sector_cap(weights, picks_valid.reset_index(drop=True),
+                                        MAX_SECTOR_WEIGHT)
         else:
             weights = np.ones(len(net_rets)) / len(net_rets)
 
