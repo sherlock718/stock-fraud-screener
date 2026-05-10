@@ -1,0 +1,21 @@
+ticker,name,composite_score,leverage_safe,position_pct,position_eur,leverage_mult,notional_eur,strategy,piotroski,beneish,ml_1y
+IMXI,"International Money Express, I",0.949,1,5.2,520.0,1.09,566.0,2:1 margin long | 1.1x,7.0,-3.267615252397308,0.7
+BLMN,"Bloomin' Brands, Inc.",0.933,0,5.1,511.0,1.0,511.0,Equity only — quality gate failed,6.0,-2.708788968255332,0.684
+KLC,"KinderCare Learning Companies,",0.932,0,5.1,511.0,1.0,511.0,Equity only — quality gate failed,5.0,-2.545923515646402,0.746
+EGY,VAALCO ENERGY INC /DE/,0.928,1,5.1,508.0,1.09,553.0,2:1 margin long | 1.1x,7.0,-2.9755543630680066,0.661
+SPNT,SiriusPoint Ltd,0.919,0,5.0,504.0,1.0,504.0,Equity only — quality gate failed,7.0,-1.986700545313735,0.704
+HP,"Helmerich & Payne, Inc.",0.919,0,5.0,503.0,1.0,503.0,Equity only — quality gate failed,7.0,-2.1173033118913054,0.671
+HTZ,"HERTZ GLOBAL HOLDINGS, INC",0.918,0,5.0,503.0,1.0,503.0,Equity only — quality gate failed,4.0,-2.494871582423631,0.68
+ASC,Ardmore Shipping Corp,0.916,1,5.0,502.0,1.09,546.0,2:1 margin long | 1.1x,6.0,-2.5551574238910364,0.672
+TH,Target Hospitality Corp.,0.914,1,5.0,501.0,1.09,545.0,2:1 margin long | 1.1x,7.0,-2.192991294545459,0.694
+ATLCP,Atlanticus Holdings Corp,0.914,0,5.0,501.0,1.0,501.0,Equity only — quality gate failed,5.0,-2.544828638401879,0.653
+KINS,"KINGSTONE COMPANIES, INC.",0.91,0,5.0,498.0,1.0,498.0,Equity only — quality gate failed,6.0,-2.587026600417119,0.699
+IMPP,Imperial Petroleum Inc./Marsha,0.909,0,5.0,498.0,1.0,498.0,Equity only — quality gate failed,6.0,0.6259649603286116,0.655
+CHGG,"CHEGG, INC",0.908,0,5.0,497.0,1.0,497.0,Equity only — quality gate failed,4.0,-3.6344945077581774,0.731
+TK,TEEKAY CORP LTD,0.906,1,5.0,496.0,1.09,540.0,Equity only (score below leverage threshold),6.0,-3.464657133339278,0.649
+OSUR,ORASURE TECHNOLOGIES INC,0.903,1,4.9,495.0,1.09,538.0,Equity only (score below leverage threshold),6.0,-3.053356745370805,0.642
+ZIP,"ZIPRECRUITER, INC.",0.9,0,4.9,493.0,1.0,493.0,Equity only — quality gate failed,4.0,-2.7213831819980223,0.699
+CPSS,"CONSUMER PORTFOLIO SERVICES, I",0.898,0,4.9,492.0,1.0,492.0,Equity only — quality gate failed,4.0,-2.350509844364402,0.691
+ECG,"Everus Construction Group, Inc",0.894,1,4.9,490.0,1.09,533.0,2:1 margin long | 1.1x,7.0,-2.4328337906155775,0.706
+JELD,"JELD-WEN Holding, Inc.",0.893,1,4.9,489.0,1.09,533.0,2:1 margin long | 1.1x,6.0,-2.770950737538939,0.812
+GM,General Motors Co,0.891,0,4.9,488.0,1.0,488.0,Equity only — quality gate failed,7.0,-2.4482921076525583,0.705

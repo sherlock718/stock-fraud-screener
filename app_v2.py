@@ -5,7 +5,9 @@ Tabbed layout: Screener | Backtester | Watchlist | Strategies
 
 from __future__ import annotations
 
+import io
 import json
+import os
 import subprocess
 import sys
 from datetime import datetime
@@ -13,22 +15,34 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import plotly.graph_objects as go
+import plotly.express as px
 import streamlit as st
 
 # ── Config ────────────────────────────────────────────────────────────────────
 BASE       = Path(__file__).parent
-DATA_PATH  = BASE / 'data' / 'app_data.parquet'
+DATA_PATH  = BASE / 'data' / 'historical_dataset_clean.parquet'
 META_PATH  = BASE / 'models' / 'model_meta.json'
 MODELS_DIR = BASE / 'models'
-BT_PATH    = BASE / 'data' / 'backtest_results.json'
-WL_PATH    = BASE / 'data' / 'watchlist.json'
-WL_LIVE    = BASE / 'data' / 'watchlist_live.json'
+
+# HuggingFace Hub — set HF_REPO env var to enable cloud data loading.
+# Example: HF_REPO=your-username/stock-screener-data
+HF_REPO = os.environ.get('HF_REPO', '')
+
+# True when running on Streamlit Community Cloud (no local filesystem writes,
+# no subprocess-based pipeline execution).
+_IS_CLOUD = bool(HF_REPO) or not DATA_PATH.parent.exists()
+BT_PATH      = BASE / 'data' / 'backtest_results.json'
+WL_PATH      = BASE / 'data' / 'watchlist.json'
+WL_LIVE      = BASE / 'data' / 'watchlist_live.json'
+REFRESH_PATH = BASE / 'data' / 'refresh_status.json'
 
 STRAT_FILES = {
     'QEM — Quality + Earnings Momentum':  BASE / 'data' / 'strategy_qem.csv',
     'SCDV — Small-Cap Deep Value':         BASE / 'data' / 'strategy_scdv.csv',
     'IARB — International Arbitrage':      BASE / 'data' / 'strategy_iarb.csv',
 }
+SECTOR_PATH = BASE / 'data' / 'sector_dividend_map.parquet'
 
 MARKET_LABELS = {
     'US': '🇺🇸 United States', 'CA': '🇨🇦 Canada', 'BR': '🇧🇷 Brazil',
@@ -40,25 +54,68 @@ MARKET_LABELS = {
 
 # ── Data loading ──────────────────────────────────────────────────────────────
 
+def _hf_download_bytes(repo_id: str, filename: str) -> bytes | None:
+    """Download a file from HuggingFace Hub as raw bytes. Returns None on failure."""
+    try:
+        from huggingface_hub import hf_hub_download
+        local = hf_hub_download(repo_id=repo_id, filename=filename, repo_type='dataset')
+        return Path(local).read_bytes()
+    except Exception:
+        return None
+
+
 @st.cache_data(show_spinner=False)
 def load_data() -> pd.DataFrame:
-    df = pd.read_parquet(DATA_PATH)
-    return df[df['period_type'] == 'annual'].copy()
+    if HF_REPO and not DATA_PATH.exists():
+        raw = _hf_download_bytes(HF_REPO, 'historical_dataset_clean.parquet')
+        if raw is not None:
+            df = pd.read_parquet(io.BytesIO(raw))
+        else:
+            st.error('Could not load dataset from HuggingFace Hub.')
+            return pd.DataFrame()
+    else:
+        df = pd.read_parquet(DATA_PATH)
+
+    df = df[df['period_type'] == 'annual'].copy()
+    if SECTOR_PATH.exists():
+        sec = pd.read_parquet(SECTOR_PATH)
+        df = df.merge(sec[['ticker', 'sector', 'industry',
+                            'dividendYield', 'dividendRate', 'payoutRatio',
+                            'trailingAnnualDividendYield', 'trailingAnnualDividendRate',
+                            'exDividendDate']],
+                      on='ticker', how='left')
+    return df
 
 
 @st.cache_resource(show_spinner=False)
 def load_models() -> tuple[dict, dict]:
-    models, meta = {}, {}
-    if META_PATH.exists():
+    import joblib
+
+    meta: dict = {}
+    models: dict = {}
+
+    if HF_REPO and not META_PATH.exists():
+        raw = _hf_download_bytes(HF_REPO, 'models/model_meta.json')
+        if raw is not None:
+            meta = json.loads(raw.decode())
+    elif META_PATH.exists():
         meta = json.loads(META_PATH.read_text())
-    try:
-        import joblib
-        for h in ['1y', '3y', '5y']:
-            p = MODELS_DIR / f'model_{h}.joblib'
-            if p.exists():
+
+    for h in ['1y', '3y', '5y']:
+        p = MODELS_DIR / f'model_{h}.joblib'
+        if p.exists():
+            try:
                 models[h] = joblib.load(p)
-    except Exception:
-        pass
+            except Exception:
+                pass
+        elif HF_REPO:
+            raw = _hf_download_bytes(HF_REPO, f'models/model_{h}.joblib')
+            if raw is not None:
+                try:
+                    models[h] = joblib.load(io.BytesIO(raw))
+                except Exception:
+                    pass
+
     return models, meta
 
 
@@ -67,9 +124,11 @@ def score_companies(df: pd.DataFrame, models: dict, meta: dict,
     if horizon not in models or horizon not in meta:
         df['ml_score'] = np.nan
         return df
-    clf  = models[horizon]
+    clf   = models[horizon]
     feats = [f for f in meta[horizon]['features'] if f in df.columns]
-    X = df[feats].fillna(df[feats].median())
+    train_medians = meta[horizon].get('train_medians', {})
+    fill_vals = {f: train_medians.get(f, 0.0) for f in feats}
+    X = df[feats].fillna(pd.Series(fill_vals))
     try:
         df = df.copy()
         df['ml_score'] = clf.predict_proba(X)[:, 1]
@@ -109,6 +168,114 @@ def composite_rank(df: pd.DataFrame) -> pd.DataFrame:
     total_w = sum(weights[k] for k in components)
     df['composite_score'] = sum(components[k] * (weights[k] / total_w) for k in components)
     return df
+
+
+# ── Sidebar: Live Data Refresh ───────────────────────────────────────────────
+
+def _sidebar_refresh() -> None:
+    st.markdown('### 🔄 Data Refresh')
+
+    # Load status
+    status: dict = {}
+    if REFRESH_PATH.exists():
+        try:
+            status = json.loads(REFRESH_PATH.read_text())
+        except Exception:
+            pass
+
+    # Data age badge
+    last_refresh = status.get('last_refresh')
+    if last_refresh:
+        try:
+            lr_dt = datetime.fromisoformat(last_refresh.replace('Z', '+00:00'))
+            age_days = (datetime.now(lr_dt.tzinfo) - lr_dt).days
+            if age_days < 7:
+                st.success(f'Data age: {age_days}d  ✓ Fresh')
+            elif age_days < 30:
+                st.warning(f'Data age: {age_days}d  ⚠ Stale')
+            else:
+                st.error(f'Data age: {age_days}d  ✗ Very old')
+        except Exception:
+            st.info('Last refresh: unknown')
+    else:
+        st.info('No refresh run yet')
+
+    # Last refresh stats
+    if status and not status.get('in_progress'):
+        ds = status.get('dataset', {})
+        col_a, col_b = st.columns(2)
+        col_a.metric('Companies', f"{ds.get('companies', '?'):,}" if isinstance(ds.get('companies'), int) else '?')
+        col_b.metric('Max FY', ds.get('fiscal_year_max', '?'))
+        st.caption(
+            f"Mode: {status.get('last_mode_label', '?')}  |  "
+            f"Duration: {status.get('last_elapsed_sec', '?')}s  |  "
+            f"Size: {ds.get('file_size_mb', '?')} MB"
+        )
+        if status.get('last_error'):
+            st.error(f"Last error: {status['last_error']}")
+
+    if status.get('in_progress'):
+        st.warning(f"⏳ Refresh in progress (mode: {status.get('mode', '?')})")
+        st.caption(f"Started: {status.get('started_at', '?')}")
+        return
+
+    if _IS_CLOUD:
+        st.info('Running in cloud mode — pipeline refresh is disabled. '
+                'Push new data via scripts/push_to_hf.py from your local machine.')
+        return
+
+    st.markdown('---')
+
+    REFRESH_SCRIPT = BASE / 'scripts' / 'refresh_data.py'
+
+    def _run_refresh(mode: str) -> None:
+        cmd = [sys.executable, str(REFRESH_SCRIPT), 'refresh', '--mode', mode]
+        status_patch = json.loads(REFRESH_PATH.read_text()) if REFRESH_PATH.exists() else {}
+        status_patch['in_progress'] = True
+        status_patch['mode'] = mode
+        REFRESH_PATH.write_text(json.dumps(status_patch, indent=2))
+
+        placeholder = st.empty()
+        with st.expander('Pipeline output', expanded=True):
+            log_area = st.empty()
+            log_lines: list[str] = []
+            proc = subprocess.Popen(
+                cmd, cwd=str(BASE),
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+            )
+            for line in proc.stdout:  # type: ignore[union-attr]
+                log_lines.append(line.rstrip())
+                log_area.code('\n'.join(log_lines[-40:]))
+            proc.wait()
+
+        if proc.returncode == 0:
+            placeholder.success('✓ Refresh complete — reloading…')
+        else:
+            placeholder.error(f'✗ Refresh failed (exit {proc.returncode})')
+
+        st.cache_data.clear()
+        st.rerun()
+
+    col1, col2, col3 = st.columns(3)
+
+    if col1.button('⚡ Quick\n~5 min', use_container_width=True, help='Re-compute features from existing data (no API calls)'):
+        _run_refresh('quick')
+
+    if col2.button('📈 Prices\n~45 min', use_container_width=True, help='Re-pull yfinance prices + features'):
+        if st.session_state.get('_prices_confirm'):
+            _run_refresh('prices')
+            st.session_state['_prices_confirm'] = False
+        else:
+            st.session_state['_prices_confirm'] = True
+            st.warning('Click again to confirm ~45 min price refresh')
+
+    if col3.button('🔄 Full\n~4 h', use_container_width=True, help='Full rebuild from SEC EDGAR (hours)'):
+        if st.session_state.get('_full_confirm'):
+            _run_refresh('full')
+            st.session_state['_full_confirm'] = False
+        else:
+            st.session_state['_full_confirm'] = True
+            st.warning('Click again to confirm full ~4 h rebuild')
 
 
 # ── Tab: Screener ─────────────────────────────────────────────────────────────
@@ -166,6 +333,14 @@ def tab_screener(df_all: pd.DataFrame, models: dict, meta: dict) -> None:
         st.subheader('Search')
         text_query = st.text_input('Ticker / company name', placeholder='e.g. AAPL, Samsung…')
 
+        if 'sector' in df_all.columns:
+            st.subheader('GICS Sector')
+            avail_sectors = sorted(df_all['sector'].dropna().unique().tolist())
+            selected_sectors = st.multiselect('Filter by sector', avail_sectors,
+                                              placeholder='All sectors (leave blank)')
+        else:
+            selected_sectors = []
+
     df = df_all[
         df_all['market'].isin(selected_markets) &
         df_all['fiscal_year'].between(*year_range)
@@ -184,6 +359,8 @@ def tab_screener(df_all: pd.DataFrame, models: dict, meta: dict) -> None:
         mask = (df['ticker'].str.lower().str.contains(q, na=False) |
                 df['name'].str.lower().str.contains(q, na=False))
         df   = df[mask]
+    if selected_sectors and 'sector' in df.columns:
+        df = df[df['sector'].isin(selected_sectors)]
 
     df     = score_companies(df, models, meta, horizon)
     df     = composite_rank(df)
@@ -211,6 +388,7 @@ def tab_screener(df_all: pd.DataFrame, models: dict, meta: dict) -> None:
 
     st.subheader('Top Companies by Composite Score')
     display_cols = (['ticker', 'name', 'market', 'fiscal_year', 'composite_score'] +
+                    ([c for c in ['sector'] if c in latest.columns]) +
                     [c for c in ['value_composite', 'pe_ratio', 'pb_ratio'] if c in latest.columns][:2] +
                     [c for c in ['quality_composite', 'piotroski_f_score', 'roe'] if c in latest.columns][:2] +
                     [c for c in ['momentum_12m_prior'] if c in latest.columns] +
@@ -221,7 +399,7 @@ def tab_screener(df_all: pd.DataFrame, models: dict, meta: dict) -> None:
     show_df = latest[display_cols].head(200).copy()
     for col in show_df.select_dtypes('float').columns:
         if col == 'composite_score':
-            show_df[col] = show_df[col].map(lambda x: f'{x:.3f}' if pd.notna(x) else '')
+            show_df[col] = show_df[col].map(lambda x: int(round(x * 100)) if pd.notna(x) else '')
         elif col == 'market_cap_at_filing':
             show_df[col] = show_df[col].map(
                 lambda x: (f'${x/1e9:.1f}B' if pd.notna(x) and x >= 1e9
@@ -238,55 +416,180 @@ def tab_screener(df_all: pd.DataFrame, models: dict, meta: dict) -> None:
     selected_ticker = st.selectbox('Select ticker', tickers_list, index=0)
     if selected_ticker:
         co_all    = df_all[df_all['ticker'] == selected_ticker].sort_values('fiscal_year')
-        co_latest = co_all[co_all['period_type'] == 'annual'].tail(1)
+        co_ann    = co_all[co_all['period_type'] == 'annual']
+        co_latest = co_ann.tail(1)
         if co_latest.empty:
             st.warning('No annual data found for this ticker.')
         else:
             row = co_latest.iloc[0]
-            st.markdown(f"### {row.get('name','N/A')} ({selected_ticker})")
-            d1, d2, d3, d4 = st.columns(4)
+            st.markdown(f"### {row.get('name', 'N/A')} ({selected_ticker})")
+
+            # ── Identity row ──────────────────────────────────────────────────
+            d1, d2, d3, d4, d5, d6 = st.columns(6)
             d1.metric('Market', MARKET_LABELS.get(str(row.get('market', '')), str(row.get('market', ''))))
-            d2.metric('Fiscal Year', int(row['fiscal_year']) if pd.notna(row['fiscal_year']) else 'N/A')
+            d2.metric('Fiscal Year', int(row['fiscal_year']) if pd.notna(row.get('fiscal_year')) else 'N/A')
             d3.metric('Exchange', str(row.get('exchange', 'N/A')))
             if pd.notna(row.get('market_cap_at_filing')):
                 cap = row['market_cap_at_filing']
                 d4.metric('Market Cap', f'${cap/1e9:.2f}B' if cap >= 1e9 else f'${cap/1e6:.0f}M')
-            fin_cols = [c for c in ['revenue','gross_profit','operating_income','net_income',
-                                    'total_assets','equity','operating_cash_flow'] if c in co_all.columns]
-            if fin_cols:
-                st.markdown('**Financials**')
-                fin_data = co_all[co_all['period_type'] == 'annual'][['fiscal_year'] + fin_cols].set_index('fiscal_year')
-                st.dataframe(fin_data.tail(8).applymap(
-                    lambda x: f'{x/1e6:,.0f}M' if pd.notna(x) and isinstance(x, (int, float)) else x
-                ), use_container_width=True)
+            if pd.notna(row.get('sector')):
+                d5.metric('Sector', str(row['sector']))
+            if pd.notna(row.get('industry')):
+                d6.metric('Industry', str(row['industry']))
+
+            # ── Dividend row ──────────────────────────────────────────────────
+            div_yield = row.get('dividendYield') or row.get('trailingAnnualDividendYield')
+            div_rate  = row.get('dividendRate') or row.get('trailingAnnualDividendRate')
+            payout    = row.get('payoutRatio')
+            if any(pd.notna(x) for x in [div_yield, div_rate, payout]):
+                st.markdown('**Dividends**')
+                e1, e2, e3 = st.columns(3)
+                e1.metric('Dividend Yield',
+                          f'{div_yield*100:.2f}%' if pd.notna(div_yield) else 'N/A')
+                e2.metric('Annual Rate',
+                          f'${div_rate:.2f}' if pd.notna(div_rate) else 'N/A')
+                e3.metric('Payout Ratio',
+                          f'{payout*100:.1f}%' if pd.notna(payout) else 'N/A')
+
+            # ── Risk Signals ──────────────────────────────────────────────────
             st.markdown('**Risk Signals**')
-            rc1, rc2, rc3 = st.columns(3)
-            for idx, (label, col, thresh, direction) in enumerate([
-                ('Beneish M-Score', 'beneish_m_score', -2.22, 'below'),
-                ('Altman Z-Score',  'altman_z_score',   1.81, 'above'),
-                ('Piotroski F',     'piotroski_f_score', 6.0, 'above'),
-            ]):
-                c_obj = [rc1, rc2, rc3][idx]
+            rc1, rc2, rc3, rc4 = st.columns(4)
+            risk_checks = [
+                ('Beneish M-Score', 'beneish_m_score', -2.22, 'below',
+                 'Below -2.22 = low manipulation risk'),
+                ('Altman Z-Score',  'altman_z_score',   1.81, 'above',
+                 'Above 1.81 = financially stable'),
+                ('Piotroski F',     'piotroski_f_score', 6.0, 'above',
+                 '7–9 = high quality'),
+            ]
+            for c_obj, (label, col, thresh, direction, _help) in zip([rc1, rc2, rc3], risk_checks):
                 if col in row.index and pd.notna(row[col]):
                     val = row[col]
                     ok  = val <= thresh if direction == 'below' else val >= thresh
                     c_obj.metric(label, f'{val:.2f}',
                                  delta='✅ OK' if ok else '⚠️ Risk',
-                                 delta_color='normal' if ok else 'inverse')
-            if any(c.startswith('forward_return') for c in co_all.columns):
-                fwd = co_all[co_all['period_type'] == 'annual'][['fiscal_year', 'forward_return_1y']].dropna()
+                                 delta_color='normal' if ok else 'inverse',
+                                 help=_help)
+            if 'composite_score' in row.index and pd.notna(row.get('composite_score')):
+                rc4.metric('Composite Score',
+                           f'{int(round(row["composite_score"] * 100))}/100',
+                           help='Percentile rank across value, quality, momentum, fraud safety, ML')
+
+            # ── Live price chart (yfinance) ───────────────────────────────────
+            with st.expander('📈 Price Chart (last 2 years)', expanded=True):
+                try:
+                    import yfinance as yf
+                    hist = yf.Ticker(selected_ticker).history(period='2y', auto_adjust=True)
+                    if not hist.empty:
+                        fig_price = go.Figure()
+                        fig_price.add_trace(go.Candlestick(
+                            x=hist.index,
+                            open=hist['Open'], high=hist['High'],
+                            low=hist['Low'],   close=hist['Close'],
+                            name=selected_ticker,
+                            increasing_line_color='#4CAF50',
+                            decreasing_line_color='#F44336',
+                        ))
+                        fig_price.update_layout(
+                            title=f'{selected_ticker} — 2-Year Price History',
+                            xaxis_title='Date', yaxis_title='Price (USD)',
+                            height=360, margin=dict(l=0, r=0, t=40, b=0),
+                            xaxis_rangeslider_visible=False,
+                            template='plotly_dark',
+                        )
+                        st.plotly_chart(fig_price, use_container_width=True)
+                    else:
+                        st.info('No price data available for this ticker.')
+                except Exception as e:
+                    st.warning(f'Could not load price chart: {e}')
+
+            # ── Fundamental trends ────────────────────────────────────────────
+            fin_cols = [c for c in ['revenue', 'gross_profit', 'operating_income',
+                                    'net_income', 'operating_cash_flow'] if c in co_ann.columns]
+            if fin_cols and len(co_ann) > 1:
+                with st.expander('📊 Fundamental Trends', expanded=True):
+                    tab_f1, tab_f2, tab_f3 = st.tabs(['Income', 'Balance Sheet', 'Margins'])
+
+                    with tab_f1:
+                        income_cols = [c for c in ['revenue', 'gross_profit',
+                                                    'operating_income', 'net_income'] if c in co_ann.columns]
+                        if income_cols:
+                            fig_inc = go.Figure()
+                            for col in income_cols:
+                                vals = co_ann[col].fillna(0) / 1e6
+                                fig_inc.add_trace(go.Bar(
+                                    x=co_ann['fiscal_year'], y=vals,
+                                    name=col.replace('_', ' ').title(),
+                                ))
+                            fig_inc.update_layout(
+                                barmode='group', height=320,
+                                yaxis_title='USD Million',
+                                legend=dict(orientation='h', y=-0.25),
+                                margin=dict(l=0, r=0, t=10, b=0),
+                                template='plotly_dark',
+                            )
+                            st.plotly_chart(fig_inc, use_container_width=True)
+
+                    with tab_f2:
+                        bs_cols = [c for c in ['total_assets', 'equity',
+                                                'total_debt'] if c in co_ann.columns]
+                        if bs_cols:
+                            fig_bs = go.Figure()
+                            for col in bs_cols:
+                                vals = co_ann[col].fillna(0) / 1e6
+                                fig_bs.add_trace(go.Scatter(
+                                    x=co_ann['fiscal_year'], y=vals,
+                                    name=col.replace('_', ' ').title(),
+                                    mode='lines+markers',
+                                ))
+                            fig_bs.update_layout(
+                                height=320, yaxis_title='USD Million',
+                                legend=dict(orientation='h', y=-0.25),
+                                margin=dict(l=0, r=0, t=10, b=0),
+                                template='plotly_dark',
+                            )
+                            st.plotly_chart(fig_bs, use_container_width=True)
+
+                    with tab_f3:
+                        margin_cols = [c for c in ['gross_margin', 'operating_margin',
+                                                    'net_margin', 'roe', 'roa'] if c in co_ann.columns]
+                        if margin_cols:
+                            fig_mar = go.Figure()
+                            for col in margin_cols:
+                                fig_mar.add_trace(go.Scatter(
+                                    x=co_ann['fiscal_year'],
+                                    y=co_ann[col] * 100,
+                                    name=col.replace('_', ' ').title(),
+                                    mode='lines+markers',
+                                ))
+                            fig_mar.add_hline(y=0, line_dash='dash', line_color='gray')
+                            fig_mar.update_layout(
+                                height=320, yaxis_title='%',
+                                legend=dict(orientation='h', y=-0.25),
+                                margin=dict(l=0, r=0, t=10, b=0),
+                                template='plotly_dark',
+                            )
+                            st.plotly_chart(fig_mar, use_container_width=True)
+
+            # ── Forward return history ────────────────────────────────────────
+            if 'forward_return_1y' in co_ann.columns:
+                fwd = co_ann[['fiscal_year', 'forward_return_1y']].dropna()
                 if not fwd.empty:
-                    import matplotlib.pyplot as plt
-                    st.markdown('**Forward Return History (1y)**')
-                    fig, ax = plt.subplots(figsize=(10, 3))
-                    colors  = ['#4CAF50' if v >= 0 else '#F44336' for v in fwd['forward_return_1y']]
-                    ax.bar(fwd['fiscal_year'], fwd['forward_return_1y'] * 100, color=colors, edgecolor='white')
-                    ax.axhline(0, color='gray', lw=0.8)
-                    ax.set_ylabel('1y Return (%)')
-                    ax.set_title(f'{selected_ticker} — Annual 1-Year Forward Return')
-                    ax.grid(axis='y', alpha=0.3)
-                    st.pyplot(fig, use_container_width=True)
-                    plt.close()
+                    with st.expander('📅 Forward Return History (1y)', expanded=False):
+                        colors = ['#4CAF50' if v >= 0 else '#F44336'
+                                  for v in fwd['forward_return_1y']]
+                        fig_fwd = go.Figure(go.Bar(
+                            x=fwd['fiscal_year'],
+                            y=fwd['forward_return_1y'] * 100,
+                            marker_color=colors,
+                        ))
+                        fig_fwd.add_hline(y=0, line_color='gray', line_width=1)
+                        fig_fwd.update_layout(
+                            yaxis_title='1-Year Return (%)', height=280,
+                            margin=dict(l=0, r=0, t=10, b=0),
+                            template='plotly_dark',
+                        )
+                        st.plotly_chart(fig_fwd, use_container_width=True)
 
     with st.expander('📊 Dataset Overview Charts', expanded=False):
         import matplotlib.pyplot as plt
@@ -615,6 +918,205 @@ def tab_strategies() -> None:
         st.info('No strategy CSVs found. Click **Run / Refresh Strategies** above.')
 
 
+# ── User Guide ────────────────────────────────────────────────────────────────
+
+def tab_guide() -> None:
+    st.title('📖 User Guide')
+    st.markdown(
+        'This guide explains every score, metric, and filter in the screener, '
+        'and walks through how to use the tool for systematic stock research.'
+    )
+
+    with st.expander('🔍 What is this tool?', expanded=True):
+        st.markdown("""
+This is a **multi-market stock fraud and value screener** covering US, Canadian, European,
+Japanese, and Brazilian listed companies. It combines:
+
+- **Fundamental accounting data** from SEC EDGAR (annual filings)
+- **Fraud-risk signals** using academic models (Beneish, Altman, Piotroski)
+- **Machine learning scores** trained on historical forward returns
+- **A composite ranking** that blends value, quality, momentum, safety, and ML signals
+
+The goal is to surface **high-quality, undervalued, low-fraud-risk** companies across global markets
+— useful for long-term fundamental investors, not day traders.
+        """)
+
+    with st.expander('📊 Composite Score (0–100)', expanded=True):
+        st.markdown("""
+The **Composite Score** is the main ranking number. It runs from **0 to 100**, where **100 is best**.
+
+It is a weighted percentile rank across five components:
+
+| Component | Weight | Higher is better when… |
+|---|---|---|
+| **Value** | 25% | P/E and P/B are low (cheap stock) |
+| **Quality** | 20% | Piotroski F-Score is high (strong fundamentals) |
+| **Momentum** | 20% | 12-month price return is high |
+| **Fraud Safety** | 20% | Beneish M-Score is low (less earnings manipulation risk) |
+| **ML Alpha** | 15% | ML model predicts strong 1-year forward return |
+
+If a component is missing for a ticker, the remaining weights are rescaled to sum to 100%.
+
+**How to use it:** Sort descending and look at scores above 70 as the starting pool.
+Do not use the score alone — read the individual signals to understand *why* a company ranks high.
+        """)
+
+    with st.expander('🚨 Beneish M-Score (Earnings Manipulation Risk)'):
+        st.markdown("""
+The **Beneish M-Score** is an accounting model that estimates the probability of earnings
+manipulation. It was developed by Professor Messod Beneish in 1999.
+
+**Interpretation:**
+- **M-Score > −1.78** → Possible manipulator — treat with caution
+- **M-Score < −2.22** → Unlikely manipulator — lower risk
+- Values in between are a grey zone
+
+The score is built from eight financial ratios measuring changes in receivables, gross margins,
+asset quality, sales growth, depreciation, leverage, and accruals.
+
+**What it does NOT catch:** Fraud that doesn't show up in GAAP accounting (e.g. off-balance-sheet
+vehicles, crypto asset manipulation). It is a signal, not a verdict.
+        """)
+
+    with st.expander('🏦 Altman Z-Score (Bankruptcy Risk)'):
+        st.markdown("""
+The **Altman Z-Score** predicts the probability of a company going bankrupt within two years.
+It was developed by Edward Altman in 1968 and is still widely used.
+
+**Interpretation (original manufacturing model):**
+- **Z > 2.99** → Safe zone
+- **1.81 < Z < 2.99** → Grey zone
+- **Z < 1.81** → Distress zone — significant bankruptcy risk
+
+Note: the thresholds differ for non-manufacturing and emerging-market companies. The screener
+uses the original model for all companies — treat the thresholds as directional, not absolute.
+
+**What to do with a low Z-Score:** Dig into leverage ratios, interest coverage, and cash runway.
+A low Z-Score in a capital-intensive industry (utilities, real estate) is normal; in tech it is a warning.
+        """)
+
+    with st.expander('✅ Piotroski F-Score (Fundamental Quality)'):
+        st.markdown("""
+The **Piotroski F-Score** (0–9) is a checklist of nine binary signals across three categories:
+
+| Category | Signals |
+|---|---|
+| **Profitability** (4 pts) | ROA > 0, Operating cash flow > 0, ROA improving, Cash flow > net income (accruals) |
+| **Leverage & Liquidity** (3 pts) | Debt ratio falling, Current ratio rising, No dilution |
+| **Operating Efficiency** (2 pts) | Gross margin improving, Asset turnover improving |
+
+**Interpretation:**
+- **8–9** → Strong fundamentals
+- **5–7** → Average
+- **0–2** → Weak — potential value trap or distress
+
+**How to use it:** Pair with a low P/B ratio. Piotroski's original paper showed buying high-F-Score,
+low P/B stocks outperformed the market by ~7.5% annually (1976–1996).
+        """)
+
+    with st.expander('🤖 ML Score (Machine Learning Alpha)'):
+        st.markdown("""
+The **ML Score** is the probability output of a LightGBM gradient-boosting model trained to
+predict whether a company will be in the **top quartile of 1-year forward returns** given its
+current fundamentals.
+
+- Range: **0.0 to 1.0** (higher = model thinks this company will outperform)
+- The model uses ~35 engineered features covering profitability, leverage, growth, valuation,
+  and accounting quality — selected by IC/ICIR analysis to keep only stable, non-redundant predictors
+- It is trained on historical annual filings with labels derived from actual price returns
+
+**Caveats:**
+- The model is trained on past data — regime changes may reduce accuracy
+- It is better used as a ranking signal than as an absolute probability
+- Always cross-check with Beneish and Piotroski before acting on a high ML score
+        """)
+
+    with st.expander('💰 Dividend Metrics'):
+        st.markdown("""
+Dividend data is fetched from Yahoo Finance and linked to each ticker.
+
+| Field | Meaning |
+|---|---|
+| **Dividend Yield %** | Annual dividend / current price |
+| **Annual Rate $** | Total dividends paid per share per year |
+| **Payout Ratio %** | Dividends as % of earnings. >100% may be unsustainable |
+| **Ex-Dividend Date** | You must own the stock before this date to receive the next dividend |
+
+These are live data points and may differ slightly from the annual filing data used in scoring.
+        """)
+
+    with st.expander('🏭 GICS Sector Filter'):
+        st.markdown("""
+Companies are classified using the **Global Industry Classification Standard (GICS)**,
+maintained by MSCI and S&P Global. The screener fetches this from Yahoo Finance.
+
+The 11 GICS sectors are:
+`Communication Services`, `Consumer Discretionary`, `Consumer Staples`, `Energy`,
+`Financials`, `Health Care`, `Industrials`, `Information Technology`,
+`Materials`, `Real Estate`, `Utilities`
+
+Use the sector filter in the sidebar to focus on industries you understand well, or to
+avoid sectors where the accounting models behave differently (e.g. Financials and Real Estate
+have different leverage norms — Altman Z-Score thresholds don't apply directly).
+        """)
+
+    with st.expander('📈 Strategies Tab'):
+        st.markdown("""
+The **Strategies tab** shows pre-built stock screens derived from academic factor literature:
+
+| Strategy | Logic |
+|---|---|
+| **QEM — Quality + Earnings Momentum** | High Piotroski F-Score + positive earnings revisions |
+| **SCDV — Small-Cap Deep Value** | Low P/B + low P/E + small market cap |
+| **IARB — International Arbitrage** | Undervalued in home market vs US-listed ADR peers |
+
+Strategies are generated by running `python3 run_pipeline.py features` and saved as CSVs.
+You can download each strategy list directly from the Strategies tab.
+        """)
+
+    with st.expander('⭐ Watchlist & Alerts'):
+        st.markdown("""
+The **Watchlist tab** lets you save tickers for ongoing monitoring.
+
+- Add a ticker using the input box — it will be saved to `data/watchlist.json`
+- Live prices are fetched from Yahoo Finance when you view the watchlist
+- Alerts (price thresholds, score changes) are planned for a future release
+
+**Tip:** Add tickers you've researched and want to track over multiple quarters.
+Compare the Composite Score across annual reporting periods to see if fundamentals are improving.
+        """)
+
+    with st.expander('🔄 Data Refresh'):
+        st.markdown("""
+The sidebar **Data Refresh** panel lets you update the underlying dataset:
+
+| Mode | What it does | Estimated time |
+|---|---|---|
+| **Quick** | Re-computes features from existing data (no API calls) | ~5 min |
+| **Prices** | Re-pulls Yahoo Finance prices + recomputes features | ~30–60 min |
+| **Full** | Full rebuild from SEC EDGAR (all filings) + prices | Several hours |
+
+Run **Quick** after changing feature engineering code.
+Run **Prices** monthly to update forward return calculations.
+Run **Full** annually or after a major EDGAR data update.
+        """)
+
+    with st.expander('⚠️ Important Disclaimers'):
+        st.markdown("""
+**This tool is for research and educational purposes only. It is not financial advice.**
+
+- Scores and rankings are based on historical accounting data, which may be restated or delayed
+- The ML model is trained on past relationships that may not hold in the future
+- Beneish and Altman scores are probabilistic signals, not auditor opinions
+- No score replaces thorough fundamental research, reading actual filings, and understanding a business
+- Past outperformance of any factor does not guarantee future results
+- Always consult a qualified financial professional before making investment decisions
+
+**Data sources:** SEC EDGAR (financial statements), Yahoo Finance (prices, sectors, dividends),
+FRED (macroeconomic context)
+        """)
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main() -> None:
@@ -629,11 +1131,15 @@ def main() -> None:
         df_all = load_data()
     models, meta = load_models()
 
-    tab1, tab2, tab3, tab4 = st.tabs([
+    with st.sidebar:
+        _sidebar_refresh()
+
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
         '📊 Screener',
         '📈 Backtester',
         '⭐ Watchlist',
         '🎯 Strategies',
+        '📖 User Guide',
     ])
 
     with tab1:
@@ -644,6 +1150,8 @@ def main() -> None:
         tab_watchlist()
     with tab4:
         tab_strategies()
+    with tab5:
+        tab_guide()
 
 
 if __name__ == '__main__':

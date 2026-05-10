@@ -1,0 +1,14 @@
+{
+  "AAPL": {
+    "added": "2026-05-10",
+    "above": 220.0,
+    "below": 170.0,
+    "note": "QEM pick"
+  },
+  "MSFT": {
+    "added": "2026-05-10",
+    "above": 450.0,
+    "below": null,
+    "note": "test"
+  }
+}

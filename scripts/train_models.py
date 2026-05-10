@@ -1,24 +1,53 @@
 """
 Train and save ML models (1y / 3y / 5y) from historical_dataset_clean.parquet.
-Produces models/model_{h}.joblib + models/model_meta.json.
+
+Temporal split (no data leakage):
+  train  : fiscal_year <= TRAIN_CUTOFF  (default 2021)
+  val    : TRAIN_CUTOFF < fiscal_year <= VAL_END  (default 2022–2023)
+  test   : fiscal_year > VAL_END  (default 2024+)
+
+Feature selection pipeline (on TRAIN split only):
+  1. IC analysis (Spearman rank correlation with forward returns, year-by-year)
+  2. Select top-N by |ICIR| (IC / StdIC) — keeps consistent, stable predictors
+  3. Drop near-duplicate features (Spearman corr > 0.90 within the top set)
+  4. Train LightGBM classifier to predict top-quartile forward returns
+
+Output: models/model_{h}.joblib + models/model_meta.json
+         reports/feature_importance_{h}.csv
+
+Usage:
+    python3 scripts/train_models.py
+    python3 scripts/train_models.py --top-n 50    # allow more features
+    python3 scripts/train_models.py --no-dedup    # skip correlation pruning
+    python3 scripts/train_models.py --train-cutoff 2020  # earlier cutoff
 """
 from __future__ import annotations
+
+import argparse
 import json
 import warnings
 warnings.filterwarnings('ignore')
 
 import joblib
+import lightgbm as lgb
 import numpy as np
 import pandas as pd
-import xgboost as xgb
 from pathlib import Path
 from scipy import stats
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 
 BASE       = Path(__file__).parent.parent
 DATA_PATH  = BASE / 'data' / 'historical_dataset_clean.parquet'
 MODELS_DIR = BASE / 'models'
+REPORTS    = BASE / 'reports'
 MODELS_DIR.mkdir(exist_ok=True)
+REPORTS.mkdir(exist_ok=True)
+
+TRAIN_CUTOFF = 2021   # last fiscal year included in training
+VAL_END      = 2023   # val = (TRAIN_CUTOFF, VAL_END]; test = > VAL_END
 
 HORIZONS = {
     '1y': ('forward_return_1y', 'beat_local_market_1y'),
@@ -27,12 +56,50 @@ HORIZONS = {
 }
 
 EXCLUDE = {
+    # identifiers & metadata
     'cik', 'ticker', 'name', 'filed_date', 'fiscal_year', 'fiscal_quarter',
     'period_type', 'exchange', 'sic_code', 'sic_description', 'market',
     'country', 'accounting_std', 'size_category_label', 'corp_code', 'acc_mt',
+    # raw dollar amounts — size-contaminated; normalised versions used instead
+    'revenue', 'net_income', 'gross_profit', 'operating_income', 'pretax_income',
+    'cogs', 'sga_expense', 'rd_expense', 'depreciation', 'da_expense',
+    'operating_cash_flow', 'financing_cash_flow', 'investing_cash_flow',
+    'capex', 'fcf',
+    'long_term_debt', 'short_term_debt', 'total_debt',
+    'total_assets', 'total_equity', 'current_assets', 'current_liabilities',
+    'accounts_receivable', 'accounts_payable', 'receivables',
+    'cash', 'intangibles', 'goodwill', 'ppe_net', 'noa',
+    'market_cap_at_filing', 'tax_expense', 'interest_expense',
+    'common_shares_outstanding', 'eps_diluted', 'eps_basic',
+    'retained_earnings', 'additional_paid_in_capital', 'inventory',
 }
 EXCLUDE_PATTERNS = ['forward_return', 'beat_local_market', 'excess_return_local',
                     'benchmark_return']
+
+
+def _add_normalised_ratios(df: pd.DataFrame) -> pd.DataFrame:
+    """Add normalised versions of raw dollar features to remove size contamination."""
+    ta  = df.get('total_assets')
+    pti = df.get('pretax_income')
+
+    if ta is not None:
+        ta_safe = ta.replace(0, np.nan)
+        for src, dst in [
+            ('intangibles',         'intangibles_to_assets'),
+            ('goodwill',            'goodwill_to_assets'),
+            ('depreciation',        'depreciation_to_assets'),
+            ('financing_cash_flow', 'financing_cashflow_to_assets'),
+            ('fcf',                 'fcf_to_assets'),
+        ]:
+            if src in df.columns and dst not in df.columns:
+                df[dst] = df[src] / ta_safe
+
+    if 'tax_expense' in df.columns and pti is not None and 'effective_tax_rate' not in df.columns:
+        pos = pti > 0
+        df['effective_tax_rate'] = np.nan
+        df.loc[pos, 'effective_tax_rate'] = df.loc[pos, 'tax_expense'] / pti[pos]
+
+    return df
 
 
 def load_data() -> pd.DataFrame:
@@ -51,7 +118,6 @@ def load_data() -> pd.DataFrame:
         if col in df.columns:
             df[col] = df[col].clip(-1.0, 5.0)
 
-    # Piotroski extensions
     ann = df.sort_values(['ticker', 'fiscal_year'])
     for src, name in [
         ('shares_outstanding', 'piotroski_shares_ok'),
@@ -63,14 +129,15 @@ def load_data() -> pd.DataFrame:
                 lambda x: (x <= x.shift(1)).astype(float) if src == 'shares_outstanding'
                 else (x > x.shift(1)).astype(float)
             )
-    extra_cols = [c for c in ['piotroski_shares_ok', 'piotroski_delta_gm', 'piotroski_delta_at'] if c in df.columns]
-    if extra_cols and 'piotroski_f_score' in df.columns:
-        df['piotroski_f_score_9'] = df['piotroski_f_score'].astype('float64') + df[extra_cols].sum(axis=1, min_count=1)
+    extra = [c for c in ['piotroski_shares_ok', 'piotroski_delta_gm', 'piotroski_delta_at'] if c in df.columns]
+    if extra and 'piotroski_f_score' in df.columns:
+        df['piotroski_f_score_9'] = df['piotroski_f_score'].astype('float64') + df[extra].sum(axis=1, min_count=1)
 
+    df = _add_normalised_ratios(df)
     return df.reset_index(drop=True)
 
 
-def get_all_features(df: pd.DataFrame) -> list[str]:
+def get_candidates(df: pd.DataFrame) -> list[str]:
     return [
         c for c in df.columns
         if c not in EXCLUDE
@@ -80,7 +147,8 @@ def get_all_features(df: pd.DataFrame) -> list[str]:
     ]
 
 
-def compute_ic_table(df: pd.DataFrame, features: list[str], return_col: str) -> pd.DataFrame:
+def compute_ic_table(df: pd.DataFrame, features: list[str], return_col: str,
+                     sector_neutral: bool = False) -> pd.DataFrame:
     years = sorted(df['fiscal_year'].unique())
     sub_all = df[df[return_col].notna()]
     records = []
@@ -91,13 +159,25 @@ def compute_ic_table(df: pd.DataFrame, features: list[str], return_col: str) -> 
             grp = sub[sub['fiscal_year'] == yr]
             if len(grp) < 30:
                 continue
-            corr, _ = stats.spearmanr(grp[feat], grp[return_col])
+            if sector_neutral and 'sic_code' in grp.columns:
+                ic_vals = []
+                for _, sec_grp in grp.groupby('sic_code'):
+                    if len(sec_grp) < 5:
+                        continue
+                    c, _ = stats.spearmanr(sec_grp[feat], sec_grp[return_col])
+                    if not np.isnan(c):
+                        ic_vals.append(c)
+                if not ic_vals:
+                    continue
+                corr = float(np.mean(ic_vals))
+            else:
+                corr, _ = stats.spearmanr(grp[feat], grp[return_col])
             if not np.isnan(corr):
                 ics.append(corr)
         if not ics:
             continue
         mean_ic = np.mean(ics)
-        std_ic = np.std(ics) + 1e-8
+        std_ic  = np.std(ics) + 1e-8
         records.append({
             'feature':         feat,
             'mean_ic':         mean_ic,
@@ -107,84 +187,204 @@ def compute_ic_table(df: pd.DataFrame, features: list[str], return_col: str) -> 
             'pct_positive_ic': np.mean([ic > 0 for ic in ics]),
         })
     return (pd.DataFrame(records).set_index('feature')
-              .sort_values('mean_ic', key=abs, ascending=False))
+              .sort_values('icir', key=abs, ascending=False))
 
 
-def train_model(df: pd.DataFrame, features: list[str], beat_col: str) -> tuple:
-    sub = df[df[beat_col].notna()].copy()
+def deduplicate_features(df: pd.DataFrame, features: list[str], corr_threshold: float = 0.90) -> list[str]:
+    """Drop features that are near-duplicates (|Spearman corr| > threshold).
+    Keeps the feature that appears earlier in `features` (i.e. higher ICIR rank).
+    """
+    sub = df[features].copy()
+    kept = []
+    dropped_by = {}
+    def _corr(a: pd.Series, b: pd.Series) -> float:
+        common = a.notna() & b.notna()
+        if common.sum() < 50:
+            return 0.0
+        return abs(stats.spearmanr(a[common], b[common])[0])
+
+    for feat in features:
+        if any(_corr(sub[feat], sub[k]) > corr_threshold for k in kept):
+            dropped_by[feat] = True
+        else:
+            kept.append(feat)
+    print(f'    Dedup: {len(features)} → {len(kept)} (removed {len(features)-len(kept)} near-duplicates)')
+    return kept
+
+
+def train_model(df_train: pd.DataFrame, features: list[str], beat_col: str) -> tuple:
+    sub = df_train[df_train[beat_col].notna()].copy()
     feats = [f for f in features if f in sub.columns]
-    X = sub[feats].fillna(sub[feats].median())
+    train_medians = sub[feats].median().to_dict()
+    X = sub[feats].fillna(pd.Series(train_medians))
     y = sub[beat_col].astype(int)
 
-    scale_pos = (y == 0).sum() / max((y == 1).sum(), 1)
-    clf = xgb.XGBClassifier(
-        n_estimators=300, max_depth=5, learning_rate=0.05,
-        subsample=0.8, colsample_bytree=0.7,
-        scale_pos_weight=scale_pos,
-        min_child_weight=20, random_state=42, n_jobs=-1,
-        eval_metric='logloss', verbosity=0,
+    pos = int((y == 1).sum())
+    neg = int((y == 0).sum())
+    clf = lgb.LGBMClassifier(
+        n_estimators=400,
+        max_depth=5,
+        learning_rate=0.04,
+        num_leaves=31,
+        subsample=0.8,
+        colsample_bytree=0.7,
+        min_child_samples=30,
+        scale_pos_weight=neg / max(pos, 1),
+        random_state=42,
+        n_jobs=-1,
+        verbose=-1,
     )
     clf.fit(X, y)
-    return clf, feats, y
+    return clf, feats, y, train_medians
 
 
-def main():
+def feature_importance_df(clf: lgb.LGBMClassifier, feats: list[str]) -> pd.DataFrame:
+    imp = clf.feature_importances_
+    return (pd.DataFrame({'feature': feats, 'importance': imp})
+              .sort_values('importance', ascending=False)
+              .reset_index(drop=True))
+
+
+def train_baseline(df_train: pd.DataFrame, features: list[str], beat_col: str,
+                   train_medians: dict) -> Pipeline:
+    sub = df_train[df_train[beat_col].notna()].copy()
+    feats = [f for f in features if f in sub.columns]
+    X = sub[feats].fillna(pd.Series(train_medians))
+    y = sub[beat_col].astype(int)
+    pipe = Pipeline([
+        ('scaler', StandardScaler()),
+        ('lr', LogisticRegression(max_iter=1000, class_weight='balanced',
+                                  solver='lbfgs', random_state=42, C=0.1)),
+    ])
+    pipe.fit(X, y)
+    return pipe
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--top-n', type=int, default=40,
+                        help='Max features per horizon after IC ranking (default: 40)')
+    parser.add_argument('--no-dedup', action='store_true',
+                        help='Skip correlation-based deduplication')
+    parser.add_argument('--min-ic', type=float, default=0.02,
+                        help='Minimum |mean IC| to enter candidate set (default: 0.02)')
+    parser.add_argument('--sector-neutral', action='store_true',
+                        help='Compute IC within SIC sectors (sector-neutral IC)')
+    parser.add_argument('--train-cutoff', type=int, default=TRAIN_CUTOFF,
+                        help=f'Last fiscal_year in training set (default: {TRAIN_CUTOFF})')
+    parser.add_argument('--val-end', type=int, default=VAL_END,
+                        help=f'Last fiscal_year in validation set (default: {VAL_END})')
+    args = parser.parse_args()
+
+    train_cutoff = args.train_cutoff
+    val_end      = args.val_end
+
     print('Loading data...')
     df = load_data()
     print(f'  {len(df):,} annual rows | {df["ticker"].nunique():,} companies')
 
+    df_train = df[df['fiscal_year'] <= train_cutoff].copy()
+    df_val   = df[(df['fiscal_year'] > train_cutoff) & (df['fiscal_year'] <= val_end)].copy()
+    df_test  = df[df['fiscal_year'] > val_end].copy()
+    print(f'  Train : fiscal_year <= {train_cutoff} → {len(df_train):,} rows')
+    print(f'  Val   : {train_cutoff+1}–{val_end} → {len(df_val):,} rows')
+    print(f'  Test  : > {val_end} → {len(df_test):,} rows')
+
     print('Computing feature candidates...')
-    all_features = get_all_features(df)
+    all_features = get_candidates(df_train)
     print(f'  {len(all_features)} candidates')
 
-    print('Running IC analysis (2–4 min)...')
+    print(f'\nRunning IC analysis on train split (2–4 min)...')
     ic_tables = {}
     for h, (ret_col, _) in HORIZONS.items():
         print(f'  {h}...', end=' ', flush=True)
-        ic_tables[h] = compute_ic_table(df, all_features, ret_col)
-        n_sig = (ic_tables[h]['mean_ic'].abs() > 0.02).sum()
-        print(f'{n_sig} features with |IC|>0.02')
+        ic_tables[h] = compute_ic_table(df_train, all_features, ret_col,
+                                         sector_neutral=args.sector_neutral)
+        ic_tables[h].to_csv(REPORTS / f'ic_table_{h}.csv')
+        n_sig = (ic_tables[h]['mean_ic'].abs() > args.min_ic).sum()
+        print(f'{len(ic_tables[h])} computed | {n_sig} with |IC|>{args.min_ic}')
 
     selected_features = {}
     for h in HORIZONS:
         tbl = ic_tables[h]
-        mask = (tbl['mean_ic'].abs() > 0.02) | (tbl['icir'].abs() > 0.50)
-        selected_features[h] = list(tbl[mask].index)
-        print(f'  {h}: {len(selected_features[h])} features selected')
+        candidates = tbl[tbl['mean_ic'].abs() > args.min_ic].index.tolist()
+        top_n = candidates[:args.top_n]
+        print(f'\n  {h}: {len(candidates)} pass |IC|>{args.min_ic} → keeping top {len(top_n)} by ICIR')
 
-    print('\nTraining models...')
+        if not args.no_dedup:
+            top_n = deduplicate_features(df_train, top_n, corr_threshold=0.90)
+
+        selected_features[h] = top_n
+        print(f'    Final: {len(top_n)} features')
+        print(f'    Top 10: {", ".join(top_n[:10])}')
+
+    print('\nTraining LightGBM models...')
     model_meta = {}
     for h, (ret_col, beat_col) in HORIZONS.items():
         print(f'  {h}...', end=' ', flush=True)
-        clf, feats, y = train_model(df, selected_features[h], beat_col)
+        clf, feats, y_train, train_medians = train_model(df_train, selected_features[h], beat_col)
 
-        # Quick OOS AUC on last 2 years
-        sub = df[df[beat_col].notna()].copy()
-        feats_avail = [f for f in feats if f in sub.columns]
-        test = sub[sub['fiscal_year'] >= sub['fiscal_year'].max() - 1]
-        if len(test) > 50:
-            X_test = test[feats_avail].fillna(test[feats_avail].median())
-            y_test = test[beat_col].astype(int)
-            oos_auc = roc_auc_score(y_test, clf.predict_proba(X_test)[:, 1])
-        else:
-            oos_auc = float('nan')
+        def _eval_split(split_df: pd.DataFrame) -> float:
+            sub = split_df[split_df[beat_col].notna()].copy()
+            feats_avail = [f for f in feats if f in sub.columns]
+            if len(sub) < 30 or sub[beat_col].nunique() < 2:
+                return float('nan')
+            X = sub[feats_avail].fillna(pd.Series(train_medians))
+            y = sub[beat_col].astype(int)
+            return roc_auc_score(y, clf.predict_proba(X)[:, 1])
 
-        path = MODELS_DIR / f'model_{h}.joblib'
-        joblib.dump(clf, path)
+        val_auc  = _eval_split(df_val)
+        test_auc = _eval_split(df_test)
+
+        # Logistic regression baseline (same features, same split, same medians)
+        lr_pipe = train_baseline(df_train, feats, beat_col, train_medians)
+
+        def _eval_baseline(split_df: pd.DataFrame) -> float:
+            sub = split_df[split_df[beat_col].notna()].copy()
+            feats_avail = [f for f in feats if f in sub.columns]
+            if len(sub) < 30 or sub[beat_col].nunique() < 2:
+                return float('nan')
+            X = sub[feats_avail].fillna(pd.Series(train_medians))
+            y = sub[beat_col].astype(int)
+            return roc_auc_score(y, lr_pipe.predict_proba(X)[:, 1])
+
+        lr_val_auc  = _eval_baseline(df_val)
+        lr_test_auc = _eval_baseline(df_test)
+
+        joblib.dump(clf,     MODELS_DIR / f'model_{h}.joblib')
+        joblib.dump(lr_pipe, MODELS_DIR / f'baseline_lr_{h}.joblib')
+        imp_df = feature_importance_df(clf, feats)
+        imp_df.to_csv(REPORTS / f'feature_importance_{h}.csv', index=False)
+
         model_meta[h] = {
-            'features': feats,
-            'ret_col':  ret_col,
-            'beat_col': beat_col,
-            'n_train':  int(len(y)),
-            'pos_rate': float(y.mean()),
-            'oos_auc':  round(oos_auc, 4),
+            'features':       feats,
+            'ret_col':        ret_col,
+            'beat_col':       beat_col,
+            'train_cutoff':   train_cutoff,
+            'val_end':        val_end,
+            'sector_neutral': args.sector_neutral,
+            'n_train':        int(len(y_train)),
+            'pos_rate':       float(y_train.mean()),
+            'val_auc':        round(val_auc,   4),
+            'test_auc':       round(test_auc,  4),
+            'lr_val_auc':     round(lr_val_auc,  4),
+            'lr_test_auc':    round(lr_test_auc, 4),
+            'train_medians':  train_medians,
         }
-        print(f'saved ({len(feats)} features, {len(y):,} rows, OOS AUC={oos_auc:.3f})')
+        print(f'done ({len(feats)} features, {len(y_train):,} rows, '
+              f'LGBM val={val_auc:.3f}/test={test_auc:.3f} | '
+              f'LR val={lr_val_auc:.3f}/test={lr_test_auc:.3f})')
 
-    meta_path = MODELS_DIR / 'model_meta.json'
-    meta_path.write_text(json.dumps(model_meta, indent=2))
-    print(f'\nAll models saved to {MODELS_DIR}/')
-    print(f'Meta: {meta_path}')
+    (MODELS_DIR / 'model_meta.json').write_text(json.dumps(model_meta, indent=2))
+    print(f'\nAll models saved → {MODELS_DIR}/')
+    print(f'IC tables + importance reports → {REPORTS}/')
+
+    print('\n── Summary ─────────────────────────────────')
+    print(f'  {"Horizon":<6}  {"LGBM val":>9}  {"LGBM test":>10}  {"LR val":>8}  {"LR test":>9}')
+    for h in HORIZONS:
+        m = model_meta[h]
+        print(f'  {h:<6}  {m["val_auc"]:>9.4f}  {m["test_auc"]:>10.4f}  '
+              f'{m["lr_val_auc"]:>8.4f}  {m["lr_test_auc"]:>9.4f}')
 
 
 if __name__ == '__main__':
