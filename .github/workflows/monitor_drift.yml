@@ -1,0 +1,97 @@
+name: Model Drift Monitor
+
+on:
+  schedule:
+    # Run weekly on Mondays at 07:00 UTC
+    - cron: '0 7 * * 1'
+  workflow_dispatch:
+    inputs:
+      window_year:
+        description: 'Fiscal year to use as monitoring window (leave blank for latest)'
+        required: false
+        default: ''
+
+jobs:
+  drift-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Download latest dataset from HuggingFace
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python3 -c "
+          from huggingface_hub import hf_hub_download
+          import os
+          path = hf_hub_download(
+            repo_id='mhoque/stock-fraud-screener',
+            filename='historical_dataset_clean.parquet',
+            repo_type='dataset',
+            token=os.environ.get('HF_TOKEN')
+          )
+          import shutil
+          shutil.copy(path, 'data/historical_dataset_clean.parquet')
+          print('Dataset downloaded')
+          " || echo "Dataset download skipped (no HF_TOKEN or repo not found)"
+
+      - name: Download models from HuggingFace
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python3 -c "
+          from huggingface_hub import hf_hub_download
+          import os, shutil
+          for fname in ['model_1y.joblib','model_3y.joblib','model_5y.joblib','model_meta.json']:
+            try:
+              path = hf_hub_download(
+                repo_id='mhoque/stock-fraud-screener',
+                filename=fname,
+                repo_type='model',
+                token=os.environ.get('HF_TOKEN')
+              )
+              shutil.copy(path, f'models/{fname}')
+            except Exception as e:
+              print(f'Skipped {fname}: {e}')
+          " || echo "Model download skipped"
+
+      - name: Run drift monitor
+        id: drift
+        run: |
+          WINDOW_ARG=""
+          if [ -n "${{ github.event.inputs.window_year }}" ]; then
+            WINDOW_ARG="--window ${{ github.event.inputs.window_year }}"
+          fi
+          python3 scripts/monitor_drift.py $WINDOW_ARG || echo "DRIFT_ALERT=true" >> $GITHUB_OUTPUT
+
+      - name: Upload drift report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: drift-report
+          path: reports/drift_report.*
+          retention-days: 90
+
+      - name: Alert on drift
+        if: steps.drift.outputs.DRIFT_ALERT == 'true'
+        run: |
+          echo "::warning::Model drift detected — check drift_report artifact for details"
+          echo "Consider retraining: python3 scripts/train_models.py"
