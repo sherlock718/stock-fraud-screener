@@ -9,3 +9,5 @@ Technical reference for researchers and quants.
 - **[Factor Research](factor-research.md)** — IC/ICIR framework, decay analysis
 - **[Bias & Validation](bias-validation.md)** — look-ahead, survivorship, leakage audits
 - **[Leverage Strategy](leverage.md)** — long/short construction with Kelly sizing
+- **[Case Studies](case-studies.md)** — 10 documented fraud cases with pre-revelation quantitative signals
+- **[Benchmarking](benchmarking.md)** — AUC-ROC comparison of all models vs confirmed fraud labels

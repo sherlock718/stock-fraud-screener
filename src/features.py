@@ -83,4 +83,56 @@ _FEATURE_DESCRIPTIONS: dict[str, dict] = {
     'ev_ebitda':             {'label': 'EV / EBITDA',                'high_is': 'neutral', 'fmt': '.1f',  'desc': 'Enterprise value relative to operating earnings.'},
     'earnings_yield':        {'label': 'Earnings Yield',             'high_is': 'good',    'fmt': '.3f',  'desc': 'Inverse of P/E. A higher earnings yield signals potential value.'},
     'shares_dilution':       {'label': 'Share Dilution',             'high_is': 'bad',     'fmt': '.4f',  'desc': 'Change in diluted share count. Persistent dilution transfers value away from existing shareholders.'},
+    'shares_growth':         {'label': 'Share Count Growth',         'high_is': 'bad',     'fmt': '.4f',  'desc': 'YoY growth in shares outstanding. Rising share count signals ongoing dilution, often through equity issuance to fund losses.'},
+    'shares_outstanding':    {'label': 'Shares Outstanding',         'high_is': 'neutral', 'fmt': '.0f',  'desc': 'Total diluted shares outstanding. Used as a size control variable in cross-sectional models.'},
+    'log_revenue':           {'label': 'Revenue (log-scale)',        'high_is': 'neutral', 'fmt': '.2f',  'desc': 'Natural log of revenue. Used as a size control; large firms have structurally different fraud profiles.'},
+    'entry_price':           {'label': 'Price at Entry',             'high_is': 'neutral', 'fmt': '.2f',  'desc': 'Stock price at the time of the filing snapshot. Used for calculating per-share metrics.'},
+    # --- Efficiency & Cash Flow ---
+    'asset_turnover':        {'label': 'Asset Turnover',             'high_is': 'good',    'fmt': '.3f',  'desc': 'Revenue / total assets. Measures how efficiently the company generates sales from its asset base.'},
+    'cash_conversion':       {'label': 'Cash Conversion Cycle',      'high_is': 'neutral', 'fmt': '.1f',  'desc': 'Days inventory outstanding + days sales outstanding − days payable outstanding. Measures working capital efficiency.'},
+    'ocf_to_assets':         {'label': 'OCF / Total Assets',         'high_is': 'good',    'fmt': '.3f',  'desc': 'Operating cash flow scaled by total assets. A quality metric separating cash-generative from accrual-heavy businesses.'},
+    'ocf_to_debt':           {'label': 'OCF / Total Debt',           'high_is': 'good',    'fmt': '.3f',  'desc': 'Operating cash flow relative to total debt. Higher values indicate the company can service debt from operations.'},
+    'gross_profit_to_assets':{'label': 'Gross Profit / Assets',      'high_is': 'good',    'fmt': '.3f',  'desc': 'Gross profit scaled by total assets. A robust profitability measure that is harder to manipulate than net income.'},
+    'ocf_growth_yoy':        {'label': 'OCF Growth (YoY)',           'high_is': 'good',    'fmt': '.3f',  'desc': 'Year-on-year change in operating cash flow. Divergence from reported earnings growth is a red flag.'},
+    'net_income_growth_yoy': {'label': 'Net Income Growth (YoY)',    'high_is': 'neutral', 'fmt': '.3f',  'desc': 'Year-on-year change in net income. Should be compared against OCF growth; large gaps flag earnings quality issues.'},
+    'financing_cashflow_to_assets': {'label': 'Financing CFO / Assets', 'high_is': 'bad', 'fmt': '.3f',  'desc': 'Cash from financing activities scaled by total assets. Persistent reliance on financing for operations signals stress.'},
+    # --- Balance Sheet Composition ---
+    'goodwill_to_assets':    {'label': 'Goodwill / Total Assets',    'high_is': 'bad',     'fmt': '.3f',  'desc': 'Goodwill relative to total assets. High ratios indicate acquisition-heavy strategies where write-downs can mask past overvaluation.'},
+    'soft_assets_ratio':     {'label': 'Soft Assets Ratio',          'high_is': 'bad',     'fmt': '.3f',  'desc': '(Total assets − PP&E − cash) / total assets. Measures the proportion of assets that are easy to fabricate (goodwill, intangibles, receivables).'},
+    'total_liabilities':     {'label': 'Total Liabilities',          'high_is': 'neutral', 'fmt': '.0f',  'desc': 'Total reported liabilities. Used as a denominator in leverage ratios and as a size indicator.'},
+    'other_noncurrent_assets':{'label': 'Other Non-Current Assets',  'high_is': 'bad',     'fmt': '.0f',  'desc': 'Non-current assets that are not PP&E, goodwill, or investments. A catch-all that can conceal capitalised costs.'},
+    # --- Altman sub-components ---
+    'altman_x3':             {'label': 'Altman X3 (EBIT/Assets)',    'high_is': 'good',    'fmt': '.3f',  'desc': 'EBIT / total assets — the operating returns component of the Altman Z-Score. Declining X3 with stable reported EPS is a warning.'},
+    # --- Sector-relative percentiles ---
+    'altman_z_score_sector_pct':  {'label': 'Z-Score (Sector Pct)', 'high_is': 'good',    'fmt': '.2f',  'desc': 'Altman Z-Score percentile within the same sector. A low percentile flags relative financial distress vs industry peers.'},
+    'debt_to_assets_sector_pct':  {'label': 'Debt/Assets (Sector Pct)', 'high_is': 'bad', 'fmt': '.2f',  'desc': 'Debt-to-assets ratio percentile vs sector. Companies in the top decile for leverage within their industry are at higher risk.'},
+    'ocf_to_ni_sector_pct':       {'label': 'OCF/NI (Sector Pct)',  'high_is': 'good',    'fmt': '.2f',  'desc': 'OCF-to-net-income percentile vs sector peers. Low cash conversion relative to peers is a relative manipulation signal.'},
+    'ps_ratio_sector_pct':        {'label': 'P/S Ratio (Sector Pct)', 'high_is': 'neutral','fmt': '.2f',  'desc': 'Price-to-sales percentile vs sector. A very high P/S in a low-margin industry creates pressure to inflate revenue.'},
+    # --- Piotroski sub-signals ---
+    'piotroski_f_score_9':   {'label': 'Piotroski F-Score (9pt)',    'high_is': 'good',    'fmt': '.0f',  'desc': 'Full 9-point Piotroski score including profitability, leverage, and efficiency tests. Scores ≥ 6 indicate strong fundamentals.'},
+    'piotroski_ocf_pos':     {'label': 'Piotroski: OCF Positive',    'high_is': 'good',    'fmt': '.0f',  'desc': 'Binary flag (1/0): operating cash flow is positive. A company with positive income but negative OCF fails this test.'},
+    'piotroski_shares_ok':   {'label': 'Piotroski: No New Shares',   'high_is': 'good',    'fmt': '.0f',  'desc': 'Binary flag (1/0): share count did not increase. New share issuance under financial stress is a negative signal.'},
+    'piotroski_delta_at':    {'label': 'Piotroski: Asset Turnover Δ','high_is': 'good',    'fmt': '.0f',  'desc': 'Binary flag (1/0): asset turnover improved YoY. Deteriorating asset turnover with stable margins suggests cost manipulation.'},
+    'piotroski_delta_gm':    {'label': 'Piotroski: Gross Margin Δ',  'high_is': 'good',    'fmt': '.0f',  'desc': 'Binary flag (1/0): gross margin improved YoY. A declining gross margin is one of the earliest fraud pressure signals.'},
+    # --- Proprietary sub-scores ---
+    'fraud_score_composite': {'label': 'Fraud Score (Composite)',    'high_is': 'bad',     'fmt': '.3f',  'desc': 'Ensemble fraud probability combining accounting, dilution, distress, governance, and earnings quality sub-scores.'},
+    'fraud_score_distress':  {'label': 'Fraud Score (Distress)',     'high_is': 'bad',     'fmt': '.3f',  'desc': 'Financial distress sub-score. High values indicate Z-Score, interest coverage, and debt sustainability all pointing to stress.'},
+    # --- Valuation additions ---
+    'ps_ratio':              {'label': 'P/S Ratio',                  'high_is': 'neutral', 'fmt': '.2f',  'desc': 'Price-to-sales ratio. Very high P/S creates incentive to sustain reported revenue growth at any cost.'},
+    'ev_revenue':            {'label': 'EV / Revenue',               'high_is': 'neutral', 'fmt': '.2f',  'desc': 'Enterprise value relative to revenue. High EV/Revenue with weak margins signals growth expectations that may require manipulation to sustain.'},
+    'value_composite':       {'label': 'Value Composite Score',      'high_is': 'good',    'fmt': '.3f',  'desc': 'Combined value factor score (P/E, P/B, P/S, EV/EBITDA, FCF yield). Higher values indicate cheaper valuations.'},
+    # --- Ohlson component ---
+    'ohlson_roe':            {'label': 'Ohlson: ROE Signal',         'high_is': 'good',    'fmt': '.3f',  'desc': 'Return on equity component within the Ohlson O-Score model. Negative ROE contributes to bankruptcy probability.'},
+    # --- Market / macro ---
+    'price_to_52w_high':     {'label': 'Price / 52-Week High',       'high_is': 'neutral', 'fmt': '.3f',  'desc': 'Current price relative to the 52-week high. Values far below 1.0 may indicate market has already priced in distress before disclosure.'},
+    'vol_prior_12m':         {'label': 'Return Volatility (12M)',    'high_is': 'bad',     'fmt': '.4f',  'desc': 'Standard deviation of monthly returns over the prior 12 months. High volatility often precedes or accompanies fraud revelation.'},
+    'vix':                   {'label': 'VIX (Market Fear Index)',    'high_is': 'neutral', 'fmt': '.1f',  'desc': 'CBOE Volatility Index at filing date. Used as a macro control for market-wide risk appetite.'},
+    # --- Factor interaction signals ---
+    'quality_composite':     {'label': 'Quality Composite Score',    'high_is': 'good',    'fmt': '.3f',  'desc': 'Combined quality factor (ROA, ROE, margins, accruals). High quality companies with anomalous accounting scores are especially suspicious.'},
+    'quality_in_recession':  {'label': 'Quality × Recession Flag',  'high_is': 'neutral', 'fmt': '.3f',  'desc': 'Quality composite interacted with a recession indicator. Quality stocks underperform in normal times but fraud is more likely during downturns.'},
+    'quality_x_momentum':    {'label': 'Quality × Momentum',        'high_is': 'neutral', 'fmt': '.3f',  'desc': 'Interaction of quality and price momentum factors. High quality with deteriorating momentum can signal early distress.'},
+    'small_x_quality':       {'label': 'Size × Quality',            'high_is': 'neutral', 'fmt': '.3f',  'desc': 'Interaction of small-cap indicator with quality factor. Small firms with poor quality have historically higher fraud rates.'},
+    'value_in_recession':    {'label': 'Value × Recession Flag',    'high_is': 'neutral', 'fmt': '.3f',  'desc': 'Value factor interacted with recession indicator. Deep value during recessions can indicate distress rather than opportunity.'},
+    'value_x_momentum':      {'label': 'Value × Momentum',          'high_is': 'neutral', 'fmt': '.3f',  'desc': 'Interaction of value and momentum factors. Companies that are cheap and falling in price may be value traps or pre-fraud.'},
+    'value_x_quality':       {'label': 'Value × Quality',           'high_is': 'neutral', 'fmt': '.3f',  'desc': 'Interaction of value and quality factors. The highest-conviction long candidates are both cheap and high-quality.'},
 }
