@@ -22,14 +22,11 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import io
-import json
 import logging
 import re
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Iterator
 
 import pandas as pd
 import requests
@@ -176,67 +173,91 @@ def _known_aaer_rows() -> list[dict]:
 
 # ── Stanford SCAC ─────────────────────────────────────────────────────────────
 
-SCAC_CSV_URL = "https://securities.stanford.edu/class-action-filings/CSV.html"
-SCAC_DIRECT_CSV = "https://securities.stanford.edu/litigation/class-action-filings.csv"
+SCAC_API_URL = "https://securities.stanford.edu/litigation/filings.json"
+_SCAC_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+    "Accept": "application/json",
+}
+
+
+def _parse_scac_ts(raw: str) -> int | None:
+    """Parse JavaScript 'new Date(ms)' timestamp to year."""
+    m = re.search(r"new Date\((\d+)\)", str(raw))
+    if m:
+        return datetime.utcfromtimestamp(int(m.group(1)) / 1000).year
+    return None
 
 
 def _fetch_scac() -> list[dict]:
-    """Download Stanford Securities Class Action Clearinghouse CSV."""
-    log.info("Downloading Stanford SCAC class action CSV…")
-    try:
-        r = requests.get(SCAC_DIRECT_CSV, headers=_HEADERS, timeout=60)
-        r.raise_for_status()
-        df = pd.read_csv(io.StringIO(r.text), encoding="latin-1", on_bad_lines="skip")
-    except Exception as exc:
-        log.warning("SCAC direct CSV failed (%s), trying HTML page…", exc)
+    """Fetch Stanford SCAC data via JSON API using multiple sort strategies.
+
+    The SCAC API uses Servoy/FileMaker server-side session pagination — the
+    ?page=N parameter is ignored and always returns the same initial window.
+    The `sort` parameter is the only lever that changes which records are
+    returned.  We iterate 7 sort strategies to maximise unique coverage.
+
+    Limitation: foundsetTotalSize≈6,879 but only ~30 unique records are
+    accessible per sort strategy (~150–200 unique cases total without
+    browser-based session navigation).
+    """
+    log.info("Fetching Stanford SCAC via JSON API (multi-sort strategy)…")
+    rows: list[dict] = []
+    seen_keys: set[str] = set()
+
+    sort_strategies: list[dict[str, str]] = [
+        {},
+        {"sort": "cld_filing_year",           "sortDirection": "asc"},
+        {"sort": "cld_filing_year",           "sortDirection": "desc"},
+        {"sort": "composite_litigation_name", "sortDirection": "asc"},
+        {"sort": "composite_litigation_name", "sortDirection": "desc"},
+        {"sort": "cld_id",                    "sortDirection": "asc"},
+        {"sort": "cld_id",                    "sortDirection": "desc"},
+    ]
+
+    for params in sort_strategies:
         try:
-            r = requests.get(SCAC_CSV_URL, headers=_HEADERS, timeout=60)
+            r = requests.get(SCAC_API_URL, headers=_SCAC_HEADERS,
+                             params=params, timeout=30)
             r.raise_for_status()
-            # Parse tables from HTML
-            tables = pd.read_html(io.StringIO(r.text))
-            df = tables[0] if tables else pd.DataFrame()
-        except Exception as exc2:
-            log.error("SCAC fetch failed: %s", exc2)
-            return []
+            foundset = r.json().get("foundset", [])
+            added = 0
+            for item in foundset:
+                entity = item.get("composite_litigation_name", "").strip()
+                if not entity:
+                    continue
+                year = item.get("cld_filing_year") or _parse_scac_ts(
+                    item.get("cld_fic_filing_dt", "")
+                )
+                if not year:
+                    continue
+                key = f"{entity}|{year}"
+                if key in seen_keys:
+                    continue
+                seen_keys.add(key)
+                added += 1
+                rows.append({
+                    "ticker":          "",
+                    "market":          "US",
+                    "fraud_year":      int(year),
+                    "label_type":      "scac",
+                    "source":          "Stanford SCAC",
+                    "description":     f"Securities class action — {entity}"[:200],
+                    "entity_name":     entity,
+                    "fraud_confirmed": False,
+                    "fraud_suspect":   True,
+                    "cik":             "",
+                })
+            log.debug("SCAC sort=%-30s  +%d new records", params.get("sort", "default"), added)
+            time.sleep(0.3)
+        except Exception as exc:
+            log.warning("SCAC fetch (sort=%s) failed: %s",
+                        params.get("sort", "default"), exc)
 
-    if df.empty:
-        return []
-
-    log.info("SCAC: %d rows downloaded", len(df))
-
-    # Normalise column names
-    df.columns = [c.lower().strip().replace(" ", "_") for c in df.columns]
-
-    rows = []
-    ticker_col   = next((c for c in df.columns if "ticker" in c), None)
-    date_col     = next((c for c in df.columns if "filing" in c and "date" in c), None)
-    company_col  = next((c for c in df.columns if "company" in c or "defendant" in c), None)
-    nature_col   = next((c for c in df.columns if "nature" in c or "class" in c or "allegation" in c), None)
-
-    for _, r in df.iterrows():
-        ticker = str(r.get(ticker_col, "")).strip().upper() if ticker_col else ""
-        if not ticker or ticker == "NAN":
-            continue
-        year = _parse_year(str(r.get(date_col, ""))) if date_col else None
-        if not year:
-            continue
-        desc_parts = []
-        if company_col:
-            desc_parts.append(str(r.get(company_col, "")))
-        if nature_col:
-            desc_parts.append(str(r.get(nature_col, "")))
-        rows.append({
-            "ticker":          ticker,
-            "market":          "US",
-            "fraud_year":      year,
-            "label_type":      "scac",
-            "source":          "Stanford SCAC",
-            "description":     " | ".join(desc_parts)[:200],
-            "fraud_confirmed": False,
-            "fraud_suspect":   True,
-            "cik":             "",
-        })
-    log.info("SCAC: %d rows parsed", len(rows))
+    log.info(
+        "SCAC: %d unique records (server pagination inaccessible; "
+        "foundsetTotalSize≈6,879 total requires browser-session navigation)",
+        len(rows),
+    )
     return rows
 
 
@@ -314,7 +335,13 @@ def _deduplicate(rows: list[dict]) -> pd.DataFrame:
 
     # Prefer fraud_confirmed=True over fraud_suspect when deduplicating
     df = df.sort_values("fraud_confirmed", ascending=False)
-    df = df.drop_duplicates(subset=["ticker", "market", "fraud_year", "label_type"], keep="first")
+
+    # Rows with a known ticker: deduplicate on (ticker, market, fraud_year, label_type)
+    # Rows without a ticker (SCAC, AAER EDGAR): use entity_name so each case is preserved
+    entity = df.get("entity_name", pd.Series("", index=df.index)).fillna("")
+    df["_dedup_key"] = df["ticker"].where(df["ticker"] != "", entity)
+    df = df.drop_duplicates(subset=["_dedup_key", "market", "fraud_year", "label_type"], keep="first")
+    df = df.drop(columns=["_dedup_key"])
     return df[keep_cols].reset_index(drop=True)
 
 
@@ -378,8 +405,8 @@ def main() -> None:
         help="Start year for EDGAR API searches",
     )
     parser.add_argument(
-        "--end-year", type=int, default=datetime.now().year,
-        help="End year for EDGAR API searches",
+        "--end-year", type=int, default=datetime.now().year - 1,
+        help="End year for EDGAR API searches (default: last full calendar year)",
     )
     args = parser.parse_args()
 
