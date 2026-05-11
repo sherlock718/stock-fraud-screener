@@ -8,8 +8,11 @@ Outputs per-ticker leverage recommendations based on:
 - Margin guidelines
 
 Usage:
-    python3 scripts/leverage_strategy.py --market US --top 20
-    python3 scripts/leverage_strategy.py --market KR --top 15 --capital 10000
+    python3 scripts/leverage_strategy.py --market US --top-long 20
+    python3 scripts/leverage_strategy.py --market KR --top-long 15 --capital 10000
+    python3 scripts/leverage_strategy.py --long-only --top-long 10
+    python3 scripts/leverage_strategy.py --min-piotroski 7 --max-beneish -2.0
+    python3 scripts/leverage_strategy.py --output reports/leverage_picks.csv
 """
 from __future__ import annotations
 import argparse
@@ -277,11 +280,21 @@ def print_report(positions: pd.DataFrame, shorts: pd.DataFrame,
 
 
 def main():
+    global MIN_PIOTROSKI, MAX_BENEISH
     parser = argparse.ArgumentParser(description='Leverage strategy report')
-    parser.add_argument('--market',  default='US',    help='Market code (US, KR, CA, ...)')
-    parser.add_argument('--top',     default=20, type=int, help='Top N tickers to analyse')
-    parser.add_argument('--capital', default=10000, type=float, help='Portfolio capital in EUR')
+    parser.add_argument('--market',         default='US',    help='Market code (US, KR, CA, ...)')
+    parser.add_argument('--top-long',       default=20, type=int, help='Top N long positions (default: 20)')
+    parser.add_argument('--top-short',      default=10, type=int, help='Top N short candidates (default: 10)')
+    parser.add_argument('--capital',        default=10000, type=float, help='Portfolio capital in EUR (default: 10000)')
+    parser.add_argument('--long-only',      action='store_true', help='Skip short book')
+    parser.add_argument('--min-piotroski',  default=MIN_PIOTROSKI, type=int, help=f'Min Piotroski F-score for leverage (default: {MIN_PIOTROSKI})')
+    parser.add_argument('--max-beneish',    default=MAX_BENEISH, type=float, help=f'Max Beneish M-score for longs (default: {MAX_BENEISH})')
+    parser.add_argument('--output',         default=None, help='Output CSV path (default: data/leverage_positions_<market>.csv)')
     args = parser.parse_args()
+
+    # Override module-level constants with CLI args
+    MIN_PIOTROSKI = args.min_piotroski
+    MAX_BENEISH   = args.max_beneish
 
     print(f'Loading {args.market} data...')
     df = load_data(args.market)
@@ -295,15 +308,15 @@ def main():
     df = score_tickers(df, models)
     df = composite_score(df)
 
-    print(f'Building leverage report (top {args.top})...')
-    positions = size_positions(df, args.top, args.capital)
-    shorts    = build_short_book(df, top_n=10, capital=args.capital)
+    print(f'Building leverage report (top-long={args.top_long}, top-short={args.top_short})...')
+    positions = size_positions(df, args.top_long, args.capital)
+    shorts    = pd.DataFrame() if args.long_only else build_short_book(df, top_n=args.top_short, capital=args.capital)
     print_report(positions, shorts, args.market, args.capital)
 
-    out_path = BASE / 'data' / f'leverage_positions_{args.market.lower()}.csv'
+    out_path = Path(args.output) if args.output else BASE / 'data' / f'leverage_positions_{args.market.lower()}.csv'
     positions.to_csv(out_path, index=False)
     if len(shorts) > 0:
-        short_path = BASE / 'data' / f'short_book_{args.market.lower()}.csv'
+        short_path = out_path.parent / f'short_book_{args.market.lower()}.csv'
         shorts.to_csv(short_path, index=False)
         print(f'Short book saved: {short_path}')
     print(f'\nSaved: {out_path}')
