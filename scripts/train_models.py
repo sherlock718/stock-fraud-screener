@@ -282,10 +282,16 @@ def main() -> None:
     df = load_data()
     print(f'  {len(df):,} annual rows | {df["ticker"].nunique():,} companies')
 
-    df_train = df[df['fiscal_year'] <= train_cutoff].copy()
+    _filed = pd.to_datetime(df.get('filed_date', pd.NaT), errors='coerce')
+    _cutoff_date = pd.Timestamp(f'{train_cutoff + 1}-01-01')
+    df_train = df[
+        (df['fiscal_year'] <= train_cutoff) &
+        (_filed.isna() | (_filed < _cutoff_date))
+    ].copy()
     df_val   = df[(df['fiscal_year'] > train_cutoff) & (df['fiscal_year'] <= val_end)].copy()
     df_test  = df[df['fiscal_year'] > val_end].copy()
-    print(f'  Train : fiscal_year <= {train_cutoff} → {len(df_train):,} rows')
+    pit_excluded = (df['fiscal_year'] <= train_cutoff).sum() - len(df_train)
+    print(f'  Train : fiscal_year <= {train_cutoff}, filed < {_cutoff_date.date()} → {len(df_train):,} rows ({pit_excluded:,} PIT-excluded)')
     print(f'  Val   : {train_cutoff+1}–{val_end} → {len(df_val):,} rows')
     print(f'  Test  : > {val_end} → {len(df_test):,} rows')
 
