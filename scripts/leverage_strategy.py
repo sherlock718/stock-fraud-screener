@@ -40,29 +40,14 @@ MIN_ALTMAN_Z        = 1.81  # Distress threshold
 
 
 def load_data(market: str) -> pd.DataFrame:
-    # Load slim app_data for display cols, full dataset for ML scoring
-    slim = pd.read_parquet(DATA_PATH)
-    slim = slim[(slim['period_type'] == 'annual') & (slim['market'] == market)]
-    latest_year = slim['fiscal_year'].max()
-    slim = slim[slim['fiscal_year'] >= latest_year - 1]
-    slim = slim.sort_values('fiscal_year', ascending=False).drop_duplicates('ticker', keep='first')
-
-    if FULL_DATA.exists():
-        full = pd.read_parquet(FULL_DATA)
-        full = full[(full['period_type'] == 'annual') & (full['market'] == market)]
-        full = full[full['fiscal_year'] >= latest_year - 1]
-        full = add_piotroski_ext(full)
-        full = add_normalised_ratios(full)
-
-        full = full.sort_values('fiscal_year', ascending=False).drop_duplicates('ticker', keep='first')
-        # Merge slim display-only cols (e.g. market_cap_at_filing) onto full
-        slim_extra = [c for c in slim.columns if c not in full.columns]
-        if slim_extra:
-            full = full.merge(slim[['ticker'] + slim_extra], on='ticker', how='left')
-        df = full
-    else:
-        df = slim
-
+    src = FULL_DATA if FULL_DATA.exists() else DATA_PATH
+    df = pd.read_parquet(src)
+    df = df[(df['period_type'] == 'annual') & (df['market'] == market)]
+    latest_year = df['fiscal_year'].max()
+    df = df[df['fiscal_year'] >= latest_year - 1]
+    df = add_piotroski_ext(df)
+    df = add_normalised_ratios(df)
+    df = df.sort_values('fiscal_year', ascending=False).drop_duplicates('ticker', keep='first')
     return df.reset_index(drop=True)
 
 
