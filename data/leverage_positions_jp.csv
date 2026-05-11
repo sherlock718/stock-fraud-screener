@@ -1,0 +1,11 @@
+ticker,name,composite_score,leverage_safe,position_pct,position_eur,leverage_mult,notional_eur,strategy,piotroski,beneish,ml_1y
+7261.T,Mazda Motor Corp,0.76,0,10.7,1066.0,1.0,1066.0,Equity only — quality gate failed,4.0,-2.490394839514352,0.671
+6367.T,Daikin Industries Ltd,0.748,0,10.5,1050.0,1.0,1050.0,Equity only — quality gate failed,5.0,-2.533768836365821,0.65
+5233.T,Taiheiyo Cement Corp,0.742,0,10.4,1041.0,1.0,1041.0,Equity only — quality gate failed,5.0,-2.5439760130482747,0.652
+6113.T,Amada Co,0.736,0,10.3,1033.0,1.0,1033.0,Equity only — quality gate failed,4.0,-2.3058646660024924,0.657
+5019.T,Idemitsu Kosan Co,0.702,0,9.9,985.0,1.0,985.0,Equity only — quality gate failed,4.0,-2.7333322791439842,0.714
+8766.T,Tokio Marine Holdings Inc,0.7,0,9.8,982.0,1.0,982.0,Equity only — quality gate failed,5.0,-2.1495703046387455,0.637
+9503.T,Kansai Electric Power Co,0.696,0,9.8,976.0,1.0,976.0,Equity only — quality gate failed,5.0,-2.360344449903431,0.631
+6758.T,Sony Group Corp,0.689,0,9.7,967.0,1.0,967.0,Equity only — quality gate failed,5.0,-2.425672883517719,0.648
+7832.T,Bandai Namco Holdings Inc,0.68,0,9.5,953.0,1.0,953.0,Equity only — quality gate failed,5.0,-2.4681226873031243,0.656
+5020.T,ENEOS Holdings Inc,0.676,0,9.5,948.0,1.0,948.0,Equity only — quality gate failed,4.0,-2.493284846973521,0.678

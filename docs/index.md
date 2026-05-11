@@ -1,8 +1,8 @@
 # Stock Fraud Screener
 
-**ML-powered accounting fraud detection across 6 markets — US, EU, Korea, Japan, Canada, Brazil.**
+**ML-powered accounting fraud detection across 14 markets — US, Korea, Canada, Japan, Brazil, and 9 European markets.**
 
-The screener trains separate LightGBM + CatBoost ensemble models on 1-year, 3-year, and 5-year horizons. Each company receives a composite fraud probability score (0–1) with SHAP-based attribution showing which signals drove the score.
+The screener trains LightGBM models on 1-year, 3-year, and 5-year horizons using 155,696 company-year observations and 313 features. Each company receives a composite fraud probability score (0–1) with SHAP-based attribution showing which signals drove the score.
 
 ---
 
@@ -67,8 +67,8 @@ The screener trains separate LightGBM + CatBoost ensemble models on 1-year, 3-ye
 
 ```mermaid
 graph LR
-    A[Raw Filings<br/>SEC · SimFin · DART · TDNET] --> B[Pipeline<br/>6 steps · ~278 features]
-    B --> C[ML Models<br/>LightGBM + CatBoost<br/>3 horizons]
+    A[Raw Filings<br/>SEC · SimFin · DART · TDNET] --> B[Pipeline<br/>6 steps · 313 features]
+    B --> C[ML Models<br/>LightGBM<br/>3 horizons]
     C --> D[Fraud Score 0–1<br/>+ SHAP attribution]
     D --> E[Portfolio<br/>4 strategies]
     D --> F[Streamlit App<br/>8 tabs]

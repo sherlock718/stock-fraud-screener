@@ -1,7 +1,7 @@
 site_name: Stock Fraud Screener
 site_description: Multi-market accounting fraud detection using ML — US, EU, Korea, Japan, Canada, Brazil
 site_author: Mhoque
-repo_url: https://github.com/mhoque/stock-fraud-screener
+repo_url: https://github.com/sherlock718/stock-fraud-screener
 repo_name: stock-fraud-screener
 edit_uri: ""
 

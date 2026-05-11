@@ -10,7 +10,7 @@ Get the screener running in 5 minutes.
 ## 1 — Clone and Install
 
 ```bash
-git clone https://github.com/mhoque/stock-fraud-screener.git
+git clone https://github.com/sherlock718/stock-fraud-screener.git
 cd stock-fraud-screener
 pip install -r requirements.txt
 ```
