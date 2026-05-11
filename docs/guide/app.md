@@ -1,64 +1,52 @@
 # App Walkthrough
 
-The Streamlit app (`app_v2.py`) has 8 tabs. This page walks through each one.
-
-## Tab 1 — Overview
-
-The landing tab. Shows the current universe at a glance.
-
-**What you'll see:**
-
-- Score distribution histogram — are most companies low-risk or are there many high-score outliers?
-- Top 20 picks table — companies with the highest composite fraud probability this fiscal year
-- Market breakdown — score distribution by market (US / EU / KR)
-- Dataset health — last refresh date, number of companies scored, model versions
-
-**How to use it:**
-
-Start here to get a sense of the current risk landscape. A right-skewed distribution (most scores < 0.3) is normal. A sudden shift toward higher scores may indicate a sector under stress.
+The Streamlit app (`app_v2.py`) has 10 tabs. This page walks through each one.
 
 ---
 
-## Tab 2 — Screener
+## Tab 1 — Screener
 
 Filter and rank all companies in the universe.
 
-**Filters available:**
+**Sidebar controls:**
 
 | Filter | Description |
 |---|---|
-| Market | US, EU, KR (or all) |
-| Score range | Min / max composite score |
-| SIC code | Industry sector filter |
-| Fiscal year | Which year's data to show |
-| Confidence | High / Medium / Low data quality |
+| Markets | US, EU, KR, JP, CA, BR (any combination) |
+| Fiscal year range | Slider to restrict to specific years |
+| Market cap preset | All sizes, Neglected ($50M–$500M), Small/Mid/Large cap |
+| ML horizon | 1-year, 3-year, or 5-year fraud prediction window |
+| Composite score | Minimum percentile threshold |
+| Risk filters | Exclude likely-delisted; exclude Beneish M > −2.22; exclude Altman Z < 1.81 |
+| Sector filter | GICS sector picker |
+| Search | Ticker or company name substring |
 
 **Output:**
 
-A sortable table with: ticker, company name, composite score, 1y/3y/5y scores, Beneish M-Score, Piotroski F-Score, market cap.
+A sortable table with: ticker, company name, composite score, 1y/3y/5y ML fraud probabilities, Beneish M-Score, Piotroski F-Score, market, fiscal year.
 
-Click any row to navigate to that company's profile.
+Expand any row to see the mini company card: score over time chart, top-3 concerns, and financial statement sparklines.
 
 ---
 
-## Tab 3 — Company Profile
+## Tab 2 — Company Profile
 
 Deep dive into a single company.
 
 **What you'll see:**
 
-- **Score timeline** — composite score over all available fiscal years (trend matters as much as absolute level)
-- **SHAP attribution chart** — horizontal bar chart showing which features pushed the score up (red) or down (blue)
-- **Feature table** — the actual values for all ~35 model features, with benchmark comparisons
-- **Accounting flags** — Beneish M-Score breakdown (8 components), Altman Z-Score zone, Piotroski F-Score
-- **Strengths & Weaknesses narrative** — auto-generated plain-English summary of what the model found
+- **Score timeline** — composite fraud probability across all available fiscal years
+- **SHAP attribution chart** — horizontal bar chart showing which features drove the score up (red) or down (blue)
+- **Feature table** — values for all ~35 model features with sector-relative percentile comparisons
+- **Accounting flags** — Beneish M-Score breakdown (8 components with radar chart), Altman Z-Score zone, Piotroski F-Score
+- **Strengths & Weaknesses narrative** — auto-generated from SHAP values: which financial patterns the model flagged
 
 !!! note "Narrative generation"
-    The strengths/weaknesses narrative is generated from SHAP values — it describes which specific financial patterns drove the score, not generic risk warnings. A score of 0.82 with a narrative saying "Revenue accruals 2.1σ above sector median and auditor changed in FY2023" is more actionable than a plain "high risk" label.
+    The narrative is generated from SHAP values — it describes the specific financial patterns that drove the score, not generic risk warnings. A score of 0.82 with "receivables accruals 2.1σ above sector median and auditor changed in FY2023" is more actionable than a plain "high risk" label.
 
 ---
 
-## Tab 4 — Realtime Chart
+## Tab 3 — Realtime Chart
 
 Live price chart for any ticker.
 
@@ -66,74 +54,115 @@ Live price chart for any ticker.
 
 - OHLCV candlestick chart (daily, up to 2 years)
 - Volume bars
-- Fraud score overlay as a horizontal reference line — lets you visually judge whether the score change preceded price moves
+- Fraud score overlay as a horizontal reference line
 
-**How to use it:**
-
-Enter any ticker symbol. Use the date range selector to zoom. The fraud score line is static (based on last fiscal year data) — compare it to where the price was when the score was published.
+Enter any ticker symbol. The fraud score line is static (from the last filed fiscal year) — compare it to where the price was when the annual report was filed.
 
 ---
 
-## Tab 5 — Factor Research
+## Tab 4 — Market Overview
 
-IC/ICIR analysis for all features.
-
-**What you'll see:**
-
-- IC (Information Coefficient) time series per feature — does this feature predict future outperformance?
-- ICIR (IC / StdIC) ranking bar chart — stability-adjusted predictive power
-- Factor decay curve — how quickly does a feature's predictive power fade over 1–24 months?
-- Correlation heatmap — which features are redundant?
-
-**Useful for:**
-
-Understanding which signals are actually driving model performance vs which are noise.
-
----
-
-## Tab 6 — Backtest
-
-Walk-forward strategy performance.
-
-**What you'll see:**
-
-- Cumulative wealth chart (portfolio vs benchmark)
-- Annual excess returns bar chart
-- Max drawdown chart
-- Rolling 3-year Sharpe ratio
-- KPI table: CAGR, Sharpe, Sortino, Calmar, Max Drawdown, Hit Rate
-
-**Strategies available:**
-
-Select from COMPOSITE, QEM, SCDV, or IARB in the dropdown.
-
-See [Strategies](strategies.md) for construction details.
-
----
-
-## Tab 7 — Market Overview
-
-Cross-market comparison.
+Cross-market risk comparison.
 
 **What you'll see:**
 
 - Average fraud score by market — which market has the highest aggregate risk?
-- Score distribution by market (box plots)
-- Top 10 risky companies per market
-- Market-level trend over time
+- Score distribution box plots per market
+- Top 10 highest-scoring companies per market
+- Market-level score trend over fiscal years
 
 ---
 
-## Tab 8 — Model Diagnostics
+## Tab 5 — Backtester
 
-Model health monitoring.
+Walk-forward strategy performance simulation.
 
 **What you'll see:**
 
-- AUC by horizon (val / test / tuned / ensemble) — bar chart
-- Calibration curve — are the model's stated probabilities accurate?
-- PSI (Population Stability Index) — feature distribution drift vs training baseline
-- Refresh status — last pipeline run timestamp, data lag
+- Cumulative wealth chart (portfolio vs SPY benchmark)
+- Annual excess return bar chart
+- Max drawdown chart
+- Rolling 3-year Sharpe ratio
+- KPI table: CAGR, Sharpe, Sortino, Calmar, Max Drawdown, Hit Rate
 
-!!! warning "Drift alert"
-    If PSI > 0.25 for 3+ features, the app shows a drift warning banner. This means the current company population differs significantly from what the model was trained on. Consider retraining.
+**Strategies available in the dropdown:**
+
+| Strategy | Description |
+|---|---|
+| COMPOSITE | Top-decile composite score, equal-weight |
+| QEM | Quality × earnings momentum long/short |
+| SCDV | Sector-constrained distress vs value |
+| IARB | Inversion arbitrage: high Ohlson, low Beneish |
+
+See [Strategies](strategies.md) for construction details and expected performance.
+
+---
+
+## Tab 6 — Watchlist
+
+Personalised portfolio monitoring.
+
+**What you'll see:**
+
+- Your saved companies with current fraud scores
+- Score change alerts — highlighted if any score moved more than ±0.10 since last checked
+- Beneish M-Score and Altman Z-Score status per holding
+- One-click removal from watchlist
+
+Add companies from the Screener or Company Profile tabs. The watchlist is stored in `st.session_state` during the session.
+
+---
+
+## Tab 7 — Strategies
+
+Strategy construction reference.
+
+Detailed page explaining each of the four backtest strategies:
+
+- Signal generation logic (which scores, which thresholds)
+- Position sizing (equal weight vs Kelly-scaled)
+- Rebalancing frequency
+- Historical KPIs (CAGR, Sharpe, Max Drawdown) from the walk-forward backtest
+
+---
+
+## Tab 8 — User Guide
+
+In-app documentation panel.
+
+Renders the full user guide directly inside the Streamlit app — equivalent to this documentation site but accessible without leaving the app. Covers score interpretation, strategy descriptions, and FAQ.
+
+---
+
+## Tab 9 — Case Studies
+
+Ten documented accounting fraud cases with quantitative pre-fraud signals.
+
+**What you'll see:**
+
+1. Select a case from the dropdown (Wirecard, Luckin, Enron, WorldCom, NMC Health, Steinhoff, Valeant, Satyam, Parmalat, Nikola)
+2. Read the fraud summary and key financial warning signals that were visible before the revelation
+3. View live Beneish M-Score, Altman Z-Score, and Fraud Score from the dataset if the ticker is available
+4. See a score timeline chart with the fraud revelation year marked with a vertical line
+5. Compare all cases in the overview summary table at the bottom
+
+!!! tip "Using the cases for calibration"
+    Before dismissing a high-scoring company as a false positive, check whether its signal pattern resembles any of the documented cases. DSRI > 1.3 + OCF/NI divergence is the Wirecard/Luckin/Valeant pattern. Z-Score < 1.81 + AQI elevation is the WorldCom/Parmalat pattern.
+
+---
+
+## Tab 10 — Benchmarking
+
+AUC-ROC model comparison evaluated on the full annual dataset.
+
+**What you'll see:**
+
+1. **AUC bar chart** — all models ranked by discrimination power (classical baselines vs ML)
+2. **Full results table** — AUC-ROC, Average Precision, and direction notes for every model
+3. **Precision-Recall curves** — select an operational threshold for your desired recall target
+4. **ROC curves** — sensitivity vs specificity comparison across models
+5. **Methodology & Caveats expander** — full disclosure of evaluation procedure and known limitations
+
+**Dataset:** ~47,000 annual filings with 172 confirmed fraud labels (0.37% prevalence).
+
+See [Benchmarking Methodology](../methodology/benchmarking.md) for the full technical details.
