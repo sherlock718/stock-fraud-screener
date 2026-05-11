@@ -61,11 +61,11 @@ graph TB
 | Component | Location | Purpose |
 |---|---|---|
 | US pipeline | `scripts/run_pipeline.py` | Fetch + clean US fundamentals |
-| EU pipeline | `scripts/run_pipeline_eu.py` | SimFin IFRS data |
-| Korea pipeline | `scripts/run_pipeline_kr.py` | DART API |
-| Feature library | `scripts/feature_library.py` | 278 feature definitions |
+| EU / multi-market | `pipeline/step1_fetch_tickers.py` – `step6_clean_dataset.py` | 14-market unified pipeline |
+| KR integration | `pipeline/phase_a_integrate_kr.py` | DART KR data integration |
+| Feature library | `pipeline/feature_library.py` | 313 feature definitions |
 | Train models | `scripts/train_models.py` | LightGBM with ICIR selection |
-| Tune models | `scripts/tune_models.py` | Optuna + CatBoost + calibration |
+| Tune models | `scripts/tune_models.py` | Optuna + calibration |
 | Backtester | `scripts/backtester.py` | Walk-forward strategy simulation |
 | Factor research | `scripts/factor_research.py` | IC/ICIR/decay library |
 | Leverage strategy | `scripts/leverage_strategy.py` | Long/short Kelly sizing |
@@ -81,7 +81,7 @@ flowchart LR
     B -->|company metadata| C[Annual Snapshots<br/>fiscal_year × ticker]
     C -->|OHLCV joins| D[Price-Enriched<br/>Snapshots]
     D -->|macro joins<br/>T-bill · inflation| E[Macro-Enriched<br/>Snapshots]
-    E -->|278 formulas| F[Feature Matrix<br/>historical_dataset_clean.parquet]
+    E -->|313 formulas| F[Feature Matrix<br/>historical_dataset_clean.parquet]
     F -->|ICIR filter| G[~35 features/horizon]
     G -->|LightGBM fit| H[Base Models]
     H -->|Optuna search| I[Tuned Models]

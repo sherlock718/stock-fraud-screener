@@ -1,0 +1,11 @@
+ticker,name,composite_score,leverage_safe,position_pct,position_eur,leverage_mult,notional_eur,strategy,piotroski,beneish,ml_1y
+EDEN.PA,Edenred,0.698,0,11.3,1133.0,1.0,1133.0,Equity only — quality gate failed,5.0,-2.7440771392963548,0.543
+VIE.PA,Veolia,0.65,0,10.5,1055.0,1.0,1055.0,Equity only — quality gate failed,5.0,-2.6396768961280497,0.58
+ACA.PA,Crédit Agricole,0.647,0,10.5,1050.0,1.0,1050.0,Equity only — quality gate failed,4.0,-2.1437236361797116,0.587
+CA.PA,Carrefour,0.646,0,10.5,1048.0,1.0,1048.0,Equity only — quality gate failed,4.0,-2.655263526186478,0.577
+BN.PA,Danone,0.615,0,10.0,998.0,1.0,998.0,Equity only — quality gate failed,3.0,-2.5261196243491546,0.6
+ERF.PA,Eurofins Scientific,0.601,0,9.8,976.0,1.0,976.0,Equity only — quality gate failed,5.0,-2.73224270050281,0.55
+BNP.PA,BNP Paribas,0.587,0,9.5,953.0,1.0,953.0,Equity only — quality gate failed,5.0,-2.171073691452927,0.55
+AC.PA,Accor,0.582,0,9.4,945.0,1.0,945.0,Equity only — quality gate failed,3.0,-2.4555732548359956,0.581
+CS.PA,Axa,0.575,0,9.3,933.0,1.0,933.0,Equity only — quality gate failed,5.0,-2.253551972105663,0.557
+RI.PA,Pernod Ricard,0.56,0,9.1,909.0,1.0,909.0,Equity only — quality gate failed,5.0,-2.3168156034190597,0.561

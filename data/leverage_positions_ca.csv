@@ -1,0 +1,11 @@
+ticker,name,composite_score,leverage_safe,position_pct,position_eur,leverage_mult,notional_eur,strategy,piotroski,beneish,ml_1y
+ELC.V,Elysee Development Corp.,0.924,0,10.4,1045.0,1.0,1045.0,Equity only — quality gate failed,5.0,4.4018956734595776,0.688
+MDP.TO,Medexus Pharmaceuticals Inc.,0.912,0,10.3,1031.0,1.0,1031.0,Equity only — quality gate failed,6.0,-2.9210087952497843,0.718
+PSD.TO,Pulse Seismic Inc.,0.909,0,10.3,1027.0,1.0,1027.0,Equity only — quality gate failed,5.0,-4.300749018336809,0.813
+SOIL.TO,Saturn Oil & Gas Inc.,0.892,0,10.1,1008.0,1.0,1008.0,Equity only — quality gate failed,6.0,-3.320702033793618,0.629
+FLNT.TO,FLINT Corp.,0.89,1,10.1,1006.0,1.09,1095.0,2:1 margin long | 1.1x,6.0,-3.0708536981519456,0.709
+CAF.V,Canaf Investments Inc.,0.882,1,10.0,997.0,1.09,1085.0,2:1 margin long | 1.1x,6.0,-2.3905050202723706,0.699
+GOOS.TO,Canada Goose Holdings Inc.,0.874,0,9.9,988.0,1.0,988.0,Equity only — quality gate failed,5.0,-2.793047889476172,0.697
+BRY.TO,Bri-Chem Corp.,0.868,0,9.8,981.0,1.0,981.0,Equity only — quality gate failed,5.0,-3.48070063822888,0.659
+JTC.V,Jemtec Inc.,0.851,0,9.6,962.0,1.0,962.0,Equity only — quality gate failed,6.0,-0.7235407154276075,0.656
+PLAN.V,Progressive Planet Solutions I,0.844,0,9.5,954.0,1.0,954.0,Equity only — quality gate failed,5.0,-3.2491803188537176,0.65

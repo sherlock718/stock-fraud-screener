@@ -1,0 +1,11 @@
+ticker,name,composite_score,leverage_safe,position_pct,position_eur,leverage_mult,notional_eur,strategy,piotroski,beneish,ml_1y
+DLX.DE,Deag Deutsche Entertainment,0.795,1,11.2,1120.0,1.09,1219.0,Equity only (score below leverage threshold),6.0,-2.0270248334360383,0.605
+M12.DE,Mensch und Maschine,0.787,0,11.1,1109.0,1.0,1109.0,Equity only — quality gate failed,5.0,-2.604189874118732,0.653
+TUI1.DE,TUI AG,0.765,0,10.8,1077.0,1.0,1077.0,Equity only — quality gate failed,6.0,-2.739435765610393,0.693
+BC8.DE,Bechtle AG,0.756,0,10.7,1066.0,1.0,1066.0,Equity only — quality gate failed,4.0,-2.653781062928846,0.616
+KGX.DE,Kion Group AG,0.744,0,10.5,1049.0,1.0,1049.0,Equity only — quality gate failed,5.0,-2.4761886653679666,0.599
+AT1.DE,Aroundtown SA,0.668,0,9.4,941.0,1.0,941.0,Equity only — quality gate failed,4.0,-2.3007635644539466,0.556
+HEN3.DE,Henkel AG,0.656,0,9.2,924.0,1.0,924.0,Equity only — quality gate failed,5.0,-2.3166953491829982,0.583
+INH.DE,Innotec TSS AG,0.653,0,9.2,919.0,1.0,919.0,Equity only — quality gate failed,4.0,-2.569075193117727,0.544
+DHL.DE,DHL Group,0.64,0,9.0,901.0,1.0,901.0,Equity only — quality gate failed,5.0,-2.6382603943522422,0.592
+LHA.DE,Lufthansa AG,0.634,0,8.9,894.0,1.0,894.0,Equity only — quality gate failed,4.0,-2.6612699797764847,0.664
