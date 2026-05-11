@@ -293,7 +293,18 @@ python3 scripts/refresh_data.py --markets US
 
 ### `merge_snapshots.py` — Merge Raw Snapshots
 
-Merges incremental snapshot files into a single consolidated parquet. Usually called automatically by `run_pipeline.py` step 2.
+Merges per-market snapshot parquet files (US, KR, EU, BR, JP, CA) into a single `snapshots_combined.parquet`. Deduplicates on `(cik, market, filed_date, period_type)` — the `market` key prevents cross-market CIK collisions. Usually called automatically by `wait_and_merge.py` after all market pipelines finish.
+
+```bash
+python3 scripts/merge_snapshots.py                        # merge only
+python3 scripts/merge_snapshots.py --activate             # also overwrite snapshots.parquet
+python3 scripts/merge_snapshots.py --activate --backup    # activate with backup
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--activate` | off | Copy combined file to `data/snapshots.parquet` (pipeline default input) |
+| `--backup` | off | Save existing `snapshots.parquet` as `snapshots.parquet.bak` before overwrite |
 
 ### `clean_dataset.py` — Normalize and Clean
 
