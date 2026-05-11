@@ -175,6 +175,22 @@ def tab_screener(df_all: pd.DataFrame, models: dict, meta: dict) -> None:
             'Risk Level',
             rq_df['fraud_score_composite'].map(_rq_risk),
         )
+
+        def _conf_label(v):
+            if pd.isna(v):
+                return '—'
+            v = float(v)
+            if v >= 0.85:
+                return '🟢 High'
+            elif v >= 0.70:
+                return '🟡 Good'
+            elif v >= 0.55:
+                return '🟠 Medium'
+            return '🔴 Low'
+
+        if 'data_confidence' in rq_df.columns:
+            rq_df['data_confidence'] = rq_top['data_confidence'].map(_conf_label)
+
         for col in rq_df.select_dtypes('float').columns:
             rq_df[col] = rq_df[col].map(lambda x: f'{x:.3f}' if pd.notna(x) else '—')
 

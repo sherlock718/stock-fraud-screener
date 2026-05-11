@@ -26,6 +26,21 @@ _TAXONOMY_LABELS = {
 }
 
 
+_COVERAGE_GROUPS: dict[str, list[str]] = {
+    'Financial Core': [
+        'revenue', 'net_income', 'total_assets', 'total_equity',
+        'operating_cash_flow', 'gross_profit', 'operating_income',
+    ],
+    'Fraud Signals': [
+        'beneish_m_score', 'altman_z_score', 'piotroski_f_score', 'sloan_accruals',
+    ],
+    'Price / Returns': ['entry_price', 'forward_return_1y'],
+    'Ratios': [
+        'net_margin', 'roe', 'roa', 'ocf_margin', 'debt_to_equity', 'current_ratio',
+    ],
+}
+
+
 def _confidence_badge(score: float) -> str:
     if score >= 0.85:
         return f'🟢 High ({score:.2f})'
@@ -35,6 +50,49 @@ def _confidence_badge(score: float) -> str:
         return f'🟠 Medium ({score:.2f})'
     else:
         return f'🔴 Low ({score:.2f})'
+
+
+def _confidence_detail(row: pd.Series, meta: dict) -> None:
+    """Render expandable confidence breakdown: coverage groups + ML feature counts."""
+    conf = row.get('data_confidence')
+    label = _confidence_badge(float(conf)) if pd.notna(conf) else '—'
+
+    with st.expander(f'Data Confidence: {label}', expanded=False):
+        st.caption(
+            'Confidence = average of Coverage (core column completeness), '
+            'Consistency (accounting sanity checks), and Timeliness (filing lag + vintage).'
+        )
+
+        # Coverage breakdown by group
+        st.markdown('**Core Feature Coverage**')
+        cov_cols = st.columns(4)
+        for i, (group, cols) in enumerate(_COVERAGE_GROUPS.items()):
+            avail   = [c for c in cols if c in row.index]
+            present = sum(1 for c in avail if pd.notna(row.get(c)))
+            total   = len(avail)
+            pct     = present / total if total else 0
+            icon    = '✅' if pct == 1.0 else ('🟡' if pct >= 0.7 else '🔴')
+            missing = [c for c in avail if pd.isna(row.get(c))]
+            cov_cols[i].metric(group, f'{present}/{total}', delta=icon)
+            if missing:
+                cov_cols[i].caption('Missing: ' + ', '.join(missing))
+
+        # ML feature coverage per horizon
+        if meta:
+            st.markdown('**ML Model Feature Coverage**')
+            ml_cols = st.columns(3)
+            for i, horizon in enumerate(['1y', '3y', '5y']):
+                if horizon not in meta:
+                    continue
+                feats   = meta[horizon].get('features', [])
+                present = sum(1 for f in feats if f in row.index and pd.notna(row.get(f)))
+                total   = len(feats)
+                pct     = present / total if total else 0
+                icon    = '✅' if pct >= 0.90 else ('🟡' if pct >= 0.75 else '🔴')
+                missing = [f for f in feats if not (f in row.index and pd.notna(row.get(f)))]
+                ml_cols[i].metric(f'{horizon} horizon', f'{present}/{total} features', delta=icon)
+                if missing:
+                    ml_cols[i].caption('Missing: ' + ', '.join(missing[:5]) + ('…' if len(missing) > 5 else ''))
 
 
 def _risk_label(score: float) -> str:
@@ -66,14 +124,9 @@ def tab_company_profile(df_all: pd.DataFrame, models: dict, meta: dict) -> None:
     name_label = str(row.get('name', selected_ticker) or selected_ticker)
     mkt_label  = str(row.get('market', ''))
 
-    # --- Header with confidence badge ---
-    conf = row.get('data_confidence')
-    header_cols = st.columns([4, 1])
-    with header_cols[0]:
-        st.subheader(f'{name_label}  ·  {selected_ticker}  ·  {mkt_label}  ·  FY{int(selected_year)}')
-    with header_cols[1]:
-        if pd.notna(conf):
-            st.metric('Data Confidence', _confidence_badge(float(conf)))
+    # --- Header ---
+    st.subheader(f'{name_label}  ·  {selected_ticker}  ·  {mkt_label}  ·  FY{int(selected_year)}')
+    _confidence_detail(row, meta)
 
     def _fmt(v, decimals=2, suffix=''):
         return f'{v:.{decimals}f}{suffix}' if pd.notna(v) else '—'
