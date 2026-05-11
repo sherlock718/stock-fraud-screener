@@ -126,6 +126,9 @@ def load_and_score(df: pd.DataFrame) -> pd.DataFrame:
     # Need at least 5 years of history before first score
     min_train_years = 5
 
+    # PIT: precompute filed_date as datetime once
+    _filed = pd.to_datetime(df.get('filed_date', pd.NaT), errors='coerce')
+
     for h, (ret_col, beat_col) in HORIZONS_WF.items():
         if beat_col not in df.columns or ret_col not in df.columns:
             continue
@@ -134,7 +137,12 @@ def load_and_score(df: pd.DataFrame) -> pd.DataFrame:
         print(f'    WF-ML {h}: training year by year...', flush=True)
 
         for i, score_yr in enumerate(years):
-            train_df = df[(df['fiscal_year'] < score_yr) & df[beat_col].notna()].copy()
+            # PIT: only include filings available before score_yr starts
+            _cutoff = pd.Timestamp(f'{score_yr}-01-01')
+            _pit_mask = _filed.isna() | (_filed < _cutoff)
+            train_df = df[
+                (df['fiscal_year'] < score_yr) & df[beat_col].notna() & _pit_mask
+            ].copy()
             if train_df['fiscal_year'].nunique() < min_train_years:
                 continue
 
