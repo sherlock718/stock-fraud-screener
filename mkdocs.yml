@@ -78,6 +78,7 @@ nav:
     - Factor Research: methodology/factor-research.md
     - Bias & Validation: methodology/bias-validation.md
     - Leverage Strategy: methodology/leverage.md
+    - Case Studies: methodology/case-studies.md
   - Developer Guide:
     - developer/index.md
     - Setup: developer/setup.md
