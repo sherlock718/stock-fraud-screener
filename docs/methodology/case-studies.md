@@ -6,7 +6,7 @@ Real-world fraud cases with the quantitative signals that were detectable in ann
 
 ## Overview
 
-The Case Study Library documents seven major accounting frauds across US, German, and UK markets. For each case we show:
+The Case Study Library documents ten major accounting frauds across US, German, Italian, and UK markets. For each case we show:
 
 - The fraud type and mechanism
 - Which quantitative signals were elevated in the 1–3 years before revelation
@@ -171,6 +171,72 @@ Channel stuffing shows up first in the DSRI. When receivables grow faster than r
 
 ---
 
+## Case 8 — Satyam Computer Services (SAY · US · 2009)
+
+**Fraud type:** Balance Sheet Fabrication — $1.5B Cash Hole
+
+Satyam chairman Ramalinga Raju confessed in January 2009 to fabricating ₹50.4B (~$1.47B) in cash and bank balances that did not exist. Fake fixed deposits, inflated receivables, and understated liabilities had been on the books for years. The Indian IT outsourcing giant collapsed overnight in what became known as "India's Enron." PricewaterhouseCoopers India signed off on the accounts for eight years.
+
+### Detectable Signals
+
+| Signal | Detail |
+|--------|--------|
+| Cash vs Operating Cash Flow | Reported cash balance was massive yet OCF was inconsistently low — cash on the balance sheet was fictitious |
+| Receivables Growth (DSRI) | DSRI rose above 1.4 in FY2007–2008 — receivables growing faster than revenue |
+| Return on Assets decline | ROA fell from 18% (2004) to 8% (2008) while reported margins stayed stable |
+| Accruals ratio (TATA) | Total accruals to total assets climbed into the top decile of Indian IT peers |
+| Auditor Independence | PwC India had a 10-year tenure; local affiliate fees were disproportionately small |
+
+### Key Lesson
+
+When a cash-rich company consistently generates weak operating cash flow, the cash is almost certainly fictional. DSRI elevation combined with ROA deterioration is the earliest reliable signal in balance-sheet fabrication frauds.
+
+---
+
+## Case 9 — Parmalat SpA (PARME · IT · 2003)
+
+**Fraud type:** Phantom Cash — €14B Black Hole
+
+Parmalat, the Italian dairy giant, collapsed in December 2003 after a €14B accounting hole was discovered. The company claimed €3.9B in a Bank of America account in the Cayman Islands — a document that proved to be a forgery. The fraud had been running for over a decade, funded by ever-increasing debt hidden in offshore subsidiaries. Grant Thornton and Deloitte both audited parts of the empire without detecting it.
+
+### Detectable Signals
+
+| Signal | Detail |
+|--------|--------|
+| Debt-to-Equity explosion | Reported debt grew from €2B (1997) to €14B (2003) — a 7× increase hidden across 200+ subsidiaries |
+| Cash vs Debt paradox | Claimed to hold €4B+ cash while simultaneously borrowing billions — logically impossible |
+| Asset Quality Index (AQI) | AQI > 1.4 — non-current assets at offshore entities ballooned without operational explanation |
+| Interest Coverage ratio | Interest coverage fell below 1.0 by 2002 — debt was unpayable from operating income alone |
+| Altman Z-Score | Z-score entered distress zone (< 1.81) by FY2001 — two years before collapse |
+
+### Key Lesson
+
+Claimed cash balances of €4B+ alongside €14B in debt should have been impossible — the interest payments alone exceeded reported operating income. Z-score distress and AQI elevation were detectable years before the forged bank document surfaced.
+
+---
+
+## Case 10 — Nikola Corporation (NKLA · US · 2020)
+
+**Fraud type:** Technology Fabrication — Fake Demo / SEC Fraud
+
+Nikola, an electric truck startup, was accused by Hindenburg Research in September 2020 of being "an intricate fraud" — most prominently staging a promotional video showing a truck driving under its own power when it had actually been pushed down a hill. Founder Trevor Milton resigned and was convicted of fraud in 2022. SEC and DOJ both brought charges. The stock fell over 80% from peak.
+
+### Detectable Signals
+
+| Signal | Detail |
+|--------|--------|
+| Revenue vs Valuation | Market cap exceeded $30B with $0 in actual revenue — valuation entirely based on unverifiable claims |
+| Negative OCF with large stock issuance | Operating cash flow deeply negative while share-based compensation was the primary "asset" |
+| Sales Growth Index (SGI) | SGI from forecasted to actual revenue: effectively zero — no delivery milestone met |
+| Insider selling | Founder sold $70M+ in shares before fraud revelation |
+| Governance flags | SPAC structure, single founder control, no audited revenue history |
+
+### Key Lesson
+
+SPAC-structure companies with no revenue history, single-founder governance, and stock-based dilution as the primary cash mechanism warrant maximum skepticism on every technology claim. Governance and dilution sub-scores catch this class of fraud before any accounting manipulation is visible.
+
+---
+
 ## Cross-Case Signal Summary
 
 | Case | DSRI | GMI | AQI | SGI | OCF/NI | Z-Score |
@@ -182,9 +248,12 @@ Channel stuffing shows up first in the DSRI. When receivables grow faster than r
 | NMC Health | ⚠️ | | | | ⚠️ | |
 | Steinhoff | | ⚠️ | | ⚠️ | ⚠️ | |
 | Valeant | ⚠️ | | | | | ⚠️ |
+| Satyam | ⚠️ | | | | ⚠️ | |
+| Parmalat | | | ⚠️ | | ⚠️ | ⚠️ |
+| Nikola | | | | ⚠️ | ⚠️ | |
 
 !!! tip "Pattern"
-    No single signal catches every fraud, but elevated DSRI and OCF/NI divergence appear in 5 of the 7 cases. The Beneish M-Score combining all 8 components is the single highest-recall baseline screener across these cases.
+    No single signal catches every fraud, but elevated DSRI and OCF/NI divergence appear in 7 of the 10 cases. The Beneish M-Score combining all 8 components is the single highest-recall baseline screener across these cases. For SPAC-era frauds (Nikola), governance and dilution sub-scores are the primary detection layer.
 
 ---
 

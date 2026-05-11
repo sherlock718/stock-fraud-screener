@@ -79,6 +79,7 @@ nav:
     - Bias & Validation: methodology/bias-validation.md
     - Leverage Strategy: methodology/leverage.md
     - Case Studies: methodology/case-studies.md
+    - Benchmarking: methodology/benchmarking.md
   - Developer Guide:
     - developer/index.md
     - Setup: developer/setup.md
