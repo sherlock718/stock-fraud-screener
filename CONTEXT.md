@@ -15,40 +15,72 @@ See `ROADMAP.md` for phase plan. See `CLAUDE.md` for architecture state and pre-
 
 ---
 
-## Current Phase
+## Current Focus
 
-**Phase 0 — Foundation** (🟡 In Progress)
+**Phase A — Foundation** (🟡 In Progress — doing this properly before any Phase B/C work)
 
-### Completed This Session
-- [x] D1 — CLAUDE.md reframed to multi-factor platform
-- [x] D2 — docs/index.md reframed
-- [x] D3 — docs/architecture.md reframed
-- [x] D4 — docs/methodology/models.md feature selection clarification
-- [x] D5 — docs/methodology/pipeline.md reframed
-- [x] D6 — docs/methodology/feature-selection.md (new)
-- [x] D7 — docs/methodology/features.md dual taxonomy rewrite
-- [x] ROADMAP.md created
-- [x] CONTEXT.md created (this file)
-- [x] Vision memory saved to memory/project_vision_quant_lab.md
+Phase B (Research & Signals) and Phase C (Portfolio & Production) are **parked** — see bottom of this file for their saved state. Do not start them until Phase A exit criteria are all met.
 
-### Remaining Phase 0 Docs
-- [ ] D8 — docs/methodology/factor-library.md (feature groups as ML inputs, NOT score composite)
-- [ ] D9 — docs/developer/contributing.md (vision checklist + sync rules)
-- [ ] D10 — mkdocs.yml nav update + site_name fix
-- [ ] D11 — git commit + push all docs
+---
 
-### Codebase Cleanup (not yet done)
-- [ ] Delete `pipeline/enrich_auditor_going_concern.py` (superseded by enrich_governance.py)
-- [ ] Delete `pipeline/score_and_report.py` (rules-based composite — contradicts ML-first vision)
-- [ ] Delete `scripts/watchlist.py` (session state export)
-- [ ] Delete `scripts/high_roi_strategies.py` (redundant wrapper)
+## Verified Data State (as of 2026-05-11)
 
-### Phase 0 Code Blockers (not yet started)
-- [ ] P0.1 — Cross-sectional momentum (12m-1m) → `pipeline/feature_library.py`
-- [ ] P0.2 — Fix SPY benchmark → `scripts/backtester.py`
-- [ ] P0.3 — `scripts/score_historical.py` (writes ml_1y/ml_3y/ml_5y to parquet) ← CRITICAL
-- [ ] P0.4 — Newey-West HAC + Fama-MacBeth + FDR → `scripts/train_models.py`
-- [ ] P0.5 — Verify 20-year data coverage per market
+### historical_dataset_clean.parquet — 155,696 rows, 319 cols
+
+| Market | Rows | Tickers | Years | Quarterly? |
+|---|---|---|---|---|
+| US | 143,519 | 4,452 | 2008–2027 | ✅ 104,063 quarterly rows |
+| KR | 3,396 | 106 | 2015–2026 | ✅ 2,469 quarterly rows |
+| BR | 2,834 | 55 | 2010–2025 | ✅ 2,094 quarterly rows |
+| CA | 4,048 | 1,378 | 2021–2026 | ❌ annual only |
+| EU (DE/FR/IT/etc.) | ~1,500 | ~300 | 2021–2025 | ❌ annual only |
+| JP | 498 | 122 | 2021–2026 | ❌ annual only |
+
+**Known data issues:**
+- KR: snapshot had 251 tickers, only 106 made it into clean dataset — 145 lost in pipeline (investigate)
+- CA/EU/JP: no quarterly data — feature enrichment limited
+- Refresh is **weekly** (Sunday 5am, `cron: '0 5 * * 0'`), not monthly
+- ML score cols (ml_1y, ml_3y, ml_5y): **ABSENT** — `score_historical.py` not yet built
+
+### Momentum features — already exist (P0.1 is NOT a blocker)
+
+| Column | Null Rate (annual) |
+|---|---|
+| momentum_12m_prior | 3.4% |
+| momentum_6m_prior | 1.6% |
+| momentum_3m_prior | 0.7% |
+| momentum_consistency | 0.0% |
+| value_x_momentum | 32.2% |
+
+Cross-sectional rank (Jegadeesh & Titman 12m-1m) still needs verification in feature_library.py.
+
+---
+
+## Phase A — Remaining Tasks
+
+### Step 0 — Git & Repo Cleanup
+- [ ] Audit orphaned scripts (no doc entry)
+- [ ] Branch strategy: main (stable) / dev (integration) / feature/* (work)
+- [ ] .gitignore audit (parquet, joblib, .env, site/, __pycache__)
+- [ ] Remove stale notebooks and draft scripts
+
+### Step 1 — Data Ingestion (verify completeness)
+- [ ] Confirm KR ticker loss (251 → 106) — investigate pipeline drop
+- [ ] Confirm quarterly coverage is sufficient for enrichment (US/KR/BR only)
+- [ ] CA/EU/JP annual-only — document limitation explicitly
+
+### Step 2 — Data Quality & Bias
+- [ ] P0.5 — Data coverage verification (20-year depth check, especially US)
+- [ ] Re-run `check_data.py` and `pit_validate.py` on current parquet
+
+### Step 3 — Data Refresh
+- [ ] Confirm weekly GitHub Actions job is still live and passing
+- [ ] Verify HuggingFace push is working post-refresh
+
+### Step 4 — Feature Engineering
+- [ ] Verify cross-sectional momentum implementation in `pipeline/feature_library.py`
+  (momentum cols exist but confirm they are rank-normalised cross-sectionally, not raw returns)
+- [ ] value_x_momentum at 32.2% null — investigate why
 
 ---
 
@@ -60,15 +92,18 @@ See `ROADMAP.md` for phase plan. See `CLAUDE.md` for architecture state and pre-
 | 3y | 0.643 | ≥ 0.62 | ✅ |
 | 5y | 0.597 | ≥ 0.62 | ❌ |
 
-**Root cause of weak 1y/5y**: momentum gap (0 true cross-sectional momentum features), SPY benchmark broken (using equal-weight universe mean), no historical ML scores in parquet.
+**Root cause of weak 1y/5y**: no ML scores in parquet (backtester blind), SPY benchmark using equal-weight universe mean.
 
 ---
 
-## Architecture in One Paragraph
+## Critical Phase A Blockers
 
-Data flows: SEC/SimFin/DART/TDNET/SEDAR+/B3 → annual snapshots (step1–step2) → price enrichment (step3) → macro join (step4) → 319 feature computation (step5, feature_library.py) → clean/normalise (step6) → feature selection (PSI → IC → ICIR → Spearman dedup, ~35 features per horizon) → LightGBM training (1y/3y/5y) → alpha signal generation (market × horizon × segment × feature_subset × model_type) → per-alpha backtesting → alpha selection (Sharpe > 0.5, drawdown < 30%, IC > 0.02) → portfolio construction → FastAPI → frontend.
-
-The 5 factor groups (Value / Quality / Momentum / Growth / FraudRisk) are **ML input categories**, not scored with fixed weights.
+| ID | Task | File | Why |
+|---|---|---|---|
+| P0.3 | Build `score_historical.py` | `scripts/` | Backtester has zero ML signal without this |
+| P0.2 | Fix SPY benchmark | `scripts/backtester.py` | All CAGR/excess return numbers misleading |
+| P0.4 | Newey-West HAC + FDR | `scripts/train_models.py` | Feature selection not statistically sound |
+| P0.5 | Coverage verification | audit script | Can't trust ICIR rankings without confirming depth |
 
 ---
 
@@ -76,48 +111,31 @@ The 5 factor groups (Value / Quality / Momentum / Growth / FraudRisk) are **ML i
 
 | File | Purpose |
 |---|---|
-| `CLAUDE.md` | Architecture state, pre-task checklist, sync rules — read every session |
-| `ROADMAP.md` | Phase plan with checkboxes — update as tasks complete |
-| `CONTEXT.md` | This file — session state snapshot |
-| `pipeline/feature_library.py` | Single source of truth for all 319 feature formulas |
-| `scripts/train_models.py` | ML training with PSI/IC/ICIR feature selection |
-| `scripts/backtester.py` | Walk-forward backtesting (SPY benchmark broken — P0.2) |
-| `data/historical_dataset_clean.parquet` | Main dataset (US, ~155K rows) |
+| `CLAUDE.md` | Architecture state, pre-task checklist, sync rules |
+| `ROADMAP.md` | Phase plan with status rows |
+| `CONTEXT.md` | This file |
+| `pipeline/feature_library.py` | All 319 feature formulas |
+| `scripts/train_models.py` | ML training: PSI → IC → ICIR → Spearman dedup |
+| `scripts/backtester.py` | Walk-forward backtester (SPY benchmark broken) |
+| `data/historical_dataset_clean.parquet` | Main dataset (319 cols, 155K rows, 14 markets) |
 | `models/model_meta.json` | Selected features per horizon + training stats |
 
 ---
 
-## Data Coverage
+## Parked — Phase B & C (resume after Phase A exit criteria met)
 
-| Market | Status | Source |
-|---|---|---|
-| US | ✅ Built (step1–step6 done) | SEC EDGAR |
-| EU | ⚠️ Partial (snapshots exist, not integrated) | SimFin |
-| KR | ⚠️ Partial (phase_a_integrate_kr.py exists) | DART |
-| JP | ❌ Not integrated | TDNET |
-| CA | ❌ Not integrated | SEDAR+ |
-| BR | ❌ Not integrated | B3/CVM |
+### Phase B — Research & Signals (not started)
+Steps 5–11: Feature Selection improvements (HAC/FDR), Factor Research notebooks (IC decay, regime analysis), Model baselines + ablation, Alpha signal generation + registry, Backtest per-alpha, Portfolio Construction, Final Alpha Selection.
 
----
+**Saved blockers for Phase B:**
+- Feature selection: HAC standard errors + Benjamini-Hochberg FDR not yet implemented
+- Alpha registry schema not designed
+- Portfolio construction: Kelly sizing, risk-parity, sector limits — nothing built
 
-## Critical Decisions Made
+### Phase C — Portfolio & Production (not started)
+Steps 12–16: Leverage strategy integration with alpha registry, full reporting tearsheets, per-alpha monitoring, React/Next.js frontend, Docker + cloud deployment.
 
-1. **Monolith** for research pipeline (layers 1–13), thin **FastAPI** + separate **React/Next.js** frontend as the only service boundaries.
-2. **Feature groups are ML inputs**, not a scoring rubric. This is irreversible and must be preserved in all future docs and code.
-3. **HuggingFace** for data storage. **Git** for code. Docs via MkDocs.
-4. **Phase-gate reviews**: after each phase, show output → ask alignment questions → user approves before next phase starts.
-5. **Four files to delete** (see cleanup section above) — rules-based composite code contradicts the vision.
-
----
-
-## Next Session — Where to Resume
-
-1. Execute D8: create `docs/methodology/factor-library.md`
-2. Execute D9: create `docs/developer/contributing.md`
-3. Execute D10: update `mkdocs.yml`
-4. Execute D11: git commit + push
-5. Codebase cleanup: delete 4 files
-6. Start Phase 0 code: P0.3 first (score_historical.py) — it's the critical blocker
+**Saved state:** Streamlit + FastAPI already built. HuggingFace hosting live. Docker schema exists but not deployed.
 
 ---
 
@@ -126,3 +144,4 @@ The 5 factor groups (Value / Quality / Momentum / Growth / FraudRisk) are **ML i
 | Date | Work Done |
 |---|---|
 | 2026-05-11 | Vision realignment; D1–D7 docs; ROADMAP.md; CONTEXT.md; vision memory saved |
+| 2026-05-11 | Roadmap restructured to 16-step backbone; Phase B/C parked; full data audit run |

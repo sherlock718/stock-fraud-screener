@@ -1,13 +1,14 @@
-# Stock Fraud & Quantitative Screener
+# Multi-Factor Stock Screener
 
-A research-grade quantitative stock screening and backtesting system built on SEC EDGAR (US), SEDAR+ (Canada), B3 (Brazil), TDNET (Japan), and EU exchange data.
+A research-grade quantitative alpha generation platform covering 14 markets — US, Korea, Canada, Japan, Brazil, and 9 European markets. Built on SEC EDGAR, SEDAR+, B3, TDNET, SimFin, and DART.
 
 ## What It Does
 
-- **Screens** current-year companies using 5 composite signals: value, quality, ML probability, fraud risk, and momentum
+- **Scores** companies across 5 factor groups: Value, Quality, Momentum, Growth, and Fraud Risk — combined into a composite alpha score
+- **Trains** LightGBM models on 1y/3y/5y return horizons using 155,696 company-year observations and 319 features
 - **Backtests** 4 strategies (COMPOSITE, QEM, SCDV, IARB) with walk-forward ML retraining to avoid look-ahead bias
-- **Flags fraud risk** using Beneish M-Score, Ohlson O-Score, Altman Z-Score, Piotroski F-Score, and custom accruals signals
-- **Ranks factors** by IC/ICIR across 1y/3y/5y horizons for factor research
+- **Flags fraud risk** as one factor — Beneish M-Score, Ohlson O-Score, Altman Z-Score, Piotroski F-Score, AAER-confirmed labels, and ML fraud probability
+- **Ranks factors** by IC/ICIR across 1y/3y/5y horizons for systematic factor research
 
 ---
 

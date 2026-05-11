@@ -69,13 +69,13 @@ HORIZONS = {
 
 # Price/momentum features to force-include for the 1y model.
 # These are ranked too low by raw |ICIR| to enter the top-40, but they are
-# consistently predictive (pct_positive_ic ≥ 0.70) and are top-3 SHAP drivers
-# in the 3y/5y models.  Adding them gives the 1y model the price-regime signal
-# it currently lacks (which explains the 0.47 AUC fold in 2018→2019).
+# consistently predictive (pct_positive_ic ≥ 0.70) and provide regime-aware
+# signal that fundamental features miss (especially in market-regime reversal years).
 # Only features that actually exist in the dataset are force-included at runtime.
 FORCE_INCLUDE_1Y = [
-    'price_to_52w_high',   # ICIR=0.57, pct_pos=0.71 — strongest price signal for 1y
-    'log_revenue',         # ICIR=0.76, pct_pos=0.79 — size/quality signal
+    # No force-includes currently. Tested 'vix' (ICIR=0.79, improved 2019 fold by +0.02)
+    # but net WF mean AUC declined 0.553→0.549 due to dedup removing other features.
+    # Tested 'price_to_52w_high' — hurt the 2019 fold (IC=−0.40 in COVID reversal year).
 ]
 
 EXCLUDE = {
@@ -388,14 +388,14 @@ def main() -> None:
                         help='Run expanding-window walk-forward CV after main training')
     parser.add_argument('--max-psi', type=float, default=2.0,
                         help='Drop features with PSI > threshold before IC analysis (default: 2.0)')
-    parser.add_argument('--min-ic-stability', type=float, default=0.6,
-                        help='Minimum fraction of years IC must be positive-signed to keep feature '
-                             '(default: 0.6). Filters out features that are only high |ICIR| due '
-                             'to consistent negative IC — i.e. they only work one way.')
-    parser.add_argument('--min-ic-years', type=int, default=5,
+    parser.add_argument('--min-ic-stability', type=float, default=0.0,
+                        help='Minimum fraction of years IC must have the correct sign to keep feature '
+                             '(default: 0.0 = off). Set to e.g. 0.6 to drop features whose IC '
+                             'direction is inconsistent across years.')
+    parser.add_argument('--min-ic-years', type=int, default=1,
                         help='Minimum number of years with valid IC data to keep a feature '
-                             '(default: 5). Prevents spurious features with very few observations '
-                             'from getting artificial ICIR inflation.')
+                             '(default: 1 = off). Set to e.g. 5 to prevent spurious ICIR inflation '
+                             'from features with very few historical observations (e.g. fraud_label).')
     args = parser.parse_args()
 
     train_cutoff = args.train_cutoff
