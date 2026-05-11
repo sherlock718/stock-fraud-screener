@@ -220,6 +220,121 @@ _CASES: list[dict] = [
         ],
         'signal_cols': ['sgi', 'beneish_m_score', 'fraud_score_composite', 'fraud_score_dilution', 'fraud_score_governance'],
     },
+    {
+        'name':       'Theranos Inc.',
+        'ticker':     'THRNOS',
+        'market':     'US',
+        'fraud_year': 2015,
+        'type':       'Technology Fabrication — $9B Blood-Testing Fraud',
+        'summary': (
+            'Theranos, a Silicon Valley blood-testing startup, claimed its Edison device could run '
+            'hundreds of tests from a single finger-prick drop of blood. In October 2015 a WSJ '
+            'investigation revealed the technology did not work: most tests were run on conventional '
+            'Siemens machines. Founder Elizabeth Holmes and president Ramesh Balwani were both '
+            'convicted of fraud. The company, valued at $9B, had raised $900M+ from investors '
+            'without sharing audited financials or allowing standard due diligence.'
+        ),
+        'signals': [
+            ('Revenue vs Technology Claims', 'Claimed test cost of $15 vs industry standard $100+ — a claim that would require a verified breakthrough unsubstantiated by any peer-reviewed publication.'),
+            ('Cash Burn vs Revenue', 'Raised $900M+ in equity but disclosed zero commercial revenue; valuation was entirely based on forward promises with no audited revenue base.'),
+            ('Due Diligence Restriction', 'Investors were contractually barred from visiting labs or conducting standard technical diligence — a structural red flag in any private placement.'),
+            ('Governance Concentration', 'Founder held 99%+ voting control via super-voting shares; board was celebrity-heavy but lacked medical diagnostics expertise entirely.'),
+            ('Regulatory Non-Compliance', 'CLIA lab certification was obtained under a subsidiary brand; FDA clearance was never obtained for the Edison device despite patient results being used clinically.'),
+        ],
+        'signal_cols': ['fraud_score_governance', 'fraud_score_composite'],
+    },
+    {
+        'name':       'Adelphia Communications',
+        'ticker':     'ADELQ',
+        'market':     'US',
+        'fraud_year': 2002,
+        'type':       'Related-Party Looting — $3.1B Off-Book Family Loans',
+        'summary': (
+            'Adelphia Communications, founded by the Rigas family, concealed $3.1B in off-balance-sheet '
+            'co-borrowing arrangements that were used to fund personal expenses for the founding family — '
+            'including a private golf course, a golf management company, and a personal lumber business. '
+            'The fraud was disclosed in March 2002 and the company filed for bankruptcy in June 2002. '
+            'John Rigas (founder) and his son Timothy both received prison sentences.'
+        ),
+        'signals': [
+            ('Off-Balance-Sheet Liabilities', '$3.1B in co-borrowing arrangements for Rigas family entities not disclosed on Adelphia balance sheets — true leverage was 14× EBITDA.'),
+            ('Related-Party Transactions', 'Founding family entities received company guarantees and cash advances for personal asset purchases; disclosure was minimal and buried in footnotes.'),
+            ('Debt / EBITDA', 'Disclosed leverage of ~8× was already high; including undisclosed co-borrowings the true ratio exceeded 14× — structurally insolvent.'),
+            ('OCF vs Reported Earnings', 'Free cash flow was deeply negative while reported net income was positive — EBITDA was the concealment metric of choice across disclosures.'),
+            ('Altman Z-Score', 'Z-score fell below 1.81 in FY2001, two quarters before the June 2002 bankruptcy filing.'),
+        ],
+        'signal_cols': ['beneish_m_score', 'altman_z_score', 'sloan_accruals', 'aqi'],
+    },
+    {
+        'name':       'HealthSouth Corporation',
+        'ticker':     'HLSH',
+        'market':     'US',
+        'fraud_year': 2003,
+        'type':       'Earnings Fabrication — $2.7B Inflated Net Income',
+        'summary': (
+            'HealthSouth CEO Richard Scrushy directed management to set quarterly earnings targets '
+            'and then create fraudulent journal entries backward from the target — a practice that '
+            'ran from 1996 to 2003 and inflated cumulative earnings by $2.7B. Over 2,700 false '
+            'journal entries were discovered by forensic accountants. Ernst & Young signed off on '
+            'the financials for 17 years. Fifteen HealthSouth executives pleaded guilty; Scrushy '
+            'was acquitted of fraud but later convicted of bribery in a separate case.'
+        ),
+        'signals': [
+            ('Earnings vs OCF Gap', 'EPS grew steadily while OCF consistently underperformed reported net income by 30–50% per year — the gap was filled entirely by fictitious asset additions.'),
+            ('Asset Quality Index (AQI)', 'AQI > 1.6 — property & equipment overstated by capitalising items that were maintenance expense, a textbook Beneish AQI signal.'),
+            ('Sloan Accruals', 'Accruals ratio in the top decile for healthcare services peers consistently from 1997 to 2003 — persistent elevated accruals are a reliable fraud precursor.'),
+            ('Gross Margin Stability', 'Margins were suspiciously stable despite large swings in Medicare reimbursement rates — real healthcare operations exhibit margin volatility.'),
+            ('Auditor Tenure Risk', 'Ernst & Young engagement ran for 17 years; long-tenured auditors develop familiarity bias, reducing professional skepticism on unusual journal entries.'),
+        ],
+        'signal_cols': ['aqi', 'sloan_accruals', 'beneish_m_score', 'altman_z_score'],
+    },
+    {
+        'name':       'Autonomy Corporation',
+        'ticker':     'AUTNF',
+        'market':     'US',
+        'fraud_year': 2012,
+        'type':       'Revenue Inflation — $5B HP Acquisition Writedown',
+        'summary': (
+            'Hewlett-Packard acquired UK software company Autonomy for $11.1B in October 2011 and '
+            'wrote down $8.8B just 13 months later, attributing $5B of the loss to "serious accounting '
+            'improprieties" at Autonomy. Alleged techniques included misclassifying hardware revenue '
+            'as software, round-trip transactions with resellers, and pulling forward revenue from '
+            'multi-year contracts. Autonomy founder Mike Lynch was extradited to the US and acquitted '
+            'in 2024 after a landmark trial.'
+        ),
+        'signals': [
+            ('Revenue Misclassification', 'Low-margin hardware sales were recorded as high-margin software revenue, inflating reported gross margins by an estimated 10+ percentage points.'),
+            ('Gross Margin Index (GMI)', 'Reported 80%+ gross margins were implausible for a business with known hardware distribution activity — GMI was elevated vs pure-play software peers.'),
+            ('Round-Trip Transactions', 'Value-added resellers were allegedly paid to purchase Autonomy software and immediately resell it back, inflating current-period recognised revenue.'),
+            ('DSRI (Beneish)', 'DSRI above 1.3 in FY2010 and FY2011 — receivables growing disproportionately faster than revenue growth.'),
+            ('Revenue Growth vs Cash Collection', 'Revenue grew 60%+ YoY in 2010–2011 while DSO expanded from ~60 to ~110 days — accelerating revenue recognition without matching cash inflow.'),
+        ],
+        'signal_cols': ['dsri', 'gmi', 'beneish_m_score', 'sloan_accruals'],
+    },
+    {
+        'name':       'Toshiba Corporation',
+        'ticker':     'TOSBF',
+        'market':     'JP',
+        'fraud_year': 2015,
+        'type':       'Earnings Fabrication — ¥152B Overstated Profit (7 Years)',
+        'summary': (
+            'Toshiba disclosed in April 2015 that it had overstated cumulative pre-tax profits by '
+            '¥151.8B (~$1.2B) over seven fiscal years, spanning three consecutive CEO tenures. '
+            'An independent panel found systematic "challenges" — targets set above business unit '
+            'capacity — that created a cultural mandate to manipulate. Key techniques included '
+            'percentage-of-completion inflation in infrastructure projects and component '
+            'cost-recognition deferral in semiconductors. PricewaterhouseCoopers Japan issued a '
+            'qualified opinion retroactively but had signed clean opinions for the fraudulent periods.'
+        ),
+        'signals': [
+            ('Percentage-of-Completion Manipulation', 'Long-term infrastructure project revenue pulled forward via systematically overstated completion percentages — a technique invisible without project-level disclosure.'),
+            ('Operating Income vs OCF Divergence', 'Operating income exceeded OCF by a cumulative ¥152B over 7 years — a slow drift that compounded from ¥5–10B/year to >¥50B/year by FY2014.'),
+            ('Gross Margin Index (GMI)', 'Semiconductor and infrastructure division margins were 200–400 bps above peer benchmarks with no stated competitive explanation.'),
+            ('Management Culture Indicators', 'Internal investigation cited "challenges" (management targets) consistently set above achievable capacity — a governance failure enabling systematic manipulation.'),
+            ('Beneish M-Score Trajectory', 'M-score deteriorated from approximately −2.5 to −1.9 between FY2009 and FY2014, crossing the −2.22 manipulation zone threshold.'),
+        ],
+        'signal_cols': ['gmi', 'beneish_m_score', 'altman_z_score', 'sloan_accruals'],
+    },
 ]
 
 _SCORE_HISTORY_COLS = [
@@ -359,6 +474,11 @@ def tab_case_studies(df_all: pd.DataFrame) -> None:
         'Satyam Computer Services': 'When a cash-rich company consistently generates weak operating cash flow, the cash is almost certainly fictional. DSRI elevation combined with ROA deterioration is the earliest reliable signal in balance-sheet fabrication frauds.',
         'Parmalat SpA':             'Claimed cash balances of €4B+ alongside €14B in debt should have been impossible — the interest payments alone exceeded reported operating income. Z-score distress and AQI elevation were detectable years before the forged bank document surfaced.',
         'Nikola Corporation':       'SPAC-structure companies with no revenue history, single-founder governance, and stock-based dilution as the primary cash mechanism warrant maximum skepticism on every technology claim. Governance and dilution sub-scores catch this class of fraud before any accounting manipulation is visible.',
+        'Theranos Inc.':            'When a private company refuses audited financials, bars investors from standard diligence, and makes technology claims unsupported by peer-reviewed evidence, the governance and dilution red flags are sufficient to reject the investment before any accounting data is available. Voting control concentration is the single fastest signal.',
+        'Adelphia Communications':  'Related-party looting is the hardest fraud to detect from public filings alone, but the leverage signal is always present. A disclosed debt/EBITDA of 8× in a capital-intensive cable business should have triggered scrutiny of off-balance-sheet guarantees. Altman Z below 1.81 preceded bankruptcy by two quarters.',
+        'HealthSouth Corporation':  '"Earnings first, entries second" manipulation produces a consistent pattern: rising EPS with rising accruals and stagnant OCF. Sloan accruals in the top peer-decile for 7 consecutive years is an independently sufficient reason to exit the position regardless of the income statement story.',
+        'Autonomy Corporation':     'Gross margins above 80% in a business with known hardware activity are a contradiction. The GMI and DSRI signals were both elevated in the two years before the HP acquisition — a buyer conducting standard Beneish analysis should have flagged the revenue quality before signing the purchase agreement.',
+        'Toshiba Corporation':      'POC-based revenue manipulation is gradual — ¥5–10B/year for the first few years, then accelerating. The OCF/operating-income divergence compounded over seven years before anyone acted. Monitoring this ratio annually with a simple threshold (< 0.80 conversion) would have flagged Toshiba in FY2011 — four years before the restatement.',
     }
     st.info(lesson_map.get(case['name'], 'Study the pre-fraud signals carefully — they were present.'))
 
