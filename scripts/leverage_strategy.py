@@ -17,12 +17,15 @@ import json
 import warnings
 warnings.filterwarnings('ignore')
 
+import sys
 import joblib
 import numpy as np
 import pandas as pd
 from pathlib import Path
 
 BASE       = Path(__file__).parent.parent
+sys.path.insert(0, str(BASE))
+from pipeline.feature_library import add_normalised_ratios, add_piotroski_ext
 DATA_PATH  = BASE / 'data' / 'app_data.parquet'
 FULL_DATA  = BASE / 'data' / 'historical_dataset_clean.parquet'
 MODELS_DIR = BASE / 'models'
@@ -48,22 +51,8 @@ def load_data(market: str) -> pd.DataFrame:
         full = pd.read_parquet(FULL_DATA)
         full = full[(full['period_type'] == 'annual') & (full['market'] == market)]
         full = full[full['fiscal_year'] >= latest_year - 1]
-
-        # Add Piotroski extensions (same logic as train_models.py)
-        full = full.sort_values(['ticker', 'fiscal_year'])
-        for src, name in [
-            ('shares_outstanding', 'piotroski_shares_ok'),
-            ('gross_margin',       'piotroski_delta_gm'),
-            ('asset_turnover',     'piotroski_delta_at'),
-        ]:
-            if src in full.columns:
-                full[name] = full.groupby('ticker')[src].transform(
-                    lambda x: (x <= x.shift(1)).astype(float) if src == 'shares_outstanding'
-                    else (x > x.shift(1)).astype(float)
-                )
-        extra_cols = [c for c in ['piotroski_shares_ok', 'piotroski_delta_gm', 'piotroski_delta_at'] if c in full.columns]
-        if extra_cols and 'piotroski_f_score' in full.columns:
-            full['piotroski_f_score_9'] = full['piotroski_f_score'].astype('float64') + full[extra_cols].sum(axis=1, min_count=1)
+        full = add_piotroski_ext(full)
+        full = add_normalised_ratios(full)
 
         full = full.sort_values('fiscal_year', ascending=False).drop_duplicates('ticker', keep='first')
         # Merge slim display-only cols (e.g. market_cap_at_filing) onto full
@@ -217,7 +206,48 @@ def _pick_strategy(row: pd.Series, leverage: float) -> str:
         return 'Equity only (score below leverage threshold)'
 
 
-def print_report(positions: pd.DataFrame, market: str, capital: float) -> None:
+def build_short_book(df: pd.DataFrame, top_n: int, capital: float) -> pd.DataFrame:
+    """
+    Select top_n short candidates: highest Beneish M-score (most likely manipulation).
+    Short leg is capped at 30% of total capital, equally weighted, max 5% per name.
+    Only names with Beneish > MAX_BENEISH threshold qualify.
+    """
+    SHORT_BOOK_PCT    = 0.30   # Short book <= 30% of capital
+    MAX_SHORT_SINGLE  = 0.05   # Cap each short at 5%
+
+    if 'beneish_m_score' not in df.columns:
+        return pd.DataFrame()
+
+    # High Beneish = manipulation risk = short candidates
+    short_candidates = df[df['beneish_m_score'] > MAX_BENEISH].copy()
+
+    # Exclude already small-cap / illiquid (can't easily borrow)
+    if 'market_cap_at_filing' in short_candidates.columns:
+        short_candidates = short_candidates[
+            short_candidates['market_cap_at_filing'].fillna(0) > 1e8
+        ]
+
+    if len(short_candidates) == 0:
+        return pd.DataFrame()
+
+    short_candidates = short_candidates.nlargest(top_n, 'beneish_m_score').copy()
+
+    # Equal weight, capped at MAX_SHORT_SINGLE, scaled to SHORT_BOOK_PCT of capital
+    n = len(short_candidates)
+    weight = min(1.0 / n, MAX_SHORT_SINGLE)
+    short_candidates['short_pct']     = round(weight * SHORT_BOOK_PCT * 100, 1)
+    short_candidates['short_eur']     = round(capital * weight * SHORT_BOOK_PCT, 0)
+    short_candidates['short_leg']     = 'Short'
+    return short_candidates[
+        ['ticker'] +
+        [c for c in ['name', 'beneish_m_score', 'altman_z_score',
+                     'piotroski_f_score', 'short_pct', 'short_eur', 'short_leg']
+         if c in short_candidates.columns]
+    ].reset_index(drop=True)
+
+
+def print_report(positions: pd.DataFrame, shorts: pd.DataFrame,
+                 market: str, capital: float) -> None:
     total_invested = positions['position_eur'].sum()
     total_notional = positions['notional_eur'].sum()
     safe_count = positions['leverage_safe'].sum()
@@ -225,7 +255,7 @@ def print_report(positions: pd.DataFrame, market: str, capital: float) -> None:
     print(f"\n{'='*70}")
     print(f"  LEVERAGE STRATEGY REPORT — {market} | Capital: €{capital:,.0f}")
     print(f"{'='*70}")
-    print(f"  Top {len(positions)} positions | {safe_count} leverage-safe")
+    print(f"  Top {len(positions)} LONG positions | {safe_count} leverage-safe")
     print(f"  Total invested: €{total_invested:,.0f} ({total_invested/capital*100:.0f}% of capital)")
     print(f"  Total notional: €{total_notional:,.0f} ({total_notional/capital*100:.0f}% of capital)")
     print(f"{'='*70}\n")
@@ -235,12 +265,19 @@ def print_report(positions: pd.DataFrame, market: str, capital: float) -> None:
     available = [c for c in display_cols if c in positions.columns]
     print(positions[available].to_string(index=False))
 
+    if len(shorts) > 0:
+        short_capital = shorts['short_eur'].sum() if 'short_eur' in shorts.columns else 0
+        print(f"\n{'='*70}")
+        print(f"  SHORT BOOK — {len(shorts)} positions | €{short_capital:,.0f} gross short")
+        print(f"{'='*70}\n")
+        print(shorts.to_string(index=False))
+
     print(f"\n--- Risk Rules Applied ---")
     print(f"  Half-Kelly fraction:     {HALF_KELLY_FRACTION}")
     print(f"  Max single position:     {MAX_POSITION_PCT*100:.0f}%")
     print(f"  Max leverage:            {MAX_LEVERAGE}x")
     print(f"  Min Piotroski F-score:   {MIN_PIOTROSKI}")
-    print(f"  Max Beneish M-score:     {MAX_BENEISH} (below = manipulation risk)")
+    print(f"  Max Beneish M-score:     {MAX_BENEISH} (below = manipulation risk; above = short candidate)")
     print(f"  Min Altman Z-score:      {MIN_ALTMAN_Z} (below = distress risk)")
 
     print(f"\n--- Strategy Guide ---")
@@ -251,6 +288,7 @@ def print_report(positions: pd.DataFrame, market: str, capital: float) -> None:
     print(f"                  Net return hurdle: stock must beat 5.8% to profit")
     print(f"                  Best for: medium conviction, liquid stocks")
     print(f"  Equity only:    No leverage. Position if score qualifies.")
+    print(f"  Short (Beneish > {MAX_BENEISH}): Borrow & sell; expect mean-reversion / accounting fraud reveal")
 
 
 def main():
@@ -274,10 +312,15 @@ def main():
 
     print(f'Building leverage report (top {args.top})...')
     positions = size_positions(df, args.top, args.capital)
-    print_report(positions, args.market, args.capital)
+    shorts    = build_short_book(df, top_n=10, capital=args.capital)
+    print_report(positions, shorts, args.market, args.capital)
 
     out_path = BASE / 'data' / f'leverage_positions_{args.market.lower()}.csv'
     positions.to_csv(out_path, index=False)
+    if len(shorts) > 0:
+        short_path = BASE / 'data' / f'short_book_{args.market.lower()}.csv'
+        shorts.to_csv(short_path, index=False)
+        print(f'Short book saved: {short_path}')
     print(f'\nSaved: {out_path}')
 
 

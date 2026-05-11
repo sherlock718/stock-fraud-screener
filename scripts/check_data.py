@@ -33,7 +33,17 @@ CHECKS = {
     'us_total_assets_null_max':   0.01,  # <1% for US annual
     'br_total_assets_null_max':   0.01,  # <1% for BR annual
     'labeled_1y_min':            30_000,
+    # Post-fix_dataset_quality.py expectations
+    'accruals_max_abs':          50.0,   # after winsorize; raw can be ~15k
+    'gross_margin_pct_fmt_max':  0.001,  # <0.1% of rows should remain > 1.5
 }
+
+# Columns that fix_dataset_quality.py drops — presence here means fix hasn't run
+KNOWN_NULL_COLUMNS = [
+    'roic', 'ppe', 'total_equity', 'roe_sector_pct', 'pb_ratio',
+    'pb_ratio_sector_pct', 'acc_mt', 'corp_code', 'earnings_stability_5yr',
+    'book_to_market',
+]
 
 
 def run(src: Path = SRC, verbose: bool = False, fail_fast: bool = False) -> bool:
@@ -168,6 +178,34 @@ def run(src: Path = SRC, verbose: bool = False, fail_fast: bool = False) -> bool
     markets = df['market'].unique().tolist()
     check('has_US',  'US' in markets, str(markets))
     check('has_non_US', any(m != 'US' for m in markets), str(markets))
+
+    # ── Dataset quality fixes verification ───────────────────────────────────
+    print('\nDataset quality fixes:')
+
+    # is_forecast flag — must be present after fix_dataset_quality.py
+    check('col:is_forecast', 'is_forecast' in df.columns,
+          'present' if 'is_forecast' in df.columns else 'MISSING — run fix_dataset_quality.py')
+
+    # Known-null columns should have been dropped
+    still_present = [c for c in KNOWN_NULL_COLUMNS if c in df.columns]
+    check('known_null_cols_dropped', len(still_present) == 0,
+          f'all dropped' if not still_present else f'still present: {still_present}')
+
+    # accruals_to_assets should be winsorized to sane range
+    if 'accruals_to_assets' in df.columns:
+        acc_max = df['accruals_to_assets'].abs().max()
+        check('accruals_winsorized',
+              acc_max <= CHECKS['accruals_max_abs'],
+              f'max abs = {acc_max:.2f} (threshold {CHECKS["accruals_max_abs"]})')
+
+    # gross_margin — very few rows should remain > 1.5 after percentage fix
+    if 'gross_margin' in df.columns:
+        n_pct_fmt = (df['gross_margin'] > 1.5).sum()
+        pct_fmt_rate = n_pct_fmt / max(len(df), 1)
+        check('gross_margin_fixed',
+              pct_fmt_rate <= CHECKS['gross_margin_pct_fmt_max'],
+              f'{n_pct_fmt:,} rows > 1.5 ({pct_fmt_rate*100:.3f}% — threshold '
+              f'{CHECKS["gross_margin_pct_fmt_max"]*100:.1f}%)')
 
     # ── Per-market breakdown ─────────────────────────────────────────────────
     if verbose:

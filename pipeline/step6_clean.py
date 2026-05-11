@@ -101,6 +101,13 @@ def run():
         df[numeric_cols] = df[numeric_cols].replace([np.inf, -np.inf], np.nan)
         print(f'  Replaced {n_inf:,} infinite values with NaN')
 
+    # ── Point-in-Time columns ─────────────────────────────────────────────────
+    # as_of_date: explicit alias for when data is legally public (= filed_date)
+    # filing_lag_days: days from FY Dec-31 end to filing (negative = non-Dec FY)
+    df['as_of_date'] = df['filed_date']
+    fy_end = pd.to_datetime(df['fiscal_year'].astype(str) + '-12-31', errors='coerce')
+    df['filing_lag_days'] = (df['filed_date'] - fy_end).dt.days
+
     # ── Sort ──────────────────────────────────────────────────────────────────
     df = df.sort_values(['ticker', 'filed_date', 'period_type']).reset_index(drop=True)
 

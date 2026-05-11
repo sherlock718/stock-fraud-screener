@@ -14,20 +14,25 @@ A research-grade quantitative stock screening and backtesting system built on SE
 ## Architecture
 
 ```
-pipeline/               Data ingestion (fetch tickers, financials, prices, KPIs)
-├── step1_fetch_tickers*.py     Ticker discovery per market
-├── step2_build_snapshots*.py   Build annual financial snapshots
-├── step3_enrich_kpis.py        Compute derived KPIs (200+ features)
-├── build_historical_dataset.py Merge into single parquet
-└── fraud_signals.py            Beneish/Ohlson/Altman/Piotroski
+pipeline/               Raw data ingestion ONLY — fetch, snapshot, enrich, merge
+├── step1_fetch_tickers*.py     Ticker discovery per market (US/EU/KR/JP/CA/BR)
+├── step2_build_snapshots*.py   Build annual financial snapshots from raw filings
+├── step3_enrich_kpis.py        Compute derived KPIs and features (200+)
+├── feature_library.py          Shared feature engineering — single source of truth
+├── build_historical_dataset.py Merge all market snapshots into one parquet
+└── fraud_signals.py            Beneish/Ohlson/Altman/Piotroski scoring
 
-scripts/
-├── train_models.py             Train LightGBM models (1y/3y/5y)
+scripts/                Analysis, ML, reporting — consumes output of pipeline/
+├── train_models.py             Train LightGBM models (1y/3y/5y) with ICIR selection
+├── tune_models.py              Optuna hyperparameter search + CatBoost ensemble
 ├── backtester.py               Walk-forward backtest engine
 ├── factor_research.py          IC/ICIR/turnover analysis
+├── leverage_strategy.py        Kelly-sized long/short portfolio
 ├── bias_audit.py               Survivorship/leakage/FX bias checks
+├── monitor_drift.py            PSI + rolling AUC drift monitoring
+├── generate_reports.py         PDF tearsheet + CSV picks
 ├── push_to_hf.py               Upload dataset + models to HuggingFace Hub
-└── refresh_data.py             Full refresh orchestrator
+└── refresh_data.py             Full refresh orchestrator (called by GitHub Actions)
 
 models/
 ├── model_{1y,3y,5y}.joblib    Trained LightGBM classifiers
@@ -45,7 +50,8 @@ tests/
 └── test_pipeline.py            Pytest suite: temporal split, feature leakage, IC table, bias audit, scoring
 
 .github/workflows/
-└── weekly_push.yml             Weekly cron (Sun 02:00 UTC) to push data/models to HuggingFace Hub
+├── refresh_data.yml    Weekly data refresh (Sun 05:00 UTC) — full pipeline + HF upload
+└── monitor_drift.yml   Weekly drift check (Mon 07:00 UTC) — PSI + AUC alerts
 ```
 
 ---
@@ -184,15 +190,20 @@ Checks three biases:
 
 ## Automated Weekly Refresh (GitHub Actions)
 
-The workflow `.github/workflows/weekly_push.yml` runs every Sunday at 02:00 UTC.
+Two scheduled workflows keep the system current:
+
+| Workflow | Schedule | What it does |
+|----------|----------|-------------|
+| `refresh_data.yml` | Sun 05:00 UTC | Full data pipeline → generate reports → push to HuggingFace |
+| `monitor_drift.yml` | Mon 07:00 UTC | PSI + rolling AUC check → emit warning if drift detected |
 
 **Required GitHub Actions secrets:**
 - `HF_TOKEN` — HuggingFace write token
 - `HF_REPO` — e.g. `your-username/stock-screener-data`
 
-The workflow: checks out the repo → runs `scripts/run_pipeline.py build --step 4` (features + clean, no new API calls) → pushes updated dataset and models to HuggingFace Hub.
+To trigger manually: Actions tab → Weekly Data Refresh → Run workflow.
 
-To trigger manually: Actions → Weekly Data Push to HuggingFace → Run workflow.
+See `docs/developer/monitoring.md` for drift alert thresholds and interpretation.
 
 ---
 
