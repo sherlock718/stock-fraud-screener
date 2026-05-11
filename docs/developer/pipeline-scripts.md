@@ -79,13 +79,18 @@ See [Feature Engineering →](../methodology/features.md) for the full feature l
 
 ### `step6_clean.py` — Clean and Normalise Dataset
 
+Applies minimal structural filters to preserve maximum ticker coverage. Revenue, asset, and price
+thresholds have been removed — all tickers are kept regardless of size or liquidity.
+
 | Operation | Detail |
 |---|---|
-| Winsorize | Cap outliers at 1st/99th percentile per feature per fiscal year |
-| Impute medians | Replace NaN with industry-year median (SIC 2-digit × fiscal_year) |
-| Type cast | Floats to float32, categoricals encoded |
-| Period tag | Add `period_type=annual` flag |
-| Dedup | Drop duplicate ticker × fiscal_year rows (keep first) |
+| Required cols | Drop rows missing `cik`, `ticker`, `filed_date`, `fiscal_year`, `period_type` |
+| Date filter | Drop rows with invalid or pre-2008 `filed_date` |
+| Dedup | Drop duplicate `(cik, market, filed_date, period_type)` rows (keep first) |
+| Inf → NaN | Replace `±inf` with `NaN` across all numeric columns |
+| PIT columns | Add `as_of_date` (alias of `filed_date`) and `filing_lag_days` |
+
+Use `p0f_universe_definition.py --apply-filters` to compute an investable-universe subset.
 
 Output: `data/historical_dataset_clean.parquet`
 
@@ -197,26 +202,30 @@ Builds a human-readable feature dictionary mapping column names to descriptions,
 
 ### `p0f_universe_definition.py` — Universe Definition (P0f)
 
-Applies 10 inclusion/exclusion rules to define the investable universe. Outputs a universe-tagged parquet and summary CSV.
+Tags each row with `in_universe` (0/1) and `excl_reason`. Does **not** drop rows.
 
-Rules:
+**Structural rules** (always applied):
 1. `period_type == 'annual'`
 2. `fiscal_year >= 2009` (XBRL coverage)
 3. `fiscal_year <= current_year - 1` (completed years only)
+
+**Investable-universe rules** (`--apply-filters` only):
 4. `revenue >= $1M`
 5. `total_assets >= $100K`
 6. `entry_price > 0`
 7. Exclude SIC 6000–6999 (financials) — different accrual structure
 8. Exclude SIC 4900–4999 (utilities) — regulated earnings distort signals
 9. Size: include micro/small/mid/large (exclude nano/shell)
-10. Exclude OTC stocks with price < $1.00
+10. Exclude OTC stocks with price < market floor (US: $1.00, CA: $0.05, others: none)
 
 ```bash
-python3 pipeline/p0f_universe_definition.py               # apply + report
-python3 pipeline/p0f_universe_definition.py --dry-run     # report only
+python3 pipeline/p0f_universe_definition.py                           # structural rules only
+python3 pipeline/p0f_universe_definition.py --dry-run                 # report without saving
+python3 pipeline/p0f_universe_definition.py --apply-filters           # full investable-universe
+python3 pipeline/p0f_universe_definition.py --apply-filters --dry-run # report only
 ```
 
-Output: `data/universe_clean.parquet`, `data/universe_summary.csv`
+Output: `data/historical_dataset_clean.parquet` (updated in-place), `reports/universe_summary.csv`
 
 ---
 
