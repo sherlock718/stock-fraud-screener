@@ -84,6 +84,7 @@ nav:
     - developer/index.md
     - Setup: developer/setup.md
     - Contributing: developer/contributing.md
+    - Data Update Guide: developer/data-update-guide.md
     - Pipeline Modules: developer/pipeline-scripts.md
     - Scripts Reference: developer/scripts.md
     - Deployment: developer/deployment.md

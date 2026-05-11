@@ -3,9 +3,13 @@ Step 1 BR — Fetch Brazilian listed company tickers from B3 via CVM + brapi.dev
 
 Sources:
   - CVM (Comissão de Valores Mobiliários): active exchange-listed company register
-  - brapi.dev: free B3 ticker list (1,800+ symbols)
+  - brapi.dev: free B3 ticker list (1,800+ symbols, /api/available endpoint only)
 
-Matching: CVM company names → B3 tickers via fuzzy name matching.
+Matching: pure text heuristics — no per-ticker API calls, no ticker count cap.
+  1. First 4 letters of normalised commercial name → ticker root
+  2. Acronym of first 4 words of normalised name → ticker root
+  3. Same applied to full legal name as fallback
+
 Companies with no ticker match are kept (financial data only, no price).
 
 Output: data/tickers_br.parquet
@@ -17,10 +21,8 @@ from __future__ import annotations
 
 import io
 import re
-import time
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 import requests
 from dotenv import load_dotenv
@@ -73,56 +75,59 @@ def normalise_name(s: str) -> str:
     return s
 
 
+def _acronym(words: list[str], n: int = 4) -> str:
+    """First letter of each of the first n words."""
+    return ''.join(w[0] for w in words[:n] if w)
+
+
 def match_tickers(companies: pd.DataFrame, tickers: list[str]) -> pd.DataFrame:
     """
-    Best-effort match: for each CVM company, find the most liquid B3 ticker.
-    Matching strategy:
-      1. DENOM_COMERC exact normalised match to known company names
-      2. First 4 chars of ticker against company abbreviation
-    For unmatched: ticker = ''
+    Match CVM companies to B3 tickers using pure text heuristics — no API calls,
+    no cap on ticker count.
+
+    Strategy (applied in order, first match wins):
+      1. First 4 non-space letters of the normalised commercial name == ticker root
+      2. Acronym of first 4 words of normalised commercial name == ticker root
+      3. Same two strategies applied to normalised full legal name
+
+    Ticker root = first 4 letters of the ticker symbol (e.g. 'PETR' from 'PETR4').
+    When a root has both ordinary (3) and preferred (4) shares, ordinary is preferred.
     """
-    print('  Matching CVM companies to B3 tickers ...')
+    print('  Matching CVM companies to B3 tickers (text heuristics, no API cap) ...')
 
-    # Fetch company names for tickers from brapi (batch)
-    ticker_map: dict[str, str] = {}  # ticker → normalised company name
-    try:
-        # brapi /quote supports up to 10 tickers per call
-        batch_size = 20
-        for i in range(0, min(len(tickers), 400), batch_size):
-            batch = ','.join(tickers[i:i + batch_size])
-            r = requests.get(f'https://brapi.dev/api/quote/{batch}', timeout=15)
-            if r.status_code == 200:
-                for item in r.json().get('results', []):
-                    sym = item.get('symbol', '')
-                    name = normalise_name(item.get('longName') or item.get('shortName') or '')
-                    if sym and name:
-                        ticker_map[sym] = name
-            time.sleep(0.2)
-    except Exception as e:
-        print(f'    WARN: brapi batch failed: {e}')
+    # Build root → preferred ticker (ordinary '3' beats preferred '4')
+    root_to_ticker: dict[str, str] = {}
+    for t in tickers:
+        root = t[:4]
+        existing = root_to_ticker.get(root)
+        if existing is None:
+            root_to_ticker[root] = t
+        elif t.endswith('3'):
+            root_to_ticker[root] = t
 
-    # Build reverse: normalised_name → ticker (prefer ordinary '3' over preferred '4')
-    name_to_ticker: dict[str, str] = {}
-    for ticker, name in ticker_map.items():
-        if name not in name_to_ticker:
-            name_to_ticker[name] = ticker
-        elif ticker.endswith('3'):  # prefer ordinary shares
-            name_to_ticker[name] = ticker
+    def best_match(norm_name: str) -> str:
+        letters = re.sub(r'[^A-Z]', '', norm_name)
+        prefix4 = letters[:4]
+        if prefix4 in root_to_ticker:
+            return root_to_ticker[prefix4]
+        words = norm_name.split()
+        acro = _acronym(words, 4)
+        if len(acro) == 4 and acro in root_to_ticker:
+            return root_to_ticker[acro]
+        # 3-letter acronym fallback (e.g. "VALE" matches VALE3 but CVM name is 3 words)
+        acro3 = _acronym(words, 3)
+        if len(acro3) == 3:
+            candidates = [t for root, t in root_to_ticker.items() if root.startswith(acro3)]
+            if len(candidates) == 1:
+                return candidates[0]
+        return ''
 
-    # Match CVM companies
     results = []
     for _, row in companies.iterrows():
-        cvm_name = normalise_name(row['name_comercial'] or row['name_full'])
-        cvm_full = normalise_name(row['name_full'])
+        cvm_comercial = normalise_name(row['name_comercial'] or row['name_full'])
+        cvm_full      = normalise_name(row['name_full'])
 
-        matched_ticker = name_to_ticker.get(cvm_name) or name_to_ticker.get(cvm_full) or ''
-
-        # Fallback: first 4 letters of commercial name match ticker prefix
-        if not matched_ticker:
-            prefix = re.sub(r'[^A-Z]', '', cvm_name)[:4]
-            candidates = [t for t in tickers if t.startswith(prefix)]
-            if len(candidates) == 1:
-                matched_ticker = candidates[0]
+        matched_ticker = best_match(cvm_comercial) or best_match(cvm_full)
 
         suffix = '.SA' if matched_ticker else ''
         results.append({

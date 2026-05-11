@@ -38,18 +38,27 @@
 
 ### Step 1 — Data Ingestion
 
-| Market | Source | Status | Coverage |
-|---|---|---|---|
-| US | SEC EDGAR XBRL | ✅ Done | 7,418 tickers, 2008–2027 |
-| KR | DART (free API key) | ⚠️ In progress | 251 tickers, 2015–2026 — snapshot exists, not merged |
-| BR | CVM + brapi.dev | ⚠️ Thin | 57 tickers, 2010–2025 — usable, not merged |
-| CA | TMX public API | ⚠️ Shallow | 2,005 tickers, 2021–2026 — 5 years only |
-| EU | yfinance (Wikipedia index tickers) | ⚠️ Thin | 303 tickers, 2021–2026 |
-| JP | yfinance Nikkei 225 (`jp_free` variant) | ⚠️ Thin | 122 tickers, 2021–2026 |
+**Data policy: FREE sources only. No paid subscriptions at any stage.**
 
-**V1 priority**: Validate US end-to-end first. Integrate KR once US alpha is confirmed. BR, CA, EU, JP as signal-count additions.
+| Market | Source | Status | Tickers | Year depth | Missing cols vs US | Missing scripts |
+|---|---|---|---|---|---|---|
+| US | SEC EDGAR XBRL | ✅ Done | 7,418 | 2008–2027 (20 yr) | — | — |
+| KR | DART free API | ⚠️ In progress | 251 | 2015–2026 (12 yr) | sic_code, sic_description | `phase_a_integrate_kr.py` exists |
+| BR | CVM + brapi.dev | ⚠️ Thin | 57 (need ~400+) | 2010–2025 (16 yr) | capex, ebitda, eps_basic, fcf, goodwill, interest_expense, retained_earnings, total_equity, total_debt (+42 more) | `run_pipeline_br.py`, `phase_a_integrate_br.py` |
+| CA | TMX public API + yfinance | ⚠️ Shallow | 2,005 | 2021–2026 (5 yr) | total_equity, depreciation, sga, capex, goodwill, intangibles (+28 more) | `run_pipeline_ca.py`, `phase_a_integrate_ca.py` |
+| EU | yfinance index tickers (free only — SimFin excluded) | ⚠️ Thin | 303 | 2021–2026 (5 yr) | total_equity, depreciation, sga, short_term_debt, ppe, intangibles, rd_growth_yoy, shares_dilution (+24 more) | `run_pipeline_eu.py` exists; `phase_a_integrate_eu.py` missing |
+| JP | yfinance Nikkei 225 free | ⚠️ Thin | 122 | 2021–2026 (5 yr) | total_equity, depreciation, sga, capex, goodwill, intangibles (+28 more) | `run_pipeline_jp.py`, `phase_a_integrate_jp.py` |
 
-**Exit criteria**: US parquet is clean and passing Step 2 checks. At least one non-US market merged into `historical_dataset_clean.parquet`.
+**Key gaps to fix**:
+- BR: `step1_fetch_tickers_br.py` only returns 57 tickers — need to switch to CVM bulk company list (~400+ listed companies)
+- EU/JP/CA: only 5–6 years of history; yfinance provides 10–15 yr free via adjusted close — extend price history, fundamental data limited to what's available free
+- KR: DART API has daily rate limits — ingestion running, estimated completion ~29 May 2026
+- All non-US: missing `phase_a_integrate_*.py` scripts to merge into `historical_dataset_clean.parquet`
+- Cross-sectional momentum ranks missing: raw columns present (`momentum_12m_prior`, `momentum_6m_prior`, etc.) but rank transforms not computed
+
+**V1 priority**: All 6 markets in clean dataset with max available free history. No universe filters applied (all tickers included).
+
+**Exit criteria**: All 6 markets merged into `historical_dataset_clean.parquet`; BR at ~400+ tickers; cross-sectional momentum ranks added; `phase_a_integrate_*.py` exists for each market.
 
 ---
 
@@ -64,9 +73,9 @@
 | Point-in-time look-ahead audit | ✅ Done | `scripts/pit_validate.py` |
 | Survivorship bias correction (impute −50% for delisted) | ✅ Done | `scripts/mark_survivorship.py` |
 | Bias audit (temporal leakage, shuffle test, permutation) | ✅ Done | `scripts/bias_audit.py` |
-| **Data coverage verification** (20-year depth check per market) | ❌ Blocker | P0.5 — verify depth before trusting ICIR |
+| **Data coverage verification** (depth check per market) | ❌ Do AFTER Stage 1 | P0.5 — EU/JP/CA only 5–6 yr now; check passes only after history extended |
 
-**Exit criteria**: `pit_validate.py` exits 0; `bias_audit.py` passes all four tests; coverage verified ≥ 10 years for US, ≥ 8 years for KR.
+**Exit criteria**: `pit_validate.py` exits 0; `bias_audit.py` passes all four tests; coverage verified ≥ 20 yr US, ≥ 12 yr KR/BR, ≥ 10 yr JP/CA/EU (after yfinance extension).
 
 ---
 
@@ -97,6 +106,96 @@
 | Earnings revision features | ❌ Phase B | Needs consensus estimate source |
 
 **Exit criteria**: Momentum features > 0 in `feature_library.py`; total feature count updated in all Mermaid diagrams.
+
+---
+
+## Dataset Completion Plan — 5 Stages
+> Execute these stages in order before Phase B. All stages use free data sources only.
+
+---
+
+### Stage 1 — Complete the Dataset (current priority)
+
+Goal: All 6 markets merged, all features present, no universe filters.
+
+| Task | Status | Notes |
+|---|---|---|
+| Add cross-sectional momentum rank transforms (`momentum_12m_rank`, `momentum_6m_rank`, `momentum_3m_rank`, `vol_rank_12m`) | ❌ Todo | Raw columns present; ranks not yet computed in `feature_library.py` |
+| Fix BR ticker expansion: switch `step1_fetch_tickers_br.py` to CVM bulk list | ❌ Todo | Currently 57 tickers; CVM has ~400+ listed companies |
+| Build `scripts/run_pipeline_br.py` | ❌ Todo | Does not exist; needed for BR incremental refresh |
+| Build `scripts/run_pipeline_jp.py` | ❌ Todo | Does not exist |
+| Build `scripts/run_pipeline_ca.py` | ❌ Todo | Does not exist |
+| Build `pipeline/phase_a_integrate_eu.py` | ❌ Todo | Pattern: same as `phase_a_integrate_kr.py` |
+| Build `pipeline/phase_a_integrate_br.py` | ❌ Todo | Includes BR column gap fill (52 missing cols set to NaN) |
+| Build `pipeline/phase_a_integrate_jp.py` | ❌ Todo | Extend yfinance history back 10–15 yr where free data available |
+| Build `pipeline/phase_a_integrate_ca.py` | ❌ Todo | Extend yfinance history back 10–15 yr where free data available |
+| Extend EU yfinance fundamental history (free tier only) | ❌ Todo | No SimFin; use yfinance + any free EDGAR-equivalent for EU |
+| Fix `fraud_score_governance` all-NaN bug | ❌ Todo | `pipeline/enrich_governance.py` returns all NaN |
+| Fix `fraud_suspect` missing globally | ❌ Todo | Column all-zero; EDGAR full-text search logic broken |
+| Add missing derived features: `working_capital`, `net_debt`, `price_to_book`, `accruals_ratio` | ❌ Todo | Easy derivations; add to `feature_library.py` |
+| Run `fix_dataset_quality.py` + `mark_survivorship.py` after all markets merged | ❌ Todo | Final clean pass |
+| KR DART ingestion complete | ⏳ Running | Daily API rate limit; ETA ~29 May 2026 |
+
+**Exit criteria**: `historical_dataset_clean.parquet` contains all 6 markets; BR ~400+ tickers; momentum ranks present; all `phase_a_integrate_*.py` scripts exist and tested.
+
+---
+
+### Stage 2 — Coverage Depth Check
+> **Do NOT run this stage until Stage 1 is complete.** EU/JP/CA currently only 5–6 yr — check will fail now.
+
+| Task | Status | File |
+|---|---|---|
+| Run `pit_validate.py` per market | ❌ Todo (after Stage 1) | `scripts/pit_validate.py` |
+| Custom depth audit: rows per market × year heatmap | ❌ Todo | New notebook or `scripts/coverage_audit.py` |
+| Confirm: US ≥ 20 yr, KR/BR ≥ 12 yr, JP/CA/EU ≥ 10 yr | ❌ Todo | — |
+| Flag markets too shallow for reliable ICIR (< 8 yr) | ❌ Todo | Document in CONTEXT.md which markets to exclude from model training |
+
+**Exit criteria**: All markets meet minimum year depth; shallow-market exclusions documented; `pit_validate.py` exits 0.
+
+---
+
+### Stage 3 — EDA and Data Quality
+
+| Task | Status | File |
+|---|---|---|
+| Null rate analysis per column × market | ❌ Todo | `notebooks/00_data_quality.ipynb` |
+| Distribution analysis per feature (histograms, outlier check) | ❌ Todo | Same notebook |
+| Cross-market coverage heatmap (market × fiscal_year × feature) | ❌ Todo | Same notebook |
+| Run `bias_audit.py` on full merged dataset | ❌ Todo | `scripts/bias_audit.py` |
+| Run `fix_dataset_quality.py` — drop all-null cols, winsorize, format fixes | ❌ Todo | `scripts/fix_dataset_quality.py` |
+| IC/ICIR analysis per feature (basic factor research) | ❌ Todo | `scripts/factor_research.py` |
+| Document features with poor coverage (< 50% non-null) | ❌ Todo | Update `docs/methodology/features.md` |
+
+**Exit criteria**: Notebook committed; all-null columns dropped; coverage documented; no temporal leakage in bias audit.
+
+---
+
+### Stage 4 — Monthly Data Update Schedule
+
+| Task | Status | File |
+|---|---|---|
+| Extend GitHub Actions cron to cover all 6 markets | ❌ Todo | `.github/workflows/` |
+| Per-market refresh scripts (`run_pipeline_br/jp/ca.py`) | ❌ Needs Stage 1 | — |
+| `wait_and_merge.py` extended to include EU/BR/JP/CA | ❌ Todo | `scripts/wait_and_merge.py` |
+| HuggingFace push after every successful multi-market merge | ❌ Todo | `scripts/push_to_hf.py` |
+| `monitor_drift.py` extended to run per market | ❌ Todo | Currently US-only |
+| Monthly schedule: 1st of each month → refresh all markets → merge → enrich → push | ❌ Todo | GH Actions cron |
+
+**Exit criteria**: Monthly cron job runs all 6 markets without manual intervention; drift alert fires if any market goes stale ≥ 60 days.
+
+---
+
+### Stage 5 — Process: Add New Ticker or Feature
+
+| Task | Status | File |
+|---|---|---|
+| Build `scripts/add_ticker.py` — single-ticker fetch + enrich + append to parquet | ❌ Todo | New script |
+| Document feature addition process (formula → `feature_library.py` → sync check) | ❌ Todo | Update `docs/developer/contributing.md` |
+| Document ticker addition process (one-off vs batch) | ❌ Todo | Update `docs/developer/contributing.md` |
+| Add column-addition checklist to CLAUDE.md Change Checklist | ❌ Todo | `CLAUDE.md` |
+| Test round-trip: add 1 ticker → merge → feature pass → model score → verify in app | ❌ Todo | Manual QA |
+
+**Exit criteria**: Adding a new ticker takes < 5 minutes via CLI; adding a new feature takes < 30 minutes via documented process; `check_sync.py` catches doc gaps.
 
 ---
 
@@ -347,12 +446,26 @@
 
 ## Immediate Next Actions
 
-Priority order — each unblocks the next:
+Priority order — complete Stage 1 entirely before moving to Phase B blockers:
 
-1. **Step 0** — Git and repo cleanup (branches, orphaned files, `.gitignore` audit)
-2. **P0.3** — Build `scripts/score_historical.py` (ML scores must be in parquet; backtester is blind without them)
-3. **P0.1** — Cross-sectional momentum to `pipeline/feature_library.py` (largest feature gap)
-4. **P0.2** — Fix SPY benchmark in `scripts/backtester.py` (makes backtest numbers trustworthy)
-5. **P0.4** — Newey-West / Fama-MacBeth / FDR in `scripts/train_models.py` (statistical robustness)
-6. **P0.5** — Data coverage verification (confirm 20-year depth before trusting ICIR rankings)
-7. After all P0 blockers resolved: run full backtest → validate US alpha → proceed to Phase B
+**Stage 1 (dataset completion — do first):**
+1. Add cross-sectional momentum rank features to `pipeline/feature_library.py`
+2. Fix BR ticker expansion in `scripts/run_pipeline_br.py` (CVM bulk list, ~400 tickers)
+3. Build `pipeline/phase_a_integrate_eu.py` + `br.py` + `jp.py` + `ca.py`
+4. Build `scripts/run_pipeline_br.py`, `run_pipeline_jp.py`, `run_pipeline_ca.py`
+5. Extend JP/CA yfinance history (free, 10–15 yr back)
+6. Fix `fraud_score_governance` NaN bug + `fraud_suspect` missing
+7. Run full merge → `fix_dataset_quality.py` → `mark_survivorship.py`
+
+**Stage 2 (coverage depth check — after Stage 1):**
+8. Run `pit_validate.py` + custom depth audit across all 6 markets
+
+**Phase B blockers (after Stage 2):**
+9. **P0.3** — Build `scripts/score_historical.py` (write `ml_1y/3y/5y` to parquet; backtester is blind without this)
+10. **P0.2** — Fix SPY benchmark in `scripts/backtester.py`
+11. **P0.4** — Newey-West HAC / Fama-MacBeth / FDR in `scripts/train_models.py`
+
+**Stage 3–5 (after Phase B setup):**
+12. EDA/QC notebook + bias audit on full merged dataset
+13. Monthly update schedule (GitHub Actions all 6 markets)
+14. `scripts/add_ticker.py` + documented add-feature process

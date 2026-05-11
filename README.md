@@ -5,7 +5,7 @@ A research-grade quantitative alpha generation platform covering 14 markets — 
 ## What It Does
 
 - **Scores** companies across 5 factor groups: Value, Quality, Momentum, Growth, and Fraud Risk — combined into a composite alpha score
-- **Trains** LightGBM models on 1y/3y/5y return horizons using 155,696 company-year observations and 319 features
+- **Trains** LightGBM models on 1y/3y/5y return horizons using 58,307 company-year observations and 326 features
 - **Backtests** 4 strategies (COMPOSITE, QEM, SCDV, IARB) with walk-forward ML retraining to avoid look-ahead bias
 - **Flags fraud risk** as one factor — Beneish M-Score, Ohlson O-Score, Altman Z-Score, Piotroski F-Score, AAER-confirmed labels, and ML fraud probability
 - **Ranks factors** by IC/ICIR across 1y/3y/5y horizons for systematic factor research

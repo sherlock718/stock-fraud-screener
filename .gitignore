@@ -20,6 +20,7 @@ data/last_update.json
 data/pipeline_status.json
 data/backtest_results.json
 data/aaer_labels.csv
+data/aaer_cache.json
 data/fraud_signals.json
 data/watchlist.json
 data/fraud_labels.parquet
@@ -28,6 +29,9 @@ data/short_book_*.csv
 data/strategy_*.csv
 data/feature_routing_by_horizon.csv
 data/pit_report.csv
+data/auditor_checkpoint.json
+data/market_signals_checkpoint.json
+data/mcap_checkpoint.json
 
 # Trained models (stored in HuggingFace Hub)
 models/*.joblib

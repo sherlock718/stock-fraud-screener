@@ -2,7 +2,7 @@
 
 **A research-grade quantitative alpha generation platform covering 14 markets — US, Korea, Canada, Japan, Brazil, and 9 European markets.**
 
-The platform scores companies across five orthogonal factor groups — **Value, Quality, Momentum, Growth, and Fraud Risk** — and combines them into a composite alpha score. It trains LightGBM models on 1-year, 3-year, and 5-year return horizons using 155,696 company-year observations and 319 features. Each company receives a SHAP-based attribution showing which signals drove its score.
+The platform scores companies across five orthogonal factor groups — **Value, Quality, Momentum, Growth, and Fraud Risk** — and combines them into a composite alpha score. It trains LightGBM models on 1-year, 3-year, and 5-year return horizons using 58,307 company-year observations and 326 features. Each company receives a SHAP-based attribution showing which signals drove its score.
 
 ---
 
@@ -74,7 +74,7 @@ The platform scores companies across five orthogonal factor groups — **Value, 
 
 ```mermaid
 graph LR
-    A["Raw Filings<br/>SEC · SimFin · DART · TDNET · B3"] --> B["Pipeline<br/>6 steps · 319 features"]
+    A["Raw Filings<br/>SEC · SimFin · DART · TDNET · B3"] --> B["Pipeline<br/>6 steps · 326 features"]
     B --> C["ML Models<br/>LightGBM<br/>3 horizons"]
     B --> D["5-Factor Scores<br/>Value · Quality · Momentum<br/>Growth · Fraud Risk"]
     C --> E["Composite Alpha Score<br/>0–1 · SHAP attribution"]

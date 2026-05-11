@@ -20,7 +20,9 @@ Fetches the company universe for a given market. Each market variant hits a diff
 | `step1_fetch_tickers_jp.py` | JP | TDNET (paid) |
 | `step1_fetch_tickers_jp_free.py` | JP | TDNET free tier |
 | `step1_fetch_tickers_ca.py` | CA | SEDAR+ scraper |
-| `step1_fetch_tickers_br.py` | BR | B3/CVM listing |
+| `step1_fetch_tickers_br.py` | BR | B3/CVM listing — text heuristics match, no per-ticker API calls |
+
+**BR matching** (`step1_fetch_tickers_br.py`): Downloads the CVM company register (~500 active BOLSA companies) and the full brapi.dev ticker list (1,800+ symbols, `/api/available` only). Matches CVM names to 4-letter B3 ticker roots using two heuristics: (1) first 4 letters of the normalised commercial name, (2) acronym of first 4 words. No per-ticker brapi API calls — all 1,800+ tickers are covered without a cap. Expected match rate: 300–400+ tickers.
 
 Output: `data/tickers_{market}.csv` — columns: `ticker, cik, company_name, exchange, sic_code, country`
 
@@ -61,19 +63,54 @@ Added columns:
 
 ### `step4_enrich_macro.py` — Enrich with Macro Data
 
-Joins macroeconomic data at the fiscal year-end date:
-- `tbill_3m` — 3-month US Treasury yield (or local equivalent)
-- `cpi_yoy` — CPI year-over-year inflation
-- `gdp_growth` — real GDP growth rate
-- `credit_spread` — investment grade credit spread
+Fetches 9 FRED series at startup (9 API calls total), builds a daily forward-filled macro panel,
+then joins it to each snapshot row via `pd.merge_asof` (O(1) lookup per row).
+
+**FRED series joined**:
+
+| Column | FRED ID | Description |
+|---|---|---|
+| `treasury_10y` | DGS10 | 10-year Treasury yield (%) |
+| `treasury_2y` | DGS2 | 2-year Treasury yield (%) |
+| `yield_curve` | T10Y2Y | 10y − 2y spread (%) |
+| `fed_funds_rate` | FEDFUNDS | Fed Funds Rate (%) |
+| `credit_spread_baa` | BAA10Y | Baa corporate − 10y Treasury (%) |
+| `hy_spread` | BAMLH0A0HYM2 | ICE BofA High Yield OAS (%) |
+| `cpi_yoy` | CPIAUCSL | CPI YoY % change (computed) |
+| `recession` | USREC | NBER recession indicator (0/1) |
+| `vix` | VIXCLS | CBOE VIX |
+| `real_rate_10y` | — | treasury_10y − cpi_yoy |
+| `credit_tightening` | — | 6-month change in Baa spread |
+| `macro_regime` | — | 0=low, 1=rising, 2=high, 3=recession |
+
+Requires `FRED_API_KEY` env var (free registration at fred.stlouisfed.org). Without it, all macro
+columns are written as `NaN`.
+
+**CLI flags** (for multi-market use):
+
+| Flag | Default | Description |
+|---|---|---|
+| `--snapshots PATH` | `data/snapshots.parquet` | Input snapshots file |
+| `--suffix STR` | `''` | Market suffix, e.g. `_br`; sets output to `macro{suffix}.parquet` |
+
+Output: `data/macro.parquet` (or `data/macro{suffix}.parquet`)
 
 ---
 
 ### `step5_compute_features.py` — Compute Features
 
-Calls `feature_library.py` to compute 314 base features across 8 categories. All computations are purely cross-sectional within a fiscal year — no look-forward information is used.
+Calls `feature_library.py` to compute 314 base features across 8 categories, plus 5 cross-sectional momentum rank features (324 total). All computations are purely cross-sectional within a fiscal year — no look-forward information is used.
 
 See [Feature Engineering →](../methodology/features.md) for the full feature list by category.
+
+**CLI flags** (for multi-market use):
+
+| Flag | Default | Description |
+|---|---|---|
+| `--snapshots PATH` | `data/snapshots.parquet` | Input snapshots file |
+| `--prices PATH` | `data/prices{suffix}.parquet` | Input prices file (derived from suffix if omitted) |
+| `--macro PATH` | `data/macro{suffix}.parquet` | Input macro file (derived from suffix if omitted) |
+| `--suffix STR` | `''` | Market suffix, e.g. `_br`; sets output to `historical_dataset{suffix}.parquet` |
 
 ---
 
@@ -88,6 +125,13 @@ thresholds have been removed — all tickers are kept regardless of size or liqu
 | Date filter | Drop rows with invalid or pre-2008 `filed_date` |
 | Dedup | Drop duplicate `(cik, market, filed_date, period_type)` rows (keep first) |
 | Inf → NaN | Replace `±inf` with `NaN` across all numeric columns |
+
+**CLI flags** (for multi-market use):
+
+| Flag | Default | Description |
+|---|---|---|
+| `--suffix STR` | `''` | Market suffix, e.g. `_br`; reads `historical_dataset{suffix}.parquet`, writes `historical_dataset_clean{suffix}.parquet` |
+| `--snapshots PATH` | — | Accepted for pipeline compatibility; not used |
 | PIT columns | Add `as_of_date` (alias of `filed_date`) and `filing_lag_days` |
 
 Use `p0f_universe_definition.py --apply-filters` to compute an investable-universe subset.
@@ -154,15 +198,17 @@ Adds `fraud_confirmed` and `fraud_suspect` binary columns by matching against SE
 
 ### `enrich_fraud_taxonomy.py` — Fraud Taxonomy Sub-Scores (P0d)
 
-Adds five fraud-type sub-scores (0.0–1.0 each):
+Adds five fraud-type sub-scores (0.0–1.0 each) plus the `fraud_suspect` signal flag:
 
 | Column | Fraud mechanism |
 |---|---|
 | `fraud_score_accounting` | Earnings manipulation via accruals / channel-stuffing |
 | `fraud_score_dilution` | Equity issuance abuse / dilution fraud |
-| `fraud_score_governance` | Governance failures (auditor, board, going concern) |
-| `fraud_score_insider` | Insider selling / related-party transactions |
-| `fraud_score_macro` | Macro-driven fraud exposure (recession, sector stress) |
+| `fraud_score_quality` | Earnings quality / cash flow divergence |
+| `fraud_score_distress` | Financial distress / going-concern risk |
+| `fraud_score_governance` | Governance failures (auditor, board, going concern). Falls back to `altman_z_score < 1.81` and `piotroski_f_score ≤ 2` as proxies when primary governance columns (`small_auditor_flag`, `going_concern`) are absent. |
+| `fraud_score_composite` | Weighted average of the five sub-scores (accounting 0.30, quality 0.25, distress 0.20, dilution 0.15, governance 0.10) |
+| `fraud_suspect` | Signal-based flag (1 if 2+ of: Beneish > −1.78, Piotroski ≤ 2, Altman < 1.0). Overridden to 0 for `fraud_confirmed=1` rows. |
 
 ### `enrich_governance.py` — Governance Signals
 
@@ -274,7 +320,85 @@ Steps performed:
 7. Apply P0d (fraud taxonomy sub-scores)
 8. Apply P0f (universe classification)
 9. Apply P0g (data confidence score)
-10. Align to 319-column schema + concatenate
+10. Align to target schema + concatenate
+
+---
+
+### `phase_a_integrate_br.py` — Brazil Market Integration
+
+Integrates Brazil (CVM/B3) snapshots into `historical_dataset_clean.parquet`. CVM data covers IFRS filings 2010–2025 for ~300–400 B3-listed companies.
+
+```bash
+python3 pipeline/phase_a_integrate_br.py
+python3 pipeline/phase_a_integrate_br.py --dry-run
+```
+
+**Prerequisite**: `data/snapshots_br.parquet` — built by `scripts/run_pipeline_br.py build --step 2`.
+
+Steps performed:
+1. Load + standardise `data/snapshots_br.parquet` — adds ~20 missing columns as NaN; estimates `total_liabilities = total_assets − equity`; proxies `total_debt = long_term_debt + short_term_debt`
+2. Run step3 price enrichment → `data/prices_br.parquet`
+3. Merge BR snapshots + prices + macro (`macro_br.parquet` → `macro.parquet` fallback)
+4. Apply P0a (filing_lag_days, as_of_date)
+5. Apply step5 feature functions (10 functions, try/except per function)
+6. Apply P0c fraud labels
+7. Apply P0d fraud taxonomy sub-scores
+8. Apply P0f universe classification
+9. Apply P0g data confidence score
+10. Align to target schema + concatenate
+
+---
+
+### `phase_a_integrate_jp.py` — Japan Market Integration
+
+Integrates Japan (yfinance free tier) snapshots into `historical_dataset_clean.parquet`. Free tier covers ~122–130 major TSE tickers.
+
+```bash
+python3 pipeline/phase_a_integrate_jp.py
+python3 pipeline/phase_a_integrate_jp.py --dry-run
+```
+
+**Prerequisite**: `data/snapshots_jp.parquet` — built by `scripts/run_pipeline_jp.py build --step 2`.
+
+Column standardisation (`standardise_jp_snapshots`): adds `depreciation` alias from `depreciation_amortization`, `sga` from `sga_expense`, `accounts_receivable` from `receivables`, `total_equity` from `equity`; computes `total_debt = long_term_debt + short_term_debt`; stubs `sic_code` as NaN; adds NaN stubs for `ppe_gross`, `other_noncurrent_assets`, `non_operating_income`, `dividends_per_share`, `stock_code`, `currency`, `financing_cash_flow`, `total_liabilities`.
+
+Macro: `macro_jp.parquet` → `macro.parquet` fallback.
+
+---
+
+### `phase_a_integrate_eu.py` — Europe Market Integration
+
+Integrates Europe (EU) yfinance snapshots into `historical_dataset_clean.parquet`. Free-tier coverage spans major exchange tickers across DE, FR, NL, BE, PT, NO, FI, DK, SE, IE, and other European markets (~4–5 years of history).
+
+```bash
+python3 pipeline/phase_a_integrate_eu.py
+python3 pipeline/phase_a_integrate_eu.py --dry-run
+```
+
+**Prerequisite**: `data/snapshots_eu.parquet` — built by `scripts/run_pipeline_eu.py build --step 2`.
+
+Column standardisation (`standardise_eu_snapshots`): same yfinance-based aliases as JP/CA — adds `depreciation`, `sga`, `accounts_receivable`, `total_equity` aliases; computes `total_debt = long_term_debt + short_term_debt`; stubs `sic_code` as NaN; adds NaN stubs for `ppe_gross`, `other_noncurrent_assets`, `non_operating_income`, `dividends_per_share`, `stock_code`, `currency`, `financing_cash_flow`, `total_liabilities`. Estimates `total_liabilities = total_assets − equity` if missing.
+
+EU-specific: existing rows are stripped via `isin(['DE', 'FR', 'NL', 'BE', 'PT', 'NO', 'FI', 'DK', 'SE', 'IE', 'EU'])` (EU snapshots carry per-country market codes, not a single 'EU' code).
+
+Macro: `macro_eu.parquet` → `macro.parquet` fallback.
+
+---
+
+### `phase_a_integrate_ca.py` — Canada Market Integration
+
+Integrates Canada (SEDAR+/yfinance) snapshots into `historical_dataset_clean.parquet`. Data covers TSX/TSXV listed companies.
+
+```bash
+python3 pipeline/phase_a_integrate_ca.py
+python3 pipeline/phase_a_integrate_ca.py --dry-run
+```
+
+**Prerequisite**: `data/snapshots_ca.parquet` — built by `scripts/run_pipeline_ca.py build --step 2`.
+
+Column standardisation (`standardise_ca_snapshots`): identical column aliases to JP (both yfinance-based field mappings). Adds `depreciation`, `sga`, `accounts_receivable`, `total_equity` aliases; computes `total_debt`; stubs `sic_code` as NaN.
+
+Macro: `macro_ca.parquet` → `macro.parquet` fallback.
 
 ---
 

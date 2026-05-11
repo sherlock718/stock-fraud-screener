@@ -20,9 +20,9 @@ graph TB
         B2[Step 2<br/>Build Snapshots]
         B3[Step 3<br/>Enrich Prices]
         B4[Step 4<br/>Enrich Macro]
-        B5[Step 5<br/>Compute Features<br/>314 base columns]
+        B5[Step 5<br/>Compute Features<br/>320 base columns]
         B6[Step 6<br/>Clean Dataset]
-        B7[Quarterly Enrichment<br/>enrich_quarterly_features.py<br/>+5 intra-year columns → 319 total]
+        B7[Quarterly Enrichment<br/>enrich_quarterly_features.py<br/>+5 intra-year columns → 324 total]
         B8[Survivorship Correction<br/>mark_survivorship.py<br/>impute −50% for delisted]
         B1 --> B2 --> B3 --> B4 --> B5 --> B6 --> B7 --> B8
     end
@@ -56,7 +56,7 @@ graph TB
     end
 
     subgraph Storage["Storage"]
-        S1[Parquet<br/>data/historical_dataset_clean.parquet<br/>155K rows · 319 columns]
+        S1[Parquet<br/>data/historical_dataset_clean.parquet<br/>58K rows · 326 columns]
         S2[TimescaleDB<br/>hypertable — infra/db/init.sql<br/>⚠️ migration pending]
     end
 
@@ -85,7 +85,7 @@ graph TB
 | US pipeline | `scripts/run_pipeline.py` | Fetch + clean US fundamentals | ✅ |
 | Multi-market pipeline | `pipeline/step1_*.py` – `step6_*.py` | 14-market unified pipeline | ✅ |
 | KR integration | `pipeline/phase_a_integrate_kr.py` | DART KR data integration | ⚠️ running |
-| Feature library | `pipeline/feature_library.py` | 319 feature definitions | ✅ |
+| Feature library | `pipeline/feature_library.py` | 326 feature definitions | ✅ |
 | Quarterly enrichment | `scripts/enrich_quarterly_features.py` | 5 intra-year dynamics | ✅ |
 | Survivorship correction | `scripts/mark_survivorship.py` | Impute −50% return for likely-delisted | ✅ |
 | AAER fraud labels | `scripts/fetch_aaer_labels.py` | 492 positive rows / 118 companies | ✅ |
@@ -111,8 +111,8 @@ flowchart LR
     B -->|company metadata| C[Annual + Quarterly Snapshots<br/>fiscal_year × ticker]
     C -->|OHLCV joins| D[Price-Enriched<br/>Snapshots]
     D -->|macro joins<br/>T-bill · inflation| E[Macro-Enriched<br/>Snapshots]
-    E -->|314 formulas| F[Feature Matrix<br/>historical_dataset_clean.parquet<br/>155K rows · 314 cols]
-    F -->|+5 quarterly dynamics| Q[Quarterly-Enriched<br/>319 columns]
+    E -->|314 formulas| F[Feature Matrix<br/>historical_dataset_clean.parquet<br/>58K rows · 326 cols]
+    F -->|+5 quarterly dynamics| Q[Quarterly-Enriched<br/>324 columns]
     Q -->|delisted imputation| SB[Survivorship-Corrected<br/>likely_delisted flag]
     SB -->|PSI filter| PSI[PSI-Filtered Candidates<br/>~185 features]
     PSI -->|ICIR filter| G[~35 features/horizon]

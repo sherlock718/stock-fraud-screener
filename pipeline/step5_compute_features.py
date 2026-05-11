@@ -461,7 +461,44 @@ def add_size_features(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-# ── H. Interaction features ───────────────────────────────────────────────────
+# ── H. Cross-sectional momentum rank transforms ───────────────────────────────
+
+def add_momentum_ranks(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Cross-sectional percentile ranks within (fiscal_year, market).
+    Separates momentum signal from level — a 20% return ranks differently in a
+    bull year (low rank) vs a bear year (high rank). Jegadeesh & Titman 1993.
+    """
+    group_keys = [k for k in ['fiscal_year', 'market'] if k in df.columns]
+    if not group_keys:
+        return df
+
+    def pct_rank(x: pd.Series) -> pd.Series:
+        return x.rank(pct=True, na_option='keep')
+
+    raw_cols = {
+        'momentum_12m_rank': 'momentum_12m_prior',
+        'momentum_6m_rank':  'momentum_6m_prior',
+        'momentum_3m_rank':  'momentum_3m_prior',
+    }
+    for rank_col, raw_col in raw_cols.items():
+        if raw_col in df.columns:
+            df[rank_col] = df.groupby(group_keys)[raw_col].transform(pct_rank)
+
+    # Volatility rank — inverted so low-vol = high rank (low-vol premium)
+    if 'vol_prior_12m' in df.columns:
+        df['vol_rank_12m'] = 1.0 - df.groupby(group_keys)['vol_prior_12m'].transform(pct_rank)
+
+    # Composite momentum rank: mean of available horizon ranks
+    rank_cols = [c for c in ['momentum_12m_rank', 'momentum_6m_rank', 'momentum_3m_rank']
+                 if c in df.columns]
+    if rank_cols:
+        df['momentum_composite_rank'] = df[rank_cols].mean(axis=1)
+
+    return df
+
+
+# ── I. Interaction features ───────────────────────────────────────────────────
 
 def add_interactions(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -482,9 +519,11 @@ def add_interactions(df: pd.DataFrame) -> pd.DataFrame:
     roa = df.get('roa',               pd.Series(np.nan, index=df.index))
     bm  = df.get('book_to_market',    pd.Series(np.nan, index=df.index))
 
+    mom_rank = df.get('momentum_12m_rank', mom.rank(pct=True))
+
     df['value_x_quality']    = val * qua
-    df['value_x_momentum']   = val * mom.rank(pct=True)
-    df['quality_x_momentum'] = qua * mom.rank(pct=True)
+    df['value_x_momentum']   = val * mom_rank
+    df['quality_x_momentum'] = qua * mom_rank
     df['small_x_quality']    = (1 / siz.clip(1)) * qua.fillna(0)
 
     # Anti-quality signals (negative interactions)
@@ -679,6 +718,9 @@ def run():
     print('  Computing size features ...')
     df = add_size_features(df)
 
+    print('  Computing cross-sectional momentum ranks ...')
+    df = add_momentum_ranks(df)
+
     print('  Computing interaction features ...')
     df = add_interactions(df)
 
@@ -741,6 +783,8 @@ def run():
         'Interactions':            [c for c in df.columns if '_x_' in c or 'composite' in c
                                     or c.endswith('_in_high_rate') or c.endswith('_in_recession')],
         'Sector percentiles':      [c for c in df.columns if c.endswith('_sector_pct')],
+        'Momentum ranks':          [c for c in df.columns if c.endswith('_rank') and 'momentum' in c
+                                    or c == 'vol_rank_12m'],
     }
 
     print(f'\nStep 5 complete.')
@@ -752,4 +796,23 @@ def run():
 
 
 if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser(description='Step 5 — Compute features')
+    parser.add_argument('--snapshots', type=str, default=None, help='Path to snapshots parquet')
+    parser.add_argument('--prices',    type=str, default=None, help='Path to prices parquet')
+    parser.add_argument('--macro',     type=str, default=None, help='Path to macro parquet')
+    parser.add_argument('--suffix',    type=str, default='',   help='Market suffix, e.g. _br')
+    args = parser.parse_args()
+
+    sfx = args.suffix
+    if args.snapshots:
+        SNAP = Path(args.snapshots)
+    if sfx:
+        OUT   = DATA / f'historical_dataset{sfx}.parquet'
+        PRICE = DATA / f'prices{sfx}.parquet'
+        MACRO = DATA / f'macro{sfx}.parquet'
+    if args.prices:
+        PRICE = Path(args.prices)
+    if args.macro:
+        MACRO = Path(args.macro)
     run()

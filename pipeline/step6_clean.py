@@ -127,4 +127,14 @@ def run():
 
 
 if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser(description='Step 6 — Clean and validate')
+    parser.add_argument('--snapshots', type=str, default=None, help='Unused; accepted for pipeline compat')
+    parser.add_argument('--suffix',    type=str, default='',   help='Market suffix, e.g. _br')
+    args = parser.parse_args()
+
+    sfx = args.suffix
+    if sfx:
+        IN  = DATA / f'historical_dataset{sfx}.parquet'
+        OUT = DATA / f'historical_dataset_clean{sfx}.parquet'
     run()

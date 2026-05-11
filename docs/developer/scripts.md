@@ -33,14 +33,34 @@ Pipeline steps:
 
 ---
 
-### `run_pipeline_eu.py` — EU Pipeline (SimFin)
+### `run_pipeline_eu.py` — EU Pipeline (yfinance free-data)
+
+Orchestrates the full 6-step EU pipeline using Wikipedia index scraping (step 1) and yfinance fundamentals (step 2). No API key required. Covers ~350+ major tickers across DE, FR, NL, BE, SE, NO, DK, FI, IT, ES, PT, AT, IE (~4–5 years of history).
 
 ```bash
-export SIMFIN_API_KEY=your_key
-python3 scripts/run_pipeline_eu.py
+python3 scripts/run_pipeline_eu.py build              # full build (steps 1–6)
+python3 scripts/run_pipeline_eu.py build --step 2     # resume from step 2
+python3 scripts/run_pipeline_eu.py build --limit 50   # test run
+python3 scripts/run_pipeline_eu.py status             # check output file state
 ```
 
-Requires a SimFin API key. Outputs EU company snapshots in the same schema as the US pipeline.
+| Flag | Default | Description |
+|---|---|---|
+| `--step N` | `1` | Resume from step N (1–6) |
+| `--limit N` | None | Cap tickers for test runs (steps 1–3 only) |
+
+Pipeline steps:
+1. `step1_fetch_tickers_eu.py` — Wikipedia index scrape (DAX, CAC 40, AEX, BEL 20, OMX, etc.)
+2. `step2_build_snapshots_eu.py` — yfinance fundamentals → `data/snapshots_eu.parquet`
+3. `step3_enrich_prices.py` — price enrichment → `data/prices_eu.parquet`
+4. `step4_enrich_macro.py` — macro enrichment → `data/macro_eu.parquet`
+5. `step5_compute_features.py` — 324 features → `data/historical_dataset_eu.parquet`
+6. `step6_clean.py` — clean and validate → `data/historical_dataset_clean_eu.parquet`
+
+After building, integrate EU into the combined dataset:
+```bash
+python3 pipeline/phase_a_integrate_eu.py
+```
 
 ---
 
@@ -48,10 +68,82 @@ Requires a SimFin API key. Outputs EU company snapshots in the same schema as th
 
 ```bash
 export DART_API_KEY=your_key
-python3 scripts/run_pipeline_kr.py
+python3 scripts/run_pipeline_kr.py build
+python3 scripts/run_pipeline_kr.py build --step 3
+python3 scripts/run_pipeline_kr.py status
 ```
 
 Requires a DART (FSS) API key. Outputs Korean company snapshots.
+
+---
+
+### `run_pipeline_br.py` — Brazil Pipeline (CVM + B3)
+
+Orchestrates the full 6-step Brazil pipeline: CVM ticker list → CVM financial snapshots → price enrichment → macro enrichment → 324 features → clean/validate.
+
+```bash
+python3 scripts/run_pipeline_br.py build              # full build from step 1
+python3 scripts/run_pipeline_br.py build --step 2     # resume from step 2
+python3 scripts/run_pipeline_br.py build --limit 50   # test run (caps tickers in steps 1–3)
+python3 scripts/run_pipeline_br.py status             # inspect all 6 BR output files
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--step N` | `1` | Resume from step N (1–6) |
+| `--limit N` | None | Cap tickers for test runs (steps 1–3 only) |
+
+Output files (all in `data/`):
+- `tickers_br.parquet` — BR company list (CVM + B3)
+- `snapshots_br.parquet` — CVM financial snapshots
+- `prices_br.parquet` — price enrichment
+- `macro_br.parquet` — macro enrichment
+- `historical_dataset_br.parquet` — full feature dataset
+- `historical_dataset_clean_br.parquet` — clean final dataset
+
+No API key required. Data sources: CVM public bulk CSV + brapi.dev free ticker list.
+
+---
+
+### `run_pipeline_jp.py` — Japan Pipeline (free tier)
+
+Orchestrates the full 6-step Japan pipeline using the free-data variants of steps 1–2 (yfinance-based, ~122–130 TSE tickers). No API key required.
+
+```bash
+python3 scripts/run_pipeline_jp.py build              # full build from step 1
+python3 scripts/run_pipeline_jp.py build --step 2     # resume from step 2
+python3 scripts/run_pipeline_jp.py build --limit 50   # test run
+python3 scripts/run_pipeline_jp.py status             # inspect all 6 JP output files
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--step N` | `1` | Resume from step N (1–6) |
+| `--limit N` | None | Cap tickers for test runs (steps 1–3 only) |
+
+Steps 1–2 use `step1_fetch_tickers_jp_free.py` and `step2_build_snapshots_jp_free.py`. For full TSE coverage (3,800+ tickers), obtain a free EDINET API key and swap to `step2_build_snapshots_jp.py`.
+
+Output files: `tickers_jp.parquet`, `snapshots_jp.parquet`, `prices_jp.parquet`, `macro_jp.parquet`, `historical_dataset_jp.parquet`, `historical_dataset_clean_jp.parquet`.
+
+---
+
+### `run_pipeline_ca.py` — Canada Pipeline (TMX)
+
+Orchestrates the full 6-step Canada pipeline. No API key required. Data source: TMX public API.
+
+```bash
+python3 scripts/run_pipeline_ca.py build              # full build from step 1
+python3 scripts/run_pipeline_ca.py build --step 2     # resume from step 2
+python3 scripts/run_pipeline_ca.py build --limit 50   # test run
+python3 scripts/run_pipeline_ca.py status             # inspect all 6 CA output files
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--step N` | `1` | Resume from step N (1–6) |
+| `--limit N` | None | Cap tickers for test runs (steps 1–3 only) |
+
+Output files: `tickers_ca.parquet`, `snapshots_ca.parquet`, `prices_ca.parquet`, `macro_ca.parquet`, `historical_dataset_ca.parquet`, `historical_dataset_clean_ca.parquet`.
 
 ---
 
@@ -226,12 +318,30 @@ Output: `reports/bias_audit_report.json`
 
 ### `push_to_hf.py` — Upload to HuggingFace Hub
 
+Uploads `data/historical_dataset_clean.parquet` and model artifacts to a HuggingFace Hub dataset repository.
+Requires `HF_TOKEN` environment variable (or `~/.huggingface/token`).
+
 ```bash
-python3 scripts/push_to_hf.py
+# Upload both dataset and models
+python3 scripts/push_to_hf.py --repo your-username/stock-screener-data
+
+# Dataset only
+python3 scripts/push_to_hf.py --repo your-username/stock-screener-data --data-only
+
+# Models only
+python3 scripts/push_to_hf.py --repo your-username/stock-screener-data --models-only
+
+# Make repository public
+python3 scripts/push_to_hf.py --repo your-username/stock-screener-data --public
 ```
 
-Uploads `data/historical_dataset_clean.parquet`, `data/refresh_status.json`, and model files to HuggingFace Hub.
-Requires `HF_TOKEN` and `HF_REPO` environment variables.
+| Flag | Default | Description |
+|---|---|---|
+| `--repo` | required | HuggingFace repo ID: `username/repo-name` |
+| `--data-only` | false | Only upload `historical_dataset_clean.parquet` |
+| `--models-only` | false | Only upload model `.joblib` files + `model_meta.json` |
+| `--public` | false | Create repo as public (default: private) |
+| `--message` | auto | HuggingFace commit message |
 
 ---
 

@@ -1,11 +1,10 @@
 # Feature Engineering
 
-The pipeline computes **319 features** per company-year observation. Features are organized into two parallel taxonomies: the **5-factor grouping** (how they're consumed in portfolio construction) and the **8-category grouping** (how they're computed in `pipeline/feature_library.py`).
+The pipeline computes **324 features** per company-year observation. Features are organized into two parallel taxonomies: the **5-factor grouping** (how they're consumed in portfolio construction) and the **8-category grouping** (how they're computed in `pipeline/feature_library.py`).
 
 The ML models use ~35 ICIR-selected features per horizon. See [Feature Selection →](feature-selection.md) for the full selection methodology.
 
 ---
-
 ## 5-Factor Grouping
 
 This is the primary taxonomy for portfolio construction and composite alpha score computation.
@@ -14,13 +13,10 @@ This is the primary taxonomy for portfolio construction and composite alpha scor
 |---|---|---|---|
 | **Value** | ~18 | P/B, EV/EBITDA, P/E, P/FCF, Acquirer's Multiple | ✅ |
 | **Quality** | ~83 | ROE, ROA, Piotroski F-Score, gross margin stability, accruals ratio, asset turnover | ✅ |
-| **Momentum** | ~32 | 12m-1m price return, earnings revision, volume trend | ⚠️ 0 true momentum features implemented |
+| **Momentum** | ~37 | 12m-1m price return, cross-sectional rank transforms, earnings revision, volume trend | ✅ |
 | **Growth** | ~22 | Revenue CAGR, EPS acceleration, asset growth, reinvestment rate | ✅ |
 | **Fraud Risk** | ~164 | Beneish M-Score, Altman Z-Score, AAER labels, going concern, forensic accruals, governance | ✅ |
 | **Quarterly enriched** | 5 | Revenue QoQ std, earnings momentum, max accruals TTM, revenue acceleration | ✅ |
-
-!!! warning "Momentum gap"
-    The 32 market/price features in the dataset capture price *levels* (beta, volatility, raw returns) but **not** cross-sectional momentum (12m-1m return relative to peers). True momentum is the most well-documented alpha source in academic literature (Jegadeesh & Titman 1993). Adding it is a Phase 0 priority — see `pipeline/feature_library.py` category 5 (Growth and Momentum).
 
 ---
 
@@ -39,10 +35,11 @@ This is how features are organized in `pipeline/feature_library.py` (single sour
 | Forensic Accounting Signals | 19 | Fraud Risk | Auditor change, restatement risk, governance flags |
 | Macro / Context | 10 | Fraud Risk | T-bill rate, CPI, credit spread, GDP growth |
 | Classical Scores | 7 | Fraud Risk | Beneish M-Score, Altman Z-Score, Piotroski F-Score (composites) |
-| Market & Price | 32 | Momentum | Returns, beta, volatility, volume — ⚠️ no cross-sectional momentum |
+| Market & Price | 32 | Momentum | Returns, beta, volatility, volume |
+| Momentum rank transforms | 5 | Momentum | Cross-sectional ranks within (fiscal_year × market): momentum_12m_rank, momentum_6m_rank, momentum_3m_rank, vol_rank_12m, momentum_composite_rank |
 | Derived / Interaction | 63 | All | Cross-products of top single features |
 | **Quarterly enriched** | **5** | Quality / Fraud Risk | Intra-year dynamics from Q1/Q2/Q3 filings |
-| **Total** | **319** | | |
+| **Total** | **324** | | |
 
 ---
 
@@ -128,10 +125,17 @@ One of the strongest quality and fraud signals. When accounting earnings far exc
 
 ## Momentum Features
 
-!!! warning "Not yet implemented"
-    The 32 market/price features currently capture price *levels* — raw returns, beta, volatility. **True cross-sectional momentum (12m-1m return relative to universe)** is not yet computed. This is a known gap.
+Cross-sectional momentum ranks are computed in `add_momentum_ranks()` in `pipeline/step5_compute_features.py`. Ranks are percentile-scaled within each (fiscal_year, market) group so a 20% annual return is evaluated relative to the same-year, same-market universe — not in absolute terms.
 
-Current market/price features (available):
+| Feature | Description |
+|---|---|
+| `momentum_12m_rank` | Cross-sectional percentile rank of 12m prior return within (fiscal_year, market) |
+| `momentum_6m_rank` | Cross-sectional percentile rank of 6m prior return |
+| `momentum_3m_rank` | Cross-sectional percentile rank of 3m prior return |
+| `vol_rank_12m` | Inverted volatility rank — low volatility = high rank (low-vol premium) |
+| `momentum_composite_rank` | Mean of 12m/6m/3m ranks — single momentum factor score |
+
+Raw price features (existing):
 
 | Feature | Description |
 |---|---|
@@ -143,7 +147,7 @@ Current market/price features (available):
 | `price_volume_ratio` | Average daily dollar volume (3-month) |
 | `volatility_90d` | 90-day realized price volatility |
 
-**Planned (Phase 0)**: compute 12m-1m cross-sectional momentum rank, earnings revision (FY1 EPS estimate change), and short interest ratio.
+**Citation**: Jegadeesh & Titman (1993) — cross-sectional momentum (12m-1m) generates ~1% monthly alpha. The rank transform is preferred over raw returns because it is scale-invariant across markets and years.
 
 ---
 

@@ -95,9 +95,11 @@ EXCLUDE = {
     'market_cap_at_filing', 'tax_expense', 'interest_expense',
     'common_shares_outstanding', 'eps_diluted', 'eps_basic',
     'retained_earnings', 'additional_paid_in_capital', 'inventory',
+    # fraud labels — these are targets/outputs, not input features
+    'fraud_confirmed', 'fraud_suspect', 'fraud_label',
 }
 EXCLUDE_PATTERNS = ['forward_return', 'beat_local_market', 'excess_return_local',
-                    'benchmark_return']
+                    'benchmark_return', 'fraud_score_']  # fraud_score_* are UI display, not ML features
 
 
 def load_data() -> pd.DataFrame:

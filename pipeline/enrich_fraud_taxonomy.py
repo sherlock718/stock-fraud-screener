@@ -220,10 +220,12 @@ def build_governance_score(df: pd.DataFrame) -> pd.Series:
     """
     Governance / auditor-quality risk score.
     High score = weak oversight.
-    Components:
-      - small_auditor_flag (hard binary signal, weighted 0.5)
-      - going_concern flag (hard binary signal, weighted 0.5)
-      - Market cap vs auditor quality mismatch (large co + small auditor)
+    Primary signals (when available):
+      - small_auditor_flag (hard binary, weighted 0.5)
+      - going_concern flag (hard binary, weighted 0.5)
+    Proxy signals used when primary columns are absent (works for all markets):
+      - altman_z_score < 1.81  → financial distress / going-concern proxy
+      - piotroski_f_score <= 2 → fundamentally weak, governance risk proxy
     """
     score = pd.Series(0.0, index=df.index)
     weight_total = 0.0
@@ -246,13 +248,46 @@ def build_governance_score(df: pd.DataFrame) -> pd.Series:
         score += mismatch * 0.2
         weight_total += 0.2
 
+    # Proxy signals — used when primary governance columns are missing
     if weight_total == 0:
-        # No governance columns available — return NaN
+        if 'altman_z_score' in df.columns:
+            z = pd.to_numeric(df['altman_z_score'], errors='coerce')
+            distress = (z < 1.81).fillna(False).astype(float)
+            score += distress * 0.5
+            weight_total += 0.5
+
+        if 'piotroski_f_score' in df.columns:
+            f = pd.to_numeric(df['piotroski_f_score'], errors='coerce')
+            weak = (f <= 2).fillna(False).astype(float)
+            score += weak * 0.5
+            weight_total += 0.5
+
+    if weight_total == 0:
         return pd.Series(np.nan, index=df.index)
 
-    # Normalise so max possible = 1.0
-    max_possible = 1.0 if ('small_auditor_flag' in df.columns or 'going_concern' in df.columns) else weight_total
-    return (score / max_possible).clip(0.0, 1.0)
+    return (score / weight_total).clip(0.0, 1.0)
+
+
+def build_fraud_suspect(df: pd.DataFrame) -> pd.Series:
+    """
+    Signal-based fraud suspect flag (no AAER required).
+    Set to 1 if 2+ of: Beneish > -1.78, Piotroski ≤ 2, Altman < 1.0.
+    """
+    signal_count = pd.Series(0, index=df.index, dtype='int8')
+
+    if 'beneish_m_score' in df.columns:
+        b = pd.to_numeric(df['beneish_m_score'], errors='coerce')
+        signal_count += (b > -1.78).fillna(False).astype('int8')
+
+    if 'piotroski_f_score' in df.columns:
+        pf = pd.to_numeric(df['piotroski_f_score'], errors='coerce')
+        signal_count += (pf <= 2).fillna(False).astype('int8')
+
+    if 'altman_z_score' in df.columns:
+        az = pd.to_numeric(df['altman_z_score'], errors='coerce')
+        signal_count += (az < 1.0).fillna(False).astype('int8')
+
+    return (signal_count >= 2).astype('int8')
 
 
 def build_composite_fraud_score(df: pd.DataFrame) -> pd.Series:
@@ -313,6 +348,11 @@ def run(dry_run: bool = False) -> None:
     print('  Building composite fraud score...')
     df['fraud_score_composite'] = build_composite_fraud_score(df)
 
+    print('  Building fraud_suspect flag...')
+    df['fraud_suspect'] = build_fraud_suspect(df)
+    if 'fraud_confirmed' in df.columns:
+        df.loc[df['fraud_confirmed'] == 1, 'fraud_suspect'] = 0
+
     # ── Report ────────────────────────────────────────────────────────────────
     score_cols = [
         'fraud_score_accounting',
@@ -356,9 +396,12 @@ def run(dry_run: bool = False) -> None:
         print('\n  [DRY RUN] — file not modified')
         return
 
+    n_suspect = int(df['fraud_suspect'].sum()) if 'fraud_suspect' in df.columns else 0
+    print(f'\n  fraud_suspect: {n_suspect:,} rows flagged ({100*n_suspect/len(df):.2f}%)')
+
     df.to_parquet(OUT, index=False)
     print(f'\n  Saved: {OUT}')
-    print(f'  Columns added: {", ".join(score_cols)}')
+    print(f'  Columns added: {", ".join(score_cols)}, fraud_suspect')
 
 
 def main() -> None:
