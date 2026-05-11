@@ -2,17 +2,17 @@
 
 **ML-powered accounting fraud detection across 14 markets — US, Korea, Canada, Japan, Brazil, and 9 European markets.**
 
-The screener trains LightGBM models on 1-year, 3-year, and 5-year horizons using 155,696 company-year observations and 313 features. Each company receives a composite fraud probability score (0–1) with SHAP-based attribution showing which signals drove the score.
+The screener trains LightGBM models on 1-year, 3-year, and 5-year horizons using 155,696 company-year observations and 319 features. Each company receives a composite fraud probability score (0–1) with SHAP-based attribution showing which signals drove the score.
 
 ---
 
 ## Performance at a Glance
 
-| Model Horizon | Validation AUC | Test AUC |
+| Model Horizon | Validation AUC | WF Mean AUC |
 |---|---|---|
-| 1-year | 0.776 | 0.749 |
-| 3-year | 0.795 | 0.780 |
-| 5-year | 0.860 | 0.856 |
+| 1-year | 0.577 | 0.553 |
+| 3-year | 0.740 | 0.643 ✅ |
+| 5-year | — | 0.597 |
 
 | Strategy | CAGR (net) | Excess vs Benchmark | Sharpe |
 |---|---|---|---|
@@ -67,7 +67,7 @@ The screener trains LightGBM models on 1-year, 3-year, and 5-year horizons using
 
 ```mermaid
 graph LR
-    A[Raw Filings<br/>SEC · SimFin · DART · TDNET] --> B[Pipeline<br/>6 steps · 313 features]
+    A[Raw Filings<br/>SEC · SimFin · DART · TDNET] --> B[Pipeline<br/>6 steps · 319 features]
     B --> C[ML Models<br/>LightGBM<br/>3 horizons]
     C --> D[Fraud Score 0–1<br/>+ SHAP attribution]
     D --> E[Portfolio<br/>4 strategies]

@@ -27,7 +27,7 @@ Pipeline steps:
 1. Fetch SEC EDGAR filings → raw snapshots
 2. Merge snapshots into single parquet
 3. Clean and normalize dataset
-4. Engineer 278 features (`feature_library.py`)
+4. Engineer 314 features (`feature_library.py`) + 5 quarterly dynamics → 319 total
 5. Enrich with price data and sector/dividend data
 6. Write `data/historical_dataset_clean.parquet`
 
@@ -73,6 +73,8 @@ python3 scripts/train_models.py --no-shap
 | `--top-n N` | `40` | Max features per horizon after ICIR ranking |
 | `--min-ic FLOAT` | `0.02` | Minimum absolute IC to include a feature |
 | `--max-psi FLOAT` | `2.0` | Drop features with PSI above this threshold before IC ranking |
+| `--min-ic-stability FLOAT` | `0.0` | Minimum fraction of years IC must have the correct sign (0.0 = off). Set to e.g. `0.6` to drop directionally inconsistent features |
+| `--min-ic-years INT` | `1` | Minimum years of IC data required to keep a feature (1 = off). Set to e.g. `5` to prevent ICIR inflation from features with very few historical observations |
 | `--no-dedup` | False | Skip correlation deduplication (r > 0.90) |
 | `--sector-neutral` | False | Demean IC scores within sectors before ranking |
 | `--train-cutoff YEAR` | `2017` | Last training year (inclusive) |

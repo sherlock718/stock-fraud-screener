@@ -10,7 +10,7 @@ flowchart TD
     S2["Step 2 — Build Annual Snapshots<br/>Income statement · Balance sheet · Cash flow<br/>→ one row per ticker × fiscal_year"]
     S3["Step 3 — Enrich Prices<br/>yfinance OHLCV<br/>→ 12M / 24M / 36M returns, beta, volume"]
     S4["Step 4 — Enrich Macro<br/>T-bill rates · CPI · GDP<br/>→ macro columns joined by date"]
-    S5["Step 5 — Compute Features<br/>feature_library.py · 278 formulas<br/>→ accruals · ratios · growth · quality"]
+    S5["Step 5 — Compute Features<br/>feature_library.py · 314 formulas<br/>→ accruals · ratios · growth · quality"]
     S6["Step 6 — Clean Dataset<br/>outlier winsorize · impute medians · type cast<br/>→ historical_dataset_clean.parquet"]
 
     S1 --> S2 --> S3 --> S4 --> S5 --> S6
@@ -74,7 +74,7 @@ Used as context features in the model — fraud patterns can shift with macro cy
 
 **Script:** `scripts/feature_library.py`
 
-Computes 278 features across 8 categories. See [Feature Engineering](features.md) for the full list.
+Computes 314 base features across 8 categories (plus 5 quarterly-enriched columns added in the next step → 319 total). See [Feature Engineering](features.md) for the full list.
 
 All computations are purely cross-sectional within a fiscal year — no look-forward information is used.
 

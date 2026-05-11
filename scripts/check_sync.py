@@ -50,13 +50,23 @@ RULES: list[Rule] = [
     Rule(
         name="feature-count",
         trigger_desc="pipeline/feature_library.py changed (column count may have changed)",
-        required_files=["docs/architecture.md", "docs/methodology/models.md"],
-        message="Update column count in all Mermaid nodes that reference it.",
+        required_files=[
+            "docs/architecture.md",
+            "docs/methodology/models.md",
+            "docs/methodology/features.md",
+            "docs/methodology/pipeline.md",
+            "docs/index.md",
+            "docs/markets.md",
+            "docs/developer/setup.md",
+            "docs/developer/scripts.md",
+            "README.md",
+        ],
+        message="Update column count in all Mermaid nodes and every doc that references feature/column counts.",
     ),
     Rule(
         name="ml-pipeline",
         trigger_desc="ML training or tuning script changed",
-        required_files=["docs/methodology/models.md"],
+        required_files=["docs/methodology/models.md", "README.md", "docs/index.md"],
         message="Update AUC table (Val/Test/WF AUC) and Mermaid flowchart if pipeline structure changed.",
     ),
     Rule(
@@ -121,8 +131,10 @@ def triggered_rules(changed: set[str]) -> list[tuple[Rule, list[str]]]:
     """Return (rule, missing_files) pairs for every triggered rule with gaps."""
     docs_and_config = {
         "docs/architecture.md", "docs/methodology/models.md",
+        "docs/methodology/features.md", "docs/methodology/pipeline.md",
         "docs/developer/scripts.md", "docs/developer/setup.md",
-        "docs/guide/app.md", "CHANGELOG.md", "CLAUDE.md", "CONTRIBUTING.md",
+        "docs/guide/app.md", "docs/index.md", "docs/markets.md",
+        "CHANGELOG.md", "CLAUDE.md", "CONTRIBUTING.md",
         "README.md",
     }
     # Files that are purely doc/config (never trigger rules themselves)

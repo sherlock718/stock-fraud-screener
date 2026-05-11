@@ -37,7 +37,7 @@ stock-fraud-screener/
 │   ├── run_pipeline.py        # Main US pipeline
 │   ├── run_pipeline_eu.py     # EU pipeline (SimFin)
 │   ├── run_pipeline_kr.py     # Korea pipeline (DART)
-│   ├── feature_library.py     # 278 feature definitions
+│   ├── feature_library.py     # 314 feature definitions (319 total incl. quarterly)
 │   ├── train_models.py        # LightGBM training
 │   ├── tune_models.py         # Optuna + CatBoost + calibration
 │   ├── backtester.py          # Walk-forward backtester

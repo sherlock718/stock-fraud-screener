@@ -9,6 +9,49 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 ## [Unreleased]
 
 ### Added
+- **`scripts/check_sync.py`**: expanded `feature-count` rule to require `README.md`,
+  `docs/methodology/features.md`, `docs/methodology/pipeline.md`, `docs/index.md`,
+  `docs/markets.md`, `docs/developer/setup.md`, `docs/developer/scripts.md` — previously
+  only `docs/architecture.md` and `docs/methodology/models.md` were required
+- **`scripts/check_sync.py`**: expanded `ml-pipeline` rule to require `README.md` and
+  `docs/index.md` (both carry AUC tables that must stay in sync)
+- **`scripts/check_sync.py`**: added `docs/methodology/features.md`, `docs/methodology/pipeline.md`,
+  `docs/index.md`, `docs/markets.md` to `docs_and_config` exclusion set
+
+### Fixed
+- **`README.md`**: AUC table corrected — WF Mean AUC: 1y 0.553, 3y 0.643 ✅, 5y 0.597
+  (was 0.749/0.780/0.856 — those were val/test AUC from a prior training run, not WF CV)
+- **`docs/index.md`**: feature count 313→319; AUC table updated to Val AUC + WF Mean AUC;
+  Mermaid graph node corrected to 319 features
+- **`docs/markets.md`**: column count 313→319
+- **`docs/methodology/features.md`**: header corrected to 319 features (was 278)
+- **`docs/methodology/pipeline.md`**: Step 5 node formula count 278→314
+  (feature_library.py produces 314 base columns; +5 quarterly → 319 total)
+- **`docs/developer/setup.md`**: feature_library.py comment updated to 314/319
+- **`docs/developer/scripts.md`**: pipeline step 4 updated to 314 + 5 quarterly = 319
+
+
+  features whose IC sign is inconsistent across years; set to 0.6 to require ≥60% of years with
+  correct-sign IC before a feature enters the model
+- **`scripts/train_models.py`**: `--min-ic-years INT` flag (default 1 = off) — requires a minimum
+  number of years of IC observations; prevents spurious ICIR inflation from features with very few
+  historical data points (e.g. `fraud_label` with n_years=1 would otherwise rank first by ICIR)
+- **`scripts/train_models.py`**: `FORCE_INCLUDE_1Y` constant — mechanism to force-include named
+  features into the 1y model even if they don't rank in the ICIR top-N; currently empty after
+  testing showed no net WF AUC improvement (see notes in file)
+
+### Changed
+- `docs/developer/scripts.md`: flags table for `train_models.py` updated with `--min-ic-stability`
+  and `--min-ic-years`
+
+### Notes (no change)
+- Tested `vix` as force-include for 1y model: improved 2018→2019 fold AUC 0.465→0.485 (COVID
+  reversal regime) but 2019→2020 fold declined 0.549→0.526; net WF mean AUC 0.553→0.549 (−0.004).
+  Reverted. Root cause: 2018→2019 is dominated by the COVID crash/recovery regime in which all
+  fundamental factors inverted sign; no single feature addition recovers this fold without hurting
+  adjacent folds. 1y WF mean AUC remains 0.553 (target ≥0.62 not yet met).
+
+### Added
 - **`CLAUDE.md`** — AI assistant instructions: Change Checklist matrix, Architecture Sync
   Rules, Current Architecture State table, key file locations, commit convention
 - **`scripts/enrich_quarterly_features.py`** — computes 5 intra-year dynamics (revenue smoothing,

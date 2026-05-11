@@ -1,6 +1,6 @@
 # Feature Engineering
 
-The pipeline computes 278 features grouped into 8 categories. The ML models use ~35 ICIR-selected features per horizon.
+The pipeline computes 319 features grouped into 8 categories (including 5 quarterly-enriched columns). The ML models use ~35 ICIR-selected features per horizon.
 
 ## Feature Categories
 

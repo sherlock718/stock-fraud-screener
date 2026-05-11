@@ -58,11 +58,11 @@ tests/
 
 ## ML Models
 
-| Horizon | Features | Train Rows | OOS AUC |
-|---------|----------|------------|---------|
-| 1y      | 27       | 40,907     | 0.749   |
-| 3y      | 31       | 31,151     | 0.780   |
-| 5y      | 31       | 21,965     | 0.856   |
+| Horizon | Features | Train Rows | WF Mean AUC |
+|---------|----------|------------|-------------|
+| 1y      | ~35      | varies     | 0.553       |
+| 3y      | ~35      | varies     | 0.643 ✅    |
+| 5y      | ~35      | varies     | 0.597       |
 
 - Target: beat local market index over horizon
 - Feature selection: top features by |ICIR| (IC/StdIC), deduplicated at |Spearman| > 0.90
