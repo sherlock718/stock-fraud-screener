@@ -9,7 +9,32 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 ## [Unreleased]
 
 ### Added
-- **`scripts/check_sync.py`**: expanded `feature-count` rule to require `README.md`,
+- **`ROADMAP.md`**: full phase tracker — Phase 0–3 with task checklists, exit criteria, codebase cleanup targets, and file inventory.
+- **`CONTEXT.md`**: session state snapshot for context continuity between sessions; tracks current phase, completed tasks, blockers, architecture summary, data coverage.
+- **`docs/methodology/feature-selection.md`**: PSI → IC → ICIR → Spearman deduplication pipeline with formulas, thresholds, CLI flags, planned Newey-West HAC + Fama-MacBeth + FDR improvements.
+- **`docs/methodology/factor-library.md`**: 5 factor groups as ML input categories. Architecture decision: no fixed-weight composite; combination weights are ML-learned. All feature formulas, academic citations, data sources.
+- **`docs/developer/contributing.md`**: vision checklist (5 questions before every task), "done" definition (6 steps), sync rules by change type, commit convention, architecture constraints, phase-gate review process.
+- **`docs/developer/pipeline-scripts.md`**: full reference for all `pipeline/` modules — step1–step6 per market, enrichment modules, universe definition, confidence score, integration helpers.
+
+### Changed
+- **`mkdocs.yml`**: site_name updated to "Multi-Factor Stock Screener". Added feature-selection, factor-library, contributing, pipeline-scripts to nav.
+- **`CLAUDE.md`**: reframed to multi-factor quant lab with architecture state table and pre-task checklist.
+- **`docs/index.md`**: reframed as quant alpha lab with ML-first framing.
+- **`docs/architecture.md`**: 15-layer architecture, multi-market integration, alpha signal flow.
+- **`docs/methodology/features.md`**: dual taxonomy rewrite (5-factor + 8-category), momentum gap warning added.
+
+- **`scripts/fetch_aaer_labels.py`**: builds `data/aaer_labels.csv` (per-company fraud year
+  ranges from 220 matched companies) and rewrites the `fraud_confirmed` column in
+  `data/historical_dataset_clean.parquet`.  Sources: `data/aaer_cache.json` (232 AAER CIKs)
+  + SEC EDGAR full-text search for 10-K filings disclosing SEC investigations and
+  restatements (~1,418 + ~521 hits across two queries).  Labeling window:
+  `fiscal_year ∈ [fraud_year_start − 2, fraud_year_end]`.  Coverage: ~492 annual positive
+  rows from ~118 companies (up from 172 / 33 companies).  Flags: `--lookback`, `--dry-run`,
+  `--no-update-parquet`, `--start-year`, `--end-year`.
+- **`docs/developer/scripts.md`**: added `fetch_aaer_labels.py` section with usage examples,
+  flags table, and coverage note.
+
+
   `docs/methodology/features.md`, `docs/methodology/pipeline.md`, `docs/index.md`,
   `docs/markets.md`, `docs/developer/setup.md`, `docs/developer/scripts.md` — previously
   only `docs/architecture.md` and `docs/methodology/models.md` were required

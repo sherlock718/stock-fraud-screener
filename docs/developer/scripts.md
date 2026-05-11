@@ -235,6 +235,44 @@ Requires `HF_TOKEN` and `HF_REPO` environment variables.
 
 ---
 
+### `fetch_aaer_labels.py` — AAER Fraud Label Construction
+
+Builds `data/aaer_labels.csv` and updates the `fraud_confirmed` column in
+`data/historical_dataset_clean.parquet`.  No API key required — uses:
+
+1. `data/aaer_cache.json` — pre-fetched AAER CIK/year pairs (232 unique CIKs)
+2. SEC EDGAR full-text search — paginates through 10-K filings that disclose
+   `"SEC investigation" AND "restatement"` or `"accounting fraud" AND "restatement"`
+   as a proxy for confirmed accounting enforcement actions
+
+Labeling window: `fraud_confirmed = 1` when the company has an AAER entry AND
+`fiscal_year ∈ [fraud_year_start − lookback, fraud_year_end]` (default lookback = 2).
+
+```bash
+python3 scripts/fetch_aaer_labels.py                     # fetch + update parquet
+python3 scripts/fetch_aaer_labels.py --dry-run           # preview without writing
+python3 scripts/fetch_aaer_labels.py --no-update-parquet # CSV only
+python3 scripts/fetch_aaer_labels.py --lookback 3        # wider lookback window
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--lookback N` | `2` | Years before `fraud_year_start` to include as positive |
+| `--start-year YEAR` | `2000` | Earliest year for EDGAR full-text search |
+| `--end-year YEAR` | `2024` | Latest year for EDGAR full-text search |
+| `--labels-output PATH` | `data/aaer_labels.csv` | Output CSV for per-company fraud ranges |
+| `--parquet PATH` | `data/historical_dataset_clean.parquet` | Parquet to update |
+| `--no-update-parquet` | False | Build CSV only; skip parquet write |
+| `--dry-run` | False | Print coverage report without writing any files |
+
+Output files:
+- `data/aaer_labels.csv` — columns: `cik, ticker, name, fraud_year_start, fraud_year_end, n_filings, sources`
+- `data/historical_dataset_clean.parquet` — `fraud_confirmed` column updated
+
+Coverage (default settings): ~490 annual positive rows from ~120 companies (2009–2024).
+
+---
+
 ### `check_data.py` — Dataset Health Check
 
 ```bash
@@ -341,6 +379,93 @@ python3 scripts/migrate_to_db.py --truncate   # wipe existing rows before loadin
 | `--truncate` | False | Truncate target table before inserting |
 
 Requires `DATABASE_URL` environment variable pointing to a live TimescaleDB instance.
+
+---
+
+### `pit_validate.py` — Point-in-Time Look-Ahead Audit
+
+Validates that the historical dataset respects point-in-time data availability. Checks filing lag distributions, portfolio formation dates, sector percentile look-ahead exposure, and ML training look-ahead fractions. Run this after any full pipeline rebuild and before training.
+
+```bash
+python3 scripts/pit_validate.py                           # full report to stdout
+python3 scripts/pit_validate.py --market US               # US only
+python3 scripts/pit_validate.py --output data/pit_report.csv
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--market` | All | Filter to one market (e.g. `US`) |
+| `--output PATH` | stdout | Write CSV report to file |
+
+Checks performed:
+1. Filing lag distribution (months: fiscal_year_end → filed_date)
+2. Portfolio formation date (quarter in which each 10-K was filed)
+3. Sector percentile look-ahead (% of sector peers not yet filed at filing date)
+4. ML training look-ahead (fraction of training rows with filed_date > Jan 1 of year)
+5. Forward-return anchor (entry_price date == filed_date)
+
+---
+
+### `fix_dataset_quality.py` — Dataset Quality Fixes
+
+Applies one-time quality fixes after a full pipeline rebuild, before training. Run once after `run_pipeline.py` completes.
+
+```bash
+python3 scripts/fix_dataset_quality.py                     # in-place fix
+python3 scripts/fix_dataset_quality.py --dry-run           # report only, no write
+python3 scripts/fix_dataset_quality.py --src custom.parquet
+python3 scripts/fix_dataset_quality.py --out fixed.parquet
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--dry-run` | False | Report issues without writing any files |
+| `--src PATH` | `data/historical_dataset_clean.parquet` | Source parquet |
+| `--out PATH` | input path | Output path (overwrites input if not specified) |
+
+Fixes applied:
+1. Drop columns with 100% null rate across the whole dataset
+2. Add `is_forecast` flag — True for fiscal_year ≥ FORECAST_YEAR
+3. Winsorize `accruals_to_assets` at 1st/99th percentile per (market, fiscal_year)
+4. Fix `gross_margin` values > 1.5 — divides by 100 (corrects percentage-format entries)
+
+---
+
+### `build_fraud_labels.py` — Multi-Source Fraud Label System
+
+Builds `data/fraud_labels.parquet` from three free public sources: SEC AAER releases, SEC EDGAR bankruptcy filings (Form 15/BK), and Stanford Securities Class Action Clearinghouse (SCAC). Use this to bootstrap or extend the fraud label set beyond what `fetch_aaer_labels.py` covers.
+
+```bash
+python3 scripts/build_fraud_labels.py                      # all sources
+python3 scripts/build_fraud_labels.py --sources aaer scac  # specific sources only
+python3 scripts/build_fraud_labels.py --output data/fraud_labels_2024.parquet
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--sources` | `aaer scac bk` | Space-separated list of sources to include |
+| `--output PATH` | `data/fraud_labels.parquet` | Output path |
+
+Output columns: `ticker, market, fraud_year, label_type, source, description, fraud_confirmed, fraud_suspect, cik`
+
+!!! note
+    For routine AAER label updates, prefer `fetch_aaer_labels.py` which also updates the main parquet in-place. `build_fraud_labels.py` is for building the standalone label file from multiple sources.
+
+---
+
+### `wait_and_merge.py` — Pipeline Completion Monitor + Auto-Merge
+
+Polls until all market pipelines (KR, EU, CA) have completed and their snapshot files have stabilised, then automatically runs the merge and feature engineering steps. Leave this running in a terminal when running multi-market pipelines in parallel.
+
+```bash
+python3 scripts/wait_and_merge.py
+```
+
+No flags. Behaviour:
+1. Polls for `data/snapshots_kr.parquet`, `data/snapshots_eu.parquet`, `data/snapshots_ca.parquet`
+2. Waits for file sizes to stabilise (no change over two poll cycles)
+3. Runs `scripts/merge_snapshots.py --activate --backup`
+4. Runs `python3 scripts/run_pipeline.py build --step 4` (features + clean on full dataset)
 
 ---
 
