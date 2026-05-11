@@ -10,8 +10,57 @@ import streamlit as st
 
 from src.config import BASE, WL_PATH, WL_LIVE
 
+_FRAUD_TREND_COLS = [
+    'fraud_score_composite',
+    'fraud_score_accounting',
+    'fraud_score_dilution',
+    'fraud_score_quality',
+    'fraud_score_distress',
+]
 
-def tab_watchlist() -> None:
+
+def _fraud_alerts(df_all: pd.DataFrame, tickers: list[str]) -> list[dict]:
+    """Return list of YoY fraud score change dicts for tickers in watchlist."""
+    if 'fraud_score_composite' not in df_all.columns:
+        return []
+    src = df_all[df_all['period_type'] == 'annual'] if 'period_type' in df_all.columns else df_all
+    alerts = []
+    for tk in tickers:
+        rows = (src[src['ticker'] == tk]
+                .sort_values('fiscal_year', ascending=False)
+                .head(2))
+        if len(rows) < 2:
+            continue
+        curr, prev = rows.iloc[0], rows.iloc[1]
+        curr_v = curr.get('fraud_score_composite')
+        prev_v = prev.get('fraud_score_composite')
+        if pd.isna(curr_v) or pd.isna(prev_v):
+            continue
+        delta = float(curr_v) - float(prev_v)
+        if abs(delta) < 0.05:
+            continue
+        # Threshold crossing check
+        crossed = ''
+        if prev_v <= 0.65 < curr_v:
+            crossed = ' — CROSSED into 🔴 HIGH RISK'
+        elif prev_v <= 0.35 < curr_v:
+            crossed = ' — CROSSED into 🟠 MEDIUM RISK'
+        elif curr_v <= 0.35 < prev_v:
+            crossed = ' — DROPPED to 🟢 LOW RISK'
+        direction = '⬆️ Worsened' if delta > 0 else '⬇️ Improved'
+        alerts.append({
+            'Ticker':     tk,
+            'Curr Score': round(float(curr_v), 3),
+            'Prev Score': round(float(prev_v), 3),
+            'Δ Change':   round(delta, 3),
+            'Direction':  direction + crossed,
+            'Curr Year':  int(curr['fiscal_year']),
+            'Prev Year':  int(prev['fiscal_year']),
+        })
+    return sorted(alerts, key=lambda x: abs(x['Δ Change']), reverse=True)
+
+
+def tab_watchlist(df_all: pd.DataFrame | None = None) -> None:
     st.header('⭐ Watchlist & Price Alerts')
 
     def _load_wl() -> dict:
@@ -74,6 +123,14 @@ def tab_watchlist() -> None:
 
     st.subheader(f'Watching {len(wl)} ticker(s)')
     rows_data = []
+    _latest_scores: dict[str, float | None] = {}
+    if df_all is not None and 'fraud_score_composite' in df_all.columns:
+        src = (df_all[df_all['period_type'] == 'annual']
+               if 'period_type' in df_all.columns else df_all)
+        for tk in wl:
+            tr = src[src['ticker'] == tk].sort_values('fiscal_year', ascending=False).head(1)
+            _latest_scores[tk] = float(tr.iloc[0]['fraud_score_composite']) if not tr.empty and pd.notna(tr.iloc[0].get('fraud_score_composite')) else None
+
     for tk, meta in sorted(wl.items()):
         price = prices.get(tk)
         above = meta.get('above')
@@ -84,18 +141,44 @@ def tab_watchlist() -> None:
                 alert_str = f'🚨 ABOVE ${above:,.2f}'
             elif below and price <= below:
                 alert_str = f'🚨 BELOW ${below:,.2f}'
+        fs = _latest_scores.get(tk)
+        fraud_badge = (
+            f'🔴 {fs:.3f}' if fs is not None and fs > 0.65 else
+            f'🟠 {fs:.3f}' if fs is not None and fs > 0.35 else
+            f'🟢 {fs:.3f}' if fs is not None else '—'
+        )
         rows_data.append({
-            'Ticker':  tk,
-            'Price':   f'${price:,.2f}' if price else '—',
-            'Above':   f'${above:,.2f}' if above else '—',
-            'Below':   f'${below:,.2f}' if below else '—',
-            'Alert':   alert_str,
-            'Added':   meta.get('added', ''),
-            'Note':    meta.get('note', ''),
+            'Ticker':        tk,
+            'Price':         f'${price:,.2f}' if price else '—',
+            'Above':         f'${above:,.2f}' if above else '—',
+            'Below':         f'${below:,.2f}' if below else '—',
+            'Alert':         alert_str,
+            'Fraud Score':   fraud_badge,
+            'Added':         meta.get('added', ''),
+            'Note':          meta.get('note', ''),
         })
 
     df_wl = pd.DataFrame(rows_data)
     st.dataframe(df_wl, use_container_width=True, hide_index=True)
+
+    # --- YoY fraud score change alerts ---
+    if df_all is not None:
+        fa = _fraud_alerts(df_all, list(wl.keys()))
+        if fa:
+            st.markdown('---')
+            st.subheader('📊 Fraud Score Change Alerts')
+            st.caption('Year-over-year changes in fraud_score_composite (≥ 0.05 threshold).')
+            fa_df = pd.DataFrame(fa)
+            st.dataframe(fa_df, use_container_width=True, hide_index=True)
+            for item in fa:
+                if abs(item['Δ Change']) >= 0.10 or 'CROSSED' in item['Direction']:
+                    badge = '🔴' if item['Δ Change'] > 0 else '🟢'
+                    st.warning(
+                        f"{badge} **{item['Ticker']}**: fraud score "
+                        f"{item['Prev Score']:.3f} → {item['Curr Score']:.3f} "
+                        f"({item['Δ Change']:+.3f}) FY{item['Prev Year']}→FY{item['Curr Year']} "
+                        f"— {item['Direction']}"
+                    )
 
     with st.expander('🗑 Remove tickers'):
         to_del = st.multiselect('Select tickers to remove', options=sorted(wl.keys()))
