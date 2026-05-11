@@ -10,7 +10,7 @@
 ## Clone and Install
 
 ```bash
-git clone https://github.com/mhoque/stock-fraud-screener.git
+git clone https://github.com/sherlock718/stock-fraud-screener.git
 cd stock-fraud-screener
 
 # Create virtual environment (recommended)
@@ -90,7 +90,7 @@ Set in `.env` or export directly:
 
 ```bash
 export HF_TOKEN=hf_xxx
-export HF_REPO=mhoque/stock-fraud-screener
+export HF_REPO=sherlock718/stock-fraud-screener
 ```
 
 ## From-Scratch Build

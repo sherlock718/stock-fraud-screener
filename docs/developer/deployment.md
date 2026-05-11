@@ -21,7 +21,7 @@ The app is deployed on Streamlit Cloud, loading data from HuggingFace Hub at sta
 ```toml
 # .streamlit/secrets.toml (local dev only, never commit)
 HF_TOKEN = "hf_xxx"
-HF_REPO = "mhoque/stock-fraud-screener"
+HF_REPO = "sherlock718/stock-fraud-screener"
 ```
 
 ## GitHub Actions
@@ -69,7 +69,7 @@ gh workflow run refresh_data.yml -f markets="all"
 | Secret | Value |
 |---|---|
 | `HF_TOKEN` | HuggingFace write token |
-| `HF_REPO` | Dataset repo ID (e.g. `mhoque/stock-fraud-screener`) |
+| `HF_REPO` | Dataset repo ID (e.g. `sherlock718/stock-fraud-screener`) |
 
 Set at: `GitHub repo → Settings → Secrets and variables → Actions → New repository secret`
 
@@ -91,7 +91,7 @@ api = HfApi(token="hf_xxx")
 api.upload_file(
     path_or_fileobj='data/historical_dataset_clean.parquet',
     path_in_repo='historical_dataset_clean.parquet',
-    repo_id='mhoque/stock-fraud-screener',
+    repo_id='sherlock718/stock-fraud-screener',
     repo_type='dataset',
 )
 ```
