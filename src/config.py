@@ -25,8 +25,8 @@ STRAT_FILES = {
 
 MARKET_LABELS = {
     'US': '🇺🇸 United States', 'CA': '🇨🇦 Canada', 'BR': '🇧🇷 Brazil',
-    'JP': '🇯🇵 Japan', 'DE': '🇩🇪 Germany', 'FR': '🇫🇷 France',
-    'IT': '🇮🇹 Italy', 'ES': '🇪🇸 Spain', 'SE': '🇸🇪 Sweden',
-    'FI': '🇫🇮 Finland', 'NL': '🇳🇱 Netherlands', 'PT': '🇵🇹 Portugal',
-    'DK': '🇩🇰 Denmark',
+    'JP': '🇯🇵 Japan', 'KR': '🇰🇷 South Korea', 'DE': '🇩🇪 Germany',
+    'FR': '🇫🇷 France', 'IT': '🇮🇹 Italy', 'ES': '🇪🇸 Spain',
+    'SE': '🇸🇪 Sweden', 'FI': '🇫🇮 Finland', 'NL': '🇳🇱 Netherlands',
+    'PT': '🇵🇹 Portugal', 'DK': '🇩🇰 Denmark',
 }
