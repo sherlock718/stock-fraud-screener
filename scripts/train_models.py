@@ -67,6 +67,17 @@ HORIZONS = {
     '5y': ('forward_return_5y', 'beat_local_market_5y'),
 }
 
+# Price/momentum features to force-include for the 1y model.
+# These are ranked too low by raw |ICIR| to enter the top-40, but they are
+# consistently predictive (pct_positive_ic ≥ 0.70) and are top-3 SHAP drivers
+# in the 3y/5y models.  Adding them gives the 1y model the price-regime signal
+# it currently lacks (which explains the 0.47 AUC fold in 2018→2019).
+# Only features that actually exist in the dataset are force-included at runtime.
+FORCE_INCLUDE_1Y = [
+    'price_to_52w_high',   # ICIR=0.57, pct_pos=0.71 — strongest price signal for 1y
+    'log_revenue',         # ICIR=0.76, pct_pos=0.79 — size/quality signal
+]
+
 EXCLUDE = {
     # identifiers & metadata
     'cik', 'ticker', 'name', 'filed_date', 'fiscal_year', 'fiscal_quarter',
@@ -377,6 +388,14 @@ def main() -> None:
                         help='Run expanding-window walk-forward CV after main training')
     parser.add_argument('--max-psi', type=float, default=2.0,
                         help='Drop features with PSI > threshold before IC analysis (default: 2.0)')
+    parser.add_argument('--min-ic-stability', type=float, default=0.6,
+                        help='Minimum fraction of years IC must be positive-signed to keep feature '
+                             '(default: 0.6). Filters out features that are only high |ICIR| due '
+                             'to consistent negative IC — i.e. they only work one way.')
+    parser.add_argument('--min-ic-years', type=int, default=5,
+                        help='Minimum number of years with valid IC data to keep a feature '
+                             '(default: 5). Prevents spurious features with very few observations '
+                             'from getting artificial ICIR inflation.')
     args = parser.parse_args()
 
     train_cutoff = args.train_cutoff
@@ -432,9 +451,34 @@ def main() -> None:
     selected_features = {}
     for h in HORIZONS:
         tbl = ic_tables[h]
-        candidates = tbl[tbl['mean_ic'].abs() > args.min_ic].index.tolist()
+        # Filter 1: minimum |mean IC|
+        mask = tbl['mean_ic'].abs() > args.min_ic
+        # Filter 2: IC stability — fraction of years IC has the correct sign must be >= threshold.
+        #   For positive-IC features: pct_positive_ic >= min_ic_stability
+        #   For negative-IC features: (1 - pct_positive_ic) >= min_ic_stability
+        #   This evicts features that are high |ICIR| only because IC is consistently opposite to mean sign.
+        stability_ok = pd.Series(np.where(
+            tbl['mean_ic'] >= 0,
+            tbl['pct_positive_ic'] >= args.min_ic_stability,
+            (1 - tbl['pct_positive_ic']) >= args.min_ic_stability,
+        ), index=tbl.index, dtype=bool)
+        mask = mask & stability_ok
+        # Filter 3: require enough years of data to trust ICIR (prevents fraud_label n=1 style inflation)
+        mask = mask & (tbl['n_years'] >= args.min_ic_years)
+        candidates = tbl[mask].index.tolist()
+        n_before = int((tbl['mean_ic'].abs() > args.min_ic).sum())
+        n_stability_dropped = n_before - int(mask.sum())
         top_n = candidates[:args.top_n]
-        print(f'\n  {h}: {len(candidates)} pass |IC|>{args.min_ic} → keeping top {len(top_n)} by ICIR')
+        print(f'\n  {h}: {n_before} pass |IC|>{args.min_ic} → {n_stability_dropped} dropped by stability/years filter → {len(candidates)} remain → keeping top {len(top_n)} by ICIR')
+
+        # For the 1y horizon, force-include price/momentum features that are consistently
+        # predictive but drowned out by high-|ICIR| fundamental features.
+        if h == '1y':
+            for forced in FORCE_INCLUDE_1Y:
+                if forced not in top_n and forced in tbl.index:
+                    top_n.append(forced)
+                    row = tbl.loc[forced]
+                    print(f'    Force-include {forced} (ICIR={row["icir"]:.3f}, pct_pos={row["pct_positive_ic"]:.2f})')
 
         if not args.no_dedup:
             top_n = deduplicate_features(df_train, top_n, corr_threshold=0.90)
