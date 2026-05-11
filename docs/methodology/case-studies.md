@@ -6,7 +6,7 @@ Real-world fraud cases with the quantitative signals that were detectable in ann
 
 ## Overview
 
-The Case Study Library documents ten major accounting frauds across US, German, Italian, and UK markets. For each case we show:
+The Case Study Library documents fifteen major accounting frauds across US, German, Italian, UK, and Japanese markets. For each case we show:
 
 - The fraud type and mechanism
 - Which quantitative signals were elevated in the 1–3 years before revelation
@@ -237,6 +237,116 @@ SPAC-structure companies with no revenue history, single-founder governance, and
 
 ---
 
+## Case 11 — Theranos Inc. (Private · US · 2015)
+
+**Fraud type:** Technology Fabrication — $9B Blood-Testing Fraud
+
+Theranos, a Silicon Valley blood-testing startup, claimed its Edison device could run hundreds of diagnostic tests from a single finger-prick drop of blood at a fraction of the laboratory cost. In reality, the device could reliably perform only a handful of tests; the rest used conventional Siemens analysers. Founder Elizabeth Holmes was convicted of investor fraud in January 2022. The company raised $900M+ from investors and partners before the Wall Street Journal investigation by John Carreyrou in October 2015.
+
+### Detectable Signals
+
+| Signal | Detail |
+|--------|--------|
+| Revenue vs Technology Claims | Claimed test cost of $15 vs industry standard $100+ — mathematically impossible margin without undisclosed automation |
+| Cash Burn vs Revenue | Raised $900M+ in equity but disclosed zero commercial revenue during the investment period |
+| Due Diligence Restriction | Investors were contractually barred from visiting labs or verifying patient outcomes — extreme governance red flag |
+| Governance Concentration | Founder held 99%+ voting control via super-voting shares; board included no medical or lab-science experts |
+| Regulatory Non-Compliance | CLIA lab certification was obtained under a subsidiary brand; the CMS inspection in 2015 found immediate jeopardy conditions |
+
+### Key Lesson
+
+When a private company refuses audited financials, bars investors from standard diligence, and concentrates total voting control with the founder, the valuation is entirely faith-based. Governance and dilution sub-scores are the primary detection layer for this class of fraud — accounting signals require public filings to compute.
+
+---
+
+## Case 12 — Adelphia Communications (ADELQ · US · 2002)
+
+**Fraud type:** Related-Party Looting — $3.1B Off-Book Family Loans
+
+Adelphia Communications, founded by the Rigas family, concealed $3.1B in co-borrowing arrangements in which the company guaranteed debt taken out by Rigas family entities for personal use (purchase of cable systems, real estate, and a golf course). The off-book liabilities were disclosed in a footnote that most analysts missed. The company filed for Chapter 11 in June 2002; founder John Rigas was convicted of bank fraud in 2004.
+
+### Detectable Signals
+
+| Signal | Detail |
+|--------|--------|
+| Off-Balance-Sheet Liabilities | $3.1B in co-borrowing arrangements listed as a single opaque footnote — not consolidated on balance sheet |
+| Related-Party Transactions | Founding family entities received company guarantees; Rigas entities purchased cable systems at above-market prices |
+| Debt / EBITDA | Disclosed leverage of ~8× was already high; actual leverage post-restatement exceeded 12× |
+| OCF vs Reported Earnings | Free cash flow was deeply negative while reported net income was positive — classic quality divergence |
+| Altman Z-Score | Z-score fell below 1.81 in FY2001, two quarters before the June 2002 bankruptcy filing |
+
+### Key Lesson
+
+Related-party looting is the hardest fraud to detect from public filings alone — the key is the footnote, not the headline numbers. Z-score distress and OCF/NI divergence still give early warning even when the balance sheet is deliberately obscured.
+
+---
+
+## Case 13 — HealthSouth Corporation (HLSH · US · 2003)
+
+**Fraud type:** Earnings Fabrication — $2.7B Inflated Net Income
+
+HealthSouth CEO Richard Scrushy directed management to set quarterly earnings targets that exceeded what the business could generate, then instructed subordinates to fabricate journal entries to bridge the gap. Over fifteen quarters from 1996 to 2002 the company inflated pre-tax income by $2.7B. Sixteen members of management pleaded guilty; Scrushy himself was acquitted on the fraud counts (later convicted on unrelated bribery charges) in a controversial jury outcome.
+
+### Detectable Signals
+
+| Signal | Detail |
+|--------|--------|
+| Earnings vs OCF Gap | EPS grew steadily while OCF consistently underperformed reported net income — visible in every annual filing from 1997 |
+| Asset Quality Index (AQI) | AQI > 1.6 — property and equipment were systematically overstated to absorb fabricated journal entries |
+| Sloan Accruals | Accruals ratio in the top decile for healthcare services peers across the entire fraud period |
+| Gross Margin Stability | Margins were suspiciously stable despite large swings in Medicare reimbursement rates affecting all competitors |
+| Auditor Tenure Risk | Ernst & Young engagement ran for 17 years — long-tenure auditors are associated with reduced scepticism |
+
+### Key Lesson
+
+"Earnings first, entries second" manipulation produces a consistent pattern: rising EPS with rising accruals and flat or declining OCF. AQI and Sloan accruals both flagged HealthSouth 3+ years before the restatement.
+
+---
+
+## Case 14 — Autonomy Corporation (AUTNF · US/UK · 2012)
+
+**Fraud type:** Revenue Inflation — $5B HP Acquisition Writedown
+
+Hewlett-Packard acquired UK software company Autonomy for $11.1B in October 2011. One year later HP wrote down $8.8B, attributing $5B to "serious accounting improprieties" at Autonomy. HP alleged that low-margin hardware sales were classified as software revenue, that round-trip transactions were used to inflate recognized revenue, and that sales to value-added resellers were booked before any genuine end-customer demand existed. Autonomy's founder Mike Lynch was extradited to the US and acquitted in 2024 after a high-profile trial.
+
+### Detectable Signals
+
+| Signal | Detail |
+|--------|--------|
+| Revenue Misclassification | Low-margin hardware sales were recorded as high-margin software revenue — blending two incomparable revenue streams |
+| Gross Margin Index (GMI) | Reported 80%+ gross margins were implausible for a business with known hardware and services activity |
+| Round-Trip Transactions | Value-added resellers were allegedly paid to purchase Autonomy software, which was then returned or credited |
+| DSRI (Beneish) | DSRI above 1.3 in FY2010 and FY2011 — receivables growing faster than revenue in a subscription software business |
+| Revenue Growth vs Cash Collection | Revenue grew 60%+ YoY in 2010–2011 while DSO expanded from ~60 to ~110 days — cash collection did not match recognition |
+
+### Key Lesson
+
+Gross margins above 80% in a business with known hardware activity are a contradiction that demands explanation. DSRI elevation in a supposed subscription software company (where receivables should be short-cycle) is a direct indicator of premature or fictitious revenue recognition.
+
+---
+
+## Case 15 — Toshiba Corporation (TOSBF · JP · 2015)
+
+**Fraud type:** Earnings Fabrication — ¥152B Overstated Profit (7 Years)
+
+Toshiba disclosed in April 2015 that it had overstated cumulative pre-tax profits by ¥151.8B (~$1.2B) over seven fiscal years from FY2008 to FY2014 across its infrastructure, consumer electronics, and semiconductor divisions. The primary mechanism was manipulation of percentage-of-completion (POC) estimates on long-term infrastructure contracts. An independent investigation found that top management had created a culture of "challenges" — internal profit targets that exceeded achievable capacity — leading divisions to pull forward revenue recognition to meet targets.
+
+### Detectable Signals
+
+| Signal | Detail |
+|--------|--------|
+| Percentage-of-Completion Manipulation | Long-term infrastructure project revenue pulled forward via systematically overstated completion percentages — visible as receivables growing faster than billings |
+| Operating Income vs OCF Divergence | Operating income exceeded OCF by a cumulative ¥152B over 7 years — the exact size of the fraud |
+| Gross Margin Index (GMI) | Semiconductor and infrastructure division margins were 200–400 bps above peer benchmarks in years when the sector was under pricing pressure |
+| Management Culture Indicators | Internal investigation cited "challenges" set above achievable capacity; CFO-level pressure documented in emails |
+| Beneish M-Score Trajectory | M-score deteriorated from approximately −2.5 to −1.9 between FY2009 and FY2014, crossing the −1.78 warning threshold in FY2013 |
+
+### Key Lesson
+
+POC-based revenue manipulation is gradual — ¥5–10B/year for the first few years, then accelerating as prior-year overstatements must be sustained. The OCF/operating income divergence accumulates to the exact size of the fraud, making it one of the most reliable detection signals for this manipulation type.
+
+---
+
 ## Cross-Case Signal Summary
 
 | Case | DSRI | GMI | AQI | SGI | OCF/NI | Z-Score |
@@ -251,9 +361,14 @@ SPAC-structure companies with no revenue history, single-founder governance, and
 | Satyam | ⚠️ | | | | ⚠️ | |
 | Parmalat | | | ⚠️ | | ⚠️ | ⚠️ |
 | Nikola | | | | ⚠️ | ⚠️ | |
+| Theranos | | | | | ⚠️ | |
+| Adelphia | | | | | ⚠️ | ⚠️ |
+| HealthSouth | | ⚠️ | ⚠️ | | ⚠️ | |
+| Autonomy | ⚠️ | ⚠️ | | | ⚠️ | |
+| Toshiba | | ⚠️ | | | ⚠️ | |
 
 !!! tip "Pattern"
-    No single signal catches every fraud, but elevated DSRI and OCF/NI divergence appear in 7 of the 10 cases. The Beneish M-Score combining all 8 components is the single highest-recall baseline screener across these cases. For SPAC-era frauds (Nikola), governance and dilution sub-scores are the primary detection layer.
+    No single signal catches every fraud, but elevated DSRI and OCF/NI divergence appear in 10 of the 15 cases. The Beneish M-Score combining all 8 components is the single highest-recall baseline screener across these cases. For SPAC-era and private-company frauds (Nikola, Theranos), governance and dilution sub-scores are the primary detection layer where no public accounting data exists.
 
 ---
 
@@ -261,8 +376,8 @@ SPAC-structure companies with no revenue history, single-founder governance, and
 
 The **📚 Case Studies** tab in the Streamlit app lets you:
 
-1. Select any of the 7 cases from the dropdown
+1. Select any of the 15 cases from the dropdown
 2. Read the fraud summary and pre-fraud warning signals
 3. View live Beneish M-Score, Altman Z-Score, and Fraud Score from the dataset if the ticker is available
 4. See a score timeline chart with the fraud revelation year marked as a vertical line
-5. Compare scores across all 7 cases in the overview table at the bottom
+5. Compare scores across all 15 cases in the overview table at the bottom
