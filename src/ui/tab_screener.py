@@ -139,6 +139,56 @@ def tab_screener(df_all: pd.DataFrame, models: dict, meta: dict) -> None:
             show_df[col] = show_df[col].map(lambda x: f'{x:.3f}' if pd.notna(x) else '')
     st.dataframe(show_df, use_container_width=True, height=520)
 
+    # --- Human Review Queue ---
+    st.markdown('---')
+    st.subheader('🚨 Human Review Queue — Top 20 Highest Fraud Risk')
+    st.caption(
+        'Companies with the highest **fraud_score_composite** across all markets, '
+        'regardless of current screener filters. These warrant manual analyst review '
+        'before any investment decision.'
+    )
+
+    _RQ_COLS = [
+        'ticker', 'name', 'market', 'fiscal_year',
+        'fraud_score_composite', 'fraud_score_accounting', 'fraud_score_dilution',
+        'fraud_score_quality', 'fraud_score_distress', 'data_confidence', 'beneish_m_score',
+    ]
+
+    if 'fraud_score_composite' in df_all.columns:
+        rq_src = (df_all[df_all['period_type'] == 'annual'].copy()
+                  if 'period_type' in df_all.columns else df_all.copy())
+        rq_latest = (rq_src.sort_values('fiscal_year', ascending=False)
+                     .drop_duplicates('ticker', keep='first'))
+        rq_latest = rq_latest[rq_latest['fraud_score_composite'].notna()]
+        rq_top = rq_latest.nlargest(20, 'fraud_score_composite').copy()
+
+        rq_cols = [c for c in _RQ_COLS if c in rq_top.columns]
+        rq_df = rq_top[rq_cols].copy()
+
+        def _rq_risk(v):
+            if pd.isna(v):
+                return '—'
+            return '🔴 High' if v > 0.65 else '🟠 Medium' if v > 0.35 else '🟢 Low'
+
+        rq_df.insert(
+            rq_df.columns.get_loc('fraud_score_composite') + 1,
+            'Risk Level',
+            rq_df['fraud_score_composite'].map(_rq_risk),
+        )
+        for col in rq_df.select_dtypes('float').columns:
+            rq_df[col] = rq_df[col].map(lambda x: f'{x:.3f}' if pd.notna(x) else '—')
+
+        st.dataframe(rq_df, use_container_width=True, hide_index=True, height=420)
+        rq_csv = rq_top[rq_cols].to_csv(index=False)
+        st.download_button(
+            '⬇️ Download Review Queue CSV', rq_csv,
+            'fraud_review_queue.csv', 'text/csv',
+            key='dl_review_queue',
+        )
+    else:
+        st.info('`fraud_score_composite` not found in dataset — run the full feature pipeline first.')
+
+    st.markdown('---')
     st.subheader('Company Deep Dive')
     tickers_list    = [''] + sorted(latest['ticker'].dropna().unique().tolist())
     selected_ticker = st.selectbox('Select ticker', tickers_list, index=0)

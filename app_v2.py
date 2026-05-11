@@ -51,7 +51,7 @@ def main() -> None:
     with tab5:
         tab_backtester()
     with tab6:
-        tab_watchlist()
+        tab_watchlist(df_all)
     with tab7:
         tab_strategies()
     with tab8:
