@@ -57,7 +57,7 @@ def main() -> None:
     with tab6:
         tab_watchlist(df_all)
     with tab7:
-        tab_strategies()
+        tab_strategies(df_all, models, meta)
     with tab8:
         tab_guide()
     with tab9:
