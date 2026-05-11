@@ -42,7 +42,7 @@ graph TB
     end
 
     subgraph Outputs["Outputs"]
-        E1[Streamlit App<br/>app_v2.py · 8 tabs]
+        E1[Streamlit App<br/>app_v2.py · 10 tabs]
         E2[Reports<br/>PDF tearsheet · CSV picks]
         E3[Portfolio<br/>4 strategies]
         E4[HuggingFace Hub<br/>Dataset + Models]

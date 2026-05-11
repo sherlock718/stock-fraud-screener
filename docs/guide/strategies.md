@@ -75,6 +75,12 @@ Long the cheaper market, short the more expensive market (or just long if no sho
 
 All strategies use equal-weight by default. The leverage strategy uses Kelly criterion sizing — see [Leverage Strategy](../methodology/leverage.md).
 
+The **Long/Short Portfolio Builder** is built into the Strategies tab of the app.
+Select a market and capital amount, then click **Build Long / Short Portfolio** to generate:
+
+- Score-weighted long positions (leverage-safe names get up to 2× notional via Kelly sizing)
+- A short book of Beneish M > −1.78 names (capped at 5% each, 30% of capital total)
+
 ## Rebalancing
 
 - **Frequency:** Annual (after fiscal year publication)
