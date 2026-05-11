@@ -28,3 +28,9 @@ reports/
 
 # Logs
 logs/
+
+# MkDocs generated site
+site/
+
+# OS
+.DS_Store

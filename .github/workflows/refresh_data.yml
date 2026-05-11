@@ -79,6 +79,14 @@ jobs:
             done
           fi
 
+      - name: Fix dataset quality
+        run: |
+          python3 scripts/fix_dataset_quality.py
+
+      - name: Check data quality (mandatory gate)
+        run: |
+          python3 scripts/check_data.py --fail-fast
+
       - name: Write health status
         if: always()
         run: |
