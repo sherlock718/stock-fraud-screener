@@ -154,6 +154,72 @@ _CASES: list[dict] = [
         ],
         'signal_cols': ['dsri', 'sgi', 'beneish_m_score', 'altman_z_score', 'sloan_accruals'],
     },
+    {
+        'name':       'Satyam Computer Services',
+        'ticker':     'SAY',
+        'market':     'US',
+        'fraud_year': 2009,
+        'type':       'Balance Sheet Fabrication — $1.5B Cash Hole',
+        'summary': (
+            'Satyam chairman Ramalinga Raju confessed in January 2009 to fabricating ₹50.4B (~$1.47B) '
+            'in cash and bank balances that did not exist. Fake fixed deposits, inflated receivables, '
+            'and understated liabilities had been on the books for years. The Indian IT outsourcing '
+            'giant collapsed overnight in what became known as "India\'s Enron." '
+            'PricewaterhouseCoopers India signed off on the accounts for eight years.'
+        ),
+        'signals': [
+            ('Cash vs Operating Cash Flow', 'Reported cash balance was massive yet OCF was inconsistently low — cash on the balance sheet was fictitious.'),
+            ('Receivables Growth (DSRI)', 'DSRI rose above 1.4 in FY2007–2008 — receivables growing faster than revenue, a classic Beneish flag.'),
+            ('Return on Assets decline', 'ROA fell from 18% (2004) to 8% (2008) while reported margins stayed stable — earnings quality divergence.'),
+            ('Accruals ratio (TATA)', 'Total accruals to total assets climbed into the top decile of Indian IT peers.'),
+            ('Auditor Independence', 'PwC India had a 10-year tenure; local affiliate fees were disproportionately small, suggesting inadequate audit scope.'),
+        ],
+        'signal_cols': ['dsri', 'tata', 'beneish_m_score', 'altman_z_score', 'roa'],
+    },
+    {
+        'name':       'Parmalat SpA',
+        'ticker':     'PARME',
+        'market':     'US',
+        'fraud_year': 2003,
+        'type':       'Phantom Cash — €14B Black Hole',
+        'summary': (
+            'Parmalat, the Italian dairy giant, collapsed in December 2003 after a €14B accounting '
+            'hole was discovered. The company claimed €3.9B in a Bank of America account in the '
+            'Cayman Islands — a document that proved to be a forgery. The fraud had been running '
+            'for over a decade, funded by ever-increasing debt hidden in offshore subsidiaries. '
+            'Grant Thornton and Deloitte both audited parts of the empire without detecting it.'
+        ),
+        'signals': [
+            ('Debt-to-Equity explosion', 'Reported debt grew from €2B (1997) to €14B (2003) — a 7× increase hidden across 200+ subsidiaries.'),
+            ('Cash vs Debt paradox', 'Claimed to hold €4B+ cash while simultaneously borrowing billions — a logical impossibility that went unchallenged.'),
+            ('Asset Quality Index (AQI)', 'AQI > 1.4 — non-current assets at offshore entities ballooned without operational explanation.'),
+            ('Interest Coverage ratio', 'Interest coverage fell below 1.0 by 2002 — debt was unpayable from operating income alone.'),
+            ('Altman Z-Score', 'Z-score entered distress zone (< 1.81) by FY2001 — two years before the collapse.'),
+        ],
+        'signal_cols': ['aqi', 'beneish_m_score', 'altman_z_score', 'sloan_accruals'],
+    },
+    {
+        'name':       'Nikola Corporation',
+        'ticker':     'NKLA',
+        'market':     'US',
+        'fraud_year': 2020,
+        'type':       'Technology Fabrication — Fake Demo / SEC Fraud',
+        'summary': (
+            'Nikola, an electric truck startup, was accused by Hindenburg Research in September 2020 '
+            'of being "an intricate fraud" — most prominently staging a promotional video showing a '
+            'truck driving under its own power when it had actually been pushed down a hill. '
+            'Founder Trevor Milton resigned and was convicted of fraud in 2022. '
+            'SEC and DOJ both brought charges. The stock fell over 80% from peak.'
+        ),
+        'signals': [
+            ('Revenue vs Valuation', 'Market cap exceeded $30B with $0 in actual revenue — valuation entirely based on unverifiable technology claims.'),
+            ('Negative OCF with large stock issuance', 'Operating cash flow deeply negative while share-based compensation was the primary "asset" — classic SPAC fraud profile.'),
+            ('Sales Growth Index (SGI)', 'SGI from forecasted to actual revenue: effectively undefined — zero delivery milestone met.'),
+            ('Insider selling', 'Founder sold $70M+ in shares before fraud revelation — stock-based dilution at the expense of retail investors.'),
+            ('Fraud Score Composite', 'High governance and dilution sub-scores driven by SPAC structure, single founder control, no audited revenue history.'),
+        ],
+        'signal_cols': ['sgi', 'beneish_m_score', 'fraud_score_composite', 'fraud_score_dilution', 'fraud_score_governance'],
+    },
 ]
 
 _SCORE_HISTORY_COLS = [
@@ -290,6 +356,9 @@ def tab_case_studies(df_all: pd.DataFrame) -> None:
         'NMC Health plc':           'Companies with complex cross-ownership, high supplier concentration, and expanding accounts payable should be treated as high governance risk regardless of clean audit opinions. FCF/EBITDA ratio below 0.5 is a clear red flag.',
         'Steinhoff International':  'Goodwill-heavy acquisition strategies combined with implausibly stable margins are fertile ground for fraud. The GMI and SGI signals were anomalous relative to discount retail peers 3 years before the collapse.',
         'Valeant Pharmaceuticals':  'Channel stuffing shows up first in the DSRI. When receivables grow faster than revenue in a pharmaceutical company, and the distribution network includes captive specialty pharmacies, the revenue number is unreliable.',
+        'Satyam Computer Services': 'When a cash-rich company consistently generates weak operating cash flow, the cash is almost certainly fictional. DSRI elevation combined with ROA deterioration is the earliest reliable signal in balance-sheet fabrication frauds.',
+        'Parmalat SpA':             'Claimed cash balances of €4B+ alongside €14B in debt should have been impossible — the interest payments alone exceeded reported operating income. Z-score distress and AQI elevation were detectable years before the forged bank document surfaced.',
+        'Nikola Corporation':       'SPAC-structure companies with no revenue history, single-founder governance, and stock-based dilution as the primary cash mechanism warrant maximum skepticism on every technology claim. Governance and dilution sub-scores catch this class of fraud before any accounting manipulation is visible.',
     }
     st.info(lesson_map.get(case['name'], 'Study the pre-fraud signals carefully — they were present.'))
 
