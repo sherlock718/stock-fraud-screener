@@ -30,14 +30,17 @@ Output: `data/tickers_{market}.csv` — columns: `ticker, cik, company_name, exc
 
 For each ticker, fetches annual financial statements and aligns them by `fiscal_year`. One row = one company × one fiscal year.
 
-| Module | Market |
-|---|---|
-| `step2_build_snapshots.py` | US |
-| `step2_build_snapshots_eu.py` | EU |
-| `step2_build_snapshots_kr.py` | KR |
-| `step2_build_snapshots_jp.py` / `_free.py` | JP |
-| `step2_build_snapshots_ca.py` | CA |
-| `step2_build_snapshots_br.py` | BR |
+| Module | Market | Notes |
+|---|---|---|
+| `step2_build_snapshots.py` | US | SEC EDGAR XBRL |
+| `step2_build_snapshots_eu.py` | EU | SimFin API — requires `SIMFIN_API_KEY` |
+| `step2_build_snapshots_kr.py` | KR | DART API — requires `DART_API_KEY` |
+| `step2_build_snapshots_jp_free.py` | JP | **Active** — yfinance, no API key. ~122–130 tickers |
+| `step2_build_snapshots_jp.py` | JP | Optional/paid — EDINET API key required; 3,800+ TSE tickers |
+| `step2_build_snapshots_ca.py` | CA | TMX public API |
+| `step2_build_snapshots_br.py` | BR | CVM + brapi.dev |
+
+**JP note**: `step2_build_snapshots_jp_free.py` is the default active variant and outputs `data/snapshots_jp.parquet`. For full TSE coverage (3,800+ tickers), use `step2_build_snapshots_jp.py` with a free EDINET API key.
 
 Output: `data/snapshots_{market}.parquet`
 
@@ -133,16 +136,6 @@ Computes the forensic accounting fraud signals that feed into the Fraud Risk fac
 | Earnings Quality | Operating vs net income gap | Non-operating inflation |
 | Going Concern | SEC filing disclosure flag | True = disclosed doubt |
 | Auditor Quality | Big 4 vs small auditor for large co. | Small auditor flag |
-
----
-
-### `score_and_report.py` — Composite Fraud Score
-
-Combines individual fraud signals into a weighted composite score (0–100). Score is normalised by available signals so missing data doesn't deflate the score.
-
-Signal weights: Beneish (20) + Piotroski (10) + Accruals (10) + Cash Flow Divergence (10) + Altman Z-Score (20) + Revenue Quality (10) + Earnings Quality (10) + Going Concern (10) + Auditor Quality (5) + Market signals (5+5) + Insider Selling (5)
-
-Output: `reports/fraud_report_{date}.csv`
 
 ---
 
