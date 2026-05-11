@@ -12,6 +12,7 @@ from src.ui.tab_backtester import tab_backtester
 from src.ui.tab_watchlist import tab_watchlist
 from src.ui.tab_strategies import tab_strategies
 from src.ui.tab_guide import tab_guide
+from src.ui.tab_case_studies import tab_case_studies
 
 
 def main() -> None:
@@ -29,7 +30,7 @@ def main() -> None:
     with st.sidebar:
         sidebar_refresh()
 
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
         '📊 Screener',
         '🏢 Company Profile',
         '📈 Realtime Chart',
@@ -38,6 +39,7 @@ def main() -> None:
         '⭐ Watchlist',
         '🎯 Strategies',
         '📖 User Guide',
+        '📚 Case Studies',
     ])
 
     with tab1:
@@ -56,6 +58,8 @@ def main() -> None:
         tab_strategies()
     with tab8:
         tab_guide()
+    with tab9:
+        tab_case_studies(df_all)
 
 
 if __name__ == '__main__':
