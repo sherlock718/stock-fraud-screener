@@ -9,6 +9,8 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 ## [Unreleased]
 
 ### Added
+- **`CLAUDE.md`** — AI assistant instructions: Change Checklist matrix, Architecture Sync
+  Rules, Current Architecture State table, key file locations, commit convention
 - **`scripts/enrich_quarterly_features.py`** — computes 5 intra-year dynamics (revenue smoothing,
   earnings momentum, accrual peak, revenue acceleration, positive-quarter fraction) from Q1/Q2/Q3
   rows and left-joins them onto annual training rows; covers 74.8% of annual rows
@@ -32,6 +34,15 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 - `train_models.py`: PSI filter runs before IC analysis so macro features never enter the
   ICIR ranking step
 - Historical dataset now includes 5 quarterly-derived feature columns (319 total columns)
+- `CONTRIBUTING.md`: added Sync Checklist table — every PR must update docs/diagrams in
+  the same commit as the code change
+- `docs/architecture.md`: all three Mermaid diagrams updated (quarterly enrichment, survivorship,
+  PSI filter, TimescaleDB, FastAPI nodes added; column counts corrected to 319)
+- `docs/developer/scripts.md`: added entries for `enrich_quarterly_features.py`,
+  `mark_survivorship.py`, `migrate_to_db.py`; updated `train_models.py` flags table
+  (`--max-psi`, `--walk-forward`)
+- `docs/methodology/models.md`: AUC table corrected (1y 0.553, 3y 0.643, 5y 0.597 WF mean);
+  Mermaid flowchart updated with PSI filter step; dataset node updated to 319 columns
 
 ### Fixed
 - Feature descriptions dictionary (52 entries) in `app_v2.py`
