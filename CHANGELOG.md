@@ -66,3 +66,23 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 - Streamlit app with Screener, Company Profile, Backtest tabs
 - HuggingFace Hub for model and dataset storage
 - GitHub Actions: weekly refresh + drift monitor
+
+---
+
+## [Unreleased — process automation]
+
+### Added
+- **`scripts/check_sync.py`** — architecture sync checker; reads staged files and applies
+  the CLAUDE.md Change Checklist rules; reports missing doc updates; exit code 1 blocks
+  bad commits
+- **`.git/hooks/pre-commit`** — calls `check_sync.py` automatically before every commit;
+  bypass with `--no-verify` in emergencies
+- **`.claude/commands/sync-check.md`** — `/sync-check` slash command: interactive sync
+  status report against all uncommitted changes
+- **`.claude/commands/sync-update.md`** — `/sync-update` slash command: drafts CHANGELOG
+  entry + lists required doc files after a code change
+
+### Changed
+- **`docs/developer/scripts.md`** — added Process Automation section with `check_sync.py`
+  flags table and pre-commit hook documentation
+

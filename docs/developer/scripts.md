@@ -339,3 +339,28 @@ python3 scripts/migrate_to_db.py --truncate   # wipe existing rows before loadin
 | `--truncate` | False | Truncate target table before inserting |
 
 Requires `DATABASE_URL` environment variable pointing to a live TimescaleDB instance.
+
+---
+
+## Process Automation
+
+### `check_sync.py` — Architecture Sync Checker
+
+Reads git-staged (or specified) files and checks them against the `CLAUDE.md` Change Checklist rules. Reports missing doc/diagram updates. Called automatically by the pre-commit hook.
+
+```bash
+python3 scripts/check_sync.py                      # check staged files (same as pre-commit hook)
+python3 scripts/check_sync.py --all-changed        # check all uncommitted files
+python3 scripts/check_sync.py --warn-only          # report violations but don't block
+python3 scripts/check_sync.py --files a.py b.py    # check a specific list of files
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--all-changed` | False | Include unstaged + untracked files in check |
+| `--warn-only` | False | Print warnings but always exit 0 (non-blocking) |
+| `--files FILE…` | None | Check a specific list of files instead of git state |
+
+**Exit codes**: `0` = all rules satisfied, `1` = sync violations found.
+
+The pre-commit hook at `.git/hooks/pre-commit` calls this automatically before every `git commit`. To bypass in emergencies: `git commit --no-verify`.

@@ -114,4 +114,18 @@ python3 scripts/train_models.py --horizon 3y
 
 # With SHAP export
 python3 scripts/train_models.py --export-shap
+
+# Walk-forward CV (expanding window, 9 folds)
+python3 scripts/train_models.py --walk-forward
 ```
+
+### Feature Selection Flags
+
+| Flag | Default | Description |
+|---|---|---|
+| `--max-psi` | `2.0` | Drop features with PSI > threshold before IC analysis |
+| `--min-ic` | `0.02` | Minimum \|mean IC\| to pass into candidate set |
+| `--min-ic-stability` | `0.6` | Fraction of years IC must agree with mean sign direction |
+| `--min-ic-years` | `5` | Minimum years of valid IC data to trust ICIR ranking |
+| `--top-n` | `40` | Max features per horizon before deduplication |
+| `--no-dedup` | False | Skip Spearman correlation deduplication step |
