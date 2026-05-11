@@ -15,6 +15,7 @@ from src.ui.tab_guide import tab_guide
 from src.ui.tab_case_studies import tab_case_studies
 from src.ui.tab_benchmarking import tab_benchmarking
 from src.ui.tab_disclaimer import tab_disclaimer
+from src.scoring import score_companies  # noqa: F401 — re-export for backwards-compat
 
 
 def main() -> None:

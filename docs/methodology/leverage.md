@@ -68,7 +68,7 @@ For short positions:
 ## Running the Strategy
 
 ```bash
-# Default: top 10 long + top 5 short
+# Default: top 20 long + top 10 short
 python3 scripts/leverage_strategy.py
 
 # Custom universe size
@@ -80,26 +80,28 @@ python3 scripts/leverage_strategy.py --long-only
 # Custom thresholds
 python3 scripts/leverage_strategy.py --min-piotroski 7 --max-beneish -2.0
 
-# Output
+# Custom output path
 python3 scripts/leverage_strategy.py --output reports/leverage_picks.csv
 ```
 
 ## Output Columns
 
-`reports/leverage_picks.csv`:
+`data/leverage_positions_<market>.csv`:
 
 | Column | Description |
 |---|---|
 | `ticker` | Company ticker |
-| `side` | `long` or `short` |
-| `composite_score` | Fraud probability |
-| `piotroski_f_score` | Quality score (longs only) |
-| `beneish_m_score` | Manipulation indicator |
-| `altman_z_score` | Solvency score |
-| `kelly_weight` | Raw Kelly fraction |
-| `position_pct` | Normalized position weight (capped at 15%) |
-| `instrument` | `equity`, `leaps`, or `margin_short` |
-| `market_cap_m` | Market cap in USD millions |
+| `name` | Company name |
+| `composite_score` | Blended rank score (value + quality + ML) |
+| `leverage_safe` | 1 if all quality gates pass, 0 otherwise |
+| `position_pct` | Portfolio weight (%) |
+| `position_€` | Capital allocated (€) |
+| `leverage_mult` | Applied leverage multiplier |
+| `notional_€` | Gross notional exposure (€) |
+| `strategy` | Instrument recommendation (LEAPS / margin / equity) |
+| `piotroski_f` | Piotroski F-score |
+| `beneish_m` | Beneish M-score |
+| `ml_1y` | ML model probability of beating market (1-year horizon) |
 
 ## Risk Management
 

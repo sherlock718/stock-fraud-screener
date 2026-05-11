@@ -7,9 +7,11 @@ Fixes applied:
   3. Winsorize revenue_growth_yoy at p1–p99
   4. Clip forward_return columns at -1 to +5
   5. Add likely_delisted flag (last filed ≥3 years before dataset max year)
+  6. Add point-in-time columns: as_of_date, source_timestamp (Phase 0a)
 """
 
 from __future__ import annotations
+from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
@@ -64,6 +66,21 @@ def run(src: Path = SRC, inplace: bool = True):
     df = df.drop(columns=['last_fiscal_year'])
     n_delisted = df['cik'].isin(df.loc[df['likely_delisted'], 'cik']).sum()
     print(f'  likely_delisted: {df["likely_delisted"].any() and df.groupby("cik")["likely_delisted"].first().sum()} companies flagged')
+
+    # ── 6. Point-in-time columns (Phase 0a) ─────────────────────────────────
+    # as_of_date: earliest date the data was publicly available (= filed_date).
+    # This is the correct "knowledge cutoff" for backtesting — not fiscal_year_end.
+    if 'filed_date' in df.columns:
+        df['as_of_date'] = pd.to_datetime(df['filed_date'], errors='coerce')
+    else:
+        # Fallback: estimate as April 30 of fiscal_year+1 (SEC 10-K deadline)
+        df['as_of_date'] = pd.to_datetime(
+            (df['fiscal_year'] + 1).astype(str) + '-04-30', errors='coerce'
+        )
+    # source_timestamp: when this version of the data was processed
+    df['source_timestamp'] = datetime.now(timezone.utc).isoformat()
+    print(f'  as_of_date: added ({df["as_of_date"].notna().sum():,} non-null)')
+    print(f'  source_timestamp: {df["source_timestamp"].iloc[0]}')
 
     # ── Summary ──────────────────────────────────────────────────────────────
     print(f'\nAfter cleaning: {len(df):,} rows, {df["cik"].nunique():,} companies')
