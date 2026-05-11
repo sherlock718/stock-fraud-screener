@@ -9,6 +9,12 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 ## [Unreleased]
 
 ### Added
+### Removed
+- **`pipeline/enrich_auditor_going_concern.py`**: superseded by `pipeline/enrich_governance.py` (going concern via EDGAR EFTS full-text search).
+- **`pipeline/score_and_report.py`**: rules-based composite fraud score with fixed weights — contradicts ML-first architecture. Deleted to prevent future confusion.
+- **`scripts/watchlist.py`**: session state export unrelated to quant lab research pipeline.
+- **`scripts/high_roi_strategies.py`**: redundant wrapper, no unique functionality.
+
 - **`ROADMAP.md`**: full phase tracker — Phase 0–3 with task checklists, exit criteria, codebase cleanup targets, and file inventory.
 - **`CONTEXT.md`**: session state snapshot for context continuity between sessions; tracks current phase, completed tasks, blockers, architecture summary, data coverage.
 - **`docs/methodology/feature-selection.md`**: PSI → IC → ICIR → Spearman deduplication pipeline with formulas, thresholds, CLI flags, planned Newey-West HAC + Fama-MacBeth + FDR improvements.

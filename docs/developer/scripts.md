@@ -303,14 +303,6 @@ Applies normalization, outlier clipping, and schema enforcement. Called automati
 
 Fetches sector classifications and dividend history. Called automatically by `run_pipeline.py` step 5.
 
-### `high_roi_strategies.py` — Strategy Comparison
-
-Computes and compares all four strategy variants (COMPOSITE, 1Y, 3Y, 5Y) side-by-side. Useful for strategy selection research.
-
-### `watchlist.py` — Watchlist Export
-
-Exports the current watchlist from the app's session state to CSV for external use.
-
 ---
 
 ### `enrich_quarterly_features.py` — Intra-Year Feature Enrichment
