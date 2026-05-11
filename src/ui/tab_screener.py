@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from src.config import MARKET_LABELS
-from src.scoring import composite_rank, score_companies
+from src.scoring import composite_rank, log_predictions, score_companies
 
 
 def tab_screener(df_all: pd.DataFrame, models: dict, meta: dict) -> None:
@@ -96,6 +96,8 @@ def tab_screener(df_all: pd.DataFrame, models: dict, meta: dict) -> None:
                 .drop_duplicates('cik', keep='first'))
     latest = latest[latest['composite_score'] >= min_composite].copy()
     latest = latest.sort_values('composite_score', ascending=False)
+    if model_loaded and 'ml_score' in latest.columns:
+        log_predictions(latest, horizon)
 
     st.title('🔍 Stock Fraud & Value Screener')
     model_status = f'ML model loaded ({horizon} horizon)' if model_loaded else '⚠️ ML model not saved yet'

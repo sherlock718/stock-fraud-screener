@@ -58,7 +58,7 @@ import sys
 sys.path.insert(0, str(BASE))
 from pipeline.feature_library import add_normalised_ratios, add_piotroski_ext
 
-TRAIN_CUTOFF = 2021   # last fiscal year included in training
+TRAIN_CUTOFF = 2022   # last fiscal year included in training
 VAL_END      = 2023   # val = (TRAIN_CUTOFF, VAL_END]; test = > VAL_END
 
 HORIZONS = {
@@ -107,6 +107,25 @@ def load_data() -> pd.DataFrame:
 
     df = add_piotroski_ext(df)
     df = add_normalised_ratios(df)
+
+    # Merge AAER fraud labels as binary feature (confirmed fraud, non-leaky: fraud_year <= fiscal_year)
+    labels_path = BASE / 'data' / 'fraud_labels.parquet'
+    if labels_path.exists():
+        ldf = pd.read_parquet(labels_path)
+        if 'fraud_confirmed' in ldf.columns:
+            confirmed = ldf[ldf['fraud_confirmed'].astype(bool)][['ticker', 'fraud_year']].copy()
+        else:
+            confirmed = ldf[['ticker', 'fraud_year']].copy()
+        if not confirmed.empty:
+            confirmed = confirmed.rename(columns={'fraud_year': 'fiscal_year'})
+            confirmed['fraud_label'] = 1
+            # Keep only one row per ticker+year (mark the fraud year itself)
+            confirmed = confirmed.drop_duplicates(['ticker', 'fiscal_year'])
+            df = df.merge(confirmed, on=['ticker', 'fiscal_year'], how='left')
+            df['fraud_label'] = df['fraud_label'].fillna(0).astype(int)
+            n_labeled = int(df['fraud_label'].sum())
+            print(f'  AAER labels merged: {n_labeled:,} fraud-confirmed rows ({n_labeled/len(df)*100:.2f}%)')
+
     return df.reset_index(drop=True)
 
 
@@ -185,7 +204,45 @@ def deduplicate_features(df: pd.DataFrame, features: list[str], corr_threshold: 
     return kept
 
 
-def train_model(df_train: pd.DataFrame, features: list[str], beat_col: str) -> tuple:
+def compute_psi(train: pd.Series, test: pd.Series, buckets: int = 10) -> float:
+    """Population Stability Index between train and test distributions."""
+    combined = pd.concat([train, test]).dropna()
+    if len(combined) < 20:
+        return 0.0
+    bins = np.percentile(combined, np.linspace(0, 100, buckets + 1))
+    bins = np.unique(bins)
+    if len(bins) < 2:
+        return 0.0
+    def _dist(s: pd.Series) -> np.ndarray:
+        counts, _ = np.histogram(s.dropna(), bins=bins)
+        pct = counts / max(counts.sum(), 1)
+        return np.where(pct == 0, 1e-4, pct)
+    e, a = _dist(train), _dist(test)
+    return float(np.sum((a - e) * np.log(a / e)))
+
+
+def log_psi_report(df_train: pd.DataFrame, df_test: pd.DataFrame,
+                   features: list[str]) -> None:
+    """Print top-drifting features by PSI (train vs test)."""
+    records = []
+    for f in features:
+        if f not in df_train.columns or f not in df_test.columns:
+            continue
+        psi = compute_psi(df_train[f], df_test[f])
+        records.append({'feature': f, 'psi': round(psi, 4)})
+    if not records:
+        return
+    psi_df = pd.DataFrame(records).sort_values('psi', ascending=False)
+    psi_df.to_csv(REPORTS / 'feature_psi_train_vs_test.csv', index=False)
+    print('\n  Top 10 features by distribution shift (PSI train→test):')
+    for _, row in psi_df.head(10).iterrows():
+        flag = ' ⚠' if row['psi'] > 0.20 else ''
+        print(f'    {row["feature"]:<45} PSI={row["psi"]:.4f}{flag}')
+
+
+
+def train_model(df_train: pd.DataFrame, features: list[str], beat_col: str,
+                ) -> tuple:
     sub = df_train[df_train[beat_col].notna()].copy()
     feats = [f for f in features if f in sub.columns]
     train_medians = sub[feats].median().to_dict()
@@ -257,6 +314,49 @@ def train_baseline(df_train: pd.DataFrame, features: list[str], beat_col: str,
     return pipe
 
 
+def walk_forward_cv(df: pd.DataFrame, features_per_horizon: dict[str, list[str]],
+                    train_cutoff: int, min_train_years: int = 6) -> None:
+    """Expanding-window walk-forward validation.
+
+    For each fold year t in [first_year + min_train_years, train_cutoff]:
+      - Train on fiscal_year <= t
+      - Evaluate on fiscal_year == t+1
+    Saves per-fold AUC to reports/walk_forward_auc_{h}.csv.
+    """
+    first_year = int(df['fiscal_year'].min())
+    fold_years = range(first_year + min_train_years, train_cutoff + 1)
+
+    for h, (ret_col, beat_col) in HORIZONS.items():
+        feats = features_per_horizon.get(h, [])
+        if not feats:
+            continue
+        records = []
+        print(f'  Walk-forward {h}: {len(list(fold_years))} folds', end=' ')
+        for t in fold_years:
+            tr = df[df['fiscal_year'] <= t].copy()
+            te = df[df['fiscal_year'] == t + 1].copy()
+            te = te[te[beat_col].notna()]
+            if len(tr[tr[beat_col].notna()]) < 100 or len(te) < 20 or te[beat_col].nunique() < 2:
+                continue
+            try:
+                clf, fold_feats, _, medians = train_model(tr, feats, beat_col)
+                fa = [f for f in fold_feats if f in te.columns]
+                X_te = te[fa].fillna(pd.Series(medians))
+                y_te = te[beat_col].astype(int)
+                auc = roc_auc_score(y_te, clf.predict_proba(X_te)[:, 1])
+                records.append({'fold_year': t, 'test_year': t + 1, 'auc': round(auc, 4),
+                                 'n_train': len(tr), 'n_test': len(te)})
+                print('.', end='', flush=True)
+            except Exception:
+                pass
+        print()
+        if records:
+            wf_df = pd.DataFrame(records)
+            wf_df.to_csv(REPORTS / f'walk_forward_auc_{h}.csv', index=False)
+            print(f'    mean AUC={wf_df["auc"].mean():.4f}  '
+                  f'min={wf_df["auc"].min():.4f}  max={wf_df["auc"].max():.4f}')
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument('--top-n', type=int, default=40,
@@ -273,6 +373,10 @@ def main() -> None:
                         help=f'Last fiscal_year in validation set (default: {VAL_END})')
     parser.add_argument('--no-shap', action='store_true',
                         help='Skip SHAP computation (faster run)')
+    parser.add_argument('--walk-forward', action='store_true',
+                        help='Run expanding-window walk-forward CV after main training')
+    parser.add_argument('--max-psi', type=float, default=2.0,
+                        help='Drop features with PSI > threshold before IC analysis (default: 2.0)')
     args = parser.parse_args()
 
     train_cutoff = args.train_cutoff
@@ -298,6 +402,22 @@ def main() -> None:
     print('Computing feature candidates...')
     all_features = get_candidates(df_train)
     print(f'  {len(all_features)} candidates')
+
+    print('\nPSI distribution audit (train vs test)...')
+    log_psi_report(df_train, df_test, all_features)
+
+    # Drop high-drift features before IC analysis so macro regime features
+    # don't inflate IC on train data and then fail on shifted test distributions.
+    if df_test.empty:
+        psi_filtered = all_features
+    else:
+        psi_scores = {f: compute_psi(df_train[f], df_test[f])
+                      for f in all_features
+                      if f in df_train.columns and f in df_test.columns}
+        psi_filtered = [f for f in all_features if psi_scores.get(f, 0.0) <= args.max_psi]
+        n_dropped = len(all_features) - len(psi_filtered)
+        print(f'  PSI filter (>{args.max_psi}): dropped {n_dropped}, {len(psi_filtered)} remain')
+    all_features = psi_filtered
 
     print(f'\nRunning IC analysis on train split (2–4 min)...')
     ic_tables = {}
@@ -394,6 +514,10 @@ def main() -> None:
     (MODELS_DIR / 'model_meta.json').write_text(json.dumps(model_meta, indent=2))
     print(f'\nAll models saved → {MODELS_DIR}/')
     print(f'IC tables + importance reports → {REPORTS}/')
+
+    if args.walk_forward:
+        print('\nRunning walk-forward CV (expanding window)...')
+        walk_forward_cv(df, selected_features, train_cutoff)
 
     print('\n── Summary ─────────────────────────────────')
     print(f'  {"Horizon":<6}  {"LGBM val":>9}  {"LGBM test":>10}  {"LR val":>8}  {"LR test":>9}')

@@ -72,13 +72,17 @@ python3 scripts/train_models.py --no-shap
 |---|---|---|
 | `--top-n N` | `40` | Max features per horizon after ICIR ranking |
 | `--min-ic FLOAT` | `0.02` | Minimum absolute IC to include a feature |
+| `--max-psi FLOAT` | `2.0` | Drop features with PSI above this threshold before IC ranking |
 | `--no-dedup` | False | Skip correlation deduplication (r > 0.90) |
 | `--sector-neutral` | False | Demean IC scores within sectors before ranking |
 | `--train-cutoff YEAR` | `2017` | Last training year (inclusive) |
 | `--val-end YEAR` | `2019` | Last validation year (inclusive); test = after this |
 | `--no-shap` | False | Skip SHAP computation (faster) |
+| `--walk-forward` | False | Run expanding-window walk-forward CV; saves `reports/walk_forward_auc_{h}.csv` |
 
 Outputs: `models/model_{1y,3y,5y}.joblib`, `models/model_meta.json`
+
+The PSI filter (`--max-psi`) runs **before** IC ranking and removes features with high Population Stability Index between training and scoring distributions. This prevents macro-regime features (treasury rates, CPI, yield curve) from inflating ICIR scores on stale patterns. Default threshold of 2.0 removes ~10 macro features.
 
 ---
 
@@ -266,3 +270,72 @@ Computes and compares all four strategy variants (COMPOSITE, 1Y, 3Y, 5Y) side-by
 ### `watchlist.py` — Watchlist Export
 
 Exports the current watchlist from the app's session state to CSV for external use.
+
+---
+
+### `enrich_quarterly_features.py` — Intra-Year Feature Enrichment
+
+Computes 5 quarterly-derived features from Q1/Q2/Q3 rows and left-joins them onto annual training rows. Corrects a data gap where intra-year dynamics are invisible in annual filings.
+
+```bash
+python3 scripts/enrich_quarterly_features.py           # dry-run: prints coverage stats
+python3 scripts/enrich_quarterly_features.py --fix     # writes parquet in-place
+python3 scripts/enrich_quarterly_features.py --fix --out data/historical_dataset_enriched.parquet
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--fix` | False | Write enriched parquet (default is dry-run) |
+| `--out PATH` | input path | Output path; defaults to overwriting the input |
+
+Features added:
+
+| Column | Description |
+|---|---|
+| `revenue_qoq_std_norm` | Std of Q1→Q2→Q3 revenue growth (earnings smoothing proxy) |
+| `earnings_qoq_mean` | Mean QoQ net income growth (earnings momentum) |
+| `max_accruals_ttm` | Max \|wc_accruals_to_assets\| across available quarters |
+| `revenue_acceleration` | Q3/Q1 revenue ratio (intra-year sales ramp) |
+| `quarterly_positive_rev_frac` | Fraction of quarters with positive QoQ revenue growth |
+
+Coverage: 74.8% of annual rows enriched (requires at least 2 quarterly rows per ticker/year).
+
+---
+
+### `mark_survivorship.py` — Survivorship Bias Correction
+
+Identifies likely-delisted companies (no filing in the last N years) and imputes a pessimistic −50% forward return to correct survivorship bias in the training data.
+
+```bash
+python3 scripts/mark_survivorship.py                   # report only (dry-run)
+python3 scripts/mark_survivorship.py --fix             # write corrected parquet
+python3 scripts/mark_survivorship.py --fix --lag 3     # custom lag threshold
+python3 scripts/mark_survivorship.py --fix --out data/historical_survivorship.parquet
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--fix` | False | Write corrected parquet (default is dry-run) |
+| `--lag N` | `3` | Years of filing silence before marking as likely-delisted |
+| `--out PATH` | input path | Output path; defaults to overwriting the input |
+
+Adds a `likely_delisted` boolean column and imputes `forward_return_{1y,3y,5y} = −0.50` for final annual rows of delisted companies.
+
+---
+
+### `migrate_to_db.py` — Load Dataset into TimescaleDB
+
+Bulk-loads `historical_dataset_clean.parquet` into a TimescaleDB hypertable for time-series queries. Schema is defined in `infra/db/init.sql`.
+
+```bash
+python3 scripts/migrate_to_db.py
+python3 scripts/migrate_to_db.py --parquet data/historical_dataset_clean.parquet
+python3 scripts/migrate_to_db.py --truncate   # wipe existing rows before loading
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--parquet PATH` | `data/historical_dataset_clean.parquet` | Source parquet file |
+| `--truncate` | False | Truncate target table before inserting |
+
+Requires `DATABASE_URL` environment variable pointing to a live TimescaleDB instance.

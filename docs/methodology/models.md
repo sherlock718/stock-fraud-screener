@@ -4,7 +4,8 @@
 
 ```mermaid
 flowchart TD
-    A["historical_dataset_clean.parquet<br/>~163K rows · 278 features"] --> B["ICIR Feature Selection<br/>IC/ICIR ranking · Spearman dedup r>0.90<br/>→ ~35 features per horizon"]
+    A["historical_dataset_clean.parquet<br/>~156K rows · 319 features"] --> PSI["PSI Feature Filter<br/>Population Stability Index per feature<br/>Drops macro-regime features (PSI > 2.0)<br/>~10 features removed (rates, CPI, yield curve)"]
+    PSI --> B["ICIR Feature Selection<br/>IC/ICIR ranking · Spearman dedup r>0.90<br/>→ ~35 features per horizon"]
     B --> C["Three Horizon Splits<br/>1y: train ≤ 2019 · val 2020–2021 · test 2022+<br/>3y: train ≤ 2017 · val 2018–2020 · test 2021+<br/>5y: train ≤ 2015 · val 2016–2019 · test 2020+"]
     C --> D["LightGBM Base Model<br/>Default hyperparameters<br/>→ val AUC baseline"]
     D --> E["Optuna Tuning<br/>100 trials · TPE sampler<br/>Objective: val AUC"]
@@ -16,13 +17,14 @@ flowchart TD
 
 ## Model Performance
 
-| Horizon | Train Cutoff | Val AUC | Test AUC | Tuned AUC | Ensemble AUC |
+| Horizon | Train Cutoff | Val AUC | Test AUC | WF Mean AUC | Target |
 |---|---|---|---|---|---|
-| 1-year | 2019 | 0.776 | 0.749 | — | — |
-| 3-year | 2017 | 0.795 | 0.780 | — | — |
-| 5-year | 2015 | 0.860 | 0.856 | — | — |
+| 1-year | 2019 | 0.577 | 0.537 | 0.553 | ≥ 0.62 |
+| 3-year | 2017 | 0.740 | — | 0.643 | ≥ 0.62 ✅ |
+| 5-year | 2015 | — | — | 0.597 | ≥ 0.62 |
 
-AUC of 0.5 = random. AUC of 0.85 means the model correctly ranks fraud companies above clean companies 85% of the time.
+WF Mean AUC = expanding-window walk-forward CV mean (train on all data ≤ year t, evaluate year t+1).
+AUC of 0.5 = random. Target ≥ 0.62 for production deployment.
 
 ## Target Variable
 

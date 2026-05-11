@@ -1,7 +1,41 @@
 from __future__ import annotations
 
+import csv
+from datetime import datetime, timezone
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
+
+_LOG_PATH = Path(__file__).parent.parent / 'data' / 'prediction_log.csv'
+_LOG_HEADER = ['logged_at', 'ticker', 'horizon', 'ml_score', 'composite_score', 'fiscal_year']
+
+
+def _ensure_log() -> None:
+    if not _LOG_PATH.exists():
+        _LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with _LOG_PATH.open('w', newline='') as f:
+            csv.writer(f).writerow(_LOG_HEADER)
+
+
+def log_predictions(df: pd.DataFrame, horizon: str) -> None:
+    """Append scored rows to the prediction log (one row per ticker per call)."""
+    _ensure_log()
+    now = datetime.now(timezone.utc).isoformat(timespec='seconds')
+    score_col = 'ml_score' if 'ml_score' in df.columns else None
+    comp_col  = 'composite_score' if 'composite_score' in df.columns else None
+    rows = []
+    for _, r in df.iterrows():
+        rows.append([
+            now,
+            r.get('ticker', ''),
+            horizon,
+            round(float(r[score_col]), 4) if score_col and pd.notna(r.get(score_col)) else '',
+            round(float(r[comp_col]),  4) if comp_col  and pd.notna(r.get(comp_col))  else '',
+            int(r['fiscal_year']) if pd.notna(r.get('fiscal_year')) else '',
+        ])
+    with _LOG_PATH.open('a', newline='') as f:
+        csv.writer(f).writerows(rows)
 
 
 def score_companies(
@@ -9,7 +43,21 @@ def score_companies(
     models: dict,
     meta: dict,
     horizon: str = '1y',
+    as_of_date: str | None = None,
 ) -> pd.DataFrame:
+    """Score companies with the ML model for `horizon`.
+
+    Args:
+        as_of_date: ISO date string (e.g. '2024-06-30'). When set, only rows with
+            filed_date <= as_of_date are scored — prevents look-ahead in backtesting.
+    """
+    df = df.copy()
+
+    if as_of_date and 'filed_date' in df.columns:
+        cutoff = pd.Timestamp(as_of_date)
+        filed  = pd.to_datetime(df['filed_date'], errors='coerce')
+        df = df[filed.isna() | (filed <= cutoff)].copy()
+
     if horizon not in models or horizon not in meta:
         df['ml_score'] = np.nan
         return df
@@ -19,7 +67,6 @@ def score_companies(
     fill_vals = {f: train_medians.get(f, 0.0) for f in feats}
     X = df[feats].fillna(pd.Series(fill_vals))
     try:
-        df = df.copy()
         df['ml_score'] = clf.predict_proba(X)[:, 1]
     except Exception:
         df['ml_score'] = np.nan
