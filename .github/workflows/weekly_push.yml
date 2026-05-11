@@ -1,9 +1,8 @@
 name: Weekly Data Push to HuggingFace
 
 # Runs every Sunday at 02:00 UTC, or manually via workflow_dispatch.
-# Requires these GitHub Actions secrets:
-#   HF_TOKEN  — HuggingFace write token
-#   HF_REPO   — e.g. your-username/stock-screener-data
+# Requires this GitHub Actions secret:
+#   HF_TOKEN  — HuggingFace write token (repo: ekrash718/stock-screener-data)
 
 on:
   schedule:
@@ -30,12 +29,12 @@ jobs:
       - name: Download latest data from HF (to check if re-push is needed)
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-          HF_REPO:  ${{ secrets.HF_REPO }}
+          HF_REPO:  ekrash718/stock-screener-data
         run: |
           python3 -c "
           import os
           from huggingface_hub import hf_hub_download
-          repo = os.environ['HF_REPO']
+          repo = 'ekrash718/stock-screener-data'
           token = os.environ['HF_TOKEN']
           try:
               p = hf_hub_download(repo_id=repo, filename='historical_dataset_clean.parquet',
@@ -54,7 +53,7 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           python3 scripts/push_to_hf.py \
-            --repo "${{ secrets.HF_REPO }}" \
+            --repo "ekrash718/stock-screener-data" \
             --message "Weekly auto-update $(date -u +%Y-%m-%d)"
 
       - name: Summary

@@ -45,7 +45,7 @@ jobs:
           import shutil, pathlib
           try:
             path = hf_hub_download(
-              repo_id=os.environ['HF_REPO'],
+              repo_id='ekrash718/stock-screener-data',
               filename='historical_dataset_clean.parquet',
               repo_type='dataset',
               token=os.environ.get('HF_TOKEN')
@@ -57,7 +57,7 @@ jobs:
             print(f'No existing dataset (starting fresh): {e}')
           " || echo "Dataset base download skipped"
         env:
-          HF_REPO: ${{ secrets.HF_REPO }}
+          HF_REPO: ekrash718/stock-screener-data
 
       - name: Run data pipeline
         env:
@@ -113,7 +113,7 @@ jobs:
         if: success()
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-          HF_REPO: ${{ secrets.HF_REPO }}
+          HF_REPO: ekrash718/stock-screener-data
         run: |
           python3 -c "
           import os
