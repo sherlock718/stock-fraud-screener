@@ -91,6 +91,44 @@ US rows and the majority of EU/KR rows.
 
 ---
 
+### `impute_features.py` — Recover quarterly features and size_category
+
+Fills two categories of missing data in `data/historical_dataset_clean.parquet`:
+
+1. **Quarterly features** — The 5 intra-year dynamics (`revenue_qoq_std_norm`,
+   `earnings_qoq_mean`, `max_accruals_ttm`, `revenue_acceleration`,
+   `quarterly_positive_rev_frac`) are absent from the clean parquet because the
+   pipeline removes quarterly rows in step 6 before enrichment runs. This script reads
+   quarterly rows from `data/historical_dataset.parquet` (pre-clean, 176MB), computes
+   the features via `compute_quarterly_features()`, and left-joins onto the clean parquet
+   by `(ticker, fiscal_year)`. Coverage: 67% of annual rows (companies with ≥2 quarterly
+   filings).
+
+2. **size_category imputation** — 17,226 rows have null `size_category` but non-null
+   `log_assets`. These are assigned buckets 0–3 via percentile rank within each
+   `(fiscal_year, market)` peer group. A `size_category_imputed` boolean flag is added.
+
+```bash
+python3 scripts/impute_features.py                           # Compute and write parquet
+python3 scripts/impute_features.py --dry-run                 # Coverage stats only, no write
+python3 scripts/impute_features.py --parquet PATH            # Alternate clean parquet path
+python3 scripts/impute_features.py --source PATH             # Alternate pre-clean parquet path
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--parquet` | `data/historical_dataset_clean.parquet` | Clean dataset to enrich |
+| `--source` | `data/historical_dataset.parquet` | Pre-clean parquet with quarterly rows |
+| `--dry-run` | off | Print coverage stats but do not write parquet |
+
+**Outputs**: Updates `data/historical_dataset_clean.parquet` in-place (335 → 341 columns).
+New columns: 5 quarterly dynamics + `size_category_imputed` flag.
+
+**Re-run when**: clean parquet is rebuilt (full pipeline re-run) — the join is idempotent;
+existing quarterly columns are dropped before re-merging.
+
+---
+
 ### `run_pipeline_eu.py` — EU Pipeline (yfinance free-data)
 
 Orchestrates the full 6-step EU pipeline using Wikipedia index scraping (step 1) and yfinance fundamentals (step 2). No API key required. Covers ~350+ major tickers across DE, FR, NL, BE, SE, NO, DK, FI, IT, ES, PT, AT, IE (~4–5 years of history).

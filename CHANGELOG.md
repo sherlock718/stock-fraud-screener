@@ -8,6 +8,9 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Added (Phase B — feature imputation)
+- **`scripts/impute_features.py`** (new): Recovers two categories of missing data in `data/historical_dataset_clean.parquet`. (1) Reads quarterly rows from `data/historical_dataset.parquet` (pre-clean), runs `compute_quarterly_features()`, and left-joins 5 intra-year columns (`revenue_qoq_std_norm`, `earnings_qoq_mean`, `max_accruals_ttm`, `revenue_acceleration`, `quarterly_positive_rev_frac`) onto the clean parquet — 67% of annual rows enriched. (2) Imputes `size_category` from `log_assets` percentile rank within `(fiscal_year, market)` peer groups for 17,226 recoverable null rows; adds `size_category_imputed` boolean flag. Dataset grows from 335 → 341 columns. Supports `--dry-run` and `--source` flags.
+
 ### Changed (CI workflows)
 - **`.github/workflows/monitor_drift.yml`**: `repo_id` corrected from `mhoque/stock-fraud-screener` to `ekrash718/stock-screener-data`; model file downloads updated to `repo_type='dataset'`.
 - **`.github/workflows/weekly_push.yml`**: Deleted — superseded by `refresh_data.yml`.

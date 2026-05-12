@@ -24,7 +24,8 @@ graph TB
         B6[Step 6<br/>Clean Dataset]
         B7[Quarterly Enrichment<br/>enrich_quarterly_features.py<br/>+5 intra-year columns → 326 total]
         B8[Survivorship Correction<br/>mark_survivorship.py<br/>impute −50% for delisted]
-        B1 --> B2 --> B3 --> B4 --> B5 --> B6 --> B7 --> B8
+        B9[Feature Imputation<br/>impute_features.py<br/>+5 quarterly cols + size_category → 341 total]
+        B1 --> B2 --> B3 --> B4 --> B5 --> B6 --> B7 --> B8 --> B9
     end
 
     subgraph Factors["5-Factor Layer — alpha/factors/ ✅ Phase B"]
@@ -56,7 +57,7 @@ graph TB
     end
 
     subgraph Storage["Storage"]
-        S1[Parquet<br/>data/historical_dataset_clean.parquet<br/>58K rows · 335 columns]
+        S1[Parquet<br/>data/historical_dataset_clean.parquet<br/>58K rows · 341 columns]
         S2[TimescaleDB<br/>hypertable — infra/db/init.sql<br/>Phase C — deferred]
     end
 
@@ -87,6 +88,7 @@ graph TB
 | KR integration | `pipeline/phase_a_integrate_kr.py` | DART KR data integration | ⚠️ running |
 | Feature library | `pipeline/feature_library.py` | 326 feature definitions | ✅ |
 | Quarterly enrichment | `scripts/enrich_quarterly_features.py` | 5 intra-year dynamics | ✅ |
+| Feature imputation | `scripts/impute_features.py` | Quarterly cols + size_category recovery → 341 cols | ✅ |
 | Survivorship correction | `scripts/mark_survivorship.py` | Impute −50% return for likely-delisted | ✅ |
 | AAER fraud labels | `scripts/fetch_aaer_labels.py` | 492 positive rows / 118 companies | ✅ |
 | Train models | `scripts/train_models.py` | LightGBM with PSI filter + ICIR selection | ✅ |
@@ -114,14 +116,15 @@ flowchart LR
     E -->|321 formulas| F[Feature Matrix<br/>pre-quarterly enrichment<br/>58K rows · 321 cols]
     F -->|+5 quarterly dynamics| Q[Quarterly-Enriched<br/>historical_dataset_clean.parquet<br/>58K rows · 326 cols]
     Q -->|delisted imputation| SB[Survivorship-Corrected<br/>likely_delisted flag]
-    SB -->|PSI filter| PSI[PSI-Filtered Candidates<br/>~185 features]
+    SB -->|quarterly imputation<br/>+ size_category| IMP[Imputed Dataset<br/>58K rows · 341 cols]
+    IMP -->|PSI filter| PSI[PSI-Filtered Candidates<br/>~185 features]
     PSI -->|ICIR filter| G[~35 features/horizon]
     G -->|LightGBM fit| H[Base Models]
     H -->|Optuna search| I[Tuned Models]
     I -->|CatBoost blend| J[Ensemble]
     J -->|Platt scaling| K[Calibrated Proba 0–1]
     K -->|score_historical.py| L[ml_1y / ml_3y / ml_5y<br/>written back to parquet]
-    L -->|Fraud Risk factor| FA[5-Factor<br/>Composite Alpha Score]
+    L -->|compute_alpha.py| FA[5-Factor<br/>Composite Alpha Score<br/>335 → 341 cols total]
     SB -->|bulk load| DB[TimescaleDB<br/>hypertable — Phase C — deferred]
 ```
 
