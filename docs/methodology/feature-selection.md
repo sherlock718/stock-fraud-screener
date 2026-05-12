@@ -1,6 +1,6 @@
 # Feature Selection Methodology
 
-The pipeline selects ~45 features per horizon from an initial pool of ~203 candidates (341 raw columns minus identifiers/targets, PSI-rejected macro features). Selection runs in four sequential filters: **PSI → IC → ICIR → Spearman deduplication**.
+The pipeline selects ~45 features per horizon from an initial pool of ~207 candidates (357 raw columns minus identifiers/targets, PSI-rejected features). Selection runs in four sequential filters: **PSI → IC → ICIR → Spearman deduplication**. IC stage now includes Newey-West HAC t-statistics and Benjamini-Hochberg FDR correction.
 
 ---
 
@@ -8,7 +8,7 @@ The pipeline selects ~45 features per horizon from an initial pool of ~203 candi
 
 ```mermaid
 flowchart LR
-    A["341 raw columns"] --> PSI["1. PSI Filter<br/>drops macro-regime features<br/>PSI > 2.0 → removed<br/>~11 removed → ~203 left"]
+    A["357 raw columns"] --> PSI["1. PSI Filter<br/>drops drifted features<br/>PSI > 0.25 → removed<br/>~14 removed → ~207 left"]
     PSI --> IC["2. IC Screen<br/>|mean IC| ≥ 0.02<br/>IC stability ≥ 60% years<br/>min 5 years of data"]
     IC --> ICIR["3. ICIR Ranking<br/>ICIR = mean(IC) / std(IC)<br/>sort descending · keep top-N"]
     ICIR --> DEDUP["4. Spearman Dedup<br/>|r| > 0.90 → drop weaker ICIR<br/>→ ~45 features per horizon"]
@@ -37,11 +37,11 @@ Where `i` indexes 10 equal-frequency buckets of the feature distribution.
 | 0.10 – 0.20 | Monitor |
 | ≥ 0.20 | Alert — feature distribution has shifted |
 
-The training default uses `--max-psi 2.0` (very permissive) to remove only the most extreme macro-regime features (3-month T-bill, CPI, yield spread). This prevents these features from inflating ICIR on stale regime patterns while still allowing macro context features with moderate drift.
+The training default uses `PSI_THRESHOLD = 0.25` — the institutional standard threshold where PSI ≥ 0.25 indicates a significant distribution shift. At this threshold, ~14 features are removed (macro-regime features like T-bill rates, CPI, yield spreads that shift substantially between training and scoring periods).
 
 **Why before IC**: if a feature's distribution has shifted significantly, its historical IC estimate is unreliable for forward prediction. Computing IC on a drifted feature is garbage-in, garbage-out.
 
-**CLI**: `python3 scripts/train_models.py --max-psi 0.25` lowers threshold to remove all moderately drifted features.
+**CLI**: `python3 scripts/run_feature_selection.py --psi-threshold 0.25` (default).
 
 ---
 

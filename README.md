@@ -24,7 +24,7 @@ pipeline/               Raw data ingestion ONLY — fetch, snapshot, enrich, mer
 └── fraud_signals.py            Beneish/Ohlson/Altman/Piotroski scoring
 
 scripts/                Analysis, ML, reporting — consumes output of pipeline/
-├── train_models.py             Train LightGBM models (1y/3y/5y) with ICIR selection
+├── train_models.py             Train LightGBM models (1y/3y/5y) with ICIR selection; alpha_* and ml_* excluded
 ├── tune_models.py              Optuna hyperparameter search + CatBoost ensemble
 ├── backtester.py               Walk-forward backtest engine
 ├── factor_research.py          IC/ICIR/turnover analysis

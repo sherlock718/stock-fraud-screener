@@ -1,10 +1,8 @@
 {
   "features": [
-    "alpha_fraud_risk",
     "ps_ratio",
     "vol_prior_36m",
     "quarterly_positive_rev_frac",
-    "alpha_value",
     "financing_cashflow_to_assets",
     "entry_price",
     "value_composite",
@@ -23,19 +21,16 @@
     "beneish_aqi",
     "earnings_yield",
     "piotroski_shares_ok",
-    "altman_x5",
-    "earnings_stability_roa_5yr",
-    "data_confidence",
+    "asset_turnover",
+    "roa_volatility_5yr",
     "shares_at_filing",
     "shares_growth",
     "filing_lag_days",
     "roa_sector_pct",
     "gross_profit_to_assets",
-    "alpha_quality",
     "quality_x_momentum",
     "piotroski_ocf_pos",
     "price_to_52w_high",
-    "alpha_composite",
     "ocf_to_debt",
     "operating_margin_sector_pct",
     "small_x_quality",
@@ -44,9 +39,11 @@
     "piotroski_delta_roa",
     "ohlson_roe",
     "accruals_avg_3y",
-    "ocf_to_ni_sector_pct"
+    "ocf_to_ni_sector_pct",
+    "piotroski_roa_pos",
+    "altman_z_score_sector_pct"
   ],
-  "n": 45,
+  "n": 42,
   "horizon": "5y",
-  "generated": "2026-05-12T21:37:43.992763+00:00"
+  "generated": "2026-05-12T23:33:03.951035+00:00"
 }

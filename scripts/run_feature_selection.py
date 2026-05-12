@@ -41,7 +41,7 @@ from scripts.train_models import (
 )
 
 # ── Tunable thresholds ─────────────────────────────────────────────────────────
-PSI_THRESHOLD  = 2.0    # features with PSI above this are dropped (macro-regime drift)
+PSI_THRESHOLD  = 0.25   # institutional standard: PSI > 0.25 indicates significant distribution shift
 IC_MIN_ABS     = 0.02   # minimum |mean IC| to pass the IC screen
 N_YEARS_MIN    = 5      # minimum number of years with enough data for IC computation
 TOP_K_ICIR     = 60     # keep this many features after ICIR rank (before dedup)
@@ -53,6 +53,57 @@ MODELS_DIR = BASE / "models"
 REPORTS    = BASE / "reports"
 MODELS_DIR.mkdir(exist_ok=True)
 REPORTS.mkdir(exist_ok=True)
+
+
+def newey_west_tstat(ic_series: pd.Series, max_lags: int = 4) -> float:
+    """
+    Newey-West HAC t-statistic for mean IC.
+
+    Standard IC t-stat assumes IID annual ICs, which ignores autocorrelation
+    (IC persistence across fiscal years). Newey-West corrects for this.
+    max_lags: typically floor(4 * (T/100)^(2/9)) — default 4 handles 10-30 year series.
+
+    Reference: Newey & West (1987) "A Simple, Positive Semi-Definite, Heteroskedasticity
+    and Autocorrelation Consistent Covariance Matrix." Econometrica, 55(3), 703-708.
+    """
+    x = ic_series.dropna().values
+    n = len(x)
+    if n < 3:
+        return np.nan
+    mu = x.mean()
+    gamma0 = np.mean((x - mu) ** 2)
+    hac_var = gamma0
+    for lag in range(1, min(max_lags + 1, n)):
+        cov = np.mean((x[lag:] - mu) * (x[:-lag] - mu))
+        hac_var += 2 * (1 - lag / (max_lags + 1)) * cov  # Bartlett kernel
+    hac_var = max(hac_var, 1e-12)
+    return mu / np.sqrt(hac_var / n)
+
+
+def bh_fdr_correction(pvalues: pd.Series, alpha: float = 0.05) -> pd.Series:
+    """
+    Benjamini-Hochberg FDR correction — returns boolean Series (True = reject H0).
+
+    Accounts for multiple comparisons: with 300 candidate features, ~15 are
+    expected to pass p < 0.05 purely by chance. BH controls FDR at level alpha.
+
+    Reference: Benjamini & Hochberg (1995) "Controlling the False Discovery Rate."
+    JRSS-B, 57(1), 289-300.
+    """
+    n = len(pvalues)
+    if n == 0:
+        return pd.Series(dtype=bool)
+    sorted_idx = pvalues.argsort()
+    sorted_pvals = pvalues.iloc[sorted_idx].values
+    bh_thresholds = np.arange(1, n + 1) / n * alpha
+    reject_sorted = sorted_pvals <= bh_thresholds
+    # Keep all rejections up to the largest k where p_(k) <= k/m * alpha
+    if reject_sorted.any():
+        last_reject = np.where(reject_sorted)[0].max()
+        reject_sorted[:last_reject + 1] = True
+    result = pd.Series(False, index=pvalues.index)
+    result.iloc[sorted_idx] = reject_sorted
+    return result
 
 
 def get_candidates(df: pd.DataFrame) -> list[str]:
@@ -90,6 +141,39 @@ def ic_icir_filter(
     top_k: int = TOP_K_ICIR,
 ) -> tuple[list[str], pd.DataFrame]:
     ic_tbl = compute_ic_table(df_train, features, return_col)
+
+    # ── Newey-West HAC t-statistics for each feature's IC time series ──
+    nw_tstats = {}
+    nw_pvalues = {}
+    for feat in ic_tbl.index:
+        yearly_ic = df_train.groupby("fiscal_year").apply(
+            lambda g, f=feat: g[[f, return_col]].dropna()[f].corr(
+                g[[f, return_col]].dropna()[return_col], method="spearman"
+            ) if g[[f, return_col]].dropna().__len__() > 5 else np.nan
+        )
+        t = newey_west_tstat(yearly_ic)
+        nw_tstats[feat] = t
+        # two-tailed p-value from t-distribution (df = n_years - 1)
+        n_obs = yearly_ic.notna().sum()
+        if not np.isnan(t) and n_obs > 2:
+            from scipy.stats import t as t_dist
+            nw_pvalues[feat] = float(2 * t_dist.sf(abs(t), df=n_obs - 1))
+        else:
+            nw_pvalues[feat] = np.nan
+
+    ic_tbl["ic_tstat_nw"]  = pd.Series(nw_tstats)
+    ic_tbl["ic_pval_nw"]   = pd.Series(nw_pvalues)
+
+    # ── Benjamini-Hochberg FDR correction ──
+    valid_pvals = ic_tbl["ic_pval_nw"].dropna()
+    if len(valid_pvals) > 0:
+        fdr_reject = bh_fdr_correction(valid_pvals, alpha=0.05)
+        ic_tbl["fdr_reject"] = fdr_reject.reindex(ic_tbl.index).fillna(False)
+    else:
+        ic_tbl["fdr_reject"] = False
+
+    n_fdr = ic_tbl["fdr_reject"].sum()
+    print(f"    Newey-West t-stats computed; BH FDR rejects {n_fdr}/{len(ic_tbl)} features")
 
     ic_pass = ic_tbl[
         (ic_tbl["mean_ic"].abs() >= ic_min) &

@@ -101,6 +101,10 @@ EXCLUDE = {
     # including training rows, so IC(ml_1y, forward_return_1y) is inflated for 2008-TRAIN_CUTOFF.
     # Use these only when generated with walk-forward OOF scoring (Phase C).
     'ml_1y', 'ml_3y', 'ml_5y',
+    # Alpha composites — hand-crafted composites of raw features; including them alongside
+    # their component features causes signal double-counting and inflates ICIR.
+    'alpha_fraud_risk', 'alpha_composite', 'alpha_value', 'alpha_quality', 'alpha_growth',
+    'alpha_momentum',
 }
 EXCLUDE_PATTERNS = ['forward_return', 'beat_local_market', 'excess_return_local',
                     'benchmark_return', 'fraud_score_']  # fraud_score_* are UI display, not ML features

@@ -8,6 +8,17 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Added (Phase B — feature selection)
+- **`scripts/run_feature_selection.py`** Newey-West HAC t-statistic (`ic_tstat_nw`) and p-value (`ic_pval_nw`) computed per feature IC time series. Corrects for IC autocorrelation across fiscal years.
+- **`scripts/run_feature_selection.py`** Benjamini-Hochberg FDR correction (`fdr_reject`) applied to Newey-West p-values at q=0.05. Controls false discovery rate across ~200 simultaneous hypotheses.
+- **`reports/feature_selection_summary.csv`** now contains columns: `ic_tstat_nw`, `ic_pval_nw`, `fdr_reject`.
+
+### Fixed (Phase B — feature selection)
+- **`scripts/run_feature_selection.py`** `PSI_THRESHOLD` lowered from 2.0 to 0.25 (institutional standard). 14 drifted features removed per horizon (macro regime features).
+- **`scripts/train_models.py`** `EXCLUDE` set: added `alpha_fraud_risk`, `alpha_composite`, `alpha_value`, `alpha_quality`, `alpha_growth`, `alpha_momentum`. Hand-crafted composites of raw features cause signal double-counting when their component features are also candidates.
+- **`models/feature_sets_{1y,3y,5y}.json`** re-run: **45/45/42 features** (alpha_* and ml_* excluded; PSI=0.25; Newey-West t-stats computed).
+- **`docs/methodology/feature-selection.md`** updated: PSI threshold, candidate pool count, NW/FDR documentation.
+
 ### Added (Phase B — feature engineering)
 - **`pipeline/step5_compute_features.py`** `add_montier_c_score()`: Implements Montier C-Score (Montier 2008) — 6 binary forensic accounting variables (`montier_c1`–`montier_c6`) plus composite `montier_c_score` normalised to [0,1].
 - **`pipeline/step5_compute_features.py`** Richardson et al. (2005) named accrual columns: `sloan_wc_accruals` (working capital accruals / assets) and `sloan_lt_accruals` (long-term accrual residual / assets) added alongside existing `sloan_accruals`.

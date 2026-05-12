@@ -274,7 +274,7 @@ Output files: `tickers_ca.parquet`, `snapshots_ca.parquet`, `prices_ca.parquet`,
 
 ### `run_feature_selection.py` — Standalone Feature Selection Pipeline
 
-Runs the full PSI → IC → ICIR → Spearman deduplication pipeline across all three horizons and writes `models/feature_sets_{1y,3y,5y}.json`.
+Runs the full PSI → IC → ICIR → Spearman deduplication pipeline across all three horizons and writes `models/feature_sets_{1y,3y,5y}.json`. IC stage now includes Newey-West HAC t-statistics and Benjamini-Hochberg FDR correction.
 
 ```bash
 python3 scripts/run_feature_selection.py               # Full run, writes JSON files
@@ -284,7 +284,7 @@ python3 scripts/run_feature_selection.py --psi-threshold 0.20 --ic-min 0.03
 
 | Flag | Default | Description |
 |---|---|---|
-| `--psi-threshold FLOAT` | `2.0` | Drop candidates with PSI above this (train vs test split) |
+| `--psi-threshold FLOAT` | `0.25` | Drop candidates with PSI above this (institutional standard) |
 | `--ic-min FLOAT` | `0.02` | Minimum \|mean IC\| to pass the IC screen |
 | `--top-k INT` | `60` | Keep top-K features by \|ICIR\| before deduplication |
 | `--corr FLOAT` | `0.90` | Spearman \|r\| threshold for near-duplicate removal |
@@ -292,7 +292,7 @@ python3 scripts/run_feature_selection.py --psi-threshold 0.20 --ic-min 0.03
 
 **Outputs**:
 - `models/feature_sets_{1y,3y,5y}.json` — selected feature list per horizon (~45 features each)
-- `reports/feature_selection_summary.csv` — IC, ICIR, PSI, and selection status for all candidates
+- `reports/feature_selection_summary.csv` — IC, ICIR, PSI, `ic_tstat_nw`, `ic_pval_nw`, `fdr_reject` for all candidates
 
 ---
 
