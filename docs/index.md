@@ -2,7 +2,7 @@
 
 **A research-grade quantitative alpha generation platform covering 14 markets — US, Korea, Canada, Japan, Brazil, and 9 European markets.**
 
-The platform scores companies across five orthogonal factor groups — **Value, Quality, Momentum, Growth, and Fraud Risk** — and combines them into a composite alpha score. It trains LightGBM models on 1-year, 3-year, and 5-year return horizons using 58,190 company-year observations and 346 columns. Feature selection uses PSI (threshold 0.25) → IC → ICIR (Newey-West HAC t-stats + BH FDR) → Spearman deduplication, yielding 45/45/42 features per horizon.
+The platform scores companies across five orthogonal factor groups — **Value, Quality, Momentum, Growth, and Fraud Risk** — and combines them into a composite alpha score. It trains LightGBM models on 1-year, 3-year, and 5-year return horizons using 58,190 company-year observations and 355 columns. Feature selection uses PSI (threshold 0.25) → IC → ICIR (Newey-West HAC t-stats + BH FDR) → Spearman deduplication, yielding 45/45/42 features per horizon.
 
 ---
 

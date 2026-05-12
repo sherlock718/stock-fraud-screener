@@ -8,6 +8,11 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Added (Phase B — feature engineering, parquet patch)
+- **`data/historical_dataset_clean.parquet`** patched to add 9 new columns from Phase B implementation: `montier_c1`–`montier_c6` (binary Montier components), `montier_c_score` (normalised composite), `sloan_wc_accruals`, `sloan_lt_accruals`. Dataset now 58,190 × 355 cols.
+- **`docs/architecture.md`**, **`docs/index.md`**, **`docs/methodology/models.md`**, **`README.md`**, **`CLAUDE.md`** updated: column count 346 → 355; PSI threshold 2.0 → 0.25 in models.md flowchart.
+- **`.github/workflows/refresh_data.yml`** added `test_dataset_quality.py` quality gate step after `check_data.py`.
+
 ### Added (Phase B — notebooks)
 - **`notebooks/02_ic_analysis.ipynb`** added Sec 7 IC decay curves (t+1y/2y/3y for top 10 features), Sec 8 quintile return spreads (Q1-Q5 mean returns + Sharpe), Sec 9 Fama-MacBeth regression (annual cross-sectional slope t-stats), Sec 10 market regime IC (recession vs expansion), Sec 11 long-short decomposition (long/short legs + spread), Sec 12 information ratio per factor (IR > 0.5 threshold). Executed with outputs.
 - **`notebooks/03_factor_correlation.ipynb`** re-executed with fresh outputs (V4 schema compatibility verified).
