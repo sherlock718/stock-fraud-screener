@@ -33,6 +33,30 @@ Pipeline steps:
 
 ---
 
+### `score_historical.py` — Apply trained models to full dataset
+
+Loads `model_{1y,3y,5y}.joblib` and `model_meta.json`, scores all 58K rows, and writes
+`ml_1y`, `ml_3y`, `ml_5y` float columns (probability of beating local benchmark) back to
+`data/historical_dataset_clean.parquet`. Missing features are filled with per-horizon
+`train_medians` stored in model_meta.json.
+
+```bash
+python3 scripts/score_historical.py                  # Score and write parquet
+python3 scripts/score_historical.py --dry-run        # Score only, print stats, no write
+python3 scripts/score_historical.py --parquet PATH   # Use alternate parquet path
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--parquet` | `data/historical_dataset_clean.parquet` | Dataset path |
+| `--models-dir` | `models/` | Directory with model_*.joblib + model_meta.json |
+| `--dry-run` | off | Print score distribution but do not write parquet |
+
+**Outputs**: Updates `data/historical_dataset_clean.parquet` in-place (326 → 329 columns).
+After running, `ml_1y`, `ml_3y`, `ml_5y` are available for the backtester and alpha factor package.
+
+---
+
 ### `run_pipeline_eu.py` — EU Pipeline (yfinance free-data)
 
 Orchestrates the full 6-step EU pipeline using Wikipedia index scraping (step 1) and yfinance fundamentals (step 2). No API key required. Covers ~350+ major tickers across DE, FR, NL, BE, SE, NO, DK, FI, IT, ES, PT, AT, IE (~4–5 years of history).

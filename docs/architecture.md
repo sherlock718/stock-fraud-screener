@@ -20,14 +20,14 @@ graph TB
         B2[Step 2<br/>Build Snapshots]
         B3[Step 3<br/>Enrich Prices]
         B4[Step 4<br/>Enrich Macro]
-        B5[Step 5<br/>Compute Features<br/>320 base columns]
+        B5[Step 5<br/>Compute Features<br/>321 base columns]
         B6[Step 6<br/>Clean Dataset]
-        B7[Quarterly Enrichment<br/>enrich_quarterly_features.py<br/>+5 intra-year columns → 324 total]
+        B7[Quarterly Enrichment<br/>enrich_quarterly_features.py<br/>+5 intra-year columns → 326 total]
         B8[Survivorship Correction<br/>mark_survivorship.py<br/>impute −50% for delisted]
         B1 --> B2 --> B3 --> B4 --> B5 --> B6 --> B7 --> B8
     end
 
-    subgraph Factors["5-Factor Layer — alpha/factors/ ❌ planned"]
+    subgraph Factors["5-Factor Layer — alpha/factors/ ⚠️ Phase B"]
         F1[Value<br/>P/B · EV/EBITDA · FCF yield]
         F2[Quality<br/>ROE · accruals · Piotroski]
         F3[Momentum<br/>12m-1m return · EPS revision]
@@ -44,7 +44,7 @@ graph TB
         C3[Optuna Tuning<br/>100 trials per horizon]
         C4[CatBoost Ensemble]
         C5[Platt Scaling Calibration]
-        C6[score_historical.py<br/>❌ not yet built<br/>writes ml_1y/3y/5y to parquet]
+        C6[score_historical.py<br/>writes ml_1y/3y/5y to parquet]
         C0 --> C1 --> C2 --> C3 --> C4 --> C5 --> C6
     end
 
@@ -56,7 +56,7 @@ graph TB
     end
 
     subgraph Storage["Storage"]
-        S1[Parquet<br/>data/historical_dataset_clean.parquet<br/>58K rows · 326 columns]
+        S1[Parquet<br/>data/historical_dataset_clean.parquet<br/>58K rows · 329 columns]
         S2[TimescaleDB<br/>hypertable — infra/db/init.sql<br/>Phase C — deferred]
     end
 
@@ -91,7 +91,7 @@ graph TB
 | AAER fraud labels | `scripts/fetch_aaer_labels.py` | 492 positive rows / 118 companies | ✅ |
 | Train models | `scripts/train_models.py` | LightGBM with PSI filter + ICIR selection | ✅ |
 | Tune models | `scripts/tune_models.py` | Optuna + CatBoost ensemble + Platt calibration | ✅ |
-| Historical ML scoring | `scripts/score_historical.py` | Load models → write ml_1y/3y/5y to parquet | ❌ not built |
+| Historical ML scoring | `scripts/score_historical.py` | Load models → write ml_1y/3y/5y to parquet | ✅ |
 | **Alpha factor package** | `alpha/factors/` | 5-factor scores: Value · Quality · Momentum · Growth · Fraud Risk | ❌ not built |
 | Backtester | `scripts/backtester.py` | Walk-forward strategy simulation (4 strategies) | ✅ |
 | Factor research | `scripts/factor_research.py` | IC/ICIR/decay analysis | ✅ |
@@ -111,8 +111,8 @@ flowchart LR
     B -->|company metadata| C[Annual + Quarterly Snapshots<br/>fiscal_year × ticker]
     C -->|OHLCV joins| D[Price-Enriched<br/>Snapshots]
     D -->|macro joins<br/>T-bill · inflation| E[Macro-Enriched<br/>Snapshots]
-    E -->|314 formulas| F[Feature Matrix<br/>historical_dataset_clean.parquet<br/>58K rows · 326 cols]
-    F -->|+5 quarterly dynamics| Q[Quarterly-Enriched<br/>324 columns]
+    E -->|321 formulas| F[Feature Matrix<br/>pre-quarterly enrichment<br/>58K rows · 321 cols]
+    F -->|+5 quarterly dynamics| Q[Quarterly-Enriched<br/>historical_dataset_clean.parquet<br/>58K rows · 326 cols]
     Q -->|delisted imputation| SB[Survivorship-Corrected<br/>likely_delisted flag]
     SB -->|PSI filter| PSI[PSI-Filtered Candidates<br/>~185 features]
     PSI -->|ICIR filter| G[~35 features/horizon]
@@ -120,7 +120,7 @@ flowchart LR
     H -->|Optuna search| I[Tuned Models]
     I -->|CatBoost blend| J[Ensemble]
     J -->|Platt scaling| K[Calibrated Proba 0–1]
-    K -->|score_historical.py ❌| L[ml_1y / ml_3y / ml_5y<br/>written back to parquet]
+    K -->|score_historical.py| L[ml_1y / ml_3y / ml_5y<br/>written back to parquet]
     L -->|Fraud Risk factor| FA[5-Factor<br/>Composite Alpha Score]
     SB -->|bulk load| DB[TimescaleDB<br/>hypertable — Phase C — deferred]
 ```
