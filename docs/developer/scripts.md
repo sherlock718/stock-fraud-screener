@@ -734,7 +734,7 @@ Sections:
 4. **Fill rates** — core financial columns above minimum thresholds
 5. **Distribution sanity** — fraud scores in [0,1], Piotroski in [0,9], in_universe binary
 6. **Fraud label integrity** — leakage check, fraud_suspect consistency
-7. **Forward return coverage** — ≥15% fill per market
+7. **Forward return coverage + winsorization** — ≥15% fill per market; max absolute value must not exceed hard caps (1y: 5.0, 3y: 10.0, 5y: 20.0)
 8. **Growth feature winsorization** (Rule 6) — any growth column with max > 50 × p99 fails
 9. **ML score exclusion** (Rule 7) — `ml_1y/3y/5y` must not appear in `models/feature_sets_*.json`
 

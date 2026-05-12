@@ -278,14 +278,33 @@ def test_fraud_labels(df: pd.DataFrame, r: TestResult) -> None:
             r.ok(f"{col} vs fraud_confirmed corr = {corr:.3f} (no leakage)")
 
 
-# ── 7. Forward Return Coverage ────────────────────────────────────────────────
+# ── 7. Forward Return Coverage + Winsorization ───────────────────────────────
+
+# Hard caps: values beyond these indicate the targets were not winsorized
+_RETURN_CAPS = {
+    "forward_return_1y": 5.0,
+    "forward_return_3y": 10.0,
+    "forward_return_5y": 20.0,
+}
+
 
 def test_forward_returns(df: pd.DataFrame, r: TestResult) -> None:
-    print("\n[7] Forward return coverage")
+    print("\n[7] Forward return coverage + winsorization")
     if "forward_return_1y" not in df.columns:
         r.fail("'forward_return_1y' column missing")
         return
 
+    # Winsorization guard
+    for col, cap in _RETURN_CAPS.items():
+        if col not in df.columns:
+            continue
+        mx = df[col].abs().max()
+        if mx > cap:
+            r.fail(f"{col}: max={mx:.1f} exceeds cap {cap} — targets not winsorized (run target winsorization patch)")
+        else:
+            r.ok(f"{col}: max={mx:.3f} <= {cap} (winsorized)")
+
+    # Coverage by market
     for mkt in df["market"].unique():
         subset = df[df["market"] == mkt]
         fill = subset["forward_return_1y"].notna().mean()

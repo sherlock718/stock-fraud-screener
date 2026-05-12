@@ -83,6 +83,10 @@ jobs:
         run: |
           python3 scripts/fix_dataset_quality.py
 
+      - name: Post-process — enrich quarterly features
+        run: |
+          python3 scripts/enrich_quarterly_features.py
+
       - name: Post-process — impute quarterly features + size_category
         run: |
           python3 scripts/impute_features.py

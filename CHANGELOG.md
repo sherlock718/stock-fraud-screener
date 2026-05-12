@@ -8,6 +8,12 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Fixed (Phase A — data targets + CI sync)
+- **`data/historical_dataset_clean.parquet`** forward_return targets winsorized at p1/p99: `forward_return_1y` max was 29,999% (penny stock data error) → now capped at [−0.926, 3.906]; `forward_return_3y` capped at [−0.995, 6.989]; `forward_return_5y` capped at [−0.999, 9.227].
+- **`scripts/test_dataset_quality.py`** Section 7 upgraded: now enforces winsorization hard caps (1y ≤ 5.0×, 3y ≤ 10.0×, 5y ≤ 20.0×) in addition to coverage checks.
+- **`.github/workflows/refresh_data.yml`** added missing `enrich_quarterly_features.py` post-processing step (was absent, so intra-year dynamics were not refreshed in weekly CI runs).
+- **`docs/developer/data-update-guide.md`** Mermaid operator diagram updated: added `fix_dataset_quality.py` + `enrich_quarterly_features.py` nodes, removed phantom `enrich_fraud_taxonomy.py`, updated quality gate to "92 checks". Diagram now matches actual CI.
+
 ### Added (Phase scope lock + done criteria)
 - **`docs/developer/phase-done-criteria.md`** (new): Single source of truth for "is Phase A/B done?". Contains exact shell commands that return PASS/FAIL for every Phase A and Phase B acceptance criterion. Replaces vague task-list-based closure checks.
 - **`CLAUDE.md`** Phase Scope Definition section: Locks Phase A/B/C scope. Three rules: no re-auditing, Phase C items never in Phase A/B, done requires the checklist file.

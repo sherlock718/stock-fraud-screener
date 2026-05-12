@@ -21,19 +21,20 @@ flowchart TD
     E --> G[step5_compute_features.py]
     G --> F
 
-    F --> H1[impute_features.py\nquarterly cols + size_category]
-    H1 --> H2[mark_survivorship.py --fix\nsurvivorship correction]
-    H2 --> H3[compute_alpha.py\n5-factor alpha scores]
-    H3 --> H4[score_historical.py\nML fraud scores ml_1y/3y/5y]
-    H4 --> H5[enrich_fraud_taxonomy.py\nrefresh fraud scores]
-    H5 --> I[test_dataset_quality.py\n53 checks must pass]
+    F --> H0[fix_dataset_quality.py\none-time quality fixes]
+    H0 --> H1[enrich_quarterly_features.py\nintra-year dynamics]
+    H1 --> H2[impute_features.py\nquarterly cols + size_category]
+    H2 --> H3[mark_survivorship.py --fix\nsurvivorship correction]
+    H3 --> H4[compute_alpha.py\n5-factor alpha scores]
+    H4 --> H5[score_historical.py\nML fraud scores ml_1y/3y/5y]
+    H5 --> I[test_dataset_quality.py\n92 checks must pass]
     I -->|pass| J[push_to_hf.py\nupload to HuggingFace Hub]
     I -->|fail| K[Fix root cause\nre-run from affected step]
     J --> L[git commit + push\nGitHub → Streamlit Cloud auto-deploys]
 ```
 
-> **Rule**: If a step is not in this diagram, it will not run during weekly CI refresh.
-> Every post-processing script must appear here AND in `refresh_data.yml`.
+> **Rule**: If a step is not in this diagram AND in `refresh_data.yml`, it will not run during weekly CI refresh.
+> Both must be kept in sync — the diagram is descriptive, not aspirational.
 
 ---
 
