@@ -81,6 +81,7 @@ Work through this matrix for every change before staging files.
 | Alpha factor package | 5-factor scores (Value/Quality/Momentum/Growth/FraudRisk) | `alpha/factors/` | ✅ |
 | Primary storage | Parquet file | `data/historical_dataset_clean.parquet` 58K rows × 341 cols | ✅ |
 | TimescaleDB | Hypertable for time-series queries | `infra/db/init.sql` + `scripts/migrate_to_db.py` | ⚠️ DB not loaded |
+| Feature selection | 4-stage pipeline: PSI→IC→ICIR→dedup | `scripts/run_feature_selection.py` | ✅ |
 | ML models | LightGBM 1y/3y/5y, PSI filter + ICIR | `scripts/train_models.py` | ✅ |
 | Calibration | Platt scaling | `scripts/tune_models.py` | ✅ |
 | Drift monitoring | PSI + rolling AUC | `scripts/monitor_drift.py` | ✅ |
@@ -110,6 +111,9 @@ Work through this matrix for every change before staging files.
 | Dataset (primary) | `data/historical_dataset_clean.parquet` |
 | Models | `models/model_{1y,3y,5y}.joblib` |
 | Model metadata + feature lists | `models/model_meta.json` |
+| Selected feature sets (post-selection) | `models/feature_sets_{1y,3y,5y}.json` |
+| IC/ICIR factor research reports | `reports/factor_research_{1y,3y,5y}.csv` |
+| Feature selection summary (all candidates) | `reports/feature_selection_summary.csv` |
 | Walk-forward AUC results | `reports/walk_forward_auc_{1y,3y,5y}.csv` |
 | Backtest results | `data/backtest_results.json` |
 | DB schema | `infra/db/init.sql` |

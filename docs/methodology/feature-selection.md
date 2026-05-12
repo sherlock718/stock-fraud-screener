@@ -1,6 +1,6 @@
 # Feature Selection Methodology
 
-The pipeline selects ~35 features per horizon from an initial pool of ~185 candidates (319 raw features minus PSI-rejected macro features). Selection runs in four sequential filters: **PSI → IC → ICIR → Spearman deduplication**.
+The pipeline selects ~45 features per horizon from an initial pool of ~203 candidates (341 raw columns minus identifiers/targets, PSI-rejected macro features). Selection runs in four sequential filters: **PSI → IC → ICIR → Spearman deduplication**.
 
 ---
 
@@ -8,10 +8,10 @@ The pipeline selects ~35 features per horizon from an initial pool of ~185 candi
 
 ```mermaid
 flowchart LR
-    A["319 raw features"] --> PSI["1. PSI Filter<br/>drops macro-regime features<br/>PSI > 2.0 → removed<br/>~10 removed → ~185 left"]
+    A["341 raw columns"] --> PSI["1. PSI Filter<br/>drops macro-regime features<br/>PSI > 2.0 → removed<br/>~11 removed → ~203 left"]
     PSI --> IC["2. IC Screen<br/>|mean IC| ≥ 0.02<br/>IC stability ≥ 60% years<br/>min 5 years of data"]
     IC --> ICIR["3. ICIR Ranking<br/>ICIR = mean(IC) / std(IC)<br/>sort descending · keep top-N"]
-    ICIR --> DEDUP["4. Spearman Dedup<br/>|r| > 0.90 → drop weaker ICIR<br/>→ ~35 features per horizon"]
+    ICIR --> DEDUP["4. Spearman Dedup<br/>|r| > 0.90 → drop weaker ICIR<br/>→ ~45 features per horizon"]
     DEDUP --> MODEL["LightGBM<br/>1y / 3y / 5y"]
 ```
 
@@ -107,28 +107,31 @@ After ICIR ranking, correlated features are deduplicated:
 
 **Why**: highly correlated features add no independent information but increase model variance. Two features with r = 0.95 are measuring nearly the same thing — keeping both wastes a degree of freedom and inflates feature importance scores.
 
-**Result**: ~35 final features per horizon (from ~40 pre-dedup candidates).
+**Result**: ~45 final features per horizon (from ~60 pre-dedup candidates, top-K ICIR).
 
-CLI: `python3 scripts/train_models.py --no-dedup` skips this step to see the effect.
+CLI: `python3 scripts/run_feature_selection.py --help` to see all options; writes `models/feature_sets_{1y,3y,5y}.json`.
 
 ---
 
 ## Full CLI Reference
 
 ```bash
-# Run with tighter PSI threshold (removes more macro features)
-python3 scripts/train_models.py --max-psi 0.20
+# Standalone feature selection (writes models/feature_sets_{1y,3y,5y}.json)
+python3 scripts/run_feature_selection.py
 
-# Stricter IC stability requirement
-python3 scripts/train_models.py --min-ic-stability 0.65 --min-ic-years 6
+# Tighter PSI threshold
+python3 scripts/run_feature_selection.py --psi-threshold 0.20
+
+# Stricter IC minimum
+python3 scripts/run_feature_selection.py --ic-min 0.03
 
 # Keep more features before dedup
-python3 scripts/train_models.py --top-n 60
+python3 scripts/run_feature_selection.py --top-k 80
 
-# Sector-neutral IC (demean within each sector before computing correlation)
+# Sector-neutral IC (via train_models.py directly)
 python3 scripts/train_models.py --sector-neutral
 
-# Walk-forward CV to verify ICIR-selected features are stable over time
+# Walk-forward CV
 python3 scripts/train_models.py --walk-forward
 ```
 
@@ -136,15 +139,18 @@ python3 scripts/train_models.py --walk-forward
 
 ## Outputs
 
-After feature selection, `model_meta.json` records the final feature set per horizon:
+After feature selection, `models/feature_sets_{1y,3y,5y}.json` records the final feature set per horizon:
 
 ```json
 {
-  "features_1y": ["gross_margin", "accruals_to_assets", "piotroski_f_score", ...],
-  "features_3y": ["roe", "revenue_cagr_3y", "beneish_m_score", ...],
-  "features_5y": ["ev_ebitda", "asset_turnover", "altman_z_score", ...]
+  "features": ["gross_margin", "accruals_to_assets", "piotroski_f_score", ...],
+  "n": 46,
+  "horizon": "1y",
+  "generated": "2025-..."
 }
 ```
+
+`reports/feature_selection_summary.csv` contains IC, ICIR, PSI, and selection status for every candidate across all horizons.
 
 Use `scripts/factor_research.py` to view IC, ICIR, t-statistic, and factor decay per feature, or to compare which features appear across horizons.
 

@@ -8,6 +8,18 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Added (Phase B — feature selection + research notebooks)
+- **`scripts/run_feature_selection.py`** (new): Standalone 4-stage feature selection pipeline — PSI filter (PSI ≤ 2.0) → IC screen (|mean IC| ≥ 0.02, n_years ≥ 5) → ICIR top-K (default 60) → Spearman deduplication (|r| ≤ 0.90). Imports `compute_ic_table`, `compute_psi`, `deduplicate_features` from `train_models.py`. Outputs `models/feature_sets_{1y,3y,5y}.json` (46 / 47 / 45 features) and `reports/feature_selection_summary.csv` (600 rows, IC/ICIR/PSI per candidate × 3 horizons). CLI: `--psi-threshold`, `--ic-min`, `--top-k`, `--corr`, `--dry-run`.
+- **`scripts/factor_research.py`** (re-run): Refreshed IC/ICIR reports on updated 341-column parquet. Top features: `ml_1y` (ICIR=2.037), `altman_z_score_sector_pct` (ICIR=1.823), `ev_revenue` (ICIR=−1.708), `ml_3y` (ICIR=1.688), `alpha_fraud_risk` (ICIR=1.649). Reports written to `reports/factor_research_{1y,3y,5y}.csv`.
+- **`notebooks/01_eda_dataset.ipynb`** (new): EDA — shape/date range, rows by market/year, period_type split, null profile (annual), target variable coverage + histograms, ML/alpha score distributions, size_category.
+- **`notebooks/02_ic_analysis.ipynb`** (new): IC/ICIR analysis — top-20 by |ICIR| tables, bar charts, IC stability vs mean_ic scatter, feature overlap across horizons (set intersection), feature_selection_summary breakdown.
+- **`notebooks/03_factor_correlation.ipynb`** (new): Factor correlation — Spearman heatmap of 1y selected features (max |r| ≤ 0.90 verification), alpha factor cross-correlation, high-correlation pairs (|r|>0.70) among selected features.
+- **`notebooks/04_null_recovery_audit.ipynb`** (new): Null recovery audit — quarterly feature null rates post-imputation, size_category distribution + imputation quality bars, quarterly coverage by market, 341-column count verification, violin plots of quarterly feature distributions.
+
+### Changed (Phase B — feature selection docs)
+- **`docs/methodology/feature-selection.md`**: Updated opening summary (319→341 raw columns, ~185→~203 PSI candidates, ~35→~45 final), Mermaid diagram node labels, result paragraph, CLI examples (now reference `run_feature_selection.py`), and Outputs section (JSON per horizon + summary CSV).
+- **`docs/developer/scripts.md`**: Added `run_feature_selection.py` section with bash usage, flags table, and output file descriptions.
+
 ### Added (Phase B — feature imputation)
 - **`scripts/impute_features.py`** (new): Recovers two categories of missing data in `data/historical_dataset_clean.parquet`. (1) Reads quarterly rows from `data/historical_dataset.parquet` (pre-clean), runs `compute_quarterly_features()`, and left-joins 5 intra-year columns (`revenue_qoq_std_norm`, `earnings_qoq_mean`, `max_accruals_ttm`, `revenue_acceleration`, `quarterly_positive_rev_frac`) onto the clean parquet — 67% of annual rows enriched. (2) Imputes `size_category` from `log_assets` percentile rank within `(fiscal_year, market)` peer groups for 17,226 recoverable null rows; adds `size_category_imputed` boolean flag. Dataset grows from 335 → 341 columns. Supports `--dry-run` and `--source` flags.
 
