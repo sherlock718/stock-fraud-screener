@@ -8,7 +8,25 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
-### Fixed (Phase A/B — equity coalesce bug + dataset patch)
+### Fixed (Phase A/B audit — pipeline integrity)
+- **`pipeline/step5_compute_features.py`** `compute_sector_pct_ranks()`: Added `fiscal_year` to groupby — was `groupby('sic_2digit')`, now `groupby(['sic_2digit', 'fiscal_year'], observed=True)`. Without this, a 2005 company was ranked against 2005–2024 sector peers (temporal lookahead in feature space). Affects 18 `*_sector_pct` columns. Dataset patched in-place; feature selection and factor research re-run.
+- **`pipeline/step3_enrich_prices.py`** `enrich_row()`: Added `vol_prior_6m` (126d), `vol_prior_36m` (756d), `vol_prior_60m` (1260d) natively alongside existing `vol_prior_12m`. Previously these existed only via a one-off patch script and were silently dropped on every CI rebuild (Rule 1 violation).
+- **`pipeline/step5_compute_features.py`**: Added `roa_volatility_5yr` and `earnings_stability_roa_5yr` natively after `roe_volatility_5yr` (same violation — existed only in patch script).
+- **`.github/workflows/refresh_data.yml`**: Added four missing post-processing steps that were absent from CI: `impute_features.py`, `mark_survivorship.py --fix`, `compute_alpha.py`, `score_historical.py`. Previous CI produced a ~326-column parquet missing quarterly features, alpha scores, ML scores, and survivorship correction.
+
+### Added (Phase A/B audit — prevention)
+- **`docs/developer/pipeline-integrity.md`** (new): 5 rules that prevent the class of bugs found in Phase A/B audit — orphan patch columns (Rule 1), cross-sectional rank without time key (Rule 2), CI/dataset drift (Rule 3), stale artifacts after data fix (Rule 4), formula scattering (Rule 5). Includes Phase A and Phase B closure checklists and common anti-patterns table.
+- **`CLAUDE.md`** Change Checklist: Added 3 new rows linking to `pipeline-integrity.md` — triggered on new columns, new rank features, and new post-processing scripts.
+
+### Changed (Phase B re-runs on corrected data)
+- **`models/feature_sets_{1y,3y,5y}.json`** regenerated: Feature selection re-run on corrected dataset (correct `*_sector_pct` features + fixed equity). 46/47/46 features (5y changed 45→46). Sector_pct features now properly represent within-year cross-sectional signal; more pass IC/ICIR threshold (6-7 per horizon vs 2-4 before).
+- **`reports/feature_selection_summary.csv`** regenerated: 645 rows with updated IC/ICIR.
+- **`reports/factor_research_{1y,3y,5y}.csv`** regenerated: IC/ICIR values updated for corrected equity and sector features.
+- **`docs/methodology/feature-registry.md`**: Column count 326 → 346; added `roa_volatility_5yr`, `earnings_stability_roa_5yr`, `vol_prior_6m`, `vol_prior_36m`, `vol_prior_60m`.
+- **`docs/developer/data-update-guide.md`**: Operator workflow Mermaid diagram updated to show full post-processing chain (impute → survivorship → alpha → scores → quality gate → push). Added rule: if a step is not in the diagram, it won't run in CI.
+- **All 4 research notebooks** re-run on corrected 346-column dataset.
+
+
 - **`pipeline/step5_compute_features.py`** (`COALESCE_ALIASES`): Root cause of 9 null columns found and fixed — `COLUMN_ALIASES` loop used `if dst not in df.columns` which skipped `equity → total_equity` because `total_equity` already existed at 0.2% fill. Added `COALESCE_ALIASES = {'equity', 'sga_expense'}` set; columns in this set now use `combine_first` to coalesce from the higher-fill source. Fixes `total_equity` (4.3% → 92.9%), `roe` (4.3% → 88.1%), `roic`, `pb_ratio`, `book_to_market`, `net_debt_to_equity`, `roe_sector_pct`, `pb_ratio_sector_pct`, `roe_volatility_5yr`, `earnings_stability_5yr` for future pipeline runs.
 
 ### Added (Phase A/B — equity + volatility patch + new columns)

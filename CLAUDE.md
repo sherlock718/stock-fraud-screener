@@ -16,6 +16,9 @@ Work through this matrix for every change before staging files.
 |---|---|
 | New script in `scripts/` | `docs/developer/scripts.md` — add section with usage, flags table, outputs |
 | New script in `pipeline/` | `docs/developer/pipeline-scripts.md` — add section for that module |
+| New column added | `docs/developer/pipeline-integrity.md` Rule 1 check — is it in step3 or step5? |
+| New cross-sectional rank feature | `docs/developer/pipeline-integrity.md` Rule 2 check — does groupby include fiscal_year? |
+| New post-processing script | Add to `refresh_data.yml` AND update `docs/developer/data-update-guide.md` diagram |
 | Modified script CLI flags | `docs/developer/scripts.md` or `pipeline-scripts.md` — update flags table |
 | New pipeline step or data column | `docs/architecture.md` — Component Map row + Data Flow diagram + column count in all flowchart labels |
 | Column count changes in dataset | `docs/architecture.md` High-Level diagram + Data Flow diagram + `docs/methodology/models.md` flowchart label + `docs/index.md` tagline |

@@ -1,6 +1,6 @@
 # Feature Registry
 
-All 326 columns in `data/historical_dataset_clean.parquet`, organized by category.
+All 346 columns in `data/historical_dataset_clean.parquet`, organized by category.
 
 This is the authoritative reference for column names, data types, and factor group assignments. For formula definitions see `pipeline/feature_library.py`. For narrative descriptions see [features.md](features.md).
 
@@ -197,6 +197,8 @@ Income statement, balance sheet, and cash flow raw values. Used to compute featu
 | `roa_trend_3y` | 3-year ROA trend |
 | `earnings_stability_5yr` | 5-year earnings volatility (inverse) |
 | `roe_volatility_5yr` | 5-year ROE volatility |
+| `roa_volatility_5yr` | 5-year ROA volatility (91.5% fill — more robust than ROE-based) |
+| `earnings_stability_roa_5yr` | 5-year ROA stability (inverse of roa_volatility_5yr) |
 
 ### Interaction features (quality-related)
 
@@ -230,7 +232,10 @@ Income statement, balance sheet, and cash flow raw values. Used to compute featu
 | `momentum_6m_prior` | 6-month raw return |
 | `momentum_3m_prior` | 3-month raw return |
 | `momentum_12m_prior_sector_pct` | Sector-relative 12m return percentile |
+| `vol_prior_6m` | 6-month realized volatility (annualised, 95.4% fill) |
 | `vol_prior_12m` | 12-month realized volatility |
+| `vol_prior_36m` | 36-month realized volatility (annualised, 95.5% fill) |
+| `vol_prior_60m` | 60-month realized volatility (annualised, 95.4% fill) |
 | `price_to_52w_high` | Price relative to 52-week high |
 
 ### Multi-horizon returns

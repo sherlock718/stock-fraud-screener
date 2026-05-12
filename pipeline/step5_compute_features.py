@@ -562,11 +562,14 @@ def add_sector_percentiles(df: pd.DataFrame) -> pd.DataFrame:
         'momentum_12m_prior', 'ocf_to_ni',
     ]
 
+    # Group by BOTH sector AND fiscal_year — without fiscal_year this ranks a 2005
+    # company against 2005-2024 peers, which is lookahead across time.
+    group_keys = ['sic_2digit', 'fiscal_year'] if 'fiscal_year' in df.columns else ['sic_2digit']
     for feat in rank_features:
         if feat not in df.columns:
             continue
         col_pct = f'{feat}_sector_pct'
-        df[col_pct] = df.groupby('sic_2digit')[feat].transform(
+        df[col_pct] = df.groupby(group_keys, observed=True)[feat].transform(
             lambda x: x.rank(pct=True, na_option='keep')
         )
 
@@ -746,6 +749,13 @@ def run():
         .transform(lambda x: x.rolling(5, min_periods=3).std())
     )
     df['earnings_stability_5yr'] = -df['roe_volatility_5yr']  # invert: more stable = higher score
+
+    if 'roa' in df.columns:
+        df['roa_volatility_5yr'] = (
+            df.groupby('ticker')['roa']
+            .transform(lambda x: x.rolling(5, min_periods=3).std())
+        )
+        df['earnings_stability_roa_5yr'] = -df['roa_volatility_5yr']
 
     # ── Winsorize key ratios ───────────────────────────────────────────────────
     print('  Winsorizing extreme values (1st-99th percentile) ...')

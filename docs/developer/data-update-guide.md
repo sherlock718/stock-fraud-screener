@@ -13,20 +13,27 @@ flowchart TD
     A[New data available\nfiling, ticker, or feature] --> B{What type?}
 
     B -->|New annual rows| C[run_pipeline_{mkt}.py\nbuild --step 1]
-    B -->|New ticker| D[Add to tickers_{mkt}.csv\nrun from step 2]
-    B -->|New feature column| E[Add formula to\nfeature_library.py]
+    B -->|New ticker| D[Add to tickers_{mkt}.parquet\nrun from step 2]
+    B -->|New feature column| E[Add formula to\nfeature_library.py\nAND step3 or step5]
 
-    C --> F[phase_a_integrate_{mkt}.py]
+    C --> F[phase_a_integrate_{mkt}.py\nor merge_snapshots.py]
     D --> F
-    E --> G[step5_compute_features.py\n--suffix _{mkt} for each market]
+    E --> G[step5_compute_features.py]
     G --> F
 
-    F --> H[enrich_fraud_taxonomy.py\nrefresh fraud scores]
-    H --> I[test_dataset_quality.py\n53 checks must pass]
+    F --> H1[impute_features.py\nquarterly cols + size_category]
+    H1 --> H2[mark_survivorship.py --fix\nsurvivorship correction]
+    H2 --> H3[compute_alpha.py\n5-factor alpha scores]
+    H3 --> H4[score_historical.py\nML fraud scores ml_1y/3y/5y]
+    H4 --> H5[enrich_fraud_taxonomy.py\nrefresh fraud scores]
+    H5 --> I[test_dataset_quality.py\n53 checks must pass]
     I -->|pass| J[push_to_hf.py\nupload to HuggingFace Hub]
-    I -->|fail| K[Fix root cause\nre-run from H]
+    I -->|fail| K[Fix root cause\nre-run from affected step]
     J --> L[git commit + push\nGitHub → Streamlit Cloud auto-deploys]
 ```
+
+> **Rule**: If a step is not in this diagram, it will not run during weekly CI refresh.
+> Every post-processing script must appear here AND in `refresh_data.yml`.
 
 ---
 

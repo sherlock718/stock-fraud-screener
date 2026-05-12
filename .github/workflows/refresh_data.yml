@@ -83,6 +83,42 @@ jobs:
         run: |
           python3 scripts/fix_dataset_quality.py
 
+      - name: Post-process — impute quarterly features + size_category
+        run: |
+          python3 scripts/impute_features.py
+
+      - name: Post-process — survivorship correction
+        run: |
+          python3 scripts/mark_survivorship.py --fix
+
+      - name: Post-process — compute 5-factor alpha scores
+        run: |
+          python3 scripts/compute_alpha.py
+
+      - name: Post-process — apply ML fraud scores (requires models/)
+        run: |
+          # Download models from HuggingFace if not already present
+          python3 -c "
+          import os, pathlib
+          from huggingface_hub import hf_hub_download
+          import shutil
+          token = os.environ.get('HF_TOKEN')
+          repo = 'ekrash718/stock-screener-data'
+          models_dir = pathlib.Path('models')
+          models_dir.mkdir(exist_ok=True)
+          for fname in ['model_1y.joblib','model_3y.joblib','model_5y.joblib','model_meta.json']:
+              if not (models_dir / fname).exists():
+                  try:
+                      p = hf_hub_download(repo_id=repo, filename=fname, repo_type='dataset', token=token)
+                      shutil.copy(p, models_dir / fname)
+                      print(f'Downloaded {fname}')
+                  except Exception as e:
+                      print(f'Skipping {fname}: {e}')
+          " || true
+          python3 scripts/score_historical.py || echo "ML scoring skipped (models unavailable)"
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+
       - name: Check data quality (mandatory gate)
         run: |
           python3 scripts/check_data.py --fail-fast

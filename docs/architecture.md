@@ -18,15 +18,16 @@ graph TB
     subgraph Pipeline["Data Pipeline — pipeline/ + scripts/"]
         B1[Step 1<br/>Fetch Tickers]
         B2[Step 2<br/>Build Snapshots]
-        B3[Step 3<br/>Enrich Prices]
+        B3[Step 3<br/>Enrich Prices<br/>vol_prior 6m/12m/36m/60m]
         B4[Step 4<br/>Enrich Macro]
-        B5[Step 5<br/>Compute Features<br/>321 base columns]
+        B5[Step 5<br/>Compute Features<br/>sector_pct ranked within fiscal_year]
         B6[Step 6<br/>Clean Dataset]
-        B7[Quarterly Enrichment<br/>enrich_quarterly_features.py<br/>+5 intra-year columns → 326 total]
+        B7[Quarterly Enrichment<br/>enrich_quarterly_features.py<br/>+5 intra-year columns]
         B8[Survivorship Correction<br/>mark_survivorship.py<br/>impute −50% for delisted]
-        B9[Feature Imputation<br/>impute_features.py<br/>+5 quarterly cols + size_category → 341 total]
-        B10[Equity + Vol Patch<br/>patch_equity_vol_features.py<br/>fixes equity coalesce + 5 vol cols → 346 total]
-        B1 --> B2 --> B3 --> B4 --> B5 --> B6 --> B7 --> B8 --> B9 --> B10
+        B9[Feature Imputation<br/>impute_features.py<br/>+5 quarterly cols + size_category]
+        B10[Alpha Scores<br/>compute_alpha.py<br/>5-factor alpha scores]
+        B11[ML Scores<br/>score_historical.py<br/>ml_1y/3y/5y → 346 total cols]
+        B1 --> B2 --> B3 --> B4 --> B5 --> B6 --> B7 --> B8 --> B9 --> B10 --> B11
     end
 
     subgraph Factors["5-Factor Layer — alpha/factors/ ✅ Phase B"]
@@ -90,7 +91,7 @@ graph TB
 | Feature library | `pipeline/feature_library.py` | 326 feature definitions | ✅ |
 | Quarterly enrichment | `scripts/enrich_quarterly_features.py` | 5 intra-year dynamics | ✅ |
 | Feature imputation | `scripts/impute_features.py` | Quarterly cols + size_category recovery → 341 cols | ✅ |
-| Equity + vol patch | `scripts/patch_equity_vol_features.py` | Fix equity coalesce bug + add 5 vol/roa cols → 346 cols | ✅ |
+| Equity + vol patch | `scripts/patch_equity_vol_features.py` | Fix equity coalesce bug + add 5 vol/roa cols → 346 cols | ✅ (one-time; logic now in step3/step5) |
 | Survivorship correction | `scripts/mark_survivorship.py` | Impute −50% return for likely-delisted | ✅ |
 | AAER fraud labels | `scripts/fetch_aaer_labels.py` | 492 positive rows / 118 companies | ✅ |
 | Train models | `scripts/train_models.py` | LightGBM with PSI filter + ICIR selection | ✅ |
