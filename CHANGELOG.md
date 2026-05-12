@@ -18,6 +18,17 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 - **`docs/developer/pipeline-integrity.md`** (new): 5 rules that prevent the class of bugs found in Phase A/B audit — orphan patch columns (Rule 1), cross-sectional rank without time key (Rule 2), CI/dataset drift (Rule 3), stale artifacts after data fix (Rule 4), formula scattering (Rule 5). Includes Phase A and Phase B closure checklists and common anti-patterns table.
 - **`CLAUDE.md`** Change Checklist: Added 3 new rows linking to `pipeline-integrity.md` — triggered on new columns, new rank features, and new post-processing scripts.
 
+### Fixed (Phase B audit — academic formula implementations)
+- **`pipeline/step5_compute_features.py`** Beneish `beneish_depi`: Was computing `dep_rate / dep_rate` (always 1.0). Fixed to compute proper prior-year depreciation rate using growth-rate approximation (same pattern as GMI/SGAI). All 58K rows now have variable DEPI (mean=1.02, std=0.34). `beneish_m_score` recomputed.
+- **`pipeline/step5_compute_features.py`** Altman `altman_x4`: Was using `market_cap_at_filing.fillna(0)` — silently gave 0 contribution for KR/BR (0% market cap fill). Now uses book equity as fallback (Altman Z''-Score variant for private/non-US firms). KR `altman_x4` fill: 0% → 99.7%. `altman_z_score` and `altman_z_score_sector_pct` recomputed.
+- **`pipeline/step5_compute_features.py`** Piotroski F-score signal 6 (`piotroski_delta_liq`): Was using `current_assets_growth > 0` instead of the Piotroski 2000 criterion `Δ(current_ratio) > 0`. Fixed using groupby-shift on `current_ratio` within ticker. `piotroski_f_score` recomputed.
+- **`models/feature_sets_{1y,3y,5y}.json`** re-run on corrected data: 46/46/46 features selected.
+- **`reports/feature_selection_summary.csv`**, **`reports/factor_research_{1y,3y,5y}.csv`** regenerated.
+
+### Added (Phase B audit — research notebooks)
+- **`notebooks/05_market_coverage.ipynb`** (new): Per-market audit — feature fill rates by factor group, year range, forward return label density, and usability summary for all 6 markets.
+- **`notebooks/02_ic_analysis.ipynb`** Section 6 — Temporal IC Stability: year-by-year IC heatmap (feature × year) + stability summary table (mean_IC, ICIR, pct_same_sign). Reveals regime-dependent factors that inflate aggregate ICIR but are unreliable out-of-sample.
+
 ### Changed (Phase B re-runs on corrected data)
 - **`models/feature_sets_{1y,3y,5y}.json`** regenerated: Feature selection re-run on corrected dataset (correct `*_sector_pct` features + fixed equity). 46/47/46 features (5y changed 45→46). Sector_pct features now properly represent within-year cross-sectional signal; more pass IC/ICIR threshold (6-7 per horizon vs 2-4 before).
 - **`reports/feature_selection_summary.csv`** regenerated: 645 rows with updated IC/ICIR.

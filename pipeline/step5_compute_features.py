@@ -272,9 +272,13 @@ def add_fraud_scores(df: pd.DataFrame) -> pd.DataFrame:
     # SGI: Sales Growth Index
     df['beneish_sgi'] = 1 + rev_growth.fillna(0)
 
-    # DEPI: Depreciation Index
-    dep_rate = sdiv(dep, dep + ppe.fillna(0))
-    df['beneish_depi'] = dep_rate / dep_rate  # simplified: flag if dep rate falling
+    # DEPI: Depreciation Index (prior dep rate / current dep rate; Beneish 1999)
+    # DEPI > 1 means the firm slowed depreciation relative to prior year — earnings manipulation signal
+    dep_growth_ = df.get('depreciation_growth', pd.Series(np.nan, index=df.index)).fillna(asset_growth_)
+    dep_prev_   = sdiv(dep, 1 + dep_growth_.clip(-0.9, 10))
+    dep_rate_t    = sdiv(dep,       dep       + ppe.fillna(0))
+    dep_rate_prev = sdiv(dep_prev_, dep_prev_ + ppe_prev_.fillna(0))
+    df['beneish_depi'] = sdiv(dep_rate_prev, dep_rate_t).clip(0, 5)
 
     # SGAI: SGA Expense Index
     df['beneish_sgai'] = sdiv(sdiv(sga, rev), sdiv(sga, rev) / (1 + rev_growth.fillna(0)).clip(0.5, 2))
@@ -311,7 +315,9 @@ def add_fraud_scores(df: pd.DataFrame) -> pd.DataFrame:
     df['altman_x2'] = sdiv(re,  ta)                              # retained earnings / assets
     df['altman_x3'] = sdiv(oi,  ta)                              # EBIT / assets
     total_liab      = (ta - eq).clip(lower=1e3)                  # avoid div-by-zero on near-zero liabilities
-    df['altman_x4'] = sdiv(mc,  total_liab).clip(upper=20)      # market cap / total liabilities, capped at 20
+    # X4: use book equity when market cap is unavailable (Z''-Score variant — non-US markets)
+    mc_or_book = mc.fillna(eq.clip(lower=0))
+    df['altman_x4'] = sdiv(mc_or_book, total_liab).clip(upper=20)
     df['altman_x5'] = sdiv(rev, ta)                              # sales / assets
 
     df['altman_z_score'] = (
@@ -393,7 +399,14 @@ def add_liquidity(df: pd.DataFrame) -> pd.DataFrame:
     df['piotroski_roa_pos']   = (sdiv(ni, ta) > 0).astype(float)
     df['piotroski_delta_roa'] = df.get('net_income_growth', pd.Series(np.nan, index=df.index))
     df['piotroski_delta_lev'] = df.get('debt_growth', pd.Series(np.nan, index=df.index))
-    df['piotroski_delta_liq'] = df.get('current_assets_growth', pd.Series(np.nan, index=df.index))
+    # Piotroski F6: Δ(current_ratio) > 0 — original Piotroski 2000 criterion
+    if 'ticker' in df.columns and 'fiscal_year' in df.columns:
+        _cr_prev = (df.sort_values(['ticker', 'fiscal_year'])
+                      .groupby('ticker')['current_ratio'].shift(1)
+                      .reindex(df.index))
+        df['piotroski_delta_liq'] = df['current_ratio'] - _cr_prev
+    else:
+        df['piotroski_delta_liq'] = df.get('current_assets_growth', pd.Series(np.nan, index=df.index))
 
     return df
 
