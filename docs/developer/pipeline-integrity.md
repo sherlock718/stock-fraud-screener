@@ -104,26 +104,12 @@ The feature registry `docs/methodology/feature-registry.md` and the pipeline mus
 
 ## Phase Closure Checklist
 
-Run this before marking any Phase A or Phase B task as Done.
+**Do not use a task list or memory to declare a phase done.**
 
-```
-PHASE A CLOSURE
-[ ] Dataset shape correct (rows × expected_cols)
-[ ] test_dataset_quality.py — all 53 checks pass
-[ ] refresh_data.yml produces the same dataset as the current parquet (verify step-by-step)
-[ ] data-update-guide.md diagram matches the actual script execution order in CI
-[ ] CHANGELOG.md updated
+Run every check in `docs/developer/phase-done-criteria.md` for the relevant phase.
+All checks must pass. If any fail, fix only the failing item and re-run that check.
 
-PHASE B CLOSURE
-[ ] All new features are in step3_enrich_prices.py or step5_compute_features.py
-[ ] Every groupby rank/percentile includes fiscal_year in the group keys
-[ ] run_feature_selection.py re-run on the current dataset → feature_sets_{1y,3y,5y}.json refreshed
-[ ] factor_research.py re-run → reports/factor_research_{1y,3y,5y}.csv refreshed
-[ ] All 4 notebooks re-run (kernel restart + run all) showing current numbers
-[ ] feature-registry.md column count matches df.shape[1]
-[ ] docs/methodology/features.md table totals match actual column count
-[ ] CHANGELOG.md updated
-```
+The criteria file contains exact shell commands that return PASS/FAIL — no interpretation needed.
 
 ---
 

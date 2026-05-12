@@ -8,6 +8,25 @@ not a fraud screener. Fraud risk is one of five factors (Value · Quality · Mom
 
 ---
 
+## Phase Scope Definition (LOCKED)
+
+| Phase | Contains | Does NOT contain |
+|---|---|---|
+| **Phase A** | Dataset · EDA / data quality · Update schedule · Update diagram | Model training, backtest, bias audit, alpha generation |
+| **Phase B** | Feature library · Feature engineering · Feature selection · Factor research · Research notebooks | Model training, walk-forward AUC, backtest, Phase C items |
+| **Phase C** | Model training · Tuning · Industry-grade backtest · Look-ahead bias audit · Alpha generation schema | Phase A/B items |
+
+**RULE — No re-auditing**: Do not re-audit a phase. Run `docs/developer/phase-done-criteria.md`.
+If all checks pass → phase is done. If a check fails → fix that item only.
+
+**RULE — Phase scope is locked**: Phase C items (model retraining, walk-forward AUC, backtest,
+look-ahead bias, alpha generation) NEVER appear in Phase A/B task lists, gap reports, or audits.
+
+**RULE — "Done" requires the checklist**: A phase is not done because tasks were completed in
+a prior session. It is done when every check in `docs/developer/phase-done-criteria.md` passes.
+
+---
+
 ## Change Checklist — Required Before Every Commit
 
 Work through this matrix for every change before staging files.

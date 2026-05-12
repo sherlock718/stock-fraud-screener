@@ -8,6 +8,17 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Added (Phase scope lock + done criteria)
+- **`docs/developer/phase-done-criteria.md`** (new): Single source of truth for "is Phase A/B done?". Contains exact shell commands that return PASS/FAIL for every Phase A and Phase B acceptance criterion. Replaces vague task-list-based closure checks.
+- **`CLAUDE.md`** Phase Scope Definition section: Locks Phase A/B/C scope. Three rules: no re-auditing, Phase C items never in Phase A/B, done requires the checklist file.
+- **`docs/developer/pipeline-integrity.md`** Phase Closure section: Replaced vague checklist with pointer to `phase-done-criteria.md`.
+
+
+
+---
+
+## [Unreleased]
+
 ### Fixed (Phase B audit — data integrity + in-sample contamination)
 - **`data/historical_dataset_clean.parquet`** 117 BR null-ticker rows dropped (58,307 → 58,190 rows). Brazilian companies that could not be matched to a B3 ticker (Cia Siderúrgica Nacional, JSL, Nexpe, WEG, etc.) silently polluted the dataset. Dropping them restores all 53 quality-test assertions.
 - **`data/historical_dataset_clean.parquet`** 30+ growth/YoY columns winsorized at 1st/99th percentile. `revenue_growth_yoy` max was 184,343× (near-zero base problem); `shares_dilution` max was 2.37B. Unwinsorized growth features dominated IC rankings and could produce extreme gradient-boosted splits.
