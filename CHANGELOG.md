@@ -8,6 +8,10 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Added (Phase B — 5-factor alpha package)
+- **`alpha/factors/`** (new package): Five cross-sectional rank factor modules — `value.py`, `quality.py`, `momentum.py`, `growth.py`, `fraud_risk.py` — plus `composite.py` that blends them into `alpha_composite` with configurable weights (default 0.20 each). All scores are 0–1, ranked within `(fiscal_year, market)` peer groups.
+- **`scripts/compute_alpha.py`** (new): Loads `data/historical_dataset_clean.parquet`, calls `alpha.factors.composite.compute(df)`, and writes `alpha_value`, `alpha_quality`, `alpha_momentum`, `alpha_growth`, `alpha_fraud_risk`, `alpha_composite` (all `float32`) back to the parquet. Dataset grows from 329 → 335 columns. Supports `--dry-run` flag.
+
 ### Added (Phase B — ML scoring)
 - **`scripts/score_historical.py`** (new): Applies trained LightGBM models (1y/3y/5y) to all 58K rows in the dataset. Loads `model_{1y,3y,5y}.joblib` + `model_meta.json`, fills missing features with per-horizon train_medians, calls `predict_proba`, and writes `ml_1y`, `ml_3y`, `ml_5y` float columns back to `data/historical_dataset_clean.parquet`. Dataset grows from 326 → 329 columns. Supports `--dry-run` flag.
 

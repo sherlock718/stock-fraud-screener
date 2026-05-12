@@ -27,7 +27,7 @@ graph TB
         B1 --> B2 --> B3 --> B4 --> B5 --> B6 --> B7 --> B8
     end
 
-    subgraph Factors["5-Factor Layer — alpha/factors/ ⚠️ Phase B"]
+    subgraph Factors["5-Factor Layer — alpha/factors/ ✅ Phase B"]
         F1[Value<br/>P/B · EV/EBITDA · FCF yield]
         F2[Quality<br/>ROE · accruals · Piotroski]
         F3[Momentum<br/>12m-1m return · EPS revision]
@@ -56,7 +56,7 @@ graph TB
     end
 
     subgraph Storage["Storage"]
-        S1[Parquet<br/>data/historical_dataset_clean.parquet<br/>58K rows · 329 columns]
+        S1[Parquet<br/>data/historical_dataset_clean.parquet<br/>58K rows · 335 columns]
         S2[TimescaleDB<br/>hypertable — infra/db/init.sql<br/>Phase C — deferred]
     end
 
@@ -92,7 +92,7 @@ graph TB
 | Train models | `scripts/train_models.py` | LightGBM with PSI filter + ICIR selection | ✅ |
 | Tune models | `scripts/tune_models.py` | Optuna + CatBoost ensemble + Platt calibration | ✅ |
 | Historical ML scoring | `scripts/score_historical.py` | Load models → write ml_1y/3y/5y to parquet | ✅ |
-| **Alpha factor package** | `alpha/factors/` | 5-factor scores: Value · Quality · Momentum · Growth · Fraud Risk | ❌ not built |
+| **Alpha factor package** | `alpha/factors/` | 5-factor scores: Value · Quality · Momentum · Growth · Fraud Risk | ✅ |
 | Backtester | `scripts/backtester.py` | Walk-forward strategy simulation (4 strategies) | ✅ |
 | Factor research | `scripts/factor_research.py` | IC/ICIR/decay analysis | ✅ |
 | Leverage strategy | `scripts/leverage_strategy.py` | Long/short Kelly sizing | ✅ |

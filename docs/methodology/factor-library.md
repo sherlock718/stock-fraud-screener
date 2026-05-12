@@ -226,10 +226,27 @@ Coverage: 74.8% of training rows (companies with at least 2 available quarterly 
 
 ## What This Document Is Not
 
-This is not a scoring rubric. There are no fixed weights here. There is no composite "alpha score" computed by summing these groups.
+This is not a scoring rubric for the ML models. There are no fixed weights governing what the LightGBM models learn. The ML combination of signals into alpha predictions is fully data-driven.
 
-The combination of signals into alpha predictions is the job of the ML models in `scripts/train_models.py`. The combination of alpha signals into a portfolio is the job of `scripts/build_portfolio.py` (Phase 2). Both are data-driven, not manually specified.
+**However**, a separate cross-sectional alpha scoring layer does exist in `alpha/factors/`. This layer produces interpretable 0–1 ranked scores per factor group and a composite, written to the parquet by `scripts/compute_alpha.py`. These scores are used by the Streamlit dashboard and FastAPI screener for display and filtering — not as ML features.
 
-For the feature selection methodology that determines which features from these groups actually reach the models, see [Feature Selection →](feature-selection.md).
+---
 
-For how alpha signals are generated from trained models, see Phase 1 in [ROADMAP →](../../ROADMAP.md).
+## Alpha Composite Scores (alpha/ package)
+
+The `alpha/factors/` package computes cross-sectional rank composites within each `(fiscal_year, market)` peer group. All scores are 0–1 (higher = better signal), stored as `float32` in the parquet.
+
+| Column | Source signals | Inversion logic |
+|---|---|---|
+| `alpha_value` | ev_ebitda, ev_revenue, fcf_yield, earnings_yield, book_to_market, ps_ratio, pe_ratio | Multiples inverted (low multiple = high rank) |
+| `alpha_quality` | roe, roa, roic, gross_margin, operating_margin, ocf_to_ni, piotroski_f_score, accruals_to_assets, sloan_accruals, gross_profit_to_assets | Accruals inverted |
+| `alpha_momentum` | momentum_12m_prior, momentum_6m_prior, momentum_3m_prior, momentum_12m_rank, momentum_6m_rank, momentum_3m_rank | No inversions |
+| `alpha_growth` | revenue_cagr_3y, revenue_growth_yoy, eps_growth_yoy, net_income_growth_yoy, ocf_growth_yoy, gross_profit_growth_yoy | No inversions |
+| `alpha_fraud_risk` | beneish_m_score, ohlson_prob_bankruptcy, altman_z_score, fraud_score_composite/accounting/distress, ml_1y/ml_3y/ml_5y | Danger signals inverted (high score = safer) |
+| `alpha_composite` | Weighted blend of above 5 | — |
+
+**Default composite weights**: equal 0.20 each. Override via `weights` argument to `alpha.factors.composite.compute()`.
+
+**Implementation**: `alpha/factors/` package. Entry point: `scripts/compute_alpha.py`.
+
+For the feature selection methodology that determines which features from these groups actually reach the ML models, see [Feature Selection →](feature-selection.md).

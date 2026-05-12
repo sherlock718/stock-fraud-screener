@@ -57,6 +57,40 @@ After running, `ml_1y`, `ml_3y`, `ml_5y` are available for the backtester and al
 
 ---
 
+### `compute_alpha.py` — Compute 5-factor alpha scores
+
+Loads `data/historical_dataset_clean.parquet`, calls `alpha.factors.composite.compute()` to
+produce cross-sectional rank scores for all five factor groups, and writes the six new columns
+(`alpha_value`, `alpha_quality`, `alpha_momentum`, `alpha_growth`, `alpha_fraud_risk`,
+`alpha_composite`) back to the same parquet. Dataset grows from 329 → 335 columns.
+
+Scores are computed within `(fiscal_year, market)` peer groups so each company is ranked
+against its contemporaries in the same market — not against the global universe.
+
+```bash
+python3 scripts/compute_alpha.py                     # Score and write parquet
+python3 scripts/compute_alpha.py --dry-run           # Print score distributions, no write
+python3 scripts/compute_alpha.py --parquet PATH      # Use alternate parquet path
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--parquet` | `data/historical_dataset_clean.parquet` | Dataset path |
+| `--dry-run` | off | Print score distributions but do not write parquet |
+
+**Outputs**: Updates `data/historical_dataset_clean.parquet` in-place (329 → 335 columns).
+New columns added: `alpha_value`, `alpha_quality`, `alpha_momentum`, `alpha_growth`,
+`alpha_fraud_risk`, `alpha_composite` (all `float32`, range 0–1, higher = stronger signal).
+
+**Score coverage**: ~24K rows have `alpha_composite = NaN` — these are non-US rows where price
+data is absent, so momentum, value, and fraud ML signals are all null. Scores are valid for all
+US rows and the majority of EU/KR rows.
+
+**Re-run when**: any of the five factor modules in `alpha/factors/` are changed, or after
+`score_historical.py` adds updated `ml_*` columns.
+
+---
+
 ### `run_pipeline_eu.py` — EU Pipeline (yfinance free-data)
 
 Orchestrates the full 6-step EU pipeline using Wikipedia index scraping (step 1) and yfinance fundamentals (step 2). No API key required. Covers ~350+ major tickers across DE, FR, NL, BE, SE, NO, DK, FI, IT, ES, PT, AT, IE (~4–5 years of history).

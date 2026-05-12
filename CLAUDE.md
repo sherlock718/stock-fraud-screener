@@ -77,8 +77,8 @@ Work through this matrix for every change before staging files.
 | Survivorship correction | Imputes −50% return for delisted | `scripts/mark_survivorship.py` | ✅ |
 | AAER fraud labels | 492 positive rows / 118 companies | `scripts/fetch_aaer_labels.py` | ✅ |
 | Historical ML scoring | Load models → score all rows → write ml_1y/3y/5y to parquet | `scripts/score_historical.py` | ✅ |
-| Alpha factor package | 5-factor scores (Value/Quality/Momentum/Growth/FraudRisk) | `alpha/factors/` | ❌ not yet built |
-| Primary storage | Parquet file | `data/historical_dataset_clean.parquet` 58K rows × 329 cols | ✅ |
+| Alpha factor package | 5-factor scores (Value/Quality/Momentum/Growth/FraudRisk) | `alpha/factors/` | ✅ |
+| Primary storage | Parquet file | `data/historical_dataset_clean.parquet` 58K rows × 335 cols | ✅ |
 | TimescaleDB | Hypertable for time-series queries | `infra/db/init.sql` + `scripts/migrate_to_db.py` | ⚠️ DB not loaded |
 | ML models | LightGBM 1y/3y/5y, PSI filter + ICIR | `scripts/train_models.py` | ✅ |
 | Calibration | Platt scaling | `scripts/tune_models.py` | ✅ |
@@ -89,8 +89,8 @@ Work through this matrix for every change before staging files.
 | Model/dataset hosting | HuggingFace Hub | `scripts/push_to_hf.py` | ✅ |
 
 ### Critical Missing Pieces
-1. **Alpha factor package** (`alpha/factors/`) — without this, composite alpha score and 5-factor UI are unavailable
-2. **Momentum features** — 0 momentum features in all 329; most documented alpha source (Jegadeesh & Titman 1993)
+1. **Momentum features coverage** — momentum scores present but many rows null (2,926 null); missing price data for non-US markets limits coverage
+2. **SPY benchmark** — backtester uses equal-weight universe mean, not SPY; CAGR/excess return numbers are misleading
 3. **SPY benchmark** — backtester uses equal-weight universe mean, not SPY; CAGR/excess return numbers are misleading
 
 ### Current Performance
