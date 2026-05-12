@@ -8,6 +8,11 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Added (Phase A/B — EDA cells)
+- **`notebooks/01_eda_dataset.ipynb`** Section 3a: Null profile heatmap (key features × market) — identifies which markets have missing data for critical columns.
+- **`notebooks/01_eda_dataset.ipynb`** Section 4a: Forward return Q-Q plot + outlier stats (min/p1/p25/median/p75/p99/max) with treatment note (pre/post winsorization documentation).
+- **`notebooks/01_eda_dataset.ipynb`** Section 4b: Point-in-time lineage check — counts violations where `filed_date > fiscal_year+1-01-01`; plots filing lag distribution.
+
 ### Fixed (Phase A — data targets + CI sync)
 - **`data/historical_dataset_clean.parquet`** forward_return targets winsorized at p1/p99: `forward_return_1y` max was 29,999% (penny stock data error) → now capped at [−0.926, 3.906]; `forward_return_3y` capped at [−0.995, 6.989]; `forward_return_5y` capped at [−0.999, 9.227].
 - **`scripts/test_dataset_quality.py`** Section 7 upgraded: now enforces winsorization hard caps (1y ≤ 5.0×, 3y ≤ 10.0×, 5y ≤ 20.0×) in addition to coverage checks.
