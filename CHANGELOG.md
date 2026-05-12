@@ -10,6 +10,9 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ### Added (Phase B — notebooks)
 - **`notebooks/02_ic_analysis.ipynb`** added Sec 7 IC decay curves (t+1y/2y/3y for top 10 features), Sec 8 quintile return spreads (Q1-Q5 mean returns + Sharpe), Sec 9 Fama-MacBeth regression (annual cross-sectional slope t-stats), Sec 10 market regime IC (recession vs expansion), Sec 11 long-short decomposition (long/short legs + spread), Sec 12 information ratio per factor (IR > 0.5 threshold). Executed with outputs.
+- **`notebooks/03_factor_correlation.ipynb`** re-executed with fresh outputs (V4 schema compatibility verified).
+- **`notebooks/04_null_recovery_audit.ipynb`** re-executed with fresh outputs.
+- **`notebooks/05_market_coverage.ipynb`** re-executed with fresh outputs.
 
 ### Added (Phase B — feature selection)
 - **`scripts/run_feature_selection.py`** Newey-West HAC t-statistic (`ic_tstat_nw`) and p-value (`ic_pval_nw`) computed per feature IC time series. Corrects for IC autocorrelation across fiscal years.
