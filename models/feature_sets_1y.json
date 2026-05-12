@@ -1,21 +1,18 @@
 {
   "features": [
-    "ml_1y",
-    "ml_5y",
-    "ml_3y",
     "alpha_fraud_risk",
     "ev_revenue",
     "ps_ratio_sector_pct",
     "alpha_value",
     "alpha_composite",
-    "ocf_growth_yoy",
+    "ocf_growth",
     "data_confidence",
     "capex_intensity",
     "value_composite",
     "ocf_to_assets",
     "pb_ratio_sector_pct",
     "net_income_growth_yoy",
-    "altman_x5",
+    "asset_turnover",
     "altman_x4",
     "debt_to_assets_sector_pct",
     "small_x_quality",
@@ -41,13 +38,15 @@
     "earnings_qoq_mean",
     "piotroski_roa_pos",
     "pb_ratio",
-    "current_ratio_sector_pct",
     "working_capital",
+    "current_ratio_sector_pct",
     "shares_growth",
-    "roa_volatility_5yr",
-    "beneish_gmi"
+    "earnings_stability_roa_5yr",
+    "beneish_gmi",
+    "ohlson_nits",
+    "operating_margin"
   ],
-  "n": 46,
+  "n": 45,
   "horizon": "1y",
-  "generated": "2026-05-12T21:13:21.754421+00:00"
+  "generated": "2026-05-12T21:37:20.361457+00:00"
 }

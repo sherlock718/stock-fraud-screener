@@ -712,6 +712,34 @@ Fixes applied:
 
 ---
 
+### `test_dataset_quality.py` — Dataset Quality Test Suite
+
+92-check automated test suite for `data/historical_dataset_clean.parquet`. Run after any dataset modification to verify integrity before push.
+
+```bash
+python3 scripts/test_dataset_quality.py              # show failures/warnings only
+python3 scripts/test_dataset_quality.py --verbose    # print all 92 checks
+python3 scripts/test_dataset_quality.py --parquet PATH  # custom file
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--verbose` | False | Print all checks, not just failures |
+| `--parquet PATH` | `data/historical_dataset_clean.parquet` | Path to parquet |
+
+Sections:
+1. **Schema** — required columns present, fiscal_year dtype
+2. **Structural** — annual-only, no blank tickers, no duplicate PKs, no inf values
+3. **Market coverage** — minimum ticker count and year span per market
+4. **Fill rates** — core financial columns above minimum thresholds
+5. **Distribution sanity** — fraud scores in [0,1], Piotroski in [0,9], in_universe binary
+6. **Fraud label integrity** — leakage check, fraud_suspect consistency
+7. **Forward return coverage** — ≥15% fill per market
+8. **Growth feature winsorization** (Rule 6) — any growth column with max > 50 × p99 fails
+9. **ML score exclusion** (Rule 7) — `ml_1y/3y/5y` must not appear in `models/feature_sets_*.json`
+
+---
+
 ### `build_fraud_labels.py` — Multi-Source Fraud Label System
 
 Builds `data/fraud_labels.parquet` from three free public sources: SEC AAER releases, SEC EDGAR bankruptcy filings (Form 15/BK), and Stanford Securities Class Action Clearinghouse (SCAC). Use this to bootstrap or extend the fraud label set beyond what `fetch_aaer_labels.py` covers.

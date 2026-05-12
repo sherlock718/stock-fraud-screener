@@ -2,7 +2,7 @@
 
 **A research-grade quantitative alpha generation platform covering 14 markets — US, Korea, Canada, Japan, Brazil, and 9 European markets.**
 
-The platform scores companies across five orthogonal factor groups — **Value, Quality, Momentum, Growth, and Fraud Risk** — and combines them into a composite alpha score. It trains LightGBM models on 1-year, 3-year, and 5-year return horizons using 58,307 company-year observations and 341 columns (332 features + 3 ML scores + 6 alpha scores). Each company receives a SHAP-based attribution showing which signals drove its score.
+The platform scores companies across five orthogonal factor groups — **Value, Quality, Momentum, Growth, and Fraud Risk** — and combines them into a composite alpha score. It trains LightGBM models on 1-year, 3-year, and 5-year return horizons using 58,190 company-year observations and 346 columns (340 features + 6 alpha scores). Each company receives a SHAP-based attribution showing which signals drove its score.
 
 ---
 

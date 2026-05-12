@@ -9,6 +9,8 @@ Checks:
   5. Distribution sanity — ratios within plausible ranges, no inf values
   6. Fraud label integrity — no label leakage, confirmed vs suspect consistency
   7. Forward return coverage — at least 30% fill per market
+  8. Growth feature winsorization — Rule 6: no growth column exceeds p99 threshold
+  9. ML score exclusion — Rule 7: ml_1y/3y/5y absent from feature_sets_*.json
 
 Usage:
     python3 scripts/test_dataset_quality.py
@@ -18,6 +20,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -294,6 +297,85 @@ def test_forward_returns(df: pd.DataFrame, r: TestResult) -> None:
             r.ok(f"{mkt} forward_return_1y fill={fill:.1%}")
 
 
+# ── 8. Growth Feature Winsorization (Rule 6) ─────────────────────────────────
+
+# Columns that must be winsorized. Max absolute value after winsorization should be
+# at most 50× the p99 of the absolute column (loose guard — catches forgotten columns).
+GROWTH_COLS = [
+    "revenue_growth_yoy", "revenue_growth",
+    "net_income_growth_yoy", "net_income_growth",
+    "asset_growth_yoy", "assets_growth",
+    "eps_growth_yoy", "eps_growth",
+    "gross_profit_growth_yoy",
+    "ocf_growth_yoy", "ocf_growth",
+    "capex_growth_yoy", "capex_growth",
+    "receivables_growth_yoy", "receivables_growth",
+    "inventory_growth_yoy", "inventory_growth",
+    "ap_growth_yoy", "ap_growth",
+    "debt_growth_yoy", "debt_growth",
+    "lt_debt_growth_yoy",
+    "cogs_growth_yoy", "cogs_growth",
+    "sga_growth_yoy", "sga_growth",
+    "rd_growth_yoy", "rd_growth",
+    "ppe_growth_yoy", "ppe_growth",
+    "equity_growth", "equity_change_yoy",
+    "shares_dilution", "shares_growth",
+    "cash_change_yoy", "cash_growth",
+]
+# Any column with max/abs > this multiple of p99 has likely not been winsorized.
+_WINSOR_GUARD = 50.0
+
+
+def test_growth_winsorization(df: pd.DataFrame, r: TestResult) -> None:
+    print("\n[8] Growth feature winsorization checks (Rule 6)")
+    present = [c for c in GROWTH_COLS if c in df.columns]
+    if not present:
+        r.warn("No growth columns found — skipping Rule 6 check")
+        return
+    for col in present:
+        s = df[col].dropna().abs()
+        if len(s) == 0:
+            continue
+        p99 = s.quantile(0.99)
+        col_max = s.max()
+        if p99 > 0 and col_max > _WINSOR_GUARD * p99:
+            r.fail(
+                f"{col}: max={col_max:.1f} is {col_max/p99:.0f}× p99={p99:.2f} "
+                f"— likely NOT winsorized (Rule 6)"
+            )
+        else:
+            r.ok(f"{col}: max={col_max:.2f}, p99={p99:.2f} — winsorized ✓")
+
+
+# ── 9. ML Score Exclusion (Rule 7) ───────────────────────────────────────────
+
+_ML_SCORES = {"ml_1y", "ml_3y", "ml_5y"}
+_FEATURE_SET_GLOB = "models/feature_sets_*.json"
+
+
+def test_ml_score_exclusion(r: TestResult, base: Path) -> None:
+    print("\n[9] ML score exclusion from feature sets (Rule 7)")
+    paths = sorted(base.glob(_FEATURE_SET_GLOB))
+    if not paths:
+        r.warn(f"No feature_sets_*.json found under {base} — skipping Rule 7 check")
+        return
+    for path in paths:
+        try:
+            obj = json.loads(path.read_text())
+            features = set(obj["features"] if isinstance(obj, dict) else obj)
+        except Exception as exc:
+            r.warn(f"{path.name}: could not parse — {exc}")
+            continue
+        leaked = _ML_SCORES & features
+        if leaked:
+            r.fail(
+                f"{path.name}: contains ML-derived scores {sorted(leaked)} "
+                f"— circular contamination risk (Rule 7)"
+            )
+        else:
+            r.ok(f"{path.name}: no ML scores in feature set ({len(features)} features)")
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def run(parquet_path: Path, verbose: bool = False) -> int:
@@ -314,6 +396,8 @@ def run(parquet_path: Path, verbose: bool = False) -> int:
     test_distributions(df, r)
     test_fraud_labels(df, r)
     test_forward_returns(df, r)
+    test_growth_winsorization(df, r)
+    test_ml_score_exclusion(r, parquet_path.parent.parent)
 
     if verbose:
         print()

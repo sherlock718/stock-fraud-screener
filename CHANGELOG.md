@@ -8,7 +8,31 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
-### Fixed (Phase A/B audit — pipeline integrity)
+### Fixed (Phase B audit — data integrity + in-sample contamination)
+- **`data/historical_dataset_clean.parquet`** 117 BR null-ticker rows dropped (58,307 → 58,190 rows). Brazilian companies that could not be matched to a B3 ticker (Cia Siderúrgica Nacional, JSL, Nexpe, WEG, etc.) silently polluted the dataset. Dropping them restores all 53 quality-test assertions.
+- **`data/historical_dataset_clean.parquet`** 30+ growth/YoY columns winsorized at 1st/99th percentile. `revenue_growth_yoy` max was 184,343× (near-zero base problem); `shares_dilution` max was 2.37B. Unwinsorized growth features dominated IC rankings and could produce extreme gradient-boosted splits.
+- **`scripts/train_models.py`** `EXCLUDE` set: Added `ml_1y`, `ml_3y`, `ml_5y`. `score_historical.py` scores ALL historical rows with a model trained up to `TRAIN_CUTOFF=2022`, inflating IC for 2008–2022 training rows. Including ML scores as feature-selection candidates would make the next training run self-referential (model trains on its own predictions). Walk-forward OOF scoring required before these can re-enter (Phase C).
+- **`models/feature_sets_{1y,3y,5y}.json`** re-run: 45/46/45 features (ml_1y/3y/5y removed from all three horizons; `alpha_*` remains — no forward-return contamination).
+
+### Added (Phase B audit — prevention framework)
+- **`docs/developer/pipeline-integrity.md`** Rule 6: All growth/YoY features must be winsorized at 1st/99th percentile in `step5_compute_features.py`. Documents root cause (near-zero base), IC-inflation mechanism, and how to apply (add new column to `ratio_cols` before closing task).
+- **`docs/developer/pipeline-integrity.md`** Rule 7: ML-derived score columns (`ml_1y/3y/5y` and future equivalents) must appear in the `EXCLUDE` set in `train_models.py` and must never appear in `models/feature_sets_*.json`. Documents circular contamination mechanism.
+- **`CLAUDE.md`** Change Checklist: 2 new rows — (1) "New growth/YoY feature added → add to `ratio_cols` winsorize list (Rule 6)"; (2) "New ML-derived score column added → add to `EXCLUDE` before running feature selection (Rule 7)".
+- **`scripts/test_dataset_quality.py`** Section 8: Growth feature winsorization guard — asserts that no growth column has `max > 50 × p99` (catches future unwinsorized columns). Covers 36 growth/YoY/dilution columns.
+- **`scripts/test_dataset_quality.py`** Section 9: ML score exclusion guard — asserts that `ml_1y`, `ml_3y`, `ml_5y` do not appear in any `models/feature_sets_*.json`. Catches regression if EXCLUDE set is edited carelessly.
+- **`docs/developer/data-update-guide.md`** Column count reference updated: 326 → 346; row count 58,307 → 58,190; full step-by-step table added.
+- Quality test suite now has 92 checks (up from 53).
+
+### Added (Phase B audit — research notebooks)
+- **`notebooks/05_market_coverage.ipynb`** (new): Per-market audit — feature fill rates by factor group, year range, forward return label density, and usability summary for all 6 markets.
+- **`notebooks/02_ic_analysis.ipynb`** Section 6 — Temporal IC Stability: year-by-year IC heatmap (feature × year) + stability summary table (mean_IC, ICIR, pct_same_sign). Reveals regime-dependent factors that inflate aggregate ICIR but are unreliable out-of-sample.
+
+### Fixed (Phase B audit — academic formula implementations)
+- **`pipeline/step5_compute_features.py`** Beneish `beneish_depi`: Was computing `dep_rate / dep_rate` (always 1.0). Fixed to compute proper prior-year depreciation rate using growth-rate approximation. All 58K rows now have variable DEPI (mean=1.02, std=0.34). `beneish_m_score` recomputed.
+- **`pipeline/step5_compute_features.py`** Altman `altman_x4`: Was using `market_cap_at_filing.fillna(0)` — silently gave 0 contribution for KR/BR (0% market cap fill). Now uses book equity as fallback (Altman Z''-Score variant for private/non-US firms). KR `altman_x4` fill: 0% → 99.7%. `altman_z_score` recomputed.
+- **`pipeline/step5_compute_features.py`** Piotroski F-score signal 6 (`piotroski_delta_liq`): Was using `current_assets_growth > 0` instead of Piotroski 2000 criterion `Δ(current_ratio) > 0`. Fixed using groupby-shift on `current_ratio` within ticker. `piotroski_f_score` recomputed.
+
+
 - **`pipeline/step5_compute_features.py`** `compute_sector_pct_ranks()`: Added `fiscal_year` to groupby — was `groupby('sic_2digit')`, now `groupby(['sic_2digit', 'fiscal_year'], observed=True)`. Without this, a 2005 company was ranked against 2005–2024 sector peers (temporal lookahead in feature space). Affects 18 `*_sector_pct` columns. Dataset patched in-place; feature selection and factor research re-run.
 - **`pipeline/step3_enrich_prices.py`** `enrich_row()`: Added `vol_prior_6m` (126d), `vol_prior_36m` (756d), `vol_prior_60m` (1260d) natively alongside existing `vol_prior_12m`. Previously these existed only via a one-off patch script and were silently dropped on every CI rebuild (Rule 1 violation).
 - **`pipeline/step5_compute_features.py`**: Added `roa_volatility_5yr` and `earnings_stability_roa_5yr` natively after `roe_volatility_5yr` (same violation — existed only in patch script).

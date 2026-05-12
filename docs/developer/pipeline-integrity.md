@@ -127,6 +127,64 @@ PHASE B CLOSURE
 
 ---
 
+## Rule 6 — All growth YoY features must be winsorized at 1st/99th percentile
+
+**Rule**: Every `*_growth_yoy`, `*_growth`, `*_dilution`, and `*_change_yoy` column must
+appear in the `ratio_cols` winsorize list in `step5_compute_features.py`. No growth feature
+may enter the pipeline unwinsorized.
+
+```python
+# In step5_compute_features.py, confirm your new column is in ratio_cols:
+ratio_cols = [
+    ...
+    'your_new_growth_yoy',   # ← add it here
+]
+```
+
+**Why**: Near-zero denominator companies (e.g. revenue near $0 rebounding) produce growth
+multiples of 184,343× or higher. These outliers dominate ICIR scores, causing the feature
+selector to rank an extreme-outlier column as the most predictive feature. `revenue_growth_yoy`
+had a max of 184,343 before winsorization was added. A single unwinsorized growth feature
+can inflate IC, skew feature selection, and break the gradient boosted model with extreme
+splits.
+
+**How to apply**: Any time you add a `*_growth`, `*_yoy`, `*_dilution`, or `*_change`
+column to `feature_library.py` or `step5_compute_features.py`, immediately add it to
+`ratio_cols` in the winsorize block of `step5_compute_features.py`. Run
+`test_dataset_quality.py` to verify the check in Section 8 still passes.
+
+---
+
+## Rule 7 — ML-derived scores are not feature selection candidates
+
+**Rule**: `ml_1y`, `ml_3y`, `ml_5y` (and any future ML-derived columns) must appear in
+the `EXCLUDE` set in `scripts/train_models.py` and must never appear in any
+`models/feature_sets_*.json` output.
+
+```python
+# In scripts/train_models.py:
+EXCLUDE = {
+    ...
+    # ML-derived scores — in-sample contamination: score_historical.py scores ALL rows
+    # including training rows, so IC(ml_1y, forward_return_1y) is inflated for 2008-TRAIN_CUTOFF.
+    'ml_1y', 'ml_3y', 'ml_5y',
+}
+```
+
+**Why**: `score_historical.py` loads a model trained on rows up to `train_cutoff=2022` and
+then scores **all** historical rows, including the training rows. The resulting `ml_1y` column
+therefore has an inflated IC for 2008–2022 rows (the model memorized them). If `ml_1y` passes
+the ICIR filter, it enters the feature set and the next training run becomes self-referential
+— the model trains on its own lagged predictions. This is circular contamination, not
+generalization. The correct fix is walk-forward OOF scoring (Phase C).
+
+**How to apply**: If you add a new ML-derived column (e.g. `ml_fraud_v2`), add it to
+`EXCLUDE` before running `run_feature_selection.py`. After selection, verify it is absent
+from all three `models/feature_sets_*.json` files. The quality test in Section 9 of
+`test_dataset_quality.py` enforces this automatically.
+
+---
+
 ## Common Anti-Patterns (and What To Do Instead)
 
 | Anti-pattern | What happens | Do this instead |

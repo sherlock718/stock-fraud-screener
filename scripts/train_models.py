@@ -97,6 +97,10 @@ EXCLUDE = {
     'retained_earnings', 'additional_paid_in_capital', 'inventory',
     # fraud labels — these are targets/outputs, not input features
     'fraud_confirmed', 'fraud_suspect', 'fraud_label',
+    # ML-derived scores — in-sample contamination: score_historical.py scores ALL rows
+    # including training rows, so IC(ml_1y, forward_return_1y) is inflated for 2008-TRAIN_CUTOFF.
+    # Use these only when generated with walk-forward OOF scoring (Phase C).
+    'ml_1y', 'ml_3y', 'ml_5y',
 }
 EXCLUDE_PATTERNS = ['forward_return', 'beat_local_market', 'excess_return_local',
                     'benchmark_return', 'fraud_score_']  # fraud_score_* are UI display, not ML features

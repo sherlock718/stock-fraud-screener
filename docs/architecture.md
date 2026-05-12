@@ -92,7 +92,7 @@ graph TB
 | Quarterly enrichment | `scripts/enrich_quarterly_features.py` | 5 intra-year dynamics | ✅ |
 | Feature imputation | `scripts/impute_features.py` | Quarterly cols + size_category recovery → 341 cols | ✅ |
 | Equity + vol patch | `scripts/patch_equity_vol_features.py` | Fix equity coalesce bug + add 5 vol/roa cols → 346 cols | ✅ (one-time; logic now in step3/step5) |
-| Beneish/Altman/Piotroski | `pipeline/step5_compute_features.py` | Fixed DEPI (was 1.0), Altman X4 book-equity fallback for non-US, Piotroski F6 Δ(current_ratio) | ✅ |
+| Beneish/Altman/Piotroski | `pipeline/step5_compute_features.py` | Fixed DEPI (was 1.0), Altman X4 book-equity fallback for non-US, Piotroski F6 Δ(current_ratio); growth features winsorized at p1/p99 | ✅ |
 | Survivorship correction | `scripts/mark_survivorship.py` | Impute −50% return for likely-delisted | ✅ |
 | AAER fraud labels | `scripts/fetch_aaer_labels.py` | 492 positive rows / 118 companies | ✅ |
 | Train models | `scripts/train_models.py` | LightGBM with PSI filter + ICIR selection | ✅ |

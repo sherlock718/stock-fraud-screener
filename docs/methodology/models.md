@@ -129,3 +129,11 @@ python3 scripts/train_models.py --walk-forward
 | `--min-ic-years` | `5` | Minimum years of valid IC data to trust ICIR ranking |
 | `--top-n` | `40` | Max features per horizon before deduplication |
 | `--no-dedup` | False | Skip Spearman correlation deduplication step |
+
+### Excluded Columns (EXCLUDE set in `train_models.py`)
+
+Certain columns are unconditionally excluded from feature selection regardless of their IC score:
+
+- **Identifier / label columns** — `ticker`, `cik`, `market`, `fiscal_year`, `forward_return_*`, etc.
+- **Forward-looking columns** — any column derived from future data
+- **`ml_1y`, `ml_3y`, `ml_5y`** — in-sample contamination: `score_historical.py` scores all rows including training rows, so IC is inflated for 2008–`TRAIN_CUTOFF`. These may re-enter as candidates only when generated with walk-forward OOF scoring (Phase C). See `docs/developer/pipeline-integrity.md` Rule 7.

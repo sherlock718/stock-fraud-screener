@@ -770,15 +770,40 @@ def run():
         )
         df['earnings_stability_roa_5yr'] = -df['roa_volatility_5yr']
 
-    # ── Winsorize key ratios ───────────────────────────────────────────────────
+    # ── Winsorize key ratios and growth features ──────────────────────────────
+    # Rule: ALL growth _yoy columns must be winsorized here (pipeline-integrity Rule 6).
+    # Without winsorization, companies growing from near-zero (revenue 1 → 184,343×) or
+    # extreme micro-cap EPS swings dominate LightGBM splits and inflate IC estimates.
     print('  Winsorizing extreme values (1st-99th percentile) ...')
     ratio_cols = [
+        # Valuation ratios
         'pe_ratio', 'pb_ratio', 'ps_ratio', 'ev_ebitda', 'ev_revenue',
+        # Profitability
         'roa', 'roe', 'roic', 'sloan_accruals', 'beneish_m_score',
         'altman_z_score', 'ohlson_o_score', 'ocf_to_ni',
         'days_sales_outstanding', 'days_inventory', 'cash_conversion_cycle',
         'receivables_minus_revenue_growth', 'delta_dso',
         'gross_profit_to_assets', 'earnings_stability_5yr',
+        # Growth YoY — must be winsorized: near-zero base causes extreme multiples
+        'revenue_growth_yoy', 'revenue_growth',
+        'net_income_growth_yoy', 'net_income_growth',
+        'asset_growth_yoy', 'assets_growth',
+        'eps_growth_yoy', 'eps_growth',
+        'gross_profit_growth_yoy',
+        'ocf_growth_yoy', 'ocf_growth',
+        'capex_growth_yoy', 'capex_growth',
+        'receivables_growth_yoy', 'receivables_growth',
+        'inventory_growth_yoy', 'inventory_growth',
+        'ap_growth_yoy', 'ap_growth',
+        'debt_growth_yoy', 'debt_growth',
+        'lt_debt_growth_yoy',
+        'cogs_growth_yoy', 'cogs_growth',
+        'sga_growth_yoy', 'sga_growth',
+        'rd_growth_yoy', 'rd_growth',
+        'ppe_growth_yoy', 'ppe_growth',
+        'equity_growth', 'equity_change_yoy',
+        'shares_dilution', 'shares_growth',
+        'cash_change_yoy', 'cash_growth',
     ]
     for col in ratio_cols:
         if col in df.columns:

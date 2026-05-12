@@ -244,6 +244,8 @@ Korean companies sometimes file multiple fiscal years in a single batch submissi
 |---|---|---|
 | After step5 (`historical_dataset.parquet`) | varies | ~320 |
 | After step6 clean | annual-only | 326 |
-| After enterprise_value + sector enrichment | 58,307 | 326 |
+| After quarterly enrichment + imputation + patch | 58,307 | 341 |
+| After equity/vol patch + alpha scores + ML scores | 58,307 | 346 |
+| After BR null-ticker drop + growth winsorization | 58,190 | 346 |
 
-Current production dataset: **58,307 rows × 326 columns**
+Current production dataset: **58,190 rows × 346 columns**
