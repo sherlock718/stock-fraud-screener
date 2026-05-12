@@ -13,6 +13,10 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 - **`docs/architecture.md`**, **`docs/index.md`**, **`docs/methodology/models.md`**, **`README.md`**, **`CLAUDE.md`** updated: column count 346 → 355; PSI threshold 2.0 → 0.25 in models.md flowchart.
 - **`.github/workflows/refresh_data.yml`** added `test_dataset_quality.py` quality gate step after `check_data.py`.
 
+### Fixed (Phase B — factor research)
+- **`scripts/factor_research.py`** output dict: added `ic` key (alias for `mean_ic`) so `reports/factor_research_*.csv` includes the standard `ic` column required by phase-done-criteria.md B4.
+- **`reports/factor_research_{1y,3y,5y}.csv`** regenerated (non-sector-neutral) and **`_sn`** variants regenerated (sector-neutral) with updated column schema.
+
 ### Added (Phase B — notebooks)
 - **`notebooks/02_ic_analysis.ipynb`** added Sec 7 IC decay curves (t+1y/2y/3y for top 10 features), Sec 8 quintile return spreads (Q1-Q5 mean returns + Sharpe), Sec 9 Fama-MacBeth regression (annual cross-sectional slope t-stats), Sec 10 market regime IC (recession vs expansion), Sec 11 long-short decomposition (long/short legs + spread), Sec 12 information ratio per factor (IR > 0.5 threshold). Executed with outputs.
 - **`notebooks/03_factor_correlation.ipynb`** re-executed with fresh outputs (V4 schema compatibility verified).

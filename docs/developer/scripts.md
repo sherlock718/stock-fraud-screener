@@ -385,6 +385,8 @@ python3 scripts/factor_research.py --decay-plot
 
 Computes IC, ICIR, and factor decay curves for all features. Used to select features for model training.
 
+Output CSV columns: `ic` (mean IC, standard alias), `mean_ic` (same value, legacy name), `icir`, `ic_tstat`, `pct_positive_ic`, `n_years`, `turnover`, `q1_ret`, `q5_ret`, `q_spread`.
+
 ---
 
 ### `leverage_strategy.py` — Long/Short Kelly Portfolio

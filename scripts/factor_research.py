@@ -228,6 +228,7 @@ def analyse_factor(df: pd.DataFrame, feature: str, ret_col: str,
     q_spread = _compute_quintile_spread(df, feature, ret_col)
     return {
         'feature':         feature,
+        'ic':              round(mean_ic, 5),
         'mean_ic':         round(mean_ic, 5),
         'std_ic':          round(std_ic, 5),
         'icir':            round(icir, 4),
