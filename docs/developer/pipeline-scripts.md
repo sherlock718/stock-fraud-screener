@@ -22,7 +22,7 @@ Fetches the company universe for a given market. Each market variant hits a diff
 | `step1_fetch_tickers_ca.py` | CA | SEDAR+ scraper |
 | `step1_fetch_tickers_br.py` | BR | B3/CVM listing — text heuristics match, no per-ticker API calls |
 
-**BR matching** (`step1_fetch_tickers_br.py`): Downloads the CVM company register (~500 active BOLSA companies) and the full brapi.dev ticker list (1,800+ symbols, `/api/available` only). Matches CVM names to 4-letter B3 ticker roots using two heuristics: (1) first 4 letters of the normalised commercial name, (2) acronym of first 4 words. No per-ticker brapi API calls — all 1,800+ tickers are covered without a cap. Expected match rate: 300–400+ tickers.
+**BR matching** (`step1_fetch_tickers_br.py`): Downloads the CVM company register (~353 active BOLSA companies) and the full brapi.dev ticker list (1,800+ symbols, `/api/available` only). Matches CVM names to 4-letter B3 ticker roots using 6 strategies: (1) first 4 letters of normalised commercial name, (2) first 4 letters of first meaningful word, (3) 4-letter acronym, (4) 2+2 acronym, (5) second word prefix, (6) 3-letter unique match. Stop-words (`BANCO`, `CIA`, `HOLDING`, `PARTICIPACOES`, etc.) are filtered before matching. A `CURATED_OVERRIDES` dict provides confirmed tickers for 11+ companies with acronym-based symbols (BBDC3, BBAS3, CMIG3, BRSR3, etc.). Regex covers share classes 3–9. Match rate: 112 / 353 (32%).
 
 Output: `data/tickers_{market}.csv` — columns: `ticker, cik, company_name, exchange, sic_code, country`
 

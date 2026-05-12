@@ -673,9 +673,16 @@ def run():
         'shares_dilution':         'shares_growth',
         'shares_outstanding':      'common_shares_outstanding',
     }
+    # Coalesce columns that may exist in both src and dst (prefer src which has better coverage)
+    COALESCE_ALIASES = {'equity', 'sga_expense'}
     for src, dst in COLUMN_ALIASES.items():
-        if src in df.columns and dst not in df.columns:
+        if src not in df.columns:
+            continue
+        if dst not in df.columns:
             df[dst] = df[src]
+        elif src in COALESCE_ALIASES:
+            # src has better coverage than the sparse dst coming from snapshots
+            df[dst] = df[src].combine_first(df[dst])
     # asset_growth_yoy maps to two names — handle the second explicitly
     if 'asset_growth_yoy' in df.columns and 'current_assets_growth' not in df.columns:
         df['current_assets_growth'] = df['asset_growth_yoy']

@@ -1,6 +1,6 @@
 # Feature Engineering
 
-The pipeline computes **326 features** per company-year observation. Features are organized into two parallel taxonomies: the **5-factor grouping** (how they're consumed in portfolio construction) and the **8-category grouping** (how they're computed in `pipeline/feature_library.py`).
+The pipeline computes **346 features** per company-year observation. Features are organized into two parallel taxonomies: the **5-factor grouping** (how they're consumed in portfolio construction) and the **8-category grouping** (how they're computed in `pipeline/feature_library.py`).
 
 The ML models use ~35 ICIR-selected features per horizon. See [Feature Selection →](feature-selection.md) for the full selection methodology.
 
@@ -38,8 +38,9 @@ This is how features are organized in `pipeline/feature_library.py` (single sour
 | Market & Price | 32 | Momentum | Returns, beta, volatility, volume |
 | Momentum rank transforms | 5 | Momentum | Cross-sectional ranks within (fiscal_year × market): momentum_12m_rank, momentum_6m_rank, momentum_3m_rank, vol_rank_12m, momentum_composite_rank |
 | Derived / Interaction | 63 | All | Cross-products of top single features |
-| **Quarterly enriched** | **5** | Quality / Fraud Risk | Intra-year dynamics from Q1/Q2/Q3 filings |
-| **Total** | **326** | | |
+| **Quarterly enriched** | 5 | Quality / Fraud Risk | Intra-year dynamics from Q1/Q2/Q3 filings |
+| **Volatility (multi-horizon)** | **5** | Momentum / Quality | Annualised price vol (6m/36m/60m) + ROA rolling std (5yr) |
+| **Total** | **346** | | |
 
 ---
 
@@ -151,7 +152,24 @@ Raw price features (existing):
 
 ---
 
-## Growth Features
+## Multi-Horizon Volatility Features
+
+Annualised daily-return volatility and rolling fundamental stability, added via `scripts/patch_equity_vol_features.py`. Computed from `price_cache.db` (daily prices) and rolling ROA/ROE series.
+
+| Feature | Formula | Fill Rate | Notes |
+|---|---|---|---|
+| `vol_prior_6m` | `std(daily_returns[-126d]) × √252` | 95.4% | Short-term volatility, ~6 months lookback |
+| `vol_prior_12m` | `std(daily_returns[-252d]) × √252` | 95.5% | Medium-term (already existed) |
+| `vol_prior_36m` | `std(daily_returns[-756d]) × √252` | 95.5% | Long-term regime volatility |
+| `vol_prior_60m` | `std(daily_returns[-1260d]) × √252` | 95.4% | 5-year baseline volatility |
+| `roa_volatility_5yr` | `rolling(5yr).std(roa)`, min 3 obs | 91.5% | Fundamental earnings stability |
+| `earnings_stability_roa_5yr` | `−roa_volatility_5yr` | 91.5% | Positive = more stable ROA |
+| `roe_volatility_5yr` | `rolling(5yr).std(roe)`, min 3 obs | 64.3% | Lower fill due to sparser ROE |
+| `earnings_stability_5yr` | `−roe_volatility_5yr` | 64.3% | Positive = more stable ROE |
+
+Minimum 20 trading-day observations required for price-based windows. All price volatilities are annualised via ×√252.
+
+
 
 Fundamental growth trajectory and capital allocation signals.
 

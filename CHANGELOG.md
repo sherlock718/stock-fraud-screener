@@ -8,7 +8,20 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Fixed (Phase A/B — equity coalesce bug + dataset patch)
+- **`pipeline/step5_compute_features.py`** (`COALESCE_ALIASES`): Root cause of 9 null columns found and fixed — `COLUMN_ALIASES` loop used `if dst not in df.columns` which skipped `equity → total_equity` because `total_equity` already existed at 0.2% fill. Added `COALESCE_ALIASES = {'equity', 'sga_expense'}` set; columns in this set now use `combine_first` to coalesce from the higher-fill source. Fixes `total_equity` (4.3% → 92.9%), `roe` (4.3% → 88.1%), `roic`, `pb_ratio`, `book_to_market`, `net_debt_to_equity`, `roe_sector_pct`, `pb_ratio_sector_pct`, `roe_volatility_5yr`, `earnings_stability_5yr` for future pipeline runs.
+
+### Added (Phase A/B — equity + volatility patch + new columns)
+- **`scripts/patch_equity_vol_features.py`** (new): One-time patch script that backfills the existing parquet without re-running the full pipeline. Two operations: (1) `patch_equity_features()` — joins `snapshots_combined.parquet` on `(cik, fiscal_year)`, coalesces `equity` and `sga_expense`, recomputes all equity-derived ratios and rolling volatility; (2) `patch_vol_features()` — reads `price_cache.db` ticker-by-ticker (7,753 tickers), computes annualised daily-return volatility over 6m / 36m / 60m lookback windows. Adds 5 new columns and fixes 6 broken ones. Creates `.parquet.bak_pre_patch` backup before writing. Supports `--dry-run` flag.
+- **`data/historical_dataset_clean.parquet`** — 5 new columns added (341 → 346): `roa_volatility_5yr` (rolling 5yr std of ROA, 91.5% fill), `earnings_stability_roa_5yr` (−roa_volatility_5yr), `vol_prior_6m` (annualised 6m price vol, 95.4% fill), `vol_prior_36m` (annualised 36m price vol, 95.5% fill), `vol_prior_60m` (annualised 60m price vol, 95.4% fill). Also fixes previously broken: `roe`, `roic`, `pb_ratio`, `book_to_market`, `net_debt_to_equity`, `roe_volatility_5yr`, `earnings_stability_5yr`, `roe_sector_pct`, `pb_ratio_sector_pct`.
+
+### Fixed (Phase A — Brazil B3 ticker matching)
+- **`pipeline/step1_fetch_tickers_br.py`**: Ticker matching improved from 64 → 112 companies (75% improvement). Changes: (1) regex broadened from `[34]$` to `[3-9]$` to include ON3/PN4/PNB5/PNC6 share classes and units (ON9); (2) `CURATED_OVERRIDES` dict added for 11 companies with acronym-based tickers not derivable from name heuristics (BBDC3, BBAS3, CMIG3, BRSR3, BMEB3, CLSC4, FESA3, SNSY5, etc.); (3) `_MATCH_STOP` frozenset added (BCO, BANCO, CIA, PARTICIPACOES, HOLDING, etc.) to skip noise words; (4) `best_match()` expanded from 2 to 6 strategies: prefix4, first meaningful word, 4-letter acronym, acro2+first2chars, second word prefix, 3-letter unique match.
+- **`data/tickers_br.parquet`** regenerated: 353 companies, 112 with B3 ticker matched (was 64).
+- **`data/snapshots_br.parquet`** patched: ticker column updated; 93 unique tickers (was 57).
+
 ### Added (Phase B — feature selection + research notebooks)
+
 - **`scripts/run_feature_selection.py`** (new): Standalone 4-stage feature selection pipeline — PSI filter (PSI ≤ 2.0) → IC screen (|mean IC| ≥ 0.02, n_years ≥ 5) → ICIR top-K (default 60) → Spearman deduplication (|r| ≤ 0.90). Imports `compute_ic_table`, `compute_psi`, `deduplicate_features` from `train_models.py`. Outputs `models/feature_sets_{1y,3y,5y}.json` (46 / 47 / 45 features) and `reports/feature_selection_summary.csv` (600 rows, IC/ICIR/PSI per candidate × 3 horizons). CLI: `--psi-threshold`, `--ic-min`, `--top-k`, `--corr`, `--dry-run`.
 - **`scripts/factor_research.py`** (re-run): Refreshed IC/ICIR reports on updated 341-column parquet. Top features: `ml_1y` (ICIR=2.037), `altman_z_score_sector_pct` (ICIR=1.823), `ev_revenue` (ICIR=−1.708), `ml_3y` (ICIR=1.688), `alpha_fraud_risk` (ICIR=1.649). Reports written to `reports/factor_research_{1y,3y,5y}.csv`.
 - **`notebooks/01_eda_dataset.ipynb`** (new): EDA — shape/date range, rows by market/year, period_type split, null profile (annual), target variable coverage + histograms, ML/alpha score distributions, size_category.

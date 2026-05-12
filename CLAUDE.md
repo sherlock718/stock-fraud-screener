@@ -72,14 +72,14 @@ Work through this matrix for every change before staging files.
 |---|---|---|---|
 | US data ingestion | SEC EDGAR 10-K/10-Q | `scripts/run_pipeline.py` | ✅ |
 | Multi-market ingestion | SimFin (EU), DART (KR), TDNET (JP), SEDAR+ (CA), B3 (BR) | `pipeline/` | ✅ |
-| Feature engineering | 326 columns (enterprise_value + sector added) | `pipeline/step5_compute_features.py` | ✅ |
+| Feature engineering | 346 columns (patch adds 5 vol/roa cols) | `pipeline/step5_compute_features.py` + `scripts/patch_equity_vol_features.py` | ✅ |
 | Quarterly enrichment | 5 intra-year dynamics | `scripts/enrich_quarterly_features.py` | ✅ |
 | Feature imputation | Quarterly cols + size_category recovery | `scripts/impute_features.py` | ✅ |
 | Survivorship correction | Imputes −50% return for delisted | `scripts/mark_survivorship.py` | ✅ |
 | AAER fraud labels | 492 positive rows / 118 companies | `scripts/fetch_aaer_labels.py` | ✅ |
 | Historical ML scoring | Load models → score all rows → write ml_1y/3y/5y to parquet | `scripts/score_historical.py` | ✅ |
 | Alpha factor package | 5-factor scores (Value/Quality/Momentum/Growth/FraudRisk) | `alpha/factors/` | ✅ |
-| Primary storage | Parquet file | `data/historical_dataset_clean.parquet` 58K rows × 341 cols | ✅ |
+| Primary storage | Parquet file | `data/historical_dataset_clean.parquet` 58K rows × 346 cols | ✅ |
 | TimescaleDB | Hypertable for time-series queries | `infra/db/init.sql` + `scripts/migrate_to_db.py` | ⚠️ DB not loaded |
 | Feature selection | 4-stage pipeline: PSI→IC→ICIR→dedup | `scripts/run_feature_selection.py` | ✅ |
 | ML models | LightGBM 1y/3y/5y, PSI filter + ICIR | `scripts/train_models.py` | ✅ |

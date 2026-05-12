@@ -129,6 +129,33 @@ existing quarterly columns are dropped before re-merging.
 
 ---
 
+### `patch_equity_vol_features.py` — Equity coalesce fix + multi-horizon volatility
+
+One-time backfill script that fixes equity-derived features and adds multi-horizon price volatility columns to `data/historical_dataset_clean.parquet`.
+
+**Two operations:**
+1. **Equity patch** — joins `snapshots_combined.parquet` on `(cik, fiscal_year)`, coalesces `equity` (92.4% fill) into `total_equity`, recomputes `roe`, `roic`, `pb_ratio`, `book_to_market`, `net_debt_to_equity`, sector percentile ranks, and 5yr rolling volatility.
+2. **Volatility patch** — reads `data/price_cache.db` (7,753 tickers, daily prices as JSON), computes annualised daily-return volatility over 6m / 36m / 60m windows.
+
+```bash
+python3 scripts/patch_equity_vol_features.py              # Apply both patches and save
+python3 scripts/patch_equity_vol_features.py --dry-run    # Report fill rates, no write
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--dry-run` | off | Print fill rate stats but do not write parquet |
+
+**Outputs**: Updates `data/historical_dataset_clean.parquet` in-place (341 → 346 columns).
+Creates backup at `data/historical_dataset_clean.parquet.bak_pre_patch` before writing.
+New columns: `roa_volatility_5yr`, `earnings_stability_roa_5yr`, `vol_prior_6m`, `vol_prior_36m`, `vol_prior_60m`.
+Fixed columns (all were near-0% fill due to equity coalesce bug): `roe`, `roic`, `pb_ratio`, `book_to_market`, `net_debt_to_equity`, `roe_sector_pct`, `pb_ratio_sector_pct`, `roe_volatility_5yr`, `earnings_stability_5yr`.
+
+**Dependencies**: Requires `data/snapshots_combined.parquet` and `data/price_cache.db`.
+
+
+---
+
 ### `run_pipeline_eu.py` — EU Pipeline (yfinance free-data)
 
 Orchestrates the full 6-step EU pipeline using Wikipedia index scraping (step 1) and yfinance fundamentals (step 2). No API key required. Covers ~350+ major tickers across DE, FR, NL, BE, SE, NO, DK, FI, IT, ES, PT, AT, IE (~4–5 years of history).
