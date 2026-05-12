@@ -174,9 +174,16 @@ def add_accruals(df: pd.DataFrame) -> pd.DataFrame:
 
     wc_accruals = delta_rec.fillna(0) + delta_inv.fillna(0) - delta_ap.fillna(0)
     df['wc_accruals_to_assets'] = sdiv(wc_accruals, ta)
+    # Richardson et al. (2005) separately named columns used in Phase B feature sets
+    df['sloan_wc_accruals'] = sdiv(wc_accruals, ta)
 
     # Balance sheet accruals proxy: total accruals split
     df['accruals_to_assets'] = df['sloan_accruals']
+
+    # LT accruals: change in non-current operating assets minus non-current operating liabilities
+    # Approximation: total accruals - WC accruals
+    lt_accruals = (ni - ocf) - wc_accruals.reindex(df.index).fillna(0)
+    df['sloan_lt_accruals'] = sdiv(lt_accruals, ta)
 
     # NOA = Total assets - cash - financial assets - total liabilities + debt
     lt      = df['long_term_debt'].fillna(0)
@@ -248,7 +255,8 @@ def add_fraud_scores(df: pd.DataFrame) -> pd.DataFrame:
 
     # ── Beneish M-score components ──
     # DSRI: Days Sales Receivable Index (rising = manipulation signal)
-    df['beneish_dsri'] = sdiv(sdiv(rec, rev), sdiv(rec * (1 + rev_growth.fillna(0)), rev))
+    # Clipped to [0.5, 3.0] — values outside this range are data errors not manipulation signals
+    df['beneish_dsri'] = sdiv(sdiv(rec, rev), sdiv(rec * (1 + rev_growth.fillna(0)), rev)).clip(0.5, 3.0)
 
     # GMI: Gross Margin Index (falling margin = risk)
     prev_gm = sdiv(gp, rev) / (1 + df.get('gross_margin_change', pd.Series(0, index=df.index)).fillna(0))
@@ -357,6 +365,91 @@ def add_fraud_scores(df: pd.DataFrame) -> pd.DataFrame:
     )
     # Convert to probability: 1 / (1 + exp(-O))
     df['ohlson_prob_bankruptcy'] = 1 / (1 + np.exp(-df['ohlson_o_score'].clip(-20, 20)))
+
+    return df
+
+
+# ── D2. Montier C-Score ───────────────────────────────────────────────────────
+
+def add_montier_c_score(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Montier C-Score (James Montier 2008) — forensic accounting red-flag index.
+    Six binary variables (0/1 each), composite score = sum (range 0–6).
+    Higher score = more manipulation risk signals present.
+
+    Components:
+      C1: Revenue from credit growing faster than revenue (receivables stuffing)
+      C2: Falling depreciation rate (earnings management via reduced dep)
+      C3: SG&A growing faster than revenue (cost shifting into overheads)
+      C4: Rising receivables (days sales outstanding growth > 0)
+      C5: Growing inventory relative to revenue (channel stuffing)
+      C6: Falling cash conversion (OCF / net income declining)
+
+    Reference: Montier, J. (2008). "Joining the dark side: Pirates, rats and short sellers."
+    Dresdner Kleinwort Research.
+    """
+    nan  = pd.Series(np.nan, index=df.index)
+    zero = pd.Series(0.0,    index=df.index)
+
+    rev    = df.get('revenue',              nan)
+    rec    = df.get('accounts_receivable',  nan)
+    inv    = df.get('inventory',            nan)
+    dep    = df.get('depreciation',         nan)
+    ppe    = df.get('property_plant_equipment', nan)
+    sga    = df.get('sga_expense',          nan)
+    ni     = df.get('net_income',           nan)
+    ocf    = df.get('operating_cash_flow',  nan)
+
+    rec_growth = df.get('receivables_growth', nan)
+    rev_growth = df.get('revenue_growth',     nan)
+    inv_growth = df.get('inventory_growth',   nan)
+    sga_growth = df.get('sga_growth_yoy',     nan)
+
+    # C1: receivables growing faster than revenue (0/1)
+    c1 = (rec_growth.fillna(0) > rev_growth.fillna(0)).astype(float)
+    c1[rec_growth.isna() & rev_growth.isna()] = np.nan
+
+    # C2: depreciation rate falling YoY — dep / (dep + ppe) this year < prior year
+    dep_rate = sdiv(dep, dep.fillna(0) + ppe.fillna(0))
+    dep_growth_ = df.get('depreciation_growth', zero).fillna(0)
+    asset_growth_ = df.get('assets_growth', zero).fillna(0)
+    dep_prev = sdiv(dep, 1 + dep_growth_.clip(-0.9, 10))
+    ppe_prev = sdiv(ppe.fillna(0), 1 + asset_growth_.clip(-0.9, 10))
+    dep_rate_prev = sdiv(dep_prev, dep_prev.fillna(0) + ppe_prev.fillna(0))
+    c2 = (dep_rate < dep_rate_prev).astype(float)
+    c2[(dep.isna()) | (ppe.isna())] = np.nan
+
+    # C3: SG&A growing faster than revenue (overhead creep)
+    c3 = (sga_growth.fillna(0) > rev_growth.fillna(0)).astype(float)
+    c3[sga_growth.isna() & rev_growth.isna()] = np.nan
+
+    # C4: receivables increasing (DSO rising = collection risk)
+    c4 = (rec_growth.fillna(0) > 0).astype(float)
+    c4[rec_growth.isna()] = np.nan
+
+    # C5: inventory growing faster than revenue (unsold build-up)
+    c5 = (inv_growth.fillna(0) > rev_growth.fillna(0)).astype(float)
+    c5[inv_growth.isna() & rev_growth.isna()] = np.nan
+
+    # C6: cash conversion (OCF/NI) declining — earnings outrunning cash
+    cash_conv = sdiv(ocf, ni)
+    prev_cash_conv = sdiv(ocf, ni) / (1 + df.get('net_income_growth', zero).fillna(0).clip(-0.9, 10))
+    c6 = (cash_conv < prev_cash_conv).astype(float)
+    c6[(ocf.isna()) | (ni.isna())] = np.nan
+
+    df['montier_c1'] = c1
+    df['montier_c2'] = c2
+    df['montier_c3'] = c3
+    df['montier_c4'] = c4
+    df['montier_c5'] = c5
+    df['montier_c6'] = c6
+
+    # Composite: sum of available components scaled to [0,1]
+    c_cols = ['montier_c1', 'montier_c2', 'montier_c3', 'montier_c4', 'montier_c5', 'montier_c6']
+    available = df[c_cols].notna().sum(axis=1)
+    df['montier_c_score'] = df[c_cols].sum(axis=1, min_count=3)  # require ≥3 components
+    # Normalise to [0,1] so it's comparable to other scores
+    df['montier_c_score'] = df['montier_c_score'] / available.clip(lower=1)
 
     return df
 
@@ -487,6 +580,8 @@ def add_momentum_ranks(df: pd.DataFrame) -> pd.DataFrame:
         return df
 
     def pct_rank(x: pd.Series) -> pd.Series:
+        if x.notna().sum() < 10:  # cohort guard: sparse cohort ranks are noisy
+            return pd.Series(np.nan, index=x.index)
         return x.rank(pct=True, na_option='keep')
 
     raw_cols = {
@@ -732,6 +827,9 @@ def run():
     print('  Computing fraud / distress scores ...')
     df = add_fraud_scores(df)
 
+    print('  Computing Montier C-Score ...')
+    df = add_montier_c_score(df)
+
     print('  Computing liquidity & solvency ...')
     df = add_liquidity(df)
 
@@ -803,7 +901,8 @@ def run():
         'ppe_growth_yoy', 'ppe_growth',
         'equity_growth', 'equity_change_yoy',
         'shares_dilution', 'shares_growth',
-        'cash_change_yoy', 'cash_growth',
+        # Forensic accounting composites
+        'montier_c_score', 'wc_accruals_to_assets', 'sloan_wc_accruals', 'sloan_lt_accruals',
     ]
     for col in ratio_cols:
         if col in df.columns:

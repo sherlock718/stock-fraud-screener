@@ -204,6 +204,33 @@ Forensic accounting signals, classical manipulation indices, and governance flag
 
 Composite: M-Score > −1.78 → likely manipulator (Beneish original threshold).
 
+**DSRI clipping:** `beneish_dsri` is clipped to [0.5, 3.0]. Values outside this range reflect data errors (negative revenue, near-zero prior receivables), not genuine manipulation signals.
+
+### Montier C-Score (6-variable forensic accounting index)
+
+Reference: Montier, J. (2008). "Joining the dark side: Pirates, rats and short sellers." Dresdner Kleinwort.
+
+| Component | Column | Description | Red Flag |
+|---|---|---|---|
+| C1 | `montier_c1` | Receivables growing faster than revenue | 1 |
+| C2 | `montier_c2` | Depreciation rate declining YoY | 1 |
+| C3 | `montier_c3` | SG&A growing faster than revenue | 1 |
+| C4 | `montier_c4` | Receivables increasing (DSO growing) | 1 |
+| C5 | `montier_c5` | Inventory growing faster than revenue | 1 |
+| C6 | `montier_c6` | Cash conversion (OCF/NI) declining | 1 |
+
+`montier_c_score` = sum of binary components / components available. Range [0, 1]. Requires ≥ 3 components to be non-null; otherwise NaN.
+
+### Richardson et al. (2005) Sloan Decomposition
+
+| Column | Formula | Description |
+|---|---|---|
+| `sloan_accruals` | (NI − OCF) / avg_assets | Total Sloan accruals |
+| `sloan_wc_accruals` | (ΔREC + ΔINV − ΔAP) / total_assets | Working capital accruals |
+| `sloan_lt_accruals` | (sloan_accruals − sloan_wc_accruals) × total_assets / total_assets | Long-term accruals (residual) |
+
+Reference: Richardson, S. et al. (2005). "Accrual reliability, earnings persistence and stock prices." *Journal of Accounting and Economics*, 39(3), 437–485.
+
 ### Days Sales Receivables Index (DSRI)
 
 ```

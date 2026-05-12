@@ -8,6 +8,15 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Added (Phase B — feature engineering)
+- **`pipeline/step5_compute_features.py`** `add_montier_c_score()`: Implements Montier C-Score (Montier 2008) — 6 binary forensic accounting variables (`montier_c1`–`montier_c6`) plus composite `montier_c_score` normalised to [0,1].
+- **`pipeline/step5_compute_features.py`** Richardson et al. (2005) named accrual columns: `sloan_wc_accruals` (working capital accruals / assets) and `sloan_lt_accruals` (long-term accrual residual / assets) added alongside existing `sloan_accruals`.
+- **`docs/methodology/features.md`** Montier C-Score and Richardson accrual decomposition documented with paper references.
+
+### Fixed (Phase B — feature engineering)
+- **`pipeline/step5_compute_features.py`** `beneish_dsri` clipped to [0.5, 3.0] — values outside this range are data errors, not manipulation signals.
+- **`pipeline/step5_compute_features.py`** Momentum rank cohort guard added: cohorts with < 10 non-null observations return NaN ranks (prevents noisy rankings from single-company cohorts in small markets).
+
 ### Added (Phase A/B — EDA cells)
 - **`notebooks/01_eda_dataset.ipynb`** Section 3a: Null profile heatmap (key features × market) — identifies which markets have missing data for critical columns.
 - **`notebooks/01_eda_dataset.ipynb`** Section 4a: Forward return Q-Q plot + outlier stats (min/p1/p25/median/p75/p99/max) with treatment note (pre/post winsorization documentation).
