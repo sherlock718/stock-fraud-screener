@@ -303,6 +303,27 @@ Exit code 1 if any alert fires (used by GitHub Actions to emit a warning).
 
 ---
 
+### `analyze_distributions.py` — Dataset Distribution Analysis
+
+```bash
+python3 scripts/analyze_distributions.py
+python3 scripts/analyze_distributions.py --parquet data/historical_dataset_clean.parquet --out-dir reports
+python3 scripts/analyze_distributions.py --corr
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--parquet PATH` | `data/historical_dataset_clean.parquet` | Input parquet path |
+| `--out-dir DIR` | `reports` | Output directory |
+| `--corr` | False | Also compute and save correlation matrix |
+
+Non-fatal CI step for dataset quality monitoring. Produces:
+
+- `reports/distribution_report.txt` — NaN% per column (sorted desc), top 20 columns by outlier rate (|z|>5), market fill rates for 10 key features, fraud label balance, rows per market and fiscal year range
+- `reports/correlation_matrix.parquet` (with `--corr`) — pairwise Pearson correlation matrix for all numeric columns with >1000 non-null values; also prints high-correlation pairs (|r|>0.95) to stdout
+
+---
+
 ### `bias_audit.py` — Look-Ahead / Survivorship Audit
 
 ```bash

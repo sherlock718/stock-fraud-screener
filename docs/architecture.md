@@ -57,7 +57,7 @@ graph TB
 
     subgraph Storage["Storage"]
         S1[Parquet<br/>data/historical_dataset_clean.parquet<br/>58K rows · 326 columns]
-        S2[TimescaleDB<br/>hypertable — infra/db/init.sql<br/>⚠️ migration pending]
+        S2[TimescaleDB<br/>hypertable — infra/db/init.sql<br/>Phase C — deferred]
     end
 
     subgraph Outputs["Outputs & Serving"]
@@ -99,7 +99,7 @@ graph TB
 | Monitor drift | `scripts/monitor_drift.py` | PSI + AUC monitoring | ✅ |
 | Bias audit | `scripts/bias_audit.py` | Temporal leakage + survivorship audit | ✅ |
 | Generate reports | `scripts/generate_reports.py` | PDF tearsheet + weekly picks | ✅ |
-| DB migration | `scripts/migrate_to_db.py` | Load parquet → TimescaleDB hypertable | ⚠️ pending |
+| DB migration | `scripts/migrate_to_db.py` | Load parquet → TimescaleDB hypertable | Phase C — deferred |
 | App | `app_v2.py` | Streamlit dashboard (Phase 2: add 5-factor UI) | ✅ |
 | FastAPI | `api/` | REST screener with filters + pagination | ✅ |
 
@@ -122,7 +122,7 @@ flowchart LR
     J -->|Platt scaling| K[Calibrated Proba 0–1]
     K -->|score_historical.py ❌| L[ml_1y / ml_3y / ml_5y<br/>written back to parquet]
     L -->|Fraud Risk factor| FA[5-Factor<br/>Composite Alpha Score]
-    SB -->|bulk load| DB[TimescaleDB<br/>hypertable ⚠️ pending]
+    SB -->|bulk load| DB[TimescaleDB<br/>hypertable — Phase C — deferred]
 ```
 
 ## Deployment Architecture
@@ -139,5 +139,5 @@ graph LR
     F -->|download at startup| H
     E -->|download at startup| I[FastAPI service<br/>api/main.py · screener router]
     F -->|download at startup| I
-    E -->|migrate_to_db.py| J[TimescaleDB<br/>hypertable ⚠️ pending]
+    E -->|migrate_to_db.py| J[TimescaleDB<br/>hypertable — Phase C — deferred]
 ```

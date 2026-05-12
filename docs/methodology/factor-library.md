@@ -12,7 +12,7 @@ The ML models learn which factor groups (and which specific features within them
 flowchart TD
     V["Value features<br/>~18 columns"]
     Q["Quality features<br/>~83 columns"]
-    M["Momentum features<br/>~32 columns"]
+    M["Momentum features<br/>~45 columns"]
     G["Growth features<br/>~22 columns"]
     F["Fraud Risk features<br/>~164 columns"]
 
@@ -100,30 +100,33 @@ F-Score ≤ 3 = distressed; ≥ 7 = financially strong.
 
 Features measuring price trend persistence and earnings revision dynamics.
 
-!!! warning "Momentum gap — Phase 0 blocker"
-    **True cross-sectional momentum is not yet implemented.** The 32 market/price features currently capture price *levels* (raw returns, beta, volatility) — not return *rank relative to peers*. True momentum (Jegadeesh & Titman 1993) requires ranking stocks by 12m-1m return within the cross-section. Adding this is P0.1.
+### Cross-sectional rank transforms (implemented)
 
-### Currently implemented (available)
+Ranks are percentile-scaled within each `(fiscal_year, market)` group — a 20% annual return is evaluated relative to same-year, same-market peers, not in absolute terms. Computed in `add_momentum_ranks()` in `pipeline/step5_compute_features.py`.
+
+| Feature | Description | Academic Basis |
+|---|---|---|
+| `momentum_12m_rank` | Percentile rank of 12m prior return within (fiscal_year × market) | Jegadeesh & Titman (1993) |
+| `momentum_6m_rank` | Percentile rank of 6m prior return | Jegadeesh & Titman (1993) |
+| `momentum_3m_rank` | Percentile rank of 3m prior return | Short-term reversal control |
+| `vol_rank_12m` | Inverted volatility rank — low vol = high rank | Low-volatility premium |
+| `momentum_composite_rank` | Mean of 12m/6m/3m ranks — single momentum factor score | — |
+| `momentum_consistency` | Fraction of trailing 12 months with positive monthly returns | Streak signal |
+| `momentum_in_expansion` | Interaction: `momentum_12m_rank × (1 − recession)` | Macro-conditioned momentum |
+
+### Raw price features (implemented)
 
 | Feature | Description |
 |---|---|
-| `return_12m` | Total 12-month price return |
-| `return_24m` | Total 24-month price return |
-| `return_36m` | Total 36-month price return |
-| `excess_return_12m` | Stock return minus local index return |
-| `beta_12m` | Rolling beta vs local index |
-| `price_volume_ratio` | Average daily dollar volume (3-month) |
-| `volatility_90d` | 90-day realized price volatility |
+| `momentum_12m_prior` | Total 12-month price return (raw) |
+| `momentum_6m_prior` | Total 6-month price return (raw) |
+| `momentum_3m_prior` | Total 3-month price return (raw) |
+| `momentum_12m_prior_sector_pct` | Sector-relative percentile of 12m return |
+| `vol_prior_12m` | 12-month realized volatility |
+| `excess_return_local_{1y…15y}` | Stock return minus local index return |
+| `beat_local_market_{1y…15y}` | 1 if stock beat local index |
 
-### Planned (Phase 0 — P0.1)
-
-| Feature | Formula | Academic Basis |
-|---|---|---|
-| `momentum_12m1m` | percentile_rank(return_{12m} − return_{1m}) within fiscal year × market | Jegadeesh & Titman (1993) |
-| `earnings_revision_1q` | (EPS_estimate_t − EPS_estimate_{t-1}) / \|EPS_estimate_{t-1}\| | Chan et al. (1996) earnings momentum |
-| `short_interest_ratio` | short_shares / avg_daily_volume | Short squeeze / crowding signal |
-
-**Data source**: yfinance (price/volume); I/B/E/S consensus via financial data APIs for earnings revisions (planned).
+**Data source**: yfinance (price/volume), joined at fiscal year-end date.
 
 ---
 

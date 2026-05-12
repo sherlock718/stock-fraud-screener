@@ -1,6 +1,6 @@
 # Feature Engineering
 
-The pipeline computes **324 features** per company-year observation. Features are organized into two parallel taxonomies: the **5-factor grouping** (how they're consumed in portfolio construction) and the **8-category grouping** (how they're computed in `pipeline/feature_library.py`).
+The pipeline computes **326 features** per company-year observation. Features are organized into two parallel taxonomies: the **5-factor grouping** (how they're consumed in portfolio construction) and the **8-category grouping** (how they're computed in `pipeline/feature_library.py`).
 
 The ML models use ~35 ICIR-selected features per horizon. See [Feature Selection →](feature-selection.md) for the full selection methodology.
 
@@ -39,7 +39,7 @@ This is how features are organized in `pipeline/feature_library.py` (single sour
 | Momentum rank transforms | 5 | Momentum | Cross-sectional ranks within (fiscal_year × market): momentum_12m_rank, momentum_6m_rank, momentum_3m_rank, vol_rank_12m, momentum_composite_rank |
 | Derived / Interaction | 63 | All | Cross-products of top single features |
 | **Quarterly enriched** | **5** | Quality / Fraud Risk | Intra-year dynamics from Q1/Q2/Q3 filings |
-| **Total** | **324** | | |
+| **Total** | **326** | | |
 
 ---
 

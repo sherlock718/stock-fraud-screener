@@ -6,6 +6,30 @@ How to add new rows, tickers, or features to `data/historical_dataset_clean.parq
 
 ---
 
+## Operator Workflow
+
+```mermaid
+flowchart TD
+    A[New data available\nfiling, ticker, or feature] --> B{What type?}
+
+    B -->|New annual rows| C[run_pipeline_{mkt}.py\nbuild --step 1]
+    B -->|New ticker| D[Add to tickers_{mkt}.csv\nrun from step 2]
+    B -->|New feature column| E[Add formula to\nfeature_library.py]
+
+    C --> F[phase_a_integrate_{mkt}.py]
+    D --> F
+    E --> G[step5_compute_features.py\n--suffix _{mkt} for each market]
+    G --> F
+
+    F --> H[enrich_fraud_taxonomy.py\nrefresh fraud scores]
+    H --> I[test_dataset_quality.py\n53 checks must pass]
+    I -->|pass| J[push_to_hf.py\nupload to HuggingFace Hub]
+    I -->|fail| K[Fix root cause\nre-run from H]
+    J --> L[git commit + push\nGitHub → Streamlit Cloud auto-deploys]
+```
+
+---
+
 ## Before You Start
 
 ```bash
@@ -212,7 +236,7 @@ Korean companies sometimes file multiple fiscal years in a single batch submissi
 | Dataset state | Rows | Columns |
 |---|---|---|
 | After step5 (`historical_dataset.parquet`) | varies | ~320 |
-| After step6 clean | annual-only | 324 |
+| After step6 clean | annual-only | 326 |
 | After enterprise_value + sector enrichment | 58,307 | 326 |
 
 Current production dataset: **58,307 rows × 326 columns**

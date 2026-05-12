@@ -8,6 +8,17 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Added (Phase A — housekeeping / docs)
+- **`docs/developer/schema-change-guide.md`** (new): Schema versioning policy — 11-step column-add checklist, rename breaking-change checklist (grep + retrain), deprecation protocol (keep one release with NaN, then drop), and a 6-file "column count must stay in sync" table covering `docs/architecture.md`, `docs/methodology/models.md`, `docs/index.md`, `CLAUDE.md`, and `docs/developer/data-update-guide.md`.
+- **`scripts/analyze_distributions.py`** (new): Non-fatal CI script for dataset quality monitoring. Produces `reports/distribution_report.txt` (NaN%, outlier rates by |z|>5, market fill rates for 10 key features, fraud label balance, rows per market). With `--corr` flag also produces `reports/correlation_matrix.parquet` and prints high-correlation pairs (|r|>0.95). Usage: `python3 scripts/analyze_distributions.py [--parquet PATH] [--out-dir DIR] [--corr]`.
+- **`docs/methodology/feature-registry.md`** (new): Complete 326-column authoritative registry — column names, data types, and factor group assignments. Organized into 10 sections: Identity/Admin (29), Raw Financials (~50 inputs), Value (~18), Quality (~83), Momentum (~45), Growth (~22), Fraud Risk (~164), Macro/Context (~10), Quarterly-Enriched (5), Derived/Interaction (~63).
+
+### Fixed (Phase A — housekeeping / docs)
+- **`docs/architecture.md`**: Remaining three "⚠️ pending" TimescaleDB references updated to "Phase C — deferred" — Component Map table row, Data Flow Detail `DB[TimescaleDB...]` node, and Deployment Architecture `J[TimescaleDB...]` node.
+- **`docs/methodology/features.md`**: 8-category feature table total row corrected 324 → 326.
+- **`docs/methodology/factor-library.md`**: Factor Group 3 (Momentum) fully updated — stale "⚠️ Momentum gap — Phase 0 blocker" admonition removed; mermaid diagram count updated ~32 → ~45; full implemented feature tables added for cross-sectional rank transforms (7 features) and raw price features (13+).
+- **`docs/developer/data-update-guide.md`**: Column count reference table corrected 324 → 326; operator workflow Mermaid flowchart added immediately after "Always read this file before modifying the dataset."
+
 ### Changed
 - **`.github/workflows/refresh_data.yml`**, **`weekly_push.yml`**, **`monitor_drift.yml`**: Hardcoded HuggingFace repo `ekrash718/stock-screener-data`; `HF_REPO` GitHub Actions secret no longer required (only `HF_TOKEN` needed).
 
