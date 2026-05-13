@@ -15,6 +15,11 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 - **`docs/architecture.md`** Data Flow Detail: PSI threshold 2.0 → 0.25, ~35 → ~45 features/horizon, 5-horizon LightGBM, OOF path added (`ml_*_oof` columns), HorizonRouter node added.
 - **`docs/architecture.md`** Deployment Architecture: `bias_audit.py --ci` step added in CI after dataset quality check; hard fail on look-ahead violation shown in diagram.
 
+### Added (Phase A — coverage depth audit)
+- **`CONTEXT.md`** market coverage table rewritten: 14 individual market rows (not grouped EU) each with Rows, Tickers, Fiscal Year Range, Quarterly enriched flag, and Depth rating (DEEP/MODERATE/SHALLOW/TOO_THIN). Coverage depth assessment section added: US/KR = DEEP (IC training ready), CA/JP = MODERATE (IC training ready), all others TOO_THIN. BR tickers corrected 55 → 48.
+- **`reports/coverage_audit.csv`** NEW (gitignored, regeneratable): per-market depth ratings with ic_training flag — 4 markets IC-ready.
+- **`reports/coverage_audit_heatmap.png`** NEW (gitignored, regeneratable): market × fiscal_year ticker count heatmap (log-scaled, blue dashed border for cells <50 tickers).
+
 ### Fixed
 - **`pipeline/step5_compute_features.py`** `montier_c2`: replaced `property_plant_equipment` (95.7% null) with `ppe_net` (19.4% null) in Montier C2 depreciation-rate computation. Column was previously 100% null; now 41.6% null (limited by `depreciation` availability). `montier_c_score` composite coverage improves to 75.5%.
 - **`scripts/patch_montier_c2.py`** (new): one-shot patch script to recompute all 7 montier columns on existing parquet without a full pipeline rebuild.

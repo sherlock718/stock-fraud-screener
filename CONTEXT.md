@@ -35,18 +35,31 @@ See `ROADMAP.md` for phase plan. See `CLAUDE.md` for architecture state and pre-
 
 Quarterly signals are enriched into annual rows via `scripts/enrich_quarterly_features.py`.
 
-| Market | Rows | Tickers | Fiscal Year Range | Quarterly enriched? |
-|---|---|---|---|---|
-| US | 44,059 | 4,847 | 2008–2027 | ✅ (merged into annual rows; 61–67% coverage) |
-| CA | 8,955 | ~1,400 | 2021–2026 | ❌ annual only |
-| KR | 2,538 | 300 | 2015–2025 | ✅ (merged) |
-| JP | 517 | ~120 | 2021–2026 | ❌ annual only |
-| DE/FR/IT/ES/SE/FI/NL/PT/DK | ~1,600 | ~300 | 2021–2026 | ❌ annual only |
-| BR | 688 | ~55 | 2010–2025 | ✅ (merged) |
+| Market | Rows | Tickers | Fiscal Year Range | Quarterly enriched? | Depth |
+|---|---|---|---|---|---|
+| US | 44,059 | 4,847 | 2008–2027 | ✅ (61–67% coverage) | DEEP — 18/20 yrs ≥50 tickers |
+| CA | 8,955 | 2,005 | 2021–2026 | ❌ annual only | MODERATE — 5/6 yrs ≥50 tickers |
+| KR | 2,538 | 300 | 2015–2025 | ✅ (merged) | DEEP — 11/11 yrs ≥50 tickers |
+| JP | 517 | 122 | 2021–2026 | ❌ annual only | MODERATE — 4/6 yrs ≥50 tickers |
+| DE | 356 | 77 | 2021–2025 | ❌ annual only | SHALLOW — 5/5 yrs ≥50 tickers, <200 |
+| FR | 193 | 40 | 2021–2025 | ❌ annual only | TOO_THIN — max 40/yr |
+| IT | 192 | 40 | 2021–2025 | ❌ annual only | TOO_THIN — max 40/yr |
+| ES | 169 | 35 | 2021–2026 | ❌ annual only | TOO_THIN — max 35/yr |
+| SE | 139 | 30 | 2021–2025 | ❌ annual only | TOO_THIN — max 30/yr |
+| FI | 116 | 25 | 2021–2025 | ❌ annual only | TOO_THIN — max 25/yr |
+| NL | 115 | 24 | 2021–2025 | ❌ annual only | TOO_THIN — max 24/yr |
+| BR | 688 | 48 | 2010–2025 | ✅ (merged) | TOO_THIN — max 47/yr |
+| DK | 71 | 15 | 2021–2025 | ❌ annual only | TOO_THIN — max 15/yr |
+| PT | 82 | 17 | 2021–2025 | ❌ annual only | TOO_THIN — max 17/yr |
+
+**Coverage depth assessment** (see `reports/coverage_audit.csv` + `reports/coverage_audit_heatmap.png`):
+- **IC training ready**: US (DEEP), KR (DEEP), CA (MODERATE), JP (MODERATE) — these 4 markets have ≥50 tickers/yr for reliable cross-sectional factor IC
+- **Too thin for standalone IC**: DE/FR/IT/ES/SE/FI/NL/PT/DK/BR — can supplement US signal but cannot be trained independently
+- **BR ticker gap**: only 48 unique tickers (CVM bulk list gives ~400+); history is there (2010–2025) but cross-sectional depth insufficient
 
 **Known data gaps:**
-- CA/EU/JP: only 4–5 years of history — too shallow for reliable ICIR training
-- BR: only ~55 tickers; CVM bulk list would give ~400+
+- EU/JP: only 4–5 years of history — too shallow for 5yr CAGR or ICIR time-series
+- BR: only 48 tickers; CVM bulk list would give ~400+
 - OOF score columns (`ml_1y_oof`, `ml_3y_oof`, `ml_5y_oof`): ABSENT — `generate_oof_scores.py` not yet run
 - 6m/2y model horizons: not yet trained (`models/model_meta.json` has 1y/3y/5y only)
 
