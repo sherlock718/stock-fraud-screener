@@ -441,6 +441,40 @@ python3 scripts/backtester.py --market US --fill-missing -0.5
 
 ---
 
+### `build_alpha_registry.py` — Alpha Registry Builder
+
+Builds `data/alpha_registry.json` — IC + backtest statistics for all 8 alpha signals (5 factor
+scores + 3 ML OOF horizons). For each signal, computes mean cross-sectional Spearman IC vs the
+signal's target forward return, then runs a top-N long-only backtest with transaction costs via
+`run_backtest()`. Signals are tagged `selected=true` when `IC_mean > 0.02` AND `Sharpe > 0.50`.
+
+Factor scores (`alpha_value`, `alpha_quality`, `alpha_momentum`, `alpha_growth`, `alpha_fraud_risk`)
+are computed on-the-fly using `alpha.factors.*`. ML OOF scores (`ml_1y_oof`, `ml_3y_oof`,
+`ml_5y_oof`) are read directly from the parquet (pre-computed by `generate_oof_scores.py`).
+
+```bash
+python3 scripts/build_alpha_registry.py               # Default: top 20, 30 bps cost
+python3 scripts/build_alpha_registry.py --top 20 --cost 30
+python3 scripts/build_alpha_registry.py --market US   # US market only
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--top N` | `20` | Top N picks per year in backtest |
+| `--cost BPS` | `30` | Round-trip transaction cost in bps |
+| `--market` | None | Restrict to one market (e.g. `US`); default: all markets |
+
+**Output**: `data/alpha_registry.json` — top-level keys: `generated_at`, `selection_criteria`,
+`signals` (list). Per signal: `signal_id`, `category` (`factor`/`ml`), `horizon`, `market`,
+`features_used`, `ic_mean`, `icir`, `cagr_pct`, `sharpe`, `sortino`, `calmar`,
+`max_drawdown_pct`, `excess_cagr_vs_spy`, `beta_vs_spy`, `hit_rate_pct`, `n_years`,
+`top_n`, `cost_bps`, `selected`.
+
+**Re-run when**: any `alpha/factors/*.py` compute function changes, OOF scores are regenerated,
+or selection thresholds are adjusted.
+
+---
+
 ### `factor_research.py` — IC / ICIR Analysis
 
 ```bash

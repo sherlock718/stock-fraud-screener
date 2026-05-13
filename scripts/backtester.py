@@ -556,13 +556,21 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
     vol        = float(res['port_ret'].std())
     sharpe     = float((cagr - RISK_FREE) / vol) if vol > 0 else np.nan
 
-    # Sortino ratio — require ≥3 negative years for a reliable downside estimate
+    # Sortino ratio — downside deviation below zero (annual frequency)
+    # When all years are positive downside_vol = 0; fall back to Sharpe as an approximation.
     n_negative = int((res['port_ret'] < 0).sum())
     downside_vol = float(np.sqrt((res['port_ret'].clip(upper=0) ** 2).mean()))
-    sortino = float((cagr - RISK_FREE) / downside_vol) if (downside_vol > 0 and n_negative >= 3) else np.nan
+    if downside_vol > 0:
+        sortino = float((cagr - RISK_FREE) / downside_vol)
+    elif vol > 0:
+        sortino = float(sharpe)  # all years positive: sortino >= sharpe, use sharpe as lower bound
+    else:
+        sortino = np.nan
 
-    # Calmar ratio — require MaxDD ≥ 2% for a meaningful estimate
-    calmar = float(cagr / abs(max_dd)) if abs(max_dd) >= 0.02 else np.nan
+    # Calmar ratio — when MaxDD < 2% (e.g. all positive annual years), use 2σ as proxy.
+    # Annual MaxDD ≈ 2σ is a common conservative approximation for annual-frequency data.
+    effective_dd = abs(max_dd) if abs(max_dd) >= 0.02 else max(2 * vol, 0.01)
+    calmar = float(cagr / effective_dd) if effective_dd > 0 else np.nan
 
     # Information ratio
     excess_std = float(res['excess'].std())

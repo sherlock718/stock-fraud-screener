@@ -8,6 +8,19 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Fixed (Phase C — AUC gap in 6m/1y/2y horizons)
+- **`scripts/train_models.py`** three-part AUC fix for under-performing short horizons (6m WF=0.549, 1y WF=0.549, 2y WF=0.578):
+  1. `FORCE_INCLUDE_6M = ['vol_rank_12m', 'quality_x_momentum']`, `FORCE_INCLUDE_1Y = ['vol_rank_12m', 'quality_x_momentum']`, `FORCE_INCLUDE_2Y = ['vol_rank_12m']` — bypasses ICIR ranking to inject momentum features that ICIR selection systematically under-selects for short-horizon targets (which ICIR ranks fundamentals first)
+  2. `--sector-neutral` changed from `action='store_true'` to `action=argparse.BooleanOptionalAction, default=True` — sector-neutral IC now the default; removes sector rotation bias from IC signal
+  3. `--min-ic-stability` default changed from `0.0` (off) to `0.6` — drops features whose IC direction is inconsistent across years (< 60% sign consistency), preventing directionally unreliable features from passing on mean IC alone
+- **`ROADMAP.md`** complete 4-phase restructure: Phase A (Foundation/Data), Phase B (Feature Selection/Factor Research), Phase C (Model Training/Alpha), Phase D (Portfolio/Production/Monitoring). Dataset Completion Plan folded into Phase A. Step 7 WF AUC table updated to post-retrain actuals. Stale "Immediate Next Actions" section removed.
+
+### Added (Phase C — alpha registry)
+- **`scripts/build_alpha_registry.py`** NEW — builds `data/alpha_registry.json` with IC + backtest stats for all 8 alpha signals (5 factor scores + 3 ML OOF horizons). Per signal: `ic_mean`, `icir`, `cagr_pct`, `sharpe`, `sortino`, `calmar`, `max_drawdown_pct`, `excess_cagr_vs_spy`, `beta_vs_spy`, `hit_rate_pct`, `features_used`, `selected` flag. Selection criteria: IC_mean > 0.02 AND Sharpe > 0.50. Result: 8 evaluated, 6 selected (alpha_value ✅, alpha_quality ✅, alpha_fraud_risk ✅, ml_1y_oof ✅, ml_3y_oof ✅, ml_5y_oof ✅; alpha_momentum ❌, alpha_growth ❌).
+
+### Fixed (Phase C — backtester sortino/calmar always null)
+- **`scripts/backtester.py`** Sortino ratio: removed `n_negative >= 3` guard; when all annual returns are positive (downside_vol = 0) falls back to Sharpe as a lower-bound (correct behavior — Sortino ≥ Sharpe when no negative years). Calmar ratio: when MaxDD < 2% (all-positive annual years), uses `2σ` as a conservative proxy for drawdown instead of returning null. Results: `sortino: 1.181`, `calmar: 0.641` now populated in `data/backtest_results.json`.
+
 ### Added (Phase C — model retrain, bias audit, backtest, alpha schema)
 - **`scripts/bias_audit.py`** look-ahead fix: `_period_end_date()` returns `None` when `fiscal_quarter` is null (non-December FY-end companies). Prevents false-positive look-ahead violations. `_count_lookahead()` and `audit_filing_lag()` now skip rows with null `fiscal_quarter`. `pd.to_datetime(..., errors='coerce')` added to handle mixed `None`/`Timestamp` dtype from `.apply()`. CI exit 1 only on true look-ahead leakage (0 violations in production dataset).
 - **`scripts/generate_oof_scores.py`** NEW — walk-forward expanding-window OOF scorer for 5 horizons. Produces `ml_6m_oof`, `ml_1y_oof`, `ml_2y_oof`, `ml_3y_oof`, `ml_5y_oof` columns in `data/historical_dataset_clean.parquet` (NaN for training-window rows, OOF for held-out rows). Dataset now 58,190 rows × 360 columns (+5 OOF columns vs 355).
