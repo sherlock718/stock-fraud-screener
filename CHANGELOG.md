@@ -8,6 +8,10 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Added (anti-drift process)
+- **`scripts/run_phase_checks.py`** NEW — single-command Phase A/B/C done verifier. Mechanically runs all exit criteria from `docs/developer/phase-done-criteria.md`. Phase A: dataset shape/quality, EDA notebook outputs, CI schedule completeness, diagram vs CI consistency. Phase B: feature library formula coverage, engineering guards (DSRI clip, growth winsorization, sector_pct fiscal_year grouping, montier_c2 ppe_net), feature selection integrity (no ML columns in feature sets, PSI=0.25, NW+FDR), factor research CSVs, notebook outputs. Phase C: OOF scores, model horizons/AUC targets, backtest results, alpha schema. Exits 1 on any FAIL; supports `--phase A|B|C|AB` and `--strict` (treat WARN as FAIL). A phase is only done when this script prints all PASS.
+- **`docs/developer/scripts.md`** added section for `run_phase_checks.py` with full flag table, per-phase check tables, and anti-drift rule note.
+
 ### Added (Phase C6 — docs/architecture.md Phase C sync)
 - **`docs/architecture.md`** ML System subgraph updated: 5 horizons (6m/1y/2y/3y/5y), PSI threshold 2.0 → 0.25, OOF scorer node (`generate_oof_scores.py`), HorizonRouter node (`horizon_router.py`).
 - **`docs/architecture.md`** Research subgraph updated: Backtester now shows SPY benchmark, Bias Audit updated to 4 audits, SPY Returns node added (`fetch_spy_returns.py`).

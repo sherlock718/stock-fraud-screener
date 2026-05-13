@@ -904,3 +904,62 @@ python3 scripts/verify_doc_consistency.py --warn    # print mismatches, exit 0
 **Checks**: column count (355) in index.md, README.md, architecture.md, models.md, CLAUDE.md, phase-done-criteria.md, data-update-guide.md; feature counts (45/45/41) in index.md, scripts.md, feature-selection.md; row count (58,190) in index.md; quality check count (98) in data-update-guide.md; Phase C: model_meta.json horizons, spy_returns.csv, horizon_router.py.
 
 **In CI**: runs weekly after `run_feature_selection.py` as a non-blocking advisory step. Output appears in the GitHub Actions log.
+
+---
+
+### `run_phase_checks.py` — Phase Done Verifier (Anti-Drift)
+
+Single command to mechanically verify all exit criteria from `docs/developer/phase-done-criteria.md`. A phase is only done when this script prints **all PASS**. Run this before declaring any phase complete — human judgment about "I think it's done" is not sufficient.
+
+```bash
+python3 scripts/run_phase_checks.py          # run Phase A + B checks (default)
+python3 scripts/run_phase_checks.py --phase A   # Phase A only
+python3 scripts/run_phase_checks.py --phase B   # Phase B only
+python3 scripts/run_phase_checks.py --phase C   # Phase C only
+python3 scripts/run_phase_checks.py --phase AB  # Phase A + B (same as default)
+python3 scripts/run_phase_checks.py --strict    # exit 1 on WARN too (CI mode)
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--phase A\|B\|C\|AB` | `AB` | Which phase(s) to check |
+| `--strict` | False | Exit 1 on WARN in addition to FAIL |
+
+**Exit codes**: `0` = all checks PASS (±WARN), `1` = any FAIL (or WARN in strict mode).
+
+**Output**: Each check prints one line: `[PASS]`, `[FAIL]`, `[WARN]`, or `[SKIP]` with a detail message. Summary at end:
+
+```
+SUMMARY: 14 PASS  0 FAIL  1 WARN  2 SKIP
+```
+
+#### Phase A checks
+
+| Check | What it verifies |
+|---|---|
+| A1 — Dataset shape | ≥58,000 rows × 355 cols; no inf; forward returns winsorized; 5 markets present |
+| A2 — EDA notebook | `notebooks/01_*.ipynb` has forward_return histogram, outlier stats, PIT lineage, null profile |
+| A3 — CI schedule | `refresh_data.yml` has all 6 required scripts |
+| A4 — Diagram vs CI | Core scripts appear in both `data-update-guide.md` and `refresh_data.yml` |
+
+#### Phase B checks
+
+| Check | What it verifies |
+|---|---|
+| B1 — Feature library | 7 key formula families implemented + columns present in parquet |
+| B2 — Feature engineering | DSRI clipped, growth cols winsorized, `sector_pct` ranks within `fiscal_year`, `montier_c2` uses `ppe_net` |
+| B3 — Feature selection | No `alpha_*/ml_*` in feature sets; PSI threshold 0.25; NW+FDR columns in selection summary |
+| B4 — Factor research | Factor research CSVs have IC/ICIR columns; notebook 02 has decay/quintile/IR plots |
+| B5 — Notebook outputs | ≥50% cells have outputs in each notebook |
+
+#### Phase C checks
+
+| Check | What it verifies |
+|---|---|
+| C1 — OOF scores | `ml_1y_oof`, `ml_3y_oof`, `ml_5y_oof` present in parquet with <90% null |
+| C2 — Models | `model_meta.json` covers 5 horizons; WF AUC ≥ targets |
+| C4 — Backtest | `data/backtest_results.json` present with alpha/benchmark keys |
+| C5 — Alpha schema | `alpha/signals/` directory exists with ≥1 signal JSON |
+
+!!! important "Anti-drift rule"
+    This script IS the phase gate. Do not use any other method to declare a phase done. If any check FAILs, fix only that item and re-run. Do not re-audit the whole phase from scratch.
