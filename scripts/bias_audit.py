@@ -1,32 +1,41 @@
 """
 Bias audit for historical_dataset_clean.parquet.
 
-Checks three systematic biases that can invalidate ML model performance:
+Checks systematic biases that can invalidate ML model performance:
 
-  1. Survivorship bias
-     - What fraction of training rows belong to companies that later delisted?
-     - If delisted companies are under-represented, the model may be too optimistic.
-
-  2. Filing date lag
+  1. Look-ahead bias (HARD FAIL in CI)
      - Confirm filed_date >= period_end_date for every annual row.
-     - Any row where filed_date < period_end implies a look-ahead leak.
+     - Any row where filed_date < period_end implies look-ahead leakage.
 
-  3. FX-adjusted returns (cross-market comparability)
-     - forward_return_* is in local currency. For multi-market models that compare
-       absolute returns across countries, this creates a systematic bias favouring
-       high-inflation markets.
-     - This audit adds forward_return_{h}_usd columns by multiplying the local
-       forward return by the USD/local FX return over the same horizon.
-     - These USD columns are written back to the parquet file if --fix is passed.
+  2. Survivorship bias (WARN only)
+     - What fraction of training rows belong to companies that later delisted?
+     - If delisted companies are under-represented, model will be too optimistic.
+
+  3. Overfitting audit (WARN only)
+     - Compares train AUC (from model_meta.json) to walk-forward mean AUC.
+     - Flags if overfit_gap > 0.15 for any horizon.
+     - Writes overfit_gap to model_meta.json.
+
+  4. FX-adjusted returns (cross-market comparability)
+     - forward_return_* is in local currency. Adds forward_return_{h}_usd columns.
+
+  5. Multiple testing correction (INFO)
+     - Documents expected false discoveries across 5 horizons × strategies.
+
+Exit codes (CI mode --ci):
+  0 — all checks pass (or only warn-level issues found)
+  1 — HARD FAIL: look-ahead violations found
 
 Usage:
-    python3 scripts/bias_audit.py                # report only
-    python3 scripts/bias_audit.py --fix          # add FX-adjusted columns to parquet
+    python3 scripts/bias_audit.py              # full report, exit 0
+    python3 scripts/bias_audit.py --ci         # exit 1 if look-ahead violations
+    python3 scripts/bias_audit.py --fix        # add FX-adjusted columns to parquet
     python3 scripts/bias_audit.py --fix --out data/historical_dataset_fx.parquet
 """
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 import warnings
 warnings.filterwarnings('ignore')
@@ -287,6 +296,84 @@ def audit_fx(df: pd.DataFrame, fix: bool = False,
     return df
 
 
+# ── Audit 3 (new): Overfitting audit ────────────────────────────────────────
+
+def audit_overfitting(meta_path: Path) -> dict[str, float]:
+    """Compare train AUC to walk-forward mean AUC. Flag if gap > 0.15.
+
+    Reads model_meta.json (val_auc proxy for train-set AUC) and
+    reports/walk_forward_auc_{h}.csv for WF mean AUC.
+
+    Returns dict of overfit_gaps per horizon. Writes gaps to model_meta.json.
+    """
+    print('\n── Audit 3: Overfitting Audit ──────────────────────────────────────')
+
+    if not meta_path.exists():
+        print(f'  model_meta.json not found at {meta_path} — skip.')
+        return {}
+
+    meta = json.loads(meta_path.read_text())
+    reports_dir = meta_path.parent.parent / 'reports'
+    gaps: dict[str, float] = {}
+
+    for h, m in meta.items():
+        val_auc = m.get('val_auc')
+        if val_auc is None or str(val_auc) == 'nan':
+            print(f'  [{h}] no val_auc in model_meta — skip')
+            continue
+
+        wf_path = reports_dir / f'walk_forward_auc_{h}.csv'
+        if wf_path.exists():
+            wf_df = pd.read_csv(wf_path)
+            wf_mean = float(wf_df['auc'].mean()) if 'auc' in wf_df.columns else None
+        else:
+            wf_path2 = reports_dir / f'oof_auc_{h}.csv'
+            if wf_path2.exists():
+                wf_df = pd.read_csv(wf_path2)
+                wf_mean = float(wf_df['auc'].mean()) if 'auc' in wf_df.columns else None
+            else:
+                wf_mean = None
+
+        if wf_mean is None:
+            print(f'  [{h}] no walk-forward AUC file found — skip')
+            continue
+
+        gap = round(float(val_auc) - wf_mean, 4)
+        gaps[h] = gap
+        flag = '  ⚠  OVERFIT' if abs(gap) > 0.15 else '  ✓'
+        print(f'  [{h}] val_auc={val_auc:.4f}  wf_mean_auc={wf_mean:.4f}  '
+              f'overfit_gap={gap:+.4f}{flag}')
+
+    # Write gaps back to model_meta.json
+    if gaps:
+        for h, gap in gaps.items():
+            if h in meta:
+                meta[h]['overfit_gap'] = gap
+        meta_path.write_text(json.dumps(meta, indent=2))
+        print(f'\n  overfit_gap written to {meta_path}')
+
+    return gaps
+
+
+# ── Audit 4 (new): Multiple testing note ────────────────────────────────────
+
+def audit_multiple_testing() -> None:
+    """Document expected false discoveries across 5 horizons × strategies."""
+    print('\n── Audit 4: Multiple Testing Correction (INFO) ─────────────────────')
+    n_horizons    = 5   # 6m/1y/2y/3y/5y
+    n_strategies  = 4   # composite/1y/3y/5y
+    n_tests       = n_horizons * n_strategies
+    alpha         = 0.05
+    bonferroni    = alpha / n_tests
+    expected_fp   = n_tests * alpha
+
+    print(f'  Backtest comparisons : {n_tests} ({n_horizons} horizons × {n_strategies} strategies)')
+    print(f'  Naive α=0.05 expected false positives : {expected_fp:.1f}')
+    print(f'  Bonferroni-corrected α : {bonferroni:.4f}  (use when reporting p-values)')
+    print(f'  Recommendation: require Sharpe p < {bonferroni:.4f} for any single-horizon claim.')
+    print(f'  Feature selection uses BH FDR (q<0.05) per horizon — already corrected.')
+
+
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 def main() -> None:
@@ -296,11 +383,16 @@ def main() -> None:
     parser.add_argument('--out', type=Path, default=None,
                         help='Output parquet path when --fix is set '
                              '(default: overwrites historical_dataset_clean.parquet)')
+    parser.add_argument('--ci', action='store_true',
+                        help='CI mode: exit 1 if look-ahead violations found (hard fail); '
+                             'survivorship/overfitting warnings do not fail CI')
     args = parser.parse_args()
 
     if not DATA_PATH.exists():
         print(f'ERROR: {DATA_PATH} not found — run the pipeline first.')
         sys.exit(1)
+
+    meta_path = BASE / 'models' / 'model_meta.json'
 
     print(f'Loading {DATA_PATH}...')
     df = pd.read_parquet(DATA_PATH)
@@ -309,10 +401,34 @@ def main() -> None:
     print(f'  markets: {sorted(df["market"].dropna().unique()) if "market" in df.columns else "N/A"}')
 
     audit_survivorship(df)
+
+    # Audit 1 (re-ordered) / Audit 2: Look-ahead — hard fail
+    leakage_count = _count_lookahead(df)
+    if leakage_count > 0:
+        print(f'\n  ✗  HARD FAIL: {leakage_count:,} look-ahead violations (filed_date < period_end)')
+        if args.ci:
+            sys.exit(1)
+    else:
+        print('\n  ✓  No look-ahead violations detected.')
+
     audit_filing_lag(df)
+    audit_overfitting(meta_path)
+    audit_multiple_testing()
     audit_fx(df, fix=args.fix, out_path=args.out)
 
     print('\n── Audit complete ──────────────────────────────────────────────────')
+    if args.ci:
+        print('  CI mode: look-ahead check PASSED (exit 0)')
+
+
+def _count_lookahead(df: pd.DataFrame) -> int:
+    """Return number of rows where filed_date < period_end (look-ahead)."""
+    ann = df[(df['period_type'] == 'annual') & df['filed_date'].notna()].copy()
+    ann['filed_date'] = pd.to_datetime(ann['filed_date'], errors='coerce')
+    ann['period_end'] = ann.apply(_period_end_date, axis=1)
+    ann = ann[ann['period_end'].notna()]
+    lag_days = (ann['filed_date'] - ann['period_end']).dt.days
+    return int((lag_days < 0).sum())
 
 
 if __name__ == '__main__':

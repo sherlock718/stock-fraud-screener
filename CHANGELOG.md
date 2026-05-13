@@ -8,7 +8,11 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
-### Added (Phase C2 — new horizons 6m/2y + 5-model training config)
+### Added (Phase C3 — bias audit suite + CI integration)
+- **`scripts/bias_audit.py`** overhauled: added `audit_overfitting()` (train AUC vs WF mean AUC gap, writes `overfit_gap` to model_meta.json; flag if gap > 0.15) and `audit_multiple_testing()` (Bonferroni correction across 5 horizons × 4 strategies). Added `--ci` flag: exits with code 1 if any look-ahead violations found (hard fail), warn-only for survivorship/overfitting. Added `_count_lookahead()` helper.
+- **`.github/workflows/refresh_data.yml`** added `bias_audit.py --ci` step after `test_dataset_quality.py`. Look-ahead violations fail CI; survivorship and overfitting are logged as warnings.
+
+
 - **`scripts/train_models.py`** HORIZONS dict extended: added `6m` (forward_return_6m / beat_local_market_6m) and `2y` (forward_return_2y / beat_local_market_2y). Now covers 5 discrete horizons: 6m/1y/2y/3y/5y. EXCLUDE set updated with ml_6m/ml_2y/ml_6m_oof/ml_2y_oof.
 - **`scripts/generate_oof_scores.py`** ALL_HORIZONS extended to all 5 horizons; default `--horizons` now `6m 1y 2y 3y 5y`.
 - **`scripts/tune_models.py`** HORIZONS set extended to 5 horizons; N_OPTUNA_TRIALS 60→100; `_load_data_for_horizon()` patched to use filed_date PIT-safe split matching train_models.py; `--horizon` choices extended.

@@ -512,14 +512,26 @@ Non-fatal CI step for dataset quality monitoring. Produces:
 
 ---
 
-### `bias_audit.py` — Look-Ahead / Survivorship Audit
+### `bias_audit.py` — Bias Audit Suite (Look-Ahead / Survivorship / Overfitting)
+
+Runs four bias checks against the dataset and models:
+
+1. **Look-ahead bias** — verifies `filed_date >= period_end_date` for all rows. HARD FAIL in CI.
+2. **Survivorship bias** — checks % of training rows from later-delisted companies (warn if < 5%).
+3. **Overfitting audit** — compares `val_auc` vs walk-forward mean AUC per horizon. Writes `overfit_gap` to `model_meta.json`. Warn if gap > 0.15.
+4. **Multiple testing** — documents Bonferroni correction across 5 horizons × 4 strategies.
 
 ```bash
-python3 scripts/bias_audit.py
+python3 scripts/bias_audit.py              # full report, exit 0
+python3 scripts/bias_audit.py --ci         # exit 1 if look-ahead violations (CI mode)
+python3 scripts/bias_audit.py --fix        # also compute FX-adjusted return columns
 ```
 
-Runs four tests: temporal leakage, shuffle test, feature-return correlation, permutation importance stability.
-Output: `reports/bias_audit_report.json`
+| Flag | Default | Description |
+|---|---|---|
+| `--ci` | off | Exit 1 if look-ahead violations found; survivorship/overfitting are warn-only |
+| `--fix` | off | Compute and write `forward_return_{h}_usd` FX-adjusted columns to parquet |
+| `--out PATH` | in-place | Output parquet path when `--fix` is set |
 
 ---
 
