@@ -29,7 +29,7 @@ pip install mkdocs-material
 
 ```
 stock-fraud-screener/
-├── app_v2.py                  # Main Streamlit app (8 tabs)
+├── app_v2.py                  # Main Streamlit app (10 tabs)
 ├── requirements.txt
 ├── mkdocs.yml
 │
@@ -60,7 +60,9 @@ stock-fraud-screener/
 │   └── refresh_status.json
 │
 ├── models/                    # Trained model artifacts (gitignored)
+│   ├── model_6m.joblib
 │   ├── model_1y.joblib
+│   ├── model_2y.joblib
 │   ├── model_3y.joblib
 │   ├── model_5y.joblib
 │   └── model_meta.json
@@ -137,7 +139,7 @@ Credentials and connection string:
 ### 2 — Run the migration (parquet → `company_scores`)
 
 `scripts/migrate_to_db.py` loads `data/historical_dataset_clean.parquet`
-(155,696 rows × 319 columns) into a `company_scores` table.  This table is
+(58,190 rows × 360 columns) into a `company_scores` table.  This table is
 **separate** from the `snapshots` table defined in `init.sql` — it is a flat
 denormalised table created by the migration script itself.
 
@@ -181,10 +183,7 @@ The `api` service sets `DATABASE_URL` automatically via `docker-compose.yml`.
   screener API (`screener.py` checks both `fraud_score_composite` and
   `composite_score`). The parquet does **not** contain a `composite_score`
   column; the API falls back gracefully to `fraud_score_composite`.
-- ML score columns (`ml_score_1y/3y/5y`) are absent from the current parquet
-  (they are produced by `scripts/train_models.py`).  The migration script will
-  skip them silently; the API returns `null` for those fields until models are
-  trained and scores are written back into the dataset.
+- ML score columns (`ml_1y`, `ml_3y`, `ml_5y`, `ml_6m`, `ml_2y`) are produced by `scripts/train_models.py` and `scripts/score_historical.py`. The migration script will skip them silently; the API returns `null` for those fields until models are trained and scores are written back into the dataset.
 
 ### Stopping / resetting the DB
 

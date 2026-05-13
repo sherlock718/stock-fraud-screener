@@ -1,6 +1,6 @@
 # Feature Engineering
 
-The pipeline computes **355 features** per company-year observation. Features are organized into two parallel taxonomies: the **5-factor grouping** (how they're consumed in portfolio construction) and the **8-category grouping** (how they're computed in `pipeline/feature_library.py`).
+The pipeline computes **355 base features** per company-year observation (360 total columns including 5 OOF ML score columns: `ml_6m_oof`, `ml_1y_oof`, `ml_2y_oof`, `ml_3y_oof`, `ml_5y_oof`). Features are organized into two parallel taxonomies: the **5-factor grouping** (how they're consumed in portfolio construction) and the **8-category grouping** (how they're computed in `pipeline/feature_library.py`).
 
 The ML models use ~26–33 ICIR-selected features per horizon. See [Feature Selection →](feature-selection.md) for the full selection methodology.
 

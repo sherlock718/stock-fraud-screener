@@ -8,6 +8,14 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Doc sweep — fraud→alpha reframe + 5-horizon + 360-col sync (2026-05-14)
+- **`docs/guide/app.md`** All "fraud score / fraud probability" language replaced with "alpha score / composite score" throughout Tabs 1–4,6; ML horizon description updated to "6m through 5y via HorizonRouter"
+- **`docs/developer/data-update-guide.md`** Production dataset updated 355→360 cols; workflow diagram node updated from `ml_1y/3y/5y` to `ml_{6m,1y,2y,3y,5y}`
+- **`docs/methodology/features.md`** Clarified as "355 base features + 5 OOF = 360 total columns"
+- **`docs/index.md`** Fraud Risk table entry updated to `ml_6m/1y/2y/3y/5y alpha probability`; Key Design Decisions expanded to 5 horizons
+- **`docs/quickstart.md`** Train step updated to all 5 horizons (6m/1y/2y/3y/5y)
+- **`docs/developer/setup.md`** 8→10 tabs; adds model_6m/2y.joblib; dataset size 155K×319→58K×360; ml_score column naming corrected
+
 ### Institutional sync (2026-05-14)
 - **`scripts/run_phase_checks.py`** Phase A column count check updated 355 → 360 (dataset grew when 5 OOF columns added; check was never updated — fixes Phase A FAIL)
 - **`docs/architecture.md`** Feature-Complete Dataset node updated "355 cols" → "360 cols" to match actual parquet state

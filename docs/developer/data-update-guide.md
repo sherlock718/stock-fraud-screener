@@ -26,7 +26,7 @@ flowchart TD
     H1 --> H2[impute_features.py\nquarterly cols + size_category]
     H2 --> H3[mark_survivorship.py --fix\nsurvivorship correction]
     H3 --> H4[compute_alpha.py\n5-factor alpha scores]
-    H4 --> H5[score_historical.py\nML fraud scores ml_1y/3y/5y]
+    H4 --> H5[score_historical.py\nML alpha scores ml_{6m,1y,2y,3y,5y}]
     H5 --> H6[bias_audit.py --ci\nlook-ahead hard fail]
     H6 --> I[test_dataset_quality.py\n98 checks must pass]
     I -->|pass| I2[verify_doc_consistency.py\nnumbers consistent across docs]
@@ -269,6 +269,6 @@ Korean companies sometimes file multiple fiscal years in a single batch submissi
 | After BR null-ticker drop + growth winsorization | 58,190 | 346 |
 | After Montier C1-C6, montier_c_score, sloan_wc_accruals, sloan_lt_accruals | 58,190 | 355 |
 
-Current production dataset: **58,190 rows × 355 columns**
+Current production dataset: **58,190 rows × 360 columns** (355 base features + 5 OOF ML score columns)
 
 > **Montier C2 note (2026-05-13)**: `add_montier_c_score()` in `step5_compute_features.py` uses `ppe_net` for the C2 depreciation rate signal (19.4% null). Do not revert to `property_plant_equipment` (95.7% null) — that makes `montier_c2` 100% null.

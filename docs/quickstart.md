@@ -48,7 +48,7 @@ This produces `data/historical_dataset_clean.parquet`.
 python3 scripts/train_models.py
 ```
 
-Trains 1y, 3y, 5y LightGBM models with ICIR feature selection. Outputs to `models/`.
+Trains all 5 horizon models (6m/1y/2y/3y/5y) with ICIR feature selection. Outputs to `models/`.
 
 For Optuna-tuned models with CatBoost ensemble:
 
