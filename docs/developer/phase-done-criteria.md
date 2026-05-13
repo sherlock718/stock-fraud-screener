@@ -419,7 +419,7 @@ else:
 # Verify HorizonRouter routes correctly
 python3 -c "
 from alpha.horizon_router import HorizonRouter
-cases = [(6, '6m'), (9, '1y'), (18, '1y'), (24, '2y'), (36, '3y'), (60, '5y')]
+cases = [(6, '6m'), (9, '1y'), (18, '2y'), (24, '2y'), (36, '3y'), (60, '5y')]
 for months, expected in cases:
     got = HorizonRouter.route(months)
     status = 'PASS' if got == expected else 'FAIL'

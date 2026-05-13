@@ -8,6 +8,9 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Fixed
+- **`docs/developer/phase-done-criteria.md`** HorizonRouter test case: 18m → `'2y'` (not `'1y'`). Boundary is exclusive upper bound for 1y range; 18m routes to the longer 2y model (conservative bias).
+
 ### Added (Phase C6 — documentation, diagrams, phase-done-criteria sync)
 - **`docs/methodology/alpha-generation.md`** NEW — variable-horizon schema: HorizonRouter routing table, scoring pipeline flowchart, factor group weights, model confidence display thresholds, OOF vs static score usage rules.
 - **`docs/methodology/bias-validation.md`** fully rewritten: all 4 Phase C audits documented (look-ahead PIT-safe split, survivorship −50% imputation, overfitting gap, Bonferroni multiple testing). Added OOF scoring section and CI audit table.
