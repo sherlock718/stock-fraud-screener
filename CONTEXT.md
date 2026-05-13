@@ -9,6 +9,10 @@
 
 **Renaissance-style quantitative alpha lab.** NOT a fraud screener. NOT a fixed-weight factor composite.
 
+**Dual platform**: (1) **Stock screener** — cross-sectional ML ranking by factor strength across markets; (2) **Alpha generation platform** — walk-forward ML models discover which factors matter per market, horizon, and regime.
+
+**Investment objective**: ≥20% annualised ROI on deployed capital, Sharpe ≥ 1.0, max drawdown ≤ 30%. Current backtest: +38.1% CAGR, Sharpe 1.181, +24.2% vs SPY. Walk-forward OOS validation required before live capital.
+
 ML discovers which features matter per market and regime. Generates hundreds of alpha signals. Each alpha is independently backtested. Portfolio construction selects and weights validated alphas.
 
 See `ROADMAP.md` for phase plan. See `CLAUDE.md` for architecture state and pre-task checklist.
@@ -153,7 +157,7 @@ Previously listed gaps resolved:
 | `CLAUDE.md` | Architecture state, pre-task checklist, sync rules |
 | `ROADMAP.md` | Phase plan with status rows |
 | `CONTEXT.md` | This file |
-| `data/historical_dataset_clean.parquet` | Main dataset (355 cols, 58,190 rows) |
+| `data/historical_dataset_clean.parquet` | Main dataset (360 cols = 355 base + 5 OOF, 58,190 rows) |
 | `models/model_meta.json` | Selected features per horizon (1y/3y/5y) + training stats |
 | `reports/factor_research_*.csv` | IC/ICIR factor research per horizon |
 | `docs/developer/phase-done-criteria.md` | Machine-checkable exit criteria per phase |
@@ -170,3 +174,4 @@ Previously listed gaps resolved:
 | 2026-05-13 | Full Phase A/B audit: montier_c2 100% null bug FIXED (ppe→ppe_net); CONTEXT.md rewritten; ROADMAP.md status sync; doc sweep; coverage depth task queued |
 | 2026-05-13 | Phase A+B mechanically verified (59 PASS 0 FAIL); anti-drift process built (run_phase_checks.py); notebooks/06_ic_decay.ipynb executed with IC decay/half-life/regime/autocorr outputs |
 | 2026-05-14 | Phase C mechanically verified: `run_phase_checks.py --phase C` → 30 PASS 0 FAIL 0 WARN. All 5 model horizons confirmed present, OOF scores in parquet, bias audit passed, backtest complete (CAGR +38.1%), alpha_registry.json has 8 signals (6 selected). ROADMAP.md + CONTEXT.md synced to reflect Phase C COMPLETE. |
+| 2026-05-14 | Full A/B/C institutional audit: fixed Phase A FAIL (column count 355→360 in run_phase_checks.py); fixed architecture.md stale node (355→360 cols); fixed models.md LightGBM config (n_estimators 500→600, lr 0.05→0.03, num_leaves 31→63); added HF_TOKEN.md + *.token to .gitignore; embedded 20% ROI investment target into ROADMAP.md + CONTEXT.md; platform framing updated (screener + alpha generation platform). All phases A/B/C now pass. |

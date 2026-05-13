@@ -48,9 +48,10 @@ The primary target is `beat_local_market` — whether the company's stock beat t
 base_params = {
     'objective': 'binary',
     'metric': 'auc',
-    'n_estimators': 500,
-    'learning_rate': 0.05,
-    'num_leaves': 31,
+    'n_estimators': 600,
+    'learning_rate': 0.03,
+    'num_leaves': 63,
+    'max_depth': 6,
     'min_child_samples': 20,
     'subsample': 0.8,
     'colsample_bytree': 0.8,

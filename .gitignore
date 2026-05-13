@@ -4,12 +4,17 @@ __pycache__/
 .env
 .claude/
 
+# Secrets / credentials
+HF_TOKEN.md
+*.token
+
 # Large data files (stored in HuggingFace Hub)
 data/*.parquet
 data/*.db
 data/*_checkpoint.json
 data/*_checkpoint.json.bak*
 data/*.bak
+data/*.bak_*
 data/simfin_cache/
 
 # Generated data (not source)

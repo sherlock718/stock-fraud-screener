@@ -73,16 +73,15 @@ HORIZONS = {
     '5y': ('forward_return_5y', 'beat_local_market_5y'),
 }
 
-# Price/momentum features to force-include for the 1y model.
-# These are ranked too low by raw |ICIR| to enter the top-40, but they are
-# consistently predictive (pct_positive_ic ≥ 0.70) and provide regime-aware
-# signal that fundamental features miss (especially in market-regime reversal years).
+# Price/momentum features to force-include per horizon.
+# ICIR selection on short-horizon targets (6m, 1y) naturally ranks fundamental/value features
+# first, systematically under-selecting momentum features that stabilise the 3y/5y models.
+# Force-includes bypass the ICIR ranking for these specific features.
 # Only features that actually exist in the dataset are force-included at runtime.
-FORCE_INCLUDE_1Y = [
-    # No force-includes currently. Tested 'vix' (ICIR=0.79, improved 2019 fold by +0.02)
-    # but net WF mean AUC declined 0.553→0.549 due to dedup removing other features.
-    # Tested 'price_to_52w_high' — hurt the 2019 fold (IC=−0.40 in COVID reversal year).
-]
+# Note: 'price_to_52w_high' tested for 1y — hurt the 2019 fold (IC=−0.40 in COVID reversal year). Excluded.
+FORCE_INCLUDE_6M = ['vol_rank_12m', 'quality_x_momentum']
+FORCE_INCLUDE_1Y = ['vol_rank_12m', 'quality_x_momentum']
+FORCE_INCLUDE_2Y = ['vol_rank_12m']
 
 EXCLUDE = {
     # identifiers & metadata
@@ -347,32 +346,48 @@ def train_baseline(df_train: pd.DataFrame, features: list[str], beat_col: str,
 
 
 def walk_forward_cv(df: pd.DataFrame, features_per_horizon: dict[str, list[str]],
-                    train_cutoff: int, min_train_years: int = 6) -> None:
+                    train_cutoff: int, min_train_years: int = 6) -> dict[str, float]:
     """Expanding-window walk-forward validation.
 
     For each fold year t in [first_year + min_train_years, train_cutoff]:
       - Train on fiscal_year <= t  AND  filed_date <= Dec 31 of year t (PIT-safe)
       - Evaluate on fiscal_year == t+1
+    Folds where the forward-return horizon hasn't fully elapsed by the dataset
+    end year are excluded to avoid survivorship bias in partially realised returns.
     Saves per-fold AUC to reports/walk_forward_auc_{h}.csv.
+    Returns {h: wf_mean_auc} for the caller to persist in model_meta.json.
     """
+    # Years needed for each horizon's forward return to fully elapse.
+    _horizon_years = {'6m': 1, '1y': 1, '2y': 2, '3y': 3, '5y': 5}
+    max_fiscal_year = int(df['fiscal_year'].max())
+
     filed = pd.to_datetime(df.get('filed_date', pd.NaT), errors='coerce')
     first_year = int(df['fiscal_year'].min())
     fold_years = range(first_year + min_train_years, train_cutoff + 1)
+
+    wf_aucs: dict[str, float] = {}
 
     for h, (ret_col, beat_col) in HORIZONS.items():
         feats = features_per_horizon.get(h, [])
         if not feats:
             continue
+        # Exclude folds whose test_year is too recent for the horizon to have
+        # fully realised returns.  test_year = t+1; we require test_year + H - 1 <= max_fiscal_year.
+        h_years = _horizon_years.get(h, 1)
+        max_test_year = max_fiscal_year - h_years + 1
         records = []
-        print(f'  Walk-forward {h}: {len(list(fold_years))} folds', end=' ')
+        print(f'  Walk-forward {h}: folds up to test_year≤{max_test_year}', end=' ')
         for t in fold_years:
-            cutoff_date = pd.Timestamp(f'{t + 1}-01-01')
+            test_year = t + 1
+            if test_year > max_test_year:
+                continue
+            cutoff_date = pd.Timestamp(f'{test_year}-01-01')
             train_mask = (
                 (df['fiscal_year'] <= t) &
                 (filed.isna() | (filed < cutoff_date))
             )
             tr = df[train_mask].copy()
-            te = df[df['fiscal_year'] == t + 1].copy()
+            te = df[df['fiscal_year'] == test_year].copy()
             te = te[te[beat_col].notna()]
             if len(tr[tr[beat_col].notna()]) < 100 or len(te) < 20 or te[beat_col].nunique() < 2:
                 continue
@@ -382,7 +397,7 @@ def walk_forward_cv(df: pd.DataFrame, features_per_horizon: dict[str, list[str]]
                 X_te = te[fa].fillna(pd.Series(medians))
                 y_te = te[beat_col].astype(int)
                 auc = roc_auc_score(y_te, clf.predict_proba(X_te)[:, 1])
-                records.append({'fold_year': t, 'test_year': t + 1, 'auc': round(auc, 4),
+                records.append({'fold_year': t, 'test_year': test_year, 'auc': round(auc, 4),
                                  'n_train': len(tr), 'n_test': len(te)})
                 print('.', end='', flush=True)
             except Exception:
@@ -391,8 +406,12 @@ def walk_forward_cv(df: pd.DataFrame, features_per_horizon: dict[str, list[str]]
         if records:
             wf_df = pd.DataFrame(records)
             wf_df.to_csv(REPORTS / f'walk_forward_auc_{h}.csv', index=False)
-            print(f'    mean AUC={wf_df["auc"].mean():.4f}  '
+            mean_auc = round(float(wf_df['auc'].mean()), 4)
+            wf_aucs[h] = mean_auc
+            print(f'    mean AUC={mean_auc:.4f}  '
                   f'min={wf_df["auc"].min():.4f}  max={wf_df["auc"].max():.4f}')
+
+    return wf_aucs
 
 
 def main() -> None:
@@ -403,8 +422,8 @@ def main() -> None:
                         help='Skip correlation-based deduplication')
     parser.add_argument('--min-ic', type=float, default=0.02,
                         help='Minimum |mean IC| to enter candidate set (default: 0.02)')
-    parser.add_argument('--sector-neutral', action='store_true',
-                        help='Compute IC within SIC sectors (sector-neutral IC)')
+    parser.add_argument('--sector-neutral', action=argparse.BooleanOptionalAction, default=True,
+                        help='Compute IC within SIC sectors (sector-neutral IC, default: on). Use --no-sector-neutral to disable.')
     parser.add_argument('--train-cutoff', type=int, default=TRAIN_CUTOFF,
                         help=f'Last fiscal_year in training set (default: {TRAIN_CUTOFF})')
     parser.add_argument('--val-end', type=int, default=VAL_END,
@@ -415,10 +434,9 @@ def main() -> None:
                         help='Run expanding-window walk-forward CV after main training')
     parser.add_argument('--max-psi', type=float, default=0.25,
                         help='Drop features with PSI > threshold before IC analysis (default: 0.25)')
-    parser.add_argument('--min-ic-stability', type=float, default=0.0,
+    parser.add_argument('--min-ic-stability', type=float, default=0.6,
                         help='Minimum fraction of years IC must have the correct sign to keep feature '
-                             '(default: 0.0 = off). Set to e.g. 0.6 to drop features whose IC '
-                             'direction is inconsistent across years.')
+                             '(default: 0.6). Features whose IC direction is inconsistent across years are dropped.')
     parser.add_argument('--min-ic-years', type=int, default=1,
                         help='Minimum number of years with valid IC data to keep a feature '
                              '(default: 1 = off). Set to e.g. 5 to prevent spurious ICIR inflation '
@@ -498,14 +516,15 @@ def main() -> None:
         top_n = candidates[:args.top_n]
         print(f'\n  {h}: {n_before} pass |IC|>{args.min_ic} → {n_stability_dropped} dropped by stability/years filter → {len(candidates)} remain → keeping top {len(top_n)} by ICIR')
 
-        # For the 1y horizon, force-include price/momentum features that are consistently
-        # predictive but drowned out by high-|ICIR| fundamental features.
-        if h == '1y':
-            for forced in FORCE_INCLUDE_1Y:
-                if forced not in top_n and forced in tbl.index:
-                    top_n.append(forced)
-                    row = tbl.loc[forced]
-                    print(f'    Force-include {forced} (ICIR={row["icir"]:.3f}, pct_pos={row["pct_positive_ic"]:.2f})')
+        # Force-include price/momentum features per horizon.
+        # ICIR selection on short-horizon targets naturally ranks fundamental/value features
+        # first, systematically under-selecting momentum features that stabilise the 3y/5y models.
+        _force_map = {'6m': FORCE_INCLUDE_6M, '1y': FORCE_INCLUDE_1Y, '2y': FORCE_INCLUDE_2Y}
+        for forced in _force_map.get(h, []):
+            if forced not in top_n and forced in tbl.index:
+                top_n.append(forced)
+                row = tbl.loc[forced]
+                print(f'    Force-include {forced} (ICIR={row["icir"]:.3f}, pct_pos={row["pct_positive_ic"]:.2f})')
 
         if not args.no_dedup:
             top_n = deduplicate_features(df_train, top_n, corr_threshold=0.90)
@@ -588,7 +607,13 @@ def main() -> None:
 
     if args.walk_forward:
         print('\nRunning walk-forward CV (expanding window)...')
-        walk_forward_cv(df, selected_features, train_cutoff)
+        wf_aucs = walk_forward_cv(df, selected_features, train_cutoff)
+        if wf_aucs:
+            for h, mean_auc in wf_aucs.items():
+                if h in model_meta:
+                    model_meta[h]['wf_mean_auc'] = mean_auc
+            (MODELS_DIR / 'model_meta.json').write_text(json.dumps(model_meta, indent=2))
+            print(f'model_meta.json updated with wf_mean_auc values')
 
     print('\n── Summary ─────────────────────────────────')
     print(f'  {"Horizon":<6}  {"LGBM val":>9}  {"LGBM test":>10}  {"LR val":>8}  {"LR test":>9}')

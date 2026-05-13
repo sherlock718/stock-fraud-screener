@@ -320,9 +320,10 @@ python3 scripts/run_feature_selection.py --psi-threshold 0.20 --ic-min 0.03
 
 ### `train_models.py` — LightGBM Training
 
-Trains LightGBM models (1y, 3y, 5y horizons) using ICIR feature selection with
-filed-date PIT-safe train/test splits. Uses enhanced model config: n_estimators=600,
-max_depth=6, num_leaves=63, lr=0.03.
+Trains LightGBM models for all 5 horizons (6m/1y/2y/3y/5y) using ICIR feature selection with
+filed-date PIT-safe train/test splits. Model config: n_estimators=600, max_depth=6, num_leaves=63,
+lr=0.03. FORCE_INCLUDE lists bypass ICIR ranking for momentum features on short horizons (6m/1y/2y)
+where ICIR systematically under-selects momentum vs fundamentals.
 
 ```bash
 python3 scripts/train_models.py
@@ -337,20 +338,22 @@ python3 scripts/train_models.py --walk-forward   # PIT-safe walk-forward CV
 | `--top-n N` | `40` | Max features per horizon after ICIR ranking |
 | `--min-ic FLOAT` | `0.02` | Minimum absolute IC to include a feature |
 | `--max-psi FLOAT` | `0.25` | Drop features with PSI above this threshold before IC ranking |
-| `--min-ic-stability FLOAT` | `0.0` | Minimum fraction of years IC must have the correct sign (0.0 = off). Set to e.g. `0.6` to drop directionally inconsistent features |
+| `--min-ic-stability FLOAT` | `0.6` | Minimum fraction of years IC must have the correct sign. Set to 0.0 to disable; 0.6 drops directionally inconsistent features |
 | `--min-ic-years INT` | `1` | Minimum years of IC data required to keep a feature (1 = off). Set to e.g. `5` to prevent ICIR inflation from features with very few historical observations |
 | `--no-dedup` | False | Skip correlation deduplication (r > 0.90) |
-| `--sector-neutral` | False | Demean IC scores within sectors before ranking |
+| `--sector-neutral` / `--no-sector-neutral` | True | Demean IC scores within sectors before ranking (default on; use `--no-sector-neutral` to disable) |
 | `--train-cutoff YEAR` | `2022` | Last training year (inclusive) |
 | `--val-end YEAR` | `2023` | Last validation year (inclusive); test = after this |
 | `--no-shap` | False | Skip SHAP computation (faster) |
-| `--walk-forward` | False | Run PIT-safe expanding-window walk-forward CV; saves `reports/walk_forward_auc_{h}.csv` |
+| `--walk-forward` | False | Run PIT-safe expanding-window walk-forward CV; saves `reports/walk_forward_auc_{h}.csv`; returns per-fold AUC dict |
 
-Outputs: `models/model_{1y,3y,5y}.joblib`, `models/model_meta.json`
+Outputs: `models/model_{6m,1y,2y,3y,5y}.joblib`, `models/model_meta.json`
 
 The PSI filter (`--max-psi`) runs **before** IC ranking and removes features with high Population Stability Index between training and scoring distributions. Default threshold of 0.25 is aligned with `run_feature_selection.py`.
 
 Train split uses both `fiscal_year` and `filed_date` cutoffs — rows filed after January 1 of (TRAIN_CUTOFF+1) are excluded even if their fiscal year is in the training window. This eliminates look-ahead from late SEC filings.
+
+Walk-forward CV (`--walk-forward`) excludes folds where forward returns have not yet fully elapsed (`max_test_year = max_fiscal_year - horizon_years + 1`), preventing inflated AUC from partially-realised returns.
 
 ---
 

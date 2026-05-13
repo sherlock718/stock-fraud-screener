@@ -73,7 +73,7 @@ def check_a1_dataset() -> None:
         import pandas as pd
         df = pd.read_parquet(PARQUET)
         check("Rows >= 58,000", df.shape[0] >= 58000, f"{df.shape[0]:,} rows")
-        check("Columns == 355", df.shape[1] == 355, f"{df.shape[1]} cols")
+        check("Columns == 360", df.shape[1] == 360, f"{df.shape[1]} cols")
         check("No inf values", not df.isin([float("inf"), float("-inf")]).any().any())
         for col, cap in [
             ("forward_return_1y", 5.0),

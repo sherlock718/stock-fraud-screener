@@ -1,6 +1,8 @@
 # Roadmap — Multi-Factor Quantitative Alpha Lab
 
-**Vision**: ML-first quantitative alpha lab. Factor groups (Value · Quality · Momentum · Growth · Fraud Risk) are ML input categories — not fixed-weight scores. ML discovers which factors matter per market, horizon, and segment. Hundreds of alpha signals, each independently backtested. Portfolio built from validated signals only.
+**Vision**: ML-first quantitative alpha lab targeting **≥20% annualised ROI** (net of transaction costs) for real capital deployment. This is both a **stock screener** (cross-sectional ranking by factor strength) and an **alpha generation platform** (ML discovers which factors matter per market, horizon, and regime). Factor groups (Value · Quality · Momentum · Growth · Fraud Risk) are ML input categories — not fixed-weight scores. Hundreds of alpha signals, each independently backtested. Portfolio built from validated signals only.
+
+**Investment target**: ≥20% annualised return on deployed capital, Sharpe ≥ 1.0, max drawdown ≤ 30%. Validated on walk-forward OOS data before live capital allocation.
 
 **Data policy**: Free sources only until alpha is validated. No paid data subscriptions before confidence is established. US is the primary market. Other free markets added after US pipeline is solid end-to-end.
 

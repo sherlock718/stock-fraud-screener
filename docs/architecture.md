@@ -131,7 +131,7 @@ flowchart LR
     F -->|+5 quarterly dynamics| Q[Quarterly-Enriched<br/>historical_dataset_clean.parquet<br/>58K rows · 326 cols]
     Q -->|delisted imputation| SB[Survivorship-Corrected<br/>likely_delisted flag]
     SB -->|quarterly imputation<br/>+ size_category| IMP[Imputed Dataset<br/>58K rows · 341 cols]
-    IMP -->|Montier C-Score<br/>+ Sloan accruals| FEAT[Feature-Complete Dataset<br/>58K rows · 355 cols]
+    IMP -->|Montier C-Score<br/>+ Sloan accruals| FEAT[Feature-Complete Dataset<br/>58K rows · 360 cols]
     FEAT -->|PSI filter<br/>PSI > 0.25 removed| PSI[PSI-Filtered Candidates<br/>~185 features]
     PSI -->|ICIR filter| G[~45 features/horizon]
     G -->|LightGBM fit<br/>5 horizons: 6m 1y 2y 3y 5y| H[Base Models]

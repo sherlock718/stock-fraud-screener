@@ -8,6 +8,14 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Institutional sync (2026-05-14)
+- **`scripts/run_phase_checks.py`** Phase A column count check updated 355 → 360 (dataset grew when 5 OOF columns added; check was never updated — fixes Phase A FAIL)
+- **`docs/architecture.md`** Feature-Complete Dataset node updated "355 cols" → "360 cols" to match actual parquet state
+- **`docs/methodology/models.md`** LightGBM base config block updated to actual trained params: `n_estimators=600`, `learning_rate=0.03`, `num_leaves=63`, `max_depth=6` (was showing stale pre-retrain defaults)
+- **`.gitignore`** Added `HF_TOKEN.md` and `*.token` to prevent credential files being accidentally committed
+- **`ROADMAP.md`** Vision section updated with investment objective: ≥20% annualised ROI, Sharpe ≥ 1.0, max drawdown ≤ 30%; platform framed as screener + alpha generation
+- **`CONTEXT.md`** "What This Project Is" updated with dual-platform framing and 20% ROI investment objective
+
 ### Phase C — Complete (2026-05-14)
 - **`scripts/run_phase_checks.py --phase C`** → 30 PASS 0 FAIL 0 WARN. Phase C officially complete per `docs/developer/phase-done-criteria.md`. All 5 model horizons (6m/1y/2y/3y/5y) confirmed present, OOF scores in parquet (360 cols), bias audit passing, backtest results with SPY benchmark, alpha_registry.json populated (8 signals, 6 selected).
 - **`ROADMAP.md`** Phase C status rows updated to reflect actual artifact state: Step 7 baseline comparison ✅, sortino/calmar bug ✅ Fixed, Step 9 tearsheet + benchmark-relative metrics ✅, Step 10 alpha registry tasks ✅. Phase header updated to "✅ COMPLETE (exit criteria: 30 PASS 0 FAIL)".
