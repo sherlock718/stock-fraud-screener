@@ -40,22 +40,28 @@ graph TB
         F1 & F2 & F3 & F4 & F5 --> FA
     end
 
-    subgraph ML["ML System — scripts/train_models.py"]
-        C0[PSI Filter<br/>drops macro-regime features<br/>PSI > 2.0 removed]
-        C1[ICIR Feature Selection<br/>~35 features/horizon]
-        C2[LightGBM<br/>3 horizons: 1y 3y 5y]
+    subgraph ML["ML System — scripts/train_models.py ✅ Phase C"]
+        C0[PSI Filter<br/>drops unstable features<br/>PSI > 0.25 removed]
+        C1[ICIR Feature Selection<br/>~45 features/horizon]
+        C2[LightGBM<br/>5 horizons: 6m 1y 2y 3y 5y<br/>filed-date PIT-safe]
         C3[Optuna Tuning<br/>100 trials per horizon]
         C4[CatBoost Ensemble]
         C5[Platt Scaling Calibration]
         C6[score_historical.py<br/>writes ml_1y/3y/5y to parquet]
+        C6B[generate_oof_scores.py<br/>walk-forward OOF scoring<br/>ml_1y_oof / ml_3y_oof / ml_5y_oof]
+        C7[horizon_router.py<br/>maps months → model key<br/>6m / 1y / 2y / 3y / 5y]
         C0 --> C1 --> C2 --> C3 --> C4 --> C5 --> C6
+        C5 --> C6B
+        C6B --> C7
     end
 
     subgraph Research["Research — scripts/ + research/"]
         D1[Factor Analysis<br/>IC / ICIR / Decay]
-        D2[Walk-Forward Backtester<br/>4 strategies]
-        D3[Bias Audit<br/>Look-ahead / Survivorship]
+        D2[Walk-Forward Backtester<br/>SPY benchmark · 4 strategies]
+        D3[Bias Audit<br/>Look-ahead · Survivorship<br/>Overfitting · Multiple testing]
         D4[Walk-Forward AUC CV<br/>reports/walk_forward_auc_*.csv]
+        D5[SPY Returns<br/>fetch_spy_returns.py<br/>data/spy_returns.csv]
+        D5 --> D2
     end
 
     subgraph Storage["Storage"]
@@ -96,15 +102,18 @@ graph TB
 | Montier C-Score + Richardson accruals | `pipeline/step5_compute_features.py` | Montier C-Score (6-binary, Montier 2008) + `sloan_wc_accruals` + `sloan_lt_accruals` (Richardson 2005) | ✅ |
 | Survivorship correction | `scripts/mark_survivorship.py` | Impute −50% return for likely-delisted | ✅ |
 | AAER fraud labels | `scripts/fetch_aaer_labels.py` | 492 positive rows / 118 companies | ✅ |
-| Train models | `scripts/train_models.py` | LightGBM with PSI filter + ICIR selection | ✅ |
-| Tune models | `scripts/tune_models.py` | Optuna + CatBoost ensemble + Platt calibration | ✅ |
+| Train models | `scripts/train_models.py` | LightGBM 5 horizons (6m/1y/2y/3y/5y), filed-date PIT-safe, PSI filter + ICIR selection, n_estimators=600 | ✅ Phase C |
+| Tune models | `scripts/tune_models.py` | Optuna 100 trials + CatBoost ensemble + Platt calibration | ✅ |
+| OOF scorer | `scripts/generate_oof_scores.py` | Walk-forward OOF → ml_1y_oof / ml_3y_oof / ml_5y_oof (unbiased, NaN for train rows) | ✅ Phase C |
 | Historical ML scoring | `scripts/score_historical.py` | Load models → write ml_1y/3y/5y to parquet | ✅ |
+| SPY benchmark data | `scripts/fetch_spy_returns.py` | Downloads SPY annual calendar-year returns → data/spy_returns.csv | ✅ Phase C |
+| Horizon router | `alpha/horizon_router.py` | Maps investment horizon (months) to nearest discrete model key (6m/1y/2y/3y/5y) | ✅ Phase C |
 | **Alpha factor package** | `alpha/factors/` | 5-factor scores: Value · Quality · Momentum · Growth · Fraud Risk | ✅ |
-| Backtester | `scripts/backtester.py` | Walk-forward strategy simulation (4 strategies) | ✅ |
+| Backtester | `scripts/backtester.py` | Walk-forward simulation · SPY benchmark · factor attribution (beta/alpha/R²/tracking_error) · 4 strategies | ✅ Phase C |
 | Factor research | `scripts/factor_research.py` | IC/ICIR/decay analysis | ✅ |
 | Leverage strategy | `scripts/leverage_strategy.py` | Long/short Kelly sizing | ✅ |
 | Monitor drift | `scripts/monitor_drift.py` | PSI + AUC monitoring | ✅ |
-| Bias audit | `scripts/bias_audit.py` | Temporal leakage + survivorship audit | ✅ |
+| Bias audit | `scripts/bias_audit.py` | 4 audits: look-ahead (PIT) · survivorship · overfitting (overfit_gap) · multiple testing (Bonferroni) | ✅ Phase C |
 | Generate reports | `scripts/generate_reports.py` | PDF tearsheet + weekly picks | ✅ |
 | DB migration | `scripts/migrate_to_db.py` | Load parquet → TimescaleDB hypertable | Phase C — deferred |
 | App | `app_v2.py` | Streamlit dashboard (Phase 2: add 5-factor UI) | ✅ |
@@ -123,13 +132,15 @@ flowchart LR
     Q -->|delisted imputation| SB[Survivorship-Corrected<br/>likely_delisted flag]
     SB -->|quarterly imputation<br/>+ size_category| IMP[Imputed Dataset<br/>58K rows · 341 cols]
     IMP -->|Montier C-Score<br/>+ Sloan accruals| FEAT[Feature-Complete Dataset<br/>58K rows · 355 cols]
-    FEAT -->|PSI filter| PSI[PSI-Filtered Candidates<br/>~185 features]
-    PSI -->|ICIR filter| G[~35 features/horizon]
-    G -->|LightGBM fit| H[Base Models]
+    FEAT -->|PSI filter<br/>PSI > 0.25 removed| PSI[PSI-Filtered Candidates<br/>~185 features]
+    PSI -->|ICIR filter| G[~45 features/horizon]
+    G -->|LightGBM fit<br/>5 horizons: 6m 1y 2y 3y 5y| H[Base Models]
     H -->|Optuna search| I[Tuned Models]
     I -->|CatBoost blend| J[Ensemble]
     J -->|Platt scaling| K[Calibrated Proba 0–1]
     K -->|score_historical.py| L[ml_1y / ml_3y / ml_5y<br/>written back to parquet]
+    K -->|generate_oof_scores.py<br/>walk-forward OOF| OOF[ml_1y_oof / ml_3y_oof / ml_5y_oof<br/>NaN for training rows]
+    OOF -->|horizon_router.py<br/>months → model key| HR[HorizonRouter<br/>6m · 1y · 2y · 3y · 5y]
     L -->|compute_alpha.py| FA[5-Factor<br/>Composite Alpha Score<br/>341 → 355 cols total]
     SB -->|bulk load| DB[TimescaleDB<br/>hypertable — Phase C — deferred]
 ```
@@ -141,7 +152,9 @@ graph LR
     A[Developer machine] -->|git push| B[GitHub]
     B -->|Sunday 05:00 UTC| C[refresh_data.yml<br/>GitHub Actions]
     B -->|Monday 07:00 UTC| D[monitor_drift.yml<br/>GitHub Actions]
-    C -->|parquet + status| E[HuggingFace Hub<br/>Dataset repo]
+    C -->|test_dataset_quality.py| QA[Dataset Quality<br/>98 checks must pass]
+    QA -->|bias_audit.py --ci<br/>hard fail on look-ahead| AUDIT[Bias Audit<br/>PIT · survivorship]
+    AUDIT -->|parquet + status| E[HuggingFace Hub<br/>Dataset repo]
     C -->|models| F[HuggingFace Hub<br/>Model repo]
     D -->|drift report| G[Artifacts + warning]
     E -->|download at startup| H[Streamlit Cloud<br/>app_v2.py · dashboard]

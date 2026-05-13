@@ -8,6 +8,13 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Added (Phase C6 — docs/architecture.md Phase C sync)
+- **`docs/architecture.md`** ML System subgraph updated: 5 horizons (6m/1y/2y/3y/5y), PSI threshold 2.0 → 0.25, OOF scorer node (`generate_oof_scores.py`), HorizonRouter node (`horizon_router.py`).
+- **`docs/architecture.md`** Research subgraph updated: Backtester now shows SPY benchmark, Bias Audit updated to 4 audits, SPY Returns node added (`fetch_spy_returns.py`).
+- **`docs/architecture.md`** Component Map updated: new rows for OOF scorer, SPY fetch, HorizonRouter; train_models.py updated to 5 horizons filed-date PIT-safe; backtester.py updated to include SPY benchmark + factor attribution; bias_audit.py updated to 4 audits.
+- **`docs/architecture.md`** Data Flow Detail: PSI threshold 2.0 → 0.25, ~35 → ~45 features/horizon, 5-horizon LightGBM, OOF path added (`ml_*_oof` columns), HorizonRouter node added.
+- **`docs/architecture.md`** Deployment Architecture: `bias_audit.py --ci` step added in CI after dataset quality check; hard fail on look-ahead violation shown in diagram.
+
 ### Fixed
 - **`docs/developer/phase-done-criteria.md`** HorizonRouter test case: 18m → `'2y'` (not `'1y'`). Boundary is exclusive upper bound for 1y range; 18m routes to the longer 2y model (conservative bias).
 
