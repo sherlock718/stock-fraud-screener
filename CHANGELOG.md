@@ -8,6 +8,13 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Added (Phase C6 — documentation, diagrams, phase-done-criteria sync)
+- **`docs/methodology/alpha-generation.md`** NEW — variable-horizon schema: HorizonRouter routing table, scoring pipeline flowchart, factor group weights, model confidence display thresholds, OOF vs static score usage rules.
+- **`docs/methodology/bias-validation.md`** fully rewritten: all 4 Phase C audits documented (look-ahead PIT-safe split, survivorship −50% imputation, overfitting gap, Bonferroni multiple testing). Added OOF scoring section and CI audit table.
+- **`docs/developer/phase-done-criteria.md`** Phase C checklist added: C1 (OOF columns + look-ahead), C2 (5 model files + feature sets + WF-AUC), C3 (bias audit), C4 (SPY data + backtest fields), C5 (HorizonRouter routing + scoring imports).
+- **`CLAUDE.md`** architecture state table updated: 5 horizons in ML models row, OOF scoring row, HorizonRouter row, SPY benchmark data row, bias audit row. Key File Locations updated: 5-horizon model files, OOF audit trail, spy_returns.csv, bias_audit_report.json, horizon_router.py. Critical Missing Pieces replaced with current performance table (5 horizons).
+- **`scripts/verify_doc_consistency.py`** extended: `get_feature_set_counts()` now covers 6m/1y/2y/3y/5y; `get_trained_horizons()` added; Phase C checks added (model_meta.json horizon coverage, spy_returns.csv presence, horizon_router.py presence).
+
 ### Added (Phase C5 — variable-horizon alpha schema + UI)
 - **`alpha/horizon_router.py`** NEW — `HorizonRouter` class: maps any investment horizon (months) to nearest trained model key (6m/1y/2y/3y/5y). Routing: 3–9m→6m, 9–18m→1y, 18–30m→2y, 30–48m→3y, 48m+→5y. Conservative bias (longer model on tie). Includes `MODEL_LABELS`, `FEATURE_FACTOR_GROUPS` (200+ features mapped to Value/Quality/Momentum/Growth/Fraud Risk), `wf_auc()` helper.
 - **`src/scoring.py`** `resolve_horizon()` added: accepts model key string or integer months, routes via `HorizonRouter`, falls back gracefully to nearest available model. `score_companies()` now accepts `horizon: str | int` — integer months are routed automatically.

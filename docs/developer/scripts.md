@@ -868,7 +868,10 @@ The pre-commit hook at `.git/hooks/pre-commit` calls this automatically before e
 
 ### `verify_doc_consistency.py` — Cross-File Fact Verifier
 
-Reads the live parquet and key docs, then checks that column counts, row counts, feature counts, and quality check counts are consistent across all files. Run before Phase gate checks or after any dataset change.
+Reads the live parquet and key docs, then checks that column counts, row counts, feature counts,
+and quality check counts are consistent across all files. Also checks Phase C artifacts (model_meta.json
+horizon coverage, spy_returns.csv, horizon_router.py presence). Run before Phase gate checks or after
+any dataset change.
 
 ```bash
 python3 scripts/verify_doc_consistency.py           # fail if any mismatch
@@ -879,6 +882,6 @@ python3 scripts/verify_doc_consistency.py --warn    # print mismatches, exit 0
 |---|---|---|
 | `--warn` | False | Print failures but always exit 0 (used in CI as advisory) |
 
-**Checks**: column count (355) in index.md, README.md, architecture.md, models.md, CLAUDE.md, phase-done-criteria.md, data-update-guide.md; feature counts (45/45/41) in index.md, scripts.md, feature-selection.md; row count (58,190) in index.md; quality check count (98) in data-update-guide.md.
+**Checks**: column count (355) in index.md, README.md, architecture.md, models.md, CLAUDE.md, phase-done-criteria.md, data-update-guide.md; feature counts (45/45/41) in index.md, scripts.md, feature-selection.md; row count (58,190) in index.md; quality check count (98) in data-update-guide.md; Phase C: model_meta.json horizons, spy_returns.csv, horizon_router.py.
 
 **In CI**: runs weekly after `run_feature_selection.py` as a non-blocking advisory step. Output appears in the GitHub Actions log.

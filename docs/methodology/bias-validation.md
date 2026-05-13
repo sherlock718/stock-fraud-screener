@@ -1,77 +1,121 @@
 # Bias & Validation
 
-The screener includes an explicit audit framework for the three most dangerous model biases in financial ML.
+The screener includes an explicit audit framework for four model biases in financial ML.
+`scripts/bias_audit.py` runs all four audits and is wired into the weekly CI pipeline.
 
-## The Three Biases
-
-### 1. Look-Ahead Bias
-
-**What it is:** Using information that wasn't available at the time a trading decision would be made.
-
-**Risk in this codebase:** Features computed using fiscal year data but applied to a year-end date when the filing wasn't yet published.
-
-**Current mitigation:**
-- All features use `fiscal_year` as the cutoff — only data from fiscal year Y is used to score year Y
-- Model is trained on data with `fiscal_year ≤ train_cutoff` and tested on `fiscal_year > train_cutoff`
-
-**Known residual risk:**
-The pipeline uses `fiscal_year` (integer) not actual `filing_date`. Companies with late 10-K filings (e.g., June 2024 for FY2023) would not have their data available until June. If the backtest assumes the data is available January 2024, there is a 6-month look-ahead error.
-
-**Roadmap fix (Phase 0a):** Store `filing_date`, `effective_date`, `source_timestamp` for every feature snapshot. Use filing date as the knowledge cutoff in all backtests.
-
-### 2. Survivorship Bias
-
-**What it is:** Training only on companies that survived (are still listed). Bankrupt and delisted companies are excluded, making the model overly optimistic.
-
-**Risk in this codebase:** The current universe is built from active listings. Companies that went bankrupt or were delisted in 2010–2020 are not in the training set.
-
-**Current mitigation:**
-- The bias audit notebook (`04_bias_audit.ipynb`) quantifies the magnitude
-- Known to exist; magnitude estimated at ~2–4 AUC points inflation
-
-**Roadmap fix (Phase 0b):** Collect delisted companies from CRSP delisting codes (US) and SEC EDGAR Form 15 filings. Track delisting reason (bankruptcy, merger, fraud, voluntary). Include dead companies in training set.
-
-### 3. Feature Leakage
-
-**What it is:** A feature that accidentally encodes information about the future (e.g., using fiscal year-end market cap which incorporates price movements that happened after the prediction date).
-
-**Audit process:**
-The `scripts/bias_audit.py` script checks:
-
-1. **Temporal leakage test** — fit model on features at year T, test on year T (same year). If AUC > 0.90, there may be leakage.
-2. **Shuffle test** — shuffle the target labels and refit. AUC should drop to ~0.50.
-3. **Feature correlation with future returns** — compute Pearson correlation between each feature at year T and the price return over year T (same year). Features with |r| > 0.15 are flagged.
-4. **Permutation importance stability** — if a feature's importance collapses when tested OOS, it may have been leaking in-sample.
-
-## Running the Bias Audit
+## Running the Audit
 
 ```bash
+# Interactive — prints all four audit results to stdout
 python3 scripts/bias_audit.py
 
+# CI mode — exits 1 on look-ahead violations (hard fail); survivorship/overfitting = warn-only
+python3 scripts/bias_audit.py --ci
+
 # Output: reports/bias_audit_report.json
-# Also prints a summary table to stdout
 ```
 
-The audit notebook (`research/04_bias_audit.ipynb`) has more visual analysis.
+---
 
-## Walk-Forward as the Primary Defense
+## Audit 1 — Look-Ahead Bias (Hard Fail in CI)
 
-The strongest defense against all three biases is the walk-forward validation structure itself:
+**What it is:** Using information that was not available at the time a portfolio decision would be made.
 
-- The model **never** trains on data from the test period
-- Each OOS year is tested on a model that was trained **before** that year existed
-- If the OOS AUC is materially lower than the in-sample AUC, it reveals overfitting even if leakage isn't detected directly
+**Phase C implementation:**
+The train/test split uses *both* `fiscal_year` AND `filed_date`:
 
-**Current OOS gap:**
+```python
+train_mask = (
+    (df['fiscal_year'] < test_year) &
+    (filed.isna() | (filed < pd.Timestamp(f'{test_year}-01-01')))
+)
+```
 
-| Horizon | In-sample AUC | Val AUC | Test AUC | OOS penalty |
-|---|---|---|---|---|
-| 1-year | ~0.85 | 0.776 | 0.749 | ~10 pts |
-| 3-year | ~0.87 | 0.795 | 0.780 | ~8 pts |
-| 5-year | ~0.91 | 0.860 | 0.856 | ~5 pts |
+This prevents late-filing companies from leaking into training — e.g., a company that filed its FY2021
+report in June 2022 cannot be used to train the 2021→2022 fold, even though its `fiscal_year == 2021`.
 
-The 5-year horizon has the smallest OOS penalty — suggesting the longer-horizon structural signals are more robust and less likely to be overfitted noise.
+**Automated check:** `bias_audit.py audit-1` — counts rows where `filed_date > portfolio_date`.
+Zero violations required for CI pass. Any violation causes exit code 1.
 
-## Cross-Validation Note
+**Backtester protection:** A filing-lag filter drops any row with `filed_date > fiscal_year_end + 18 months`
+from portfolio selection (`--max-filing-lag 18`).
 
-Standard k-fold cross-validation is **not used** in this project. It would introduce temporal leakage (training on future data to predict the past). Only walk-forward (expanding window) splits are used.
+---
+
+## Audit 2 — Survivorship Bias
+
+**What it is:** Training only on companies that survived. Excludes bankrupt/delisted firms, inflating model optimism.
+
+**Current mitigation:**
+- `scripts/mark_survivorship.py` imputes −50% return for companies flagged `likely_delisted=1`
+- `likely_delisted` column covers companies with missing price data + no sign of continued activity
+- `survivorship_pct` in `backtest_results.json` tracks the fraction of picks with missing forward returns
+
+**Audit check:** `bias_audit.py audit-2` — verifies `likely_delisted` coverage > 5% of training rows
+(threshold: if less, the survivorship correction isn't reaching enough companies).
+
+**Known limitation:** CRSP-grade delisting codes are not available for non-US markets. The −50%
+imputation is a conservative approximation.
+
+---
+
+## Audit 3 — Overfitting
+
+**What it is:** The model learns noise from training data that does not generalize to new data.
+
+**Detection:** `bias_audit.py audit-3` computes the overfitting gap per horizon:
+
+```
+overfit_gap = val_auc - wf_mean_auc
+```
+
+- `val_auc`: validation AUC on held-out data during training (static split)
+- `wf_mean_auc`: mean AUC across expanding walk-forward folds
+
+| Gap | Interpretation |
+|---|---|
+| < 0.05 | Model generalizes well |
+| 0.05–0.10 | Moderate overfitting — acceptable |
+| 0.10–0.15 | High overfitting — flag for investigation |
+| > 0.15 | Severe — model output should not be trusted |
+
+Results written to `model_meta.json` as `meta[horizon]['overfit_gap']`.
+
+**Walk-forward as primary defense:** Every backtest return is generated by a model that was
+trained on strictly older data. OOS AUC materially below in-sample AUC reveals overfitting.
+
+---
+
+## Audit 4 — Multiple Testing
+
+**What it is:** Running many strategy/horizon combinations inflates the probability of a false positive result.
+
+**Implementation:** `bias_audit.py audit-4` applies Bonferroni correction across 5 horizons × 4 strategies.
+At α = 0.05, the Bonferroni threshold is α/20 = 0.0025 per test.
+
+Results logged to `reports/bias_audit_report.json` as `multiple_testing_report` section.
+
+---
+
+## Current Audit Status
+
+| Audit | Status | Notes |
+|---|---|---|
+| Look-ahead (filed_date) | ✅ Implemented | PIT-safe split in all models + backtester |
+| Survivorship | ✅ Implemented | mark_survivorship.py + −50% imputation |
+| Overfitting (overfit_gap) | ✅ Implemented | Written to model_meta.json per horizon |
+| Multiple testing | ✅ Implemented | Bonferroni across 5 horizons × 4 strategies |
+
+---
+
+## Walk-Forward OOF Scoring
+
+The strongest defense against look-ahead bias is the OOF (Out-of-Fold) scoring structure used
+in `scripts/generate_oof_scores.py`:
+
+- For each fiscal year Y: train on `(fiscal_year < Y) AND (filed_date < Jan 1 of Y)`
+- Score only `fiscal_year == Y` rows
+- Write `ml_{h}_oof` columns — these have NaN for all training-window rows
+
+OOF scores are the only unbiased ML scores available for backtesting. The static `ml_{h}` scores
+from `score_historical.py` are in-sample and should not be used in the backtester.

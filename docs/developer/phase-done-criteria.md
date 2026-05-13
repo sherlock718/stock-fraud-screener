@@ -271,6 +271,181 @@ for path in sorted(glob.glob('notebooks/0*.ipynb')):
 "
 ```
 
+## Phase C — Done When All Pass
+
+### C1. Walk-Forward OOF Scores
+
+```bash
+# Verify OOF columns exist in parquet
+python3 -c "
+import pandas as pd
+df = pd.read_parquet('data/historical_dataset_clean.parquet')
+oof_cols = ['ml_1y_oof', 'ml_3y_oof', 'ml_5y_oof']
+for col in oof_cols:
+    if col in df.columns:
+        n_scored = df[col].notna().sum()
+        print(f'  [PASS] {col}: {n_scored:,} rows scored')
+    else:
+        print(f'  [FAIL] {col}: missing from parquet')
+"
+
+# Verify look-ahead: OOF scores must be NaN for training-window rows (fiscal_year <= 2013 as proxy)
+python3 -c "
+import pandas as pd
+df = pd.read_parquet('data/historical_dataset_clean.parquet')
+if 'ml_1y_oof' in df.columns:
+    early = df[df['fiscal_year'] <= 2013]['ml_1y_oof']
+    if early.notna().any():
+        print(f'  [WARN] ml_1y_oof has {early.notna().sum()} non-NaN rows in training window')
+    else:
+        print('  [PASS] ml_1y_oof: NaN for early training years')
+"
+
+# Verify bias_audit passes look-ahead check
+python3 scripts/bias_audit.py --ci
+```
+
+### C2. Horizons + Models
+
+```bash
+# Verify 5 model files exist
+python3 -c "
+from pathlib import Path
+for h in ['6m', '1y', '2y', '3y', '5y']:
+    p = Path(f'models/model_{h}.joblib')
+    status = 'PASS' if p.exists() else 'FAIL'
+    print(f'  [{status}] models/model_{h}.joblib')
+"
+
+# Verify feature sets for all 5 horizons
+python3 -c "
+import json
+from pathlib import Path
+for h in ['6m', '1y', '2y', '3y', '5y']:
+    p = Path(f'models/feature_sets_{h}.json')
+    if p.exists():
+        obj = json.loads(p.read_text())
+        feats = obj.get('features', obj) if isinstance(obj, dict) else obj
+        print(f'  [PASS] feature_sets_{h}.json: {len(feats)} features')
+    else:
+        print(f'  [FAIL] feature_sets_{h}.json: missing')
+"
+
+# Verify model_meta.json has all 5 horizons + WF-AUC
+python3 -c "
+import json
+from pathlib import Path
+meta = json.loads(Path('models/model_meta.json').read_text())
+for h in ['6m', '1y', '2y', '3y', '5y']:
+    if h not in meta:
+        print(f'  [FAIL] model_meta.json missing horizon: {h}')
+        continue
+    auc = meta[h].get('wf_mean_auc') or meta[h].get('val_auc')
+    print(f'  [PASS] model_meta.json {h}: AUC={auc}')
+"
+
+# Verify 3y WF-AUC >= 0.62
+python3 -c "
+import json
+from pathlib import Path
+meta = json.loads(Path('models/model_meta.json').read_text())
+auc = meta.get('3y', {}).get('wf_mean_auc') or meta.get('3y', {}).get('val_auc')
+if auc and auc >= 0.62:
+    print(f'  [PASS] 3y WF-AUC = {auc:.3f} >= 0.62')
+else:
+    print(f'  [FAIL] 3y WF-AUC = {auc} < 0.62 target')
+"
+```
+
+### C3. Bias Audit
+
+```bash
+# Full bias audit — all four checks
+python3 scripts/bias_audit.py
+
+# CI mode — look-ahead is a hard fail
+python3 scripts/bias_audit.py --ci
+
+# Verify overfit_gap written to model_meta.json for each horizon
+python3 -c "
+import json
+from pathlib import Path
+meta = json.loads(Path('models/model_meta.json').read_text())
+for h in ['1y', '3y', '5y']:
+    gap = meta.get(h, {}).get('overfit_gap')
+    if gap is None:
+        print(f'  [WARN] model_meta.json {h}: overfit_gap not written (run bias_audit.py)')
+    elif abs(gap) > 0.15:
+        print(f'  [FAIL] {h}: overfit_gap={gap:.3f} > 0.15 threshold')
+    else:
+        print(f'  [PASS] {h}: overfit_gap={gap:.3f}')
+"
+```
+
+### C4. Backtest
+
+```bash
+# Verify SPY data exists
+python3 -c "
+import pandas as pd
+df = pd.read_csv('data/spy_returns.csv')
+print(f'  [PASS] data/spy_returns.csv: {len(df)} years ({df[\"year\"].min()}–{df[\"year\"].max()})')
+assert len(df) >= 10, 'Need at least 10 years of SPY data'
+"
+
+# Run backtest (use --top 20 for speed, runs WF-ML scoring internally)
+python3 scripts/backtester.py --strategy composite --top 20
+
+# Verify backtest_results.json has SPY fields
+python3 -c "
+import json
+from pathlib import Path
+res = json.loads(Path('data/backtest_results.json').read_text())
+strat = list(res.get('strategies', {}).values())
+if not strat:
+    print('  [FAIL] No strategies in backtest_results.json')
+else:
+    r = strat[0]
+    required = ['spy_cagr_pct', 'excess_cagr_vs_spy', 'beta_vs_spy', 'tracking_error']
+    for field in required:
+        status = 'PASS' if field in r else 'FAIL'
+        print(f'  [{status}] backtest_results.json has: {field}')
+"
+```
+
+### C5. Alpha Schema
+
+```bash
+# Verify HorizonRouter routes correctly
+python3 -c "
+from alpha.horizon_router import HorizonRouter
+cases = [(6, '6m'), (9, '1y'), (18, '1y'), (24, '2y'), (36, '3y'), (60, '5y')]
+for months, expected in cases:
+    got = HorizonRouter.route(months)
+    status = 'PASS' if got == expected else 'FAIL'
+    print(f'  [{status}] HorizonRouter.route({months}) → {got} (expected {expected})')
+"
+
+# Verify score_companies accepts integer months
+python3 -c "
+import pandas as pd, numpy as np
+from src.scoring import score_companies
+df = pd.DataFrame({'fiscal_year': [2023], 'roe': [0.1], 'pe_ratio': [15.0]})
+df_scored = score_companies(df, {}, {}, horizon=12)   # integer months — should not error
+print('  [PASS] score_companies accepts integer horizon (graceful fallback with empty models)')
+"
+
+# Verify tab_screener imports work
+python3 -c "
+import sys
+sys.path.insert(0, '.')
+# Just test the import chain (no Streamlit context needed)
+from alpha.horizon_router import HorizonRouter, MODEL_LABELS
+from src.scoring import resolve_horizon, top_feature_importances
+print('  [PASS] alpha.horizon_router + src.scoring imports OK')
+"
+```
+
 ---
 
 ## How to Use This Document

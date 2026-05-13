@@ -101,30 +101,31 @@ Work through this matrix for every change before staging files.
 | Feature imputation | Quarterly cols + size_category recovery | `scripts/impute_features.py` | ✅ |
 | Survivorship correction | Imputes −50% return for delisted | `scripts/mark_survivorship.py` | ✅ |
 | AAER fraud labels | 492 positive rows / 118 companies | `scripts/fetch_aaer_labels.py` | ✅ |
+| OOF ML scoring | Walk-forward OOF → ml_1y_oof/ml_3y_oof/ml_5y_oof (unbiased) | `scripts/generate_oof_scores.py` | ✅ Phase C |
 | Historical ML scoring | Load models → score all rows → write ml_1y/3y/5y to parquet | `scripts/score_historical.py` | ✅ |
 | Alpha factor package | 5-factor scores (Value/Quality/Momentum/Growth/FraudRisk) | `alpha/factors/` | ✅ |
+| Horizon routing | Maps investment horizon (months) to nearest model key | `alpha/horizon_router.py` | ✅ Phase C |
 | Primary storage | Parquet file | `data/historical_dataset_clean.parquet` 58K rows × 355 cols | ✅ |
+| SPY benchmark data | Annual calendar-year SPY total returns | `data/spy_returns.csv` | ✅ Phase C |
 | TimescaleDB | Hypertable for time-series queries | `infra/db/init.sql` + `scripts/migrate_to_db.py` | ⚠️ DB not loaded |
 | Feature selection | 4-stage pipeline: PSI→IC→ICIR→dedup | `scripts/run_feature_selection.py` | ✅ |
-| ML models | LightGBM 1y/3y/5y, PSI filter + ICIR | `scripts/train_models.py` | ✅ |
-| Calibration | Platt scaling | `scripts/tune_models.py` | ✅ |
+| ML models | LightGBM 5 horizons (6m/1y/2y/3y/5y), filed-date PIT-safe, n_estimators=600 | `scripts/train_models.py` | ✅ Phase C |
+| Calibration + tuning | Platt scaling, Optuna 100 trials | `scripts/tune_models.py` | ✅ |
+| Bias audit | Look-ahead + survivorship + overfitting + multiple testing | `scripts/bias_audit.py` | ✅ Phase C |
 | Drift monitoring | PSI + rolling AUC | `scripts/monitor_drift.py` | ✅ |
-| Streamlit UI | 10-tab app | `app_v2.py` | ✅ (needs 5-factor UI update in Phase 2) |
+| Streamlit UI | 10-tab app, horizon slider, alpha screener | `app_v2.py` | ✅ |
 | FastAPI | Screener router, pagination | `api/` | ✅ built |
-| CI/CD | Weekly refresh + drift monitor | `.github/workflows/` | ✅ |
+| CI/CD | Weekly refresh + bias audit + drift monitor | `.github/workflows/` | ✅ |
 | Model/dataset hosting | HuggingFace Hub | `scripts/push_to_hf.py` | ✅ |
 
-### Critical Missing Pieces
-1. **Momentum features coverage** — momentum scores present but many rows null (2,926 null); missing price data for non-US markets limits coverage
-2. **SPY benchmark** — backtester uses equal-weight universe mean, not SPY; CAGR/excess return numbers are misleading
-3. **SPY benchmark** — backtester uses equal-weight universe mean, not SPY; CAGR/excess return numbers are misleading
-
-### Current Performance
+### Current Performance (Phase B feature sets, pre-Phase C retrain)
 | Horizon | WF Mean AUC | Target | Met? |
 |---|---|---|---|
-| 1y | 0.553 | ≥ 0.62 | ❌ |
+| 1y | 0.553 | ≥ 0.62 | ❌ (retrain pending) |
 | 3y | 0.643 | ≥ 0.62 | ✅ |
-| 5y | 0.597 | ≥ 0.62 | ❌ |
+| 5y | 0.597 | ≥ 0.62 | ❌ (retrain pending) |
+| 6m | — | ≥ 0.58 | pending retrain |
+| 2y | — | ≥ 0.60 | pending retrain |
 
 ---
 
@@ -133,16 +134,20 @@ Work through this matrix for every change before staging files.
 | What | File |
 |---|---|
 | Dataset (primary) | `data/historical_dataset_clean.parquet` |
-| Models | `models/model_{1y,3y,5y}.joblib` |
+| Models (5 horizons) | `models/model_{6m,1y,2y,3y,5y}.joblib` |
 | Model metadata + feature lists | `models/model_meta.json` |
-| Selected feature sets (post-selection) | `models/feature_sets_{1y,3y,5y}.json` |
+| Selected feature sets (post-selection) | `models/feature_sets_{6m,1y,2y,3y,5y}.json` |
+| OOF audit trail per horizon | `reports/oof_auc_{6m,1y,2y,3y,5y}.csv` |
 | IC/ICIR factor research reports | `reports/factor_research_{1y,3y,5y}.csv` |
 | Feature selection summary (all candidates) | `reports/feature_selection_summary.csv` |
 | Walk-forward AUC results | `reports/walk_forward_auc_{1y,3y,5y}.csv` |
 | Backtest results | `data/backtest_results.json` |
+| SPY benchmark returns | `data/spy_returns.csv` |
+| Bias audit report | `reports/bias_audit_report.json` |
 | DB schema | `infra/db/init.sql` |
 | Feature definitions (314 base formulas) | `pipeline/feature_library.py` |
-| Factor package (planned) | `alpha/factors/` |
+| Horizon router | `alpha/horizon_router.py` |
+| Factor package | `alpha/factors/` |
 | App entry point | `app_v2.py` |
 | API entry point | `api/main.py` |
 | Architecture doc | `docs/architecture.md` |

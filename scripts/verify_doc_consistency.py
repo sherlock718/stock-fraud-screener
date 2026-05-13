@@ -52,7 +52,7 @@ def get_quality_check_count() -> int:
 def get_feature_set_counts() -> dict[str, int]:
     import json
     counts = {}
-    for h in ["1y", "3y", "5y"]:
+    for h in ["6m", "1y", "2y", "3y", "5y"]:
         p = BASE / "models" / f"feature_sets_{h}.json"
         if p.exists():
             data = json.loads(p.read_text())
@@ -60,6 +60,23 @@ def get_feature_set_counts() -> dict[str, int]:
         else:
             counts[h] = 0
     return counts
+
+
+def get_trained_horizons() -> list[str]:
+    """Return list of horizon model keys present on disk."""
+    return [h for h in ["6m", "1y", "2y", "3y", "5y"]
+            if (BASE / "models" / f"model_{h}.joblib").exists()]
+
+
+def get_oof_columns() -> list[str]:
+    """Return OOF column names present in the parquet."""
+    import pandas as pd
+    try:
+        df = pd.read_parquet(BASE / "data" / "historical_dataset_clean.parquet",
+                             columns=["ml_1y_oof", "ml_3y_oof", "ml_5y_oof"],)
+        return [c for c in df.columns if c.endswith("_oof")]
+    except Exception:
+        return []
 
 
 def main() -> None:
@@ -74,8 +91,10 @@ def main() -> None:
     n_checks    = get_quality_check_count()
     fs          = get_feature_set_counts()
     feat_str    = f"{fs['1y']}/{fs['3y']}/{fs['5y']}"
+    trained_horizons = get_trained_horizons()
 
-    print(f"\nGround truth: {rows:,}×{cols} parquet | {n_checks} quality checks | {feat_str} features\n")
+    print(f"\nGround truth: {rows:,}×{cols} parquet | {n_checks} quality checks | {feat_str} features")
+    print(f"Trained model horizons: {trained_horizons}\n")
 
     # ── Check every doc ────────────────────────────────────────────────────────
 
@@ -126,6 +145,23 @@ def main() -> None:
     feat_match3 = re.search(r"(\d+/\d+/\d+) features", fs_doc)
     if feat_match3:
         check(failures, "feature-selection.md: feature counts", feat_match3.group(1), feat_str)
+
+    # ── Phase C: 5-model + OOF checks ─────────────────────────────────────────
+    import json
+    meta_path = BASE / "models" / "model_meta.json"
+    if meta_path.exists():
+        meta = json.loads(meta_path.read_text())
+        for h in ["1y", "3y", "5y"]:
+            if h not in meta:
+                failures.append(f"FAIL  model_meta.json missing horizon '{h}'")
+            else:
+                print(f"  [OK] model_meta.json has horizon '{h}'")
+        spy_path = BASE / "data" / "spy_returns.csv"
+        check(failures, "data/spy_returns.csv exists",
+              "yes" if spy_path.exists() else "missing", "yes")
+        hr_path = BASE / "alpha" / "horizon_router.py"
+        check(failures, "alpha/horizon_router.py exists",
+              "yes" if hr_path.exists() else "missing", "yes")
 
     # ── Summary ────────────────────────────────────────────────────────────────
     print()
