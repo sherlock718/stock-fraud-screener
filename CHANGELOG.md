@@ -27,6 +27,15 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ---
 
+### Phase D3 — Risk & Compliance (2026-05-14)
+
+#### D3.1 — CVaR 99%, tiered slippage, VaR/CVaR gates (feat)
+- **`scripts/backtester.py`** Added `SLIPPAGE_TIERS` constant (4 tiers: large >$10B=20 bps, mid $1B–$10B=30 bps, small $100M–$1B=50 bps, micro <$100M=80 bps). Replaced 2-tier `size_category_label` slippage with tiered lookup by `market_cap_at_filing` (falls back to `size_category_label` if column absent). Added CVaR 99% (Expected Shortfall): mean of annual returns in worst 1% tail. Added `cvar_99_pct` to return dict and `print_tearsheet()`.
+- **`scripts/build_portfolio.py`** Fixed `_latest_complete_year` bug: market cap filter compared `market_cap_at_filing` against `min_n` (30) instead of `min_market_cap` ($50M). Added `var_95_pct` and `cvar_99_pct` to portfolio backtest return dict. Added `--var-gate` (warn if drawdown breaches threshold) and `--cvar-gate` (abort if CVaR99 breaches threshold) CLI flags with enforcement in `main()`. Added VaR/CVaR lines to `print_tearsheet()`.
+- **`docs/developer/scripts.md`** Updated `backtester.py` and `build_portfolio.py` sections: tiered slippage description, new `--var-gate`/`--cvar-gate` flags, `cvar_99_pct` output field.
+
+---
+
 ### Phase D2 — Portfolio Construction (2026-05-14)
 
 #### D2.1 — IC-weighted Kelly portfolio constructor (feat)

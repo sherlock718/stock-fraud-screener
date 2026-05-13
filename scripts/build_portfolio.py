@@ -191,6 +191,9 @@ def run_backtest(df: pd.DataFrame, signal_cols: list[str],
     cum = np.cumprod(1 + arr)
     peak = np.maximum.accumulate(cum)
     max_dd = float(((cum - peak) / peak).min())
+    var_95 = round(float(np.percentile(arr, 5)) * 100, 2)
+    _tail = arr[arr <= np.percentile(arr, 1)]
+    cvar_99 = round(float(_tail.mean()) * 100, 2) if len(_tail) > 0 else var_95
 
     spy_overlap = [(arr[i], spy_returns[d['year']])
                    for i, d in enumerate(annual_details) if d['year'] in spy_returns]
@@ -216,6 +219,8 @@ def run_backtest(df: pd.DataFrame, signal_cols: list[str],
         'sharpe': round(sharpe, 3) if sharpe is not None else None,
         'sortino': round(sortino, 3) if sortino is not None else None,
         'max_drawdown_pct': round(max_dd * 100, 2),
+        'var_95_pct': var_95,
+        'cvar_99_pct': cvar_99,
         'spy_cagr_pct': round(spy_cagr * 100, 2) if spy_cagr is not None else None,
         'excess_cagr_pct': round(excess * 100, 2) if excess is not None else None,
         'beta': round(beta, 3) if beta is not None else None,
@@ -234,7 +239,7 @@ def _latest_complete_year(df: pd.DataFrame, signal_cols: list[str],
     for year in sorted(df['fiscal_year'].dropna().unique().astype(int), reverse=True):
         yr = df[df['fiscal_year'] == year]
         if 'market_cap_at_filing' in yr.columns:
-            yr = yr[yr['market_cap_at_filing'] >= min_n]
+            yr = yr[yr['market_cap_at_filing'] >= min_market_cap]
         present = [c for c in signal_cols if c in yr.columns]
         if not present:
             continue
@@ -297,6 +302,8 @@ def print_tearsheet(result: dict, holdings: dict) -> None:
     print(f"  Sharpe              : {_fmt(result.get('sharpe'), ':.3f')}")
     print(f"  Sortino             : {_fmt(result.get('sortino'), ':.3f')}")
     print(f"  Max Drawdown        : {_fmt(result.get('max_drawdown_pct'), ':+.1f', '%')}")
+    print(f"  VaR 95%             : {_fmt(result.get('var_95_pct'), ':+.1f', '%')}")
+    print(f"  CVaR 99%            : {_fmt(result.get('cvar_99_pct'), ':+.1f', '%')}")
     print(f"  Beta vs SPY         : {_fmt(result.get('beta'), ':.3f')}")
     print(f"  Alpha (annualised)  : {_fmt(result.get('alpha_annualised_pct'), ':+.1f', '%')}")
     print(f"  Years               : {result.get('n_years', 'n/a')}")
@@ -340,6 +347,10 @@ def main() -> None:
     parser.add_argument('--min-market-cap', type=float, default=MIN_MARKET_CAP,
                         dest='min_market_cap',
                         help='Minimum market cap in USD (default: 50M)')
+    parser.add_argument('--var-gate', type=float, default=None, dest='var_gate',
+                        help='Halt if historical VaR 95%% is worse than this threshold (e.g. -30 for -30%%)')
+    parser.add_argument('--cvar-gate', type=float, default=None, dest='cvar_gate',
+                        help='Halt if historical CVaR 99%% is worse than this threshold (e.g. -40 for -40%%)')
     parser.add_argument('--tearsheet', action='store_true',
                         help='Print formatted tearsheet to stdout')
     args = parser.parse_args()
@@ -354,6 +365,17 @@ def main() -> None:
     if not result:
         print('No backtest result — check data coverage for selected horizon.')
         return
+
+    # Risk gates — warn (or abort) if historical simulation breaches thresholds
+    var_hist = result.get('max_drawdown_pct')  # worst-case annual drawdown proxy
+    cvar_hist = result.get('cvar_99_pct')
+    if args.var_gate is not None and var_hist is not None:
+        if result.get('cagr_pct', 0) < 0 or var_hist < args.var_gate:
+            print(f'WARNING: VaR gate breached — historical drawdown {var_hist:.1f}% < gate {args.var_gate:.1f}%')
+    if args.cvar_gate is not None and cvar_hist is not None:
+        if cvar_hist < args.cvar_gate:
+            print(f'ERROR: CVaR gate breached — CVaR99 {cvar_hist:.1f}% < gate {args.cvar_gate:.1f}% — aborting.')
+            return
 
     holdings = build_current_holdings(df, signal_cols, ic_weights, args)
 

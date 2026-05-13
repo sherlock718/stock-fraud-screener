@@ -42,6 +42,14 @@ DEFAULT_COST_BPS  = 30    # 30 bps round-trip (commission 10bps + slippage 20bps
 SMALLCAP_COST_BPS = 60    # Illiquidity premium for micro/small caps
 RISK_FREE = 0.03          # Annual risk-free rate for Sharpe/Sortino
 MIN_MARKET_CAP    = 50_000_000  # $50M floor — removes truly illiquid stocks
+
+# Tiered slippage (bps) by market-cap band; applied per-pick inside run_backtest
+SLIPPAGE_TIERS = [
+    (10_000_000_000, 20),   # large-cap  >$10B  → 20 bps
+    (1_000_000_000,  30),   # mid-cap    $1B–$10B → 30 bps
+    (100_000_000,    50),   # small-cap  $100M–$1B → 50 bps
+    (0,              80),   # micro-cap  <$100M  → 80 bps
+]
 MAX_POSITION_WEIGHT = 0.20      # Max weight per stock in vol-scaled portfolio
 MAX_SECTOR_WEIGHT   = 0.35      # Max total weight in any single SIC sector
 
@@ -465,8 +473,14 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
         if len(rets) < 3:
             continue
 
-        # Per-pick cost aligned to valid picks
-        if 'size_category_label' in picks_valid.columns:
+        # Per-pick cost: tiered by market_cap_at_filing if available, else legacy flags
+        if 'market_cap_at_filing' in picks_valid.columns:
+            caps = picks_valid['market_cap_at_filing'].fillna(0).values
+            per_pick_cost = np.array([
+                next(bps for threshold, bps in SLIPPAGE_TIERS if cap >= threshold) / 10000
+                for cap in caps
+            ])
+        elif 'size_category_label' in picks_valid.columns:
             is_small = picks_valid['size_category_label'].isin(['micro', 'small'])
             per_pick_cost = np.where(is_small,
                                      smallcap_cost_bps / 10000,
@@ -596,10 +610,14 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
     annual_turnover_pct = round(avg_picks / max(top_n, 1) * 100, 1)
 
     # VaR 95% (historical simulation, annual)
-    var_95 = round(float(np.percentile(res['port_ret'].values, 5)) * 100, 2)
+    rets_arr = res['port_ret'].values
+    var_95 = round(float(np.percentile(rets_arr, 5)) * 100, 2)
+
+    # CVaR 99% / Expected Shortfall — mean return in the worst 1% of annual outcomes
+    _tail = rets_arr[rets_arr <= np.percentile(rets_arr, 1)]
+    cvar_99 = round(float(_tail.mean()) * 100, 2) if len(_tail) > 0 else var_95
 
     # Rolling 3y Sharpe appended to each annual row
-    rets_arr = res['port_ret'].values
     rolling_sharpe_3y: list[float | None] = []
     for i in range(n):
         if i < 2:
@@ -627,6 +645,7 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
         'tracking_error':       tracking_error,
         'annual_turnover_pct':  annual_turnover_pct,
         'var_95_pct':           var_95,
+        'cvar_99_pct':          cvar_99,
         'max_drawdown_pct':     round(max_dd * 100, 2),
         'max_drawdown_duration_months': dd_dur_months,
         'sharpe':               round(sharpe, 3) if pd.notna(sharpe) else None,
@@ -740,6 +759,7 @@ def print_tearsheet(result: dict) -> None:
     print(f'  Max Drawdown:    {result["max_drawdown_pct"]:.1f}%  '
           f'(duration {result.get("max_drawdown_duration_months", 0)} months)')
     print(f'  VaR 95%:         {result.get("var_95_pct", "N/A")}%  (annual)')
+    print(f'  CVaR 99%:        {result.get("cvar_99_pct", "N/A")}%  (expected shortfall)')
     print(f'  Turnover:        ~{result.get("annual_turnover_pct", "N/A")}% annual')
     print(f'  Hit Rate:        {result["hit_rate_pct"]:.0f}%')
     print(f'  Avg Cost Drag:   {result["avg_cost_drag_bps"]:.0f} bps')
