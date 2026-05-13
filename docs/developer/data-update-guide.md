@@ -185,8 +185,25 @@ Add a fill-rate threshold for the new column to `FILL_THRESHOLDS` in `scripts/te
 
 | Workflow | Schedule | What it does |
 |---|---|---|
-| `refresh_data.yml` | Sunday 05:00 UTC | Runs incremental refresh via `pipeline/auto_update.py`, pushes updated parquet + models to HuggingFace |
+| `refresh_data.yml` | Sunday 05:00 UTC | Refreshes all 6 markets (US CA JP KR EU BR), runs post-processing stack, pushes parquet + models to HuggingFace |
 | `monitor_drift.yml` | Monday 07:00 UTC | Runs `scripts/monitor_drift.py` — PSI + rolling AUC; uploads drift report as artifact |
+
+### Per-market pipeline routing (weekly cron)
+
+The cron default is `US CA JP KR EU BR`. Each market routes to its dedicated pipeline script:
+
+| Market | Pipeline script | API key required? |
+|---|---|---|
+| US | `scripts/run_pipeline.py --market US` | None |
+| CA | `scripts/run_pipeline.py --market CA` | None (SEDAR+) |
+| JP | `scripts/run_pipeline.py --market JP` | None (TDNET) |
+| KR | `scripts/run_pipeline_kr.py` | `DART_API_KEY` (GitHub secret) — skipped with warning if absent |
+| EU (DE/FR/IT/ES/SE/NL/PT/DK/FI) | `scripts/run_pipeline_eu.py --market <mkt>` | None (SimFin free tier) |
+| BR | `scripts/run_pipeline.py --market BR` | None (B3/CVM) |
+
+**KR secret guard**: if `DART_API_KEY` is not set as a GitHub Actions secret, the KR step is skipped with a `[WARN]` message — the rest of the markets still run and the workflow does not fail.
+
+To trigger a manual run for specific markets only: use `workflow_dispatch` with the `markets` input (e.g. `KR JP`).
 
 ### Manual monthly checklist
 

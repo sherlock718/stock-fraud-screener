@@ -8,6 +8,10 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Added (CI/CD — multi-market weekly cron)
+- **`.github/workflows/refresh_data.yml`** weekly cron default changed from `US` to `US CA JP KR EU BR` (all 6 markets with pipeline scripts). `"all"` shortcut now expands to the same 6-market set via a proper loop (was broken — only ran US pipeline). KR pipeline guarded by `DART_API_KEY` secret: skipped with `[WARN]` if secret absent, rest of markets continue. Health-status JSON now records the actual markets string.
+- **`docs/developer/data-update-guide.md`** Section 5 updated: schedule table now shows multi-market cron; new per-market routing table (market → script → API key requirement); KR secret guard behaviour documented.
+
 ### Added (Phase B completion — IC decay analysis)
 - **`notebooks/06_ic_decay.ipynb`** NEW — institutional-grade IC decay analysis notebook. 12 cells covering: annual cross-sectional Spearman IC per feature per horizon per year (1y/3y/5y); factor group aggregation (Value/Quality/Momentum/Growth/FraudRisk); IC decay curves with confidence bands; exponential decay fit + half-life estimation (IC(t) = IC₀ × exp(-λt)); year-by-year IC stability heatmap; regime-conditional IC (Bear/Crisis={2008,2009,2020,2022} vs Expansion); lag-1 IC autocorrelation; signal-type diagnostic (short/medium/long-horizon). IC-ready markets: US/KR/CA/JP only (min 30 tickers per cross-section).
 - **`reports/ic_decay_by_group.png`** NEW — IC time-series curves per factor group × horizon with ±1σ bands.
