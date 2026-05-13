@@ -8,6 +8,16 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Added (Phase C5 — variable-horizon alpha schema + UI)
+- **`alpha/horizon_router.py`** NEW — `HorizonRouter` class: maps any investment horizon (months) to nearest trained model key (6m/1y/2y/3y/5y). Routing: 3–9m→6m, 9–18m→1y, 18–30m→2y, 30–48m→3y, 48m+→5y. Conservative bias (longer model on tie). Includes `MODEL_LABELS`, `FEATURE_FACTOR_GROUPS` (200+ features mapped to Value/Quality/Momentum/Growth/Fraud Risk), `wf_auc()` helper.
+- **`src/scoring.py`** `resolve_horizon()` added: accepts model key string or integer months, routes via `HorizonRouter`, falls back gracefully to nearest available model. `score_companies()` now accepts `horizon: str | int` — integer months are routed automatically.
+- **`src/scoring.py`** `top_feature_importances()` added: returns top N (feature, importance, factor_group) tuples for a model key. Uses `shap_top_features` from model_meta.json if populated; falls back to LightGBM `feature_importances_` attribute.
+- **`src/ui/tab_screener.py`** Investment horizon selectbox (`['1y','3y','5y']`) replaced with slider (6–60 months in 6-month steps). Selected months are routed via `HorizonRouter` to the correct model.
+- **`src/ui/tab_screener.py`** Model confidence badge added below slider: WF-AUC ≥ 0.65 = "High confidence" (green), 0.60–0.65 = "Good" (light green), 0.55–0.60 = "Moderate" (orange), < 0.55 = "Screening only — lower confidence" (red) with warning message.
+- **`src/ui/tab_screener.py`** Top signals expander added: horizontal bar chart of top 6 feature importances with factor group color coding (Value/Quality/Momentum/Growth/Fraud Risk).
+- **`src/ui/tab_screener.py`** Company Deep Dive: "Alpha Score" section shows the company's ML score for the selected horizon + top 5 driving signals with factor group labels and actual feature values.
+- **`src/ui/tab_screener.py`** Screener header renamed "Alpha Screener — Ranked by Multi-Factor Score" to reflect that the output is a ranked list of high-alpha candidates. "ML Score" column renamed "Alpha Score" in the results table.
+
 ### Added (Phase C4 — industry-grade backtest, SPY benchmark, factor attribution)
 - **`scripts/fetch_spy_returns.py`** NEW — downloads SPY annual calendar-year total returns (adjusted close, dividends included) via yfinance. Saves `data/spy_returns.csv` (year, spy_return). Covers 2008–2025.
 - **`data/spy_returns.csv`** NEW — 18 years of SPY returns (2008–2025). Mean +12.64%, best 2013 (+32.31%), worst 2008 (−36.80%).

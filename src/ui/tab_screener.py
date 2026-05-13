@@ -5,7 +5,32 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from src.config import MARKET_LABELS
-from src.scoring import composite_rank, log_predictions, score_companies
+from src.scoring import (composite_rank, log_predictions, score_companies,
+                          top_feature_importances)
+from alpha.horizon_router import HorizonRouter, MODEL_LABELS
+
+
+def _horizon_slider_to_key(months: int, meta: dict) -> tuple[str, str]:
+    """Return (model_key, human_label) for a slider month value."""
+    key = HorizonRouter.route(months)
+    available = HorizonRouter.available_keys(meta)
+    if key not in available and available:
+        key = available[0]
+    label = f'{HorizonRouter.months_to_label(months)} horizon → {MODEL_LABELS.get(key, key)}'
+    return key, label
+
+
+def _model_confidence_badge(wf_auc: float | None) -> tuple[str, str]:
+    """Return (badge_text, color_hex) for a WF-AUC value."""
+    if wf_auc is None:
+        return 'AUC unknown', '#888888'
+    if wf_auc >= 0.65:
+        return f'WF-AUC {wf_auc:.3f} — High confidence', '#4CAF50'
+    if wf_auc >= 0.60:
+        return f'WF-AUC {wf_auc:.3f} — Good confidence', '#8BC34A'
+    if wf_auc >= 0.55:
+        return f'WF-AUC {wf_auc:.3f} — Moderate confidence', '#FF9800'
+    return f'WF-AUC {wf_auc:.3f} — Screening only', '#F44336'
 
 
 def tab_screener(df_all: pd.DataFrame, models: dict, meta: dict) -> None:
@@ -43,12 +68,26 @@ def tab_screener(df_all: pd.DataFrame, models: dict, meta: dict) -> None:
             'Large cap (>$10B)':      (10e9,  1e15),
         }[cap_preset]
 
-        st.subheader('ML Scoring Horizon')
+        st.subheader('Investment Horizon')
         if model_loaded:
-            horizon = st.selectbox('Investment horizon', ['1y', '3y', '5y'], index=0)
+            horizon_months = st.slider(
+                'Investment horizon (months)', min_value=6, max_value=60, value=12, step=6,
+                help='Selects the nearest trained discrete model (6m / 1y / 2y / 3y / 5y)',
+            )
+            horizon_key, horizon_label = _horizon_slider_to_key(horizon_months, meta)
+            wf_auc = HorizonRouter.wf_auc(meta, horizon_key)
+            badge, badge_color = _model_confidence_badge(wf_auc)
+            st.caption(f'**{horizon_label}**')
+            st.markdown(
+                f'<span style="background:{badge_color};color:white;padding:2px 8px;'
+                f'border-radius:4px;font-size:0.8em">{badge}</span>',
+                unsafe_allow_html=True,
+            )
+            if wf_auc is not None and wf_auc < 0.60:
+                st.warning('Low WF-AUC — use this horizon for screening only, not standalone signals.')
         else:
             st.warning('Models not saved yet.\nRun: python3 scripts/train_models.py')
-            horizon = '1y'
+            horizon_key = '1y'
 
         st.subheader('Composite Score Filter')
         min_composite = st.slider('Min composite score (percentile)', 0, 100, 60) / 100
@@ -90,17 +129,22 @@ def tab_screener(df_all: pd.DataFrame, models: dict, meta: dict) -> None:
     if selected_sectors and 'sector' in df.columns:
         df = df[df['sector'].isin(selected_sectors)]
 
-    df     = score_companies(df, models, meta, horizon)
+    df     = score_companies(df, models, meta, horizon_key)
     df     = composite_rank(df)
     latest = (df.sort_values('fiscal_year', ascending=False)
                 .drop_duplicates('cik', keep='first'))
     latest = latest[latest['composite_score'] >= min_composite].copy()
     latest = latest.sort_values('composite_score', ascending=False)
     if model_loaded and 'ml_score' in latest.columns:
-        log_predictions(latest, horizon)
+        log_predictions(latest, horizon_key)
 
-    st.title('🔍 Stock Fraud & Value Screener')
-    model_status = f'ML model loaded ({horizon} horizon)' if model_loaded else '⚠️ ML model not saved yet'
+    st.title('Alpha Screener — Ranked by Multi-Factor Score')
+    if model_loaded:
+        model_status = f'ML model: {MODEL_LABELS.get(horizon_key, horizon_key)}'
+        if wf_auc:
+            model_status += f' (WF-AUC {wf_auc:.3f})'
+    else:
+        model_status = 'ML model not saved yet'
     st.caption(f'{len(df_all):,} total rows | {model_status} | {len(latest):,} companies after filters')
 
     c1, c2, c3, c4, c5 = st.columns(5)
@@ -112,21 +156,65 @@ def tab_screener(df_all: pd.DataFrame, models: dict, meta: dict) -> None:
     else:
         c4.metric('High Beneish risk', 'N/A')
     if model_loaded and 'ml_score' in latest.columns:
-        c5.metric('ML score > 0.6', f'{(latest["ml_score"] > 0.6).sum():,}')
+        c5.metric('Alpha score > 0.6', f'{(latest["ml_score"] > 0.6).sum():,}')
     else:
-        c5.metric('ML score > 0.6', 'N/A')
+        c5.metric('Alpha score > 0.6', 'N/A')
 
-    st.subheader('Top Companies by Composite Score')
+    # Top signal features for the selected model (displayed once, applies to all companies)
+    if model_loaded:
+        top_feats = top_feature_importances(models, meta, horizon_key, top_n=6)
+        if top_feats:
+            with st.expander(f'Top signals driving alpha scores ({horizon_key} model)', expanded=False):
+                feat_df = pd.DataFrame(top_feats, columns=['Feature', 'Importance', 'Factor Group'])
+                max_imp = feat_df['Importance'].max()
+                feat_df['Bar'] = feat_df['Importance'] / max(max_imp, 1)
+                group_colors = {
+                    'Value': '#2196F3', 'Quality': '#4CAF50', 'Momentum': '#FF9800',
+                    'Growth': '#9C27B0', 'Fraud Risk': '#F44336', 'Other': '#607D8B',
+                }
+                fig_feat = go.Figure()
+                for _, row in feat_df.iterrows():
+                    fig_feat.add_trace(go.Bar(
+                        x=[row['Importance']], y=[row['Feature']],
+                        orientation='h',
+                        name=row['Factor Group'],
+                        marker_color=group_colors.get(row['Factor Group'], '#607D8B'),
+                        showlegend=False,
+                    ))
+                fig_feat.update_layout(
+                    height=220, margin=dict(l=0, r=0, t=10, b=0),
+                    xaxis_title='Feature Importance', template='plotly_dark',
+                    bargap=0.3,
+                )
+                col_f1, col_f2 = st.columns([3, 1])
+                with col_f1:
+                    st.plotly_chart(fig_feat, use_container_width=True)
+                with col_f2:
+                    for _, row in feat_df.iterrows():
+                        color = group_colors.get(row['Factor Group'], '#607D8B')
+                        st.markdown(
+                            f'<span style="background:{color};color:white;padding:1px 6px;'
+                            f'border-radius:3px;font-size:0.75em">{row["Factor Group"]}</span> {row["Feature"]}',
+                            unsafe_allow_html=True,
+                        )
+
+    alpha_score_col = 'Alpha Score' if model_loaded and 'ml_score' in latest.columns else None
+    display_latest = latest.copy()
+    if alpha_score_col:
+        display_latest = display_latest.rename(columns={'ml_score': alpha_score_col})
+
+    st.subheader('Top Companies by Composite Alpha Score')
+    ml_col_name = alpha_score_col if alpha_score_col else 'ml_score'
     display_cols = (['ticker', 'name', 'market', 'fiscal_year', 'composite_score'] +
-                    ([c for c in ['sector'] if c in latest.columns]) +
-                    [c for c in ['value_composite', 'pe_ratio', 'pb_ratio'] if c in latest.columns][:2] +
-                    [c for c in ['quality_composite', 'piotroski_f_score', 'roe'] if c in latest.columns][:2] +
-                    [c for c in ['momentum_12m_prior'] if c in latest.columns] +
-                    [c for c in ['beneish_m_score', 'altman_z_score'] if c in latest.columns] +
-                    (['ml_score'] if model_loaded and 'ml_score' in latest.columns else []) +
-                    (['market_cap_at_filing'] if 'market_cap_at_filing' in latest.columns else []))
-    display_cols = [c for c in display_cols if c in latest.columns]
-    show_df = latest[display_cols].head(200).copy()
+                    ([c for c in ['sector'] if c in display_latest.columns]) +
+                    [c for c in ['value_composite', 'pe_ratio', 'pb_ratio'] if c in display_latest.columns][:2] +
+                    [c for c in ['quality_composite', 'piotroski_f_score', 'roe'] if c in display_latest.columns][:2] +
+                    [c for c in ['momentum_12m_prior'] if c in display_latest.columns] +
+                    [c for c in ['beneish_m_score', 'altman_z_score'] if c in display_latest.columns] +
+                    ([ml_col_name] if model_loaded and ml_col_name in display_latest.columns else []) +
+                    (['market_cap_at_filing'] if 'market_cap_at_filing' in display_latest.columns else []))
+    display_cols = [c for c in display_cols if c in display_latest.columns]
+    show_df = display_latest[display_cols].head(200).copy()
     for col in show_df.select_dtypes('float').columns:
         if col == 'composite_score':
             show_df[col] = show_df[col].map(lambda x: int(round(x * 100)) if pd.notna(x) else '')
@@ -143,7 +231,7 @@ def tab_screener(df_all: pd.DataFrame, models: dict, meta: dict) -> None:
 
     # --- Human Review Queue ---
     st.markdown('---')
-    st.subheader('🚨 Human Review Queue — Top 20 Highest Fraud Risk')
+    st.subheader('Human Review Queue — Top 20 Highest Fraud Risk')
     st.caption(
         'Companies with the highest **fraud_score_composite** across all markets, '
         'regardless of current screener filters. These warrant manual analyst review '
@@ -170,7 +258,7 @@ def tab_screener(df_all: pd.DataFrame, models: dict, meta: dict) -> None:
         def _rq_risk(v):
             if pd.isna(v):
                 return '—'
-            return '🔴 High' if v > 0.65 else '🟠 Medium' if v > 0.35 else '🟢 Low'
+            return 'High' if v > 0.65 else 'Medium' if v > 0.35 else 'Low'
 
         rq_df.insert(
             rq_df.columns.get_loc('fraud_score_composite') + 1,
@@ -183,12 +271,12 @@ def tab_screener(df_all: pd.DataFrame, models: dict, meta: dict) -> None:
                 return '—'
             v = float(v)
             if v >= 0.85:
-                return '🟢 High'
+                return 'High'
             elif v >= 0.70:
-                return '🟡 Good'
+                return 'Good'
             elif v >= 0.55:
-                return '🟠 Medium'
-            return '🔴 Low'
+                return 'Medium'
+            return 'Low'
 
         if 'data_confidence' in rq_df.columns:
             rq_df['data_confidence'] = rq_top['data_confidence'].map(_conf_label)
@@ -199,7 +287,7 @@ def tab_screener(df_all: pd.DataFrame, models: dict, meta: dict) -> None:
         st.dataframe(rq_df, use_container_width=True, hide_index=True, height=420)
         rq_csv = rq_top[rq_cols].to_csv(index=False)
         st.download_button(
-            '⬇️ Download Review Queue CSV', rq_csv,
+            'Download Review Queue CSV', rq_csv,
             'fraud_review_queue.csv', 'text/csv',
             key='dl_review_queue',
         )
@@ -260,7 +348,7 @@ def tab_screener(df_all: pd.DataFrame, models: dict, meta: dict) -> None:
                     val = row[col]
                     ok  = val <= thresh if direction == 'below' else val >= thresh
                     c_obj.metric(label, f'{val:.2f}',
-                                 delta='✅ OK' if ok else '⚠️ Risk',
+                                 delta='OK' if ok else 'Risk',
                                  delta_color='normal' if ok else 'inverse',
                                  help=_help)
             if 'composite_score' in row.index and pd.notna(row.get('composite_score')):
@@ -268,7 +356,42 @@ def tab_screener(df_all: pd.DataFrame, models: dict, meta: dict) -> None:
                            f'{int(round(row["composite_score"] * 100))}/100',
                            help='Percentile rank across value, quality, momentum, fraud safety, ML')
 
-            with st.expander('📈 Price Chart (last 2 years)', expanded=True):
+            # Alpha score + top factor contributors for this company
+            if model_loaded and 'ml_score' in latest.columns:
+                ticker_row = latest[latest['ticker'] == selected_ticker]
+                if not ticker_row.empty:
+                    alpha_val = ticker_row.iloc[0].get('ml_score')
+                    if pd.notna(alpha_val):
+                        st.markdown('**Alpha Score (factor contributions)**')
+                        a1, a2 = st.columns([1, 3])
+                        with a1:
+                            badge_txt, badge_clr = _model_confidence_badge(wf_auc)
+                            st.metric(f'Alpha Score ({horizon_key})', f'{alpha_val:.3f}')
+                            st.markdown(
+                                f'<span style="background:{badge_clr};color:white;padding:2px 6px;'
+                                f'border-radius:3px;font-size:0.75em">{badge_txt}</span>',
+                                unsafe_allow_html=True,
+                            )
+                        with a2:
+                            top_feats_co = top_feature_importances(models, meta, horizon_key, top_n=5)
+                            if top_feats_co:
+                                group_colors = {
+                                    'Value': '#2196F3', 'Quality': '#4CAF50',
+                                    'Momentum': '#FF9800', 'Growth': '#9C27B0',
+                                    'Fraud Risk': '#F44336', 'Other': '#607D8B',
+                                }
+                                for fname, imp, fgroup in top_feats_co:
+                                    fval = ticker_row.iloc[0].get(fname)
+                                    val_str = f'{fval:.3f}' if pd.notna(fval) else 'N/A'
+                                    color = group_colors.get(fgroup, '#607D8B')
+                                    st.markdown(
+                                        f'<span style="background:{color};color:white;padding:1px 5px;'
+                                        f'border-radius:3px;font-size:0.72em">{fgroup}</span> '
+                                        f'**{fname}** = {val_str}',
+                                        unsafe_allow_html=True,
+                                    )
+
+            with st.expander('Price Chart (last 2 years)', expanded=True):
                 try:
                     import yfinance as yf
                     hist = yf.Ticker(selected_ticker).history(period='2y', auto_adjust=True)
@@ -298,7 +421,7 @@ def tab_screener(df_all: pd.DataFrame, models: dict, meta: dict) -> None:
             fin_cols = [c for c in ['revenue', 'gross_profit', 'operating_income',
                                     'net_income', 'operating_cash_flow'] if c in co_ann.columns]
             if fin_cols and len(co_ann) > 1:
-                with st.expander('📊 Fundamental Trends', expanded=True):
+                with st.expander('Fundamental Trends', expanded=True):
                     tab_f1, tab_f2, tab_f3 = st.tabs(['Income', 'Balance Sheet', 'Margins'])
 
                     with tab_f1:
@@ -365,7 +488,7 @@ def tab_screener(df_all: pd.DataFrame, models: dict, meta: dict) -> None:
             if 'forward_return_1y' in co_ann.columns:
                 fwd = co_ann[['fiscal_year', 'forward_return_1y']].dropna()
                 if not fwd.empty:
-                    with st.expander('📅 Forward Return History (1y)', expanded=False):
+                    with st.expander('Forward Return History (1y)', expanded=False):
                         colors = ['#4CAF50' if v >= 0 else '#F44336'
                                   for v in fwd['forward_return_1y']]
                         fig_fwd = go.Figure(go.Bar(
@@ -381,7 +504,7 @@ def tab_screener(df_all: pd.DataFrame, models: dict, meta: dict) -> None:
                         )
                         st.plotly_chart(fig_fwd, use_container_width=True)
 
-    with st.expander('📊 Dataset Overview Charts', expanded=False):
+    with st.expander('Dataset Overview Charts', expanded=False):
         import matplotlib.pyplot as plt
         fig, axes = plt.subplots(1, 3, figsize=(16, 4))
         mkt_counts       = df_all.drop_duplicates('cik').groupby('market').size().sort_values(ascending=False)
@@ -406,5 +529,6 @@ def tab_screener(df_all: pd.DataFrame, models: dict, meta: dict) -> None:
         plt.close()
 
     st.subheader('Export')
-    csv = latest[display_cols].head(1000).to_csv(index=False)
-    st.download_button('⬇️ Download top 1000 as CSV', csv, 'screener_results.csv', 'text/csv')
+    csv = display_latest[display_cols].head(1000).to_csv(index=False)
+    st.download_button('Download top 1000 as CSV', csv, 'screener_results.csv', 'text/csv')
+

@@ -38,16 +38,42 @@ def log_predictions(df: pd.DataFrame, horizon: str) -> None:
         csv.writer(f).writerows(rows)
 
 
+def resolve_horizon(horizon: str | int, meta: dict) -> str:
+    """Resolve a horizon argument to a model key present in meta.
+
+    Accepts:
+        - A model key string: '6m', '1y', '2y', '3y', '5y'
+        - An integer (months): routed via HorizonRouter
+        - A legacy string like '1y' that's not in meta → nearest available key
+    """
+    from alpha.horizon_router import HorizonRouter
+    if isinstance(horizon, int):
+        key = HorizonRouter.route(horizon)
+    else:
+        key = str(horizon)
+    if key in meta:
+        return key
+    # Fall back to nearest available key by month distance
+    month_map = {'6m': 6, '1y': 12, '2y': 24, '3y': 36, '5y': 60}
+    target = month_map.get(key, 12)
+    available = [k for k in meta if k in month_map]
+    if not available:
+        return key
+    return min(available, key=lambda k: abs(month_map[k] - target))
+
+
 def score_companies(
     df: pd.DataFrame,
     models: dict,
     meta: dict,
-    horizon: str = '1y',
+    horizon: str | int = '1y',
     as_of_date: str | None = None,
 ) -> pd.DataFrame:
     """Score companies with the ML model for `horizon`.
 
     Args:
+        horizon: Model key ('6m','1y','2y','3y','5y') or integer months.
+            Integer months are routed to the nearest trained model via HorizonRouter.
         as_of_date: ISO date string (e.g. '2024-06-30'). When set, only rows with
             filed_date <= as_of_date are scored — prevents look-ahead in backtesting.
     """
@@ -58,12 +84,14 @@ def score_companies(
         filed  = pd.to_datetime(df['filed_date'], errors='coerce')
         df = df[filed.isna() | (filed <= cutoff)].copy()
 
-    if horizon not in models or horizon not in meta:
+    key = resolve_horizon(horizon, meta)
+
+    if key not in models or key not in meta:
         df['ml_score'] = np.nan
         return df
-    clf   = models[horizon]
-    feats = [f for f in meta[horizon]['features'] if f in df.columns]
-    train_medians = meta[horizon].get('train_medians', {})
+    clf   = models[key]
+    feats = [f for f in meta[key]['features'] if f in df.columns]
+    train_medians = meta[key].get('train_medians', {})
     fill_vals = {f: train_medians.get(f, 0.0) for f in feats}
     X = df[feats].fillna(pd.Series(fill_vals))
     try:
@@ -71,6 +99,46 @@ def score_companies(
     except Exception:
         df['ml_score'] = np.nan
     return df
+
+
+def top_feature_importances(models: dict, meta: dict, key: str,
+                              top_n: int = 10) -> list[tuple[str, float, str]]:
+    """Return top N feature importances for a model key as (feature, importance, factor_group).
+
+    Uses SHAP top features from model_meta.json if populated, otherwise falls back to
+    LightGBM feature importances. Returns empty list if model is not loaded.
+    """
+    from alpha.horizon_router import HorizonRouter
+    if key not in models or key not in meta:
+        return []
+
+    shap_top = meta[key].get('shap_top_features', [])
+    if shap_top:
+        results = []
+        for item in shap_top[:top_n]:
+            fname = item if isinstance(item, str) else item.get('feature', str(item))
+            imp = item.get('importance', 1.0) if isinstance(item, dict) else 1.0
+            results.append((fname, imp, HorizonRouter.factor_group(fname)))
+        return results
+
+    # Fallback: LightGBM feature_importances_
+    clf = models[key]
+    feats = meta[key].get('features', [])
+    try:
+        # Works for LightGBM and sklearn-wrapped models
+        raw_model = clf
+        if hasattr(clf, 'named_steps'):
+            # Pipeline
+            for step in reversed(list(clf.named_steps.values())):
+                if hasattr(step, 'feature_importances_'):
+                    raw_model = step
+                    break
+        importances = raw_model.feature_importances_
+        pairs = sorted(zip(feats[:len(importances)], importances),
+                       key=lambda x: x[1], reverse=True)
+        return [(f, float(i), HorizonRouter.factor_group(f)) for f, i in pairs[:top_n]]
+    except AttributeError:
+        return [(f, 1.0, HorizonRouter.factor_group(f)) for f in feats[:top_n]]
 
 
 def composite_rank(df: pd.DataFrame) -> pd.DataFrame:
