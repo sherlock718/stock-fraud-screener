@@ -8,6 +8,14 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Added (Phase C1 — look-ahead fix + OOF scoring)
+- **`scripts/generate_oof_scores.py`** NEW — walk-forward OOF scorer. For each fiscal year Y: trains on `filed_date < Jan 1 of Y`, scores `fiscal_year == Y`. Writes `ml_1y_oof`, `ml_3y_oof`, `ml_5y_oof` to parquet (NaN for training-window rows). Eliminates in-sample contamination from `score_historical.py`.
+- **`scripts/train_models.py`** enhanced model config: `n_estimators` 400→600, `max_depth` 5→6, `num_leaves` 31→63, `learning_rate` 0.04→0.03, added `reg_alpha=0.1`, `reg_lambda=1.0`.
+- **`scripts/train_models.py`** `--max-psi` default 2.0→0.25 (aligned with `run_feature_selection.py`).
+- **`scripts/train_models.py`** `walk_forward_cv()` patched to use `filed_date` PIT-safe cutoff per fold year (previously used only `fiscal_year`).
+- **`scripts/train_models.py`** `EXCLUDE` set updated: added `ml_1y_oof`, `ml_3y_oof`, `ml_5y_oof` so OOF columns are never used as input features.
+- **`docs/developer/scripts.md`** updated `train_models.py` flags table (new --max-psi default, filed-date note); added `generate_oof_scores.py` section.
+
 ### Fixed (Phase B — feature selection, final institutional quality pass)
 - **`scripts/run_feature_selection.py`** BH FDR correction now gates `ic_pass`: features must pass `fdr_reject=True` (BH q<0.05) to enter ICIR ranking. Previously FDR was computed but not enforced as a filter — spurious features could pass.
 - **`scripts/run_feature_selection.py`** Sector-neutral IC added (default: on). Return and feature demeaned by SIC-based sector within each fiscal year before IC computation. Prevents sector rotation from inflating stock-selection IC. Matches methodology of `factor_research.py`.

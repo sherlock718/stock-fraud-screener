@@ -61,13 +61,14 @@ tests/
 
 | Horizon | Features | Train Rows | WF Mean AUC |
 |---------|----------|------------|-------------|
-| 1y      | ~35      | varies     | 0.553       |
-| 3y      | ~35      | varies     | 0.643 ✅    |
-| 5y      | ~35      | varies     | 0.597       |
+| 1y      | 45       | varies     | 0.553       |
+| 3y      | 45       | varies     | 0.643 ✅    |
+| 5y      | 41       | varies     | 0.597       |
 
 - Target: beat local market index over horizon
-- Feature selection: top features by |ICIR| (IC/StdIC), deduplicated at |Spearman| > 0.90
-- Walk-forward retraining used in backtester (not static models) to avoid look-ahead bias
+- Feature selection: BH FDR gate + top features by |ICIR| (IC/StdIC), deduplicated at |Spearman| > 0.90
+- PIT-safe splits: train cutoff uses both `fiscal_year` and `filed_date` to eliminate 6-month filing lag look-ahead
+- OOF scores (`ml_{h}_oof`): `generate_oof_scores.py` produces true out-of-sample scores via expanding-window walk-forward
 
 ---
 

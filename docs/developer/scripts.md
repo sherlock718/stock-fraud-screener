@@ -301,32 +301,66 @@ python3 scripts/run_feature_selection.py --psi-threshold 0.20 --ic-min 0.03
 
 ### `train_models.py` — LightGBM Training
 
-Trains three LightGBM models (1y, 3y, 5y horizons) using ICIR feature selection.
+Trains LightGBM models (1y, 3y, 5y horizons) using ICIR feature selection with
+filed-date PIT-safe train/test splits. Uses enhanced model config: n_estimators=600,
+max_depth=6, num_leaves=63, lr=0.03.
 
 ```bash
 python3 scripts/train_models.py
 python3 scripts/train_models.py --top-n 50
 python3 scripts/train_models.py --train-cutoff 2017 --val-end 2019
 python3 scripts/train_models.py --no-shap
+python3 scripts/train_models.py --walk-forward   # PIT-safe walk-forward CV
 ```
 
 | Flag | Default | Description |
 |---|---|---|
 | `--top-n N` | `40` | Max features per horizon after ICIR ranking |
 | `--min-ic FLOAT` | `0.02` | Minimum absolute IC to include a feature |
-| `--max-psi FLOAT` | `2.0` | Drop features with PSI above this threshold before IC ranking |
+| `--max-psi FLOAT` | `0.25` | Drop features with PSI above this threshold before IC ranking |
 | `--min-ic-stability FLOAT` | `0.0` | Minimum fraction of years IC must have the correct sign (0.0 = off). Set to e.g. `0.6` to drop directionally inconsistent features |
 | `--min-ic-years INT` | `1` | Minimum years of IC data required to keep a feature (1 = off). Set to e.g. `5` to prevent ICIR inflation from features with very few historical observations |
 | `--no-dedup` | False | Skip correlation deduplication (r > 0.90) |
 | `--sector-neutral` | False | Demean IC scores within sectors before ranking |
-| `--train-cutoff YEAR` | `2017` | Last training year (inclusive) |
-| `--val-end YEAR` | `2019` | Last validation year (inclusive); test = after this |
+| `--train-cutoff YEAR` | `2022` | Last training year (inclusive) |
+| `--val-end YEAR` | `2023` | Last validation year (inclusive); test = after this |
 | `--no-shap` | False | Skip SHAP computation (faster) |
-| `--walk-forward` | False | Run expanding-window walk-forward CV; saves `reports/walk_forward_auc_{h}.csv` |
+| `--walk-forward` | False | Run PIT-safe expanding-window walk-forward CV; saves `reports/walk_forward_auc_{h}.csv` |
 
 Outputs: `models/model_{1y,3y,5y}.joblib`, `models/model_meta.json`
 
-The PSI filter (`--max-psi`) runs **before** IC ranking and removes features with high Population Stability Index between training and scoring distributions. This prevents macro-regime features (treasury rates, CPI, yield curve) from inflating ICIR scores on stale patterns. Default threshold of 2.0 removes ~10 macro features.
+The PSI filter (`--max-psi`) runs **before** IC ranking and removes features with high Population Stability Index between training and scoring distributions. Default threshold of 0.25 is aligned with `run_feature_selection.py`.
+
+Train split uses both `fiscal_year` and `filed_date` cutoffs — rows filed after January 1 of (TRAIN_CUTOFF+1) are excluded even if their fiscal year is in the training window. This eliminates look-ahead from late SEC filings.
+
+---
+
+### `generate_oof_scores.py` — Walk-Forward Out-of-Fold Scoring
+
+Computes true out-of-sample ML scores using an expanding-window approach.
+For each fiscal year Y: train on filed_date < Jan 1 of Y, score fiscal_year == Y.
+Eliminates in-sample contamination from `score_historical.py`.
+
+Writes `ml_1y_oof`, `ml_3y_oof`, `ml_5y_oof` to the parquet. Training-window rows get NaN.
+Feature sets loaded from `models/feature_sets_{h}.json` (Phase B output).
+
+```bash
+python3 scripts/generate_oof_scores.py
+python3 scripts/generate_oof_scores.py --horizons 1y 3y
+python3 scripts/generate_oof_scores.py --min-train-years 6
+python3 scripts/generate_oof_scores.py --n-estimators 600
+python3 scripts/generate_oof_scores.py --dry-run
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--parquet` | `data/historical_dataset_clean.parquet` | Dataset path |
+| `--horizons` | `1y 3y 5y` | Horizons to score |
+| `--min-train-years` | `6` | Min fiscal years in window before first OOF score |
+| `--n-estimators` | `600` | LightGBM n_estimators per fold |
+| `--dry-run` | off | Compute scores but do NOT write parquet |
+
+Outputs: Updates parquet with `ml_{h}_oof` columns; `reports/oof_auc_{h}.csv` per-fold AUC audit trail.
 
 ---
 

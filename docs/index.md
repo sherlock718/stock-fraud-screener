@@ -10,9 +10,9 @@ The platform scores companies across five orthogonal factor groups — **Value, 
 
 | Model Horizon | Validation AUC | WF Mean AUC | Target (≥ 0.62) |
 |---|---|---|---|
-| 1-year | 0.577 | 0.553 | ❌ |
+| 1-year | 0.577 | 0.553 | ❌ (C2 retrain in progress) |
 | 3-year | 0.740 | 0.643 | ✅ |
-| 5-year | — | 0.597 | ❌ |
+| 5-year | — | 0.597 | ❌ (C2 retrain in progress) |
 
 | Strategy | CAGR (net) | Excess vs Benchmark | Sharpe |
 |---|---|---|---|

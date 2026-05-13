@@ -2,15 +2,18 @@
 Train and save ML models (1y / 3y / 5y) from historical_dataset_clean.parquet.
 
 Temporal split (no data leakage):
-  train  : fiscal_year <= TRAIN_CUTOFF  (default 2021)
-  val    : TRAIN_CUTOFF < fiscal_year <= VAL_END  (default 2022–2023)
+  train  : fiscal_year <= TRAIN_CUTOFF AND filed_date < Jan 1 of (TRAIN_CUTOFF+1)
+  val    : TRAIN_CUTOFF < fiscal_year <= VAL_END  (default 2023)
   test   : fiscal_year > VAL_END  (default 2024+)
 
 Feature selection pipeline (on TRAIN split only):
   1. IC analysis (Spearman rank correlation with forward returns, year-by-year)
   2. Select top-N by |ICIR| (IC / StdIC) — keeps consistent, stable predictors
   3. Drop near-duplicate features (Spearman corr > 0.90 within the top set)
-  4. Train LightGBM classifier to predict top-quartile forward returns
+  4. PSI filter (default 0.25) — drops distribution-shifted features
+  5. Train LightGBM classifier to predict top-quartile forward returns
+
+Model: LightGBM  n_estimators=600, max_depth=6, num_leaves=63, lr=0.03
 
 Output: models/model_{h}.joblib + models/model_meta.json
          reports/feature_importance_{h}.csv
@@ -22,6 +25,7 @@ Usage:
     python3 scripts/train_models.py --no-dedup    # skip correlation pruning
     python3 scripts/train_models.py --train-cutoff 2020  # earlier cutoff
     python3 scripts/train_models.py --no-shap     # skip SHAP computation
+    python3 scripts/train_models.py --walk-forward  # run WF CV after training
 """
 from __future__ import annotations
 
@@ -99,8 +103,9 @@ EXCLUDE = {
     'fraud_confirmed', 'fraud_suspect', 'fraud_label',
     # ML-derived scores — in-sample contamination: score_historical.py scores ALL rows
     # including training rows, so IC(ml_1y, forward_return_1y) is inflated for 2008-TRAIN_CUTOFF.
-    # Use these only when generated with walk-forward OOF scoring (Phase C).
+    # OOF columns (ml_*_oof) are also excluded — they ARE clean but shouldn't be ML input features.
     'ml_1y', 'ml_3y', 'ml_5y',
+    'ml_1y_oof', 'ml_3y_oof', 'ml_5y_oof',
     # Alpha composites — hand-crafted composites of raw features; including them alongside
     # their component features causes signal double-counting and inflates ICIR.
     'alpha_fraud_risk', 'alpha_composite', 'alpha_value', 'alpha_quality', 'alpha_growth',
@@ -273,14 +278,16 @@ def train_model(df_train: pd.DataFrame, features: list[str], beat_col: str,
     pos = int((y == 1).sum())
     neg = int((y == 0).sum())
     clf = lgb.LGBMClassifier(
-        n_estimators=400,
-        max_depth=5,
-        learning_rate=0.04,
-        num_leaves=31,
+        n_estimators=600,
+        max_depth=6,
+        learning_rate=0.03,
+        num_leaves=63,
         subsample=0.8,
         colsample_bytree=0.7,
-        min_child_samples=30,
+        min_child_samples=20,
         scale_pos_weight=neg / max(pos, 1),
+        reg_alpha=0.1,
+        reg_lambda=1.0,
         random_state=42,
         n_jobs=-1,
         verbose=-1,
@@ -340,10 +347,11 @@ def walk_forward_cv(df: pd.DataFrame, features_per_horizon: dict[str, list[str]]
     """Expanding-window walk-forward validation.
 
     For each fold year t in [first_year + min_train_years, train_cutoff]:
-      - Train on fiscal_year <= t
+      - Train on fiscal_year <= t  AND  filed_date <= Dec 31 of year t (PIT-safe)
       - Evaluate on fiscal_year == t+1
     Saves per-fold AUC to reports/walk_forward_auc_{h}.csv.
     """
+    filed = pd.to_datetime(df.get('filed_date', pd.NaT), errors='coerce')
     first_year = int(df['fiscal_year'].min())
     fold_years = range(first_year + min_train_years, train_cutoff + 1)
 
@@ -354,7 +362,12 @@ def walk_forward_cv(df: pd.DataFrame, features_per_horizon: dict[str, list[str]]
         records = []
         print(f'  Walk-forward {h}: {len(list(fold_years))} folds', end=' ')
         for t in fold_years:
-            tr = df[df['fiscal_year'] <= t].copy()
+            cutoff_date = pd.Timestamp(f'{t + 1}-01-01')
+            train_mask = (
+                (df['fiscal_year'] <= t) &
+                (filed.isna() | (filed < cutoff_date))
+            )
+            tr = df[train_mask].copy()
             te = df[df['fiscal_year'] == t + 1].copy()
             te = te[te[beat_col].notna()]
             if len(tr[tr[beat_col].notna()]) < 100 or len(te) < 20 or te[beat_col].nunique() < 2:
@@ -396,8 +409,8 @@ def main() -> None:
                         help='Skip SHAP computation (faster run)')
     parser.add_argument('--walk-forward', action='store_true',
                         help='Run expanding-window walk-forward CV after main training')
-    parser.add_argument('--max-psi', type=float, default=2.0,
-                        help='Drop features with PSI > threshold before IC analysis (default: 2.0)')
+    parser.add_argument('--max-psi', type=float, default=0.25,
+                        help='Drop features with PSI > threshold before IC analysis (default: 0.25)')
     parser.add_argument('--min-ic-stability', type=float, default=0.0,
                         help='Minimum fraction of years IC must have the correct sign to keep feature '
                              '(default: 0.0 = off). Set to e.g. 0.6 to drop features whose IC '
