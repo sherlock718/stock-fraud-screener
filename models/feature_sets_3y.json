@@ -20,7 +20,7 @@
     "piotroski_shares_ok",
     "earnings_yield",
     "beneish_aqi",
-    "earnings_stability_roa_5yr",
+    "roa_volatility_5yr",
     "sga",
     "piotroski_ocf_pos",
     "gross_profit_to_assets",
@@ -42,11 +42,11 @@
     "debt_to_assets",
     "ev_ebitda_sector_pct",
     "piotroski_roa_pos",
-    "roa_operating",
+    "altman_x3",
     "capex_intensity",
     "working_capital"
   ],
   "n": 45,
   "horizon": "3y",
-  "generated": "2026-05-13T00:11:15.636999+00:00"
+  "generated": "2026-05-13T18:45:04.086875+00:00"
 }

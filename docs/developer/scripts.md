@@ -313,7 +313,7 @@ python3 scripts/run_feature_selection.py --psi-threshold 0.20 --ic-min 0.03
 | `--dry-run` | off | Print coverage stats but do not write files |
 
 **Outputs**:
-- `models/feature_sets_{1y,3y,5y}.json` — selected feature list per horizon (45/45/41 features)
+- `models/feature_sets_{6m,1y,2y,3y,5y}.json` — selected feature list per horizon (all 5 horizons)
 - `reports/feature_selection_summary.csv` — IC, ICIR, PSI, `ic_tstat_nw`, `ic_pval_nw`, `fdr_reject` for all candidates
 
 ---
@@ -901,7 +901,7 @@ python3 scripts/verify_doc_consistency.py --warn    # print mismatches, exit 0
 |---|---|---|
 | `--warn` | False | Print failures but always exit 0 (used in CI as advisory) |
 
-**Checks**: column count (355) in index.md, README.md, architecture.md, models.md, CLAUDE.md, phase-done-criteria.md, data-update-guide.md; feature counts (45/45/41) in index.md, scripts.md, feature-selection.md; row count (58,190) in index.md; quality check count (98) in data-update-guide.md; Phase C: model_meta.json horizons, spy_returns.csv, horizon_router.py.
+**Checks**: column count (360) in index.md, README.md, architecture.md, models.md, CLAUDE.md, phase-done-criteria.md, data-update-guide.md; feature counts (all 5 horizons) in scripts.md, feature-selection.md; row count (58,190) in index.md; quality check count (98) in data-update-guide.md; Phase C: model_meta.json horizons, spy_returns.csv, horizon_router.py.
 
 **In CI**: runs weekly after `run_feature_selection.py` as a non-blocking advisory step. Output appears in the GitHub Actions log.
 
@@ -939,7 +939,7 @@ SUMMARY: 14 PASS  0 FAIL  1 WARN  2 SKIP
 
 | Check | What it verifies |
 |---|---|
-| A1 — Dataset shape | ≥58,000 rows × 355 cols; no inf; forward returns winsorized; 5 markets present |
+| A1 — Dataset shape | ≥58,000 rows × 360 cols; no inf; forward returns winsorized; 5 markets present |
 | A2 — EDA notebook | `notebooks/01_*.ipynb` has forward_return histogram, outlier stats, PIT lineage, null profile |
 | A3 — CI schedule | `refresh_data.yml` has all 6 required scripts |
 | A4 — Diagram vs CI | Core scripts appear in both `data-update-guide.md` and `refresh_data.yml` |

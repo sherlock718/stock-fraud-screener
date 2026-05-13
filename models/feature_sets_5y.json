@@ -21,8 +21,8 @@
     "beneish_aqi",
     "earnings_yield",
     "piotroski_shares_ok",
-    "altman_x5",
-    "roa_volatility_5yr",
+    "asset_turnover",
+    "earnings_stability_roa_5yr",
     "shares_at_filing",
     "shares_growth",
     "filing_lag_days",
@@ -39,10 +39,10 @@
     "ohlson_roe",
     "ocf_to_ni_sector_pct",
     "piotroski_roa_pos",
-    "altman_z_score_sector_pct",
-    "working_capital"
+    "montier_c2",
+    "altman_z_score_sector_pct"
   ],
   "n": 41,
   "horizon": "5y",
-  "generated": "2026-05-13T00:12:07.966344+00:00"
+  "generated": "2026-05-13T18:45:56.126569+00:00"
 }

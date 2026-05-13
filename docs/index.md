@@ -2,7 +2,7 @@
 
 **A research-grade quantitative alpha generation platform covering 14 markets — US, Korea, Canada, Japan, Brazil, and 9 European markets.**
 
-The platform scores companies across five orthogonal factor groups — **Value, Quality, Momentum, Growth, and Fraud Risk** — and combines them into a composite alpha score. It trains LightGBM models on 1-year, 3-year, and 5-year return horizons using 58,190 company-year observations and 355 columns. Feature selection uses PSI (threshold 0.25) → IC → ICIR (Newey-West HAC t-stats + BH FDR q<0.05) → Spearman deduplication, yielding 45/45/41 features per horizon. Sector-neutral IC (SIC-based demeaning) applied throughout.
+The platform scores companies across five orthogonal factor groups — **Value, Quality, Momentum, Growth, and Fraud Risk** — and combines them into a composite alpha score. It trains LightGBM models on 1-year, 3-year, and 5-year return horizons using 58,190 company-year observations and 360 columns. Feature selection uses PSI (threshold 0.25) → IC → ICIR (Newey-West HAC t-stats + BH FDR q<0.05) → Spearman deduplication, yielding 45/45/41 features per horizon. Sector-neutral IC (SIC-based demeaning) applied throughout.
 
 ---
 
@@ -10,21 +10,15 @@ The platform scores companies across five orthogonal factor groups — **Value, 
 
 | Model Horizon | Validation AUC | WF Mean AUC | Target |
 |---|---|---|---|
-| 6-month | — | — | ≥ 0.58 (C2 retrain) |
-| 1-year | 0.577 | 0.553 | ≥ 0.62 (C2 retrain) |
-| 2-year | — | — | ≥ 0.60 (C2 retrain) |
-| 3-year | 0.740 | 0.643 | ≥ 0.62 ✅ |
-| 5-year | — | 0.597 | ≥ 0.62 (C2 retrain) |
+| 6-month | 0.590 | 0.549 | ≥ 0.58 ❌ |
+| 1-year | 0.600 | 0.549 | ≥ 0.62 ❌ |
+| 2-year | 0.572 | 0.578 | ≥ 0.60 ❌ |
+| 3-year | 0.604 | 0.626 | ≥ 0.62 ✅ |
+| 5-year | — | 0.657 | ≥ 0.62 ✅ |
 
-| Strategy | CAGR (net) | Excess vs Benchmark | Sharpe |
+| Strategy | CAGR (net) | Excess vs SPY | Sharpe |
 |---|---|---|---|
-| COMPOSITE | +25.0% | +13.1% | 1.327 |
-| QEM | +14.9% | — | — |
-| SCDV | +18.1% | — | — |
-| IARB | — | — | — |
-
-!!! warning "Benchmark note"
-    Excess return is currently computed against equal-weight universe mean, not SPY. Numbers will be revised once the SPY benchmark is wired in Phase 0.
+| COMPOSITE | +38.1% | +24.2% vs SPY | 1.181 |
 
 ---
 

@@ -2,7 +2,7 @@
   "features": [
     "ev_revenue",
     "ps_ratio_sector_pct",
-    "ocf_growth_yoy",
+    "ocf_growth",
     "capex_intensity",
     "value_composite",
     "pb_ratio_sector_pct",
@@ -19,12 +19,13 @@
     "piotroski_delta_gm",
     "quarterly_positive_rev_frac",
     "earnings_yield",
-    "roa_operating",
+    "altman_x3",
     "piotroski_shares_ok",
     "roa_sector_pct",
     "rd_intensity",
     "fcf_yield",
     "value_x_momentum",
+    "montier_c2",
     "gross_profit_to_assets",
     "operating_margin_sector_pct",
     "roe",
@@ -34,8 +35,8 @@
     "pb_ratio",
     "working_capital",
     "current_ratio_sector_pct",
-    "shares_growth",
-    "earnings_stability_roa_5yr",
+    "shares_dilution",
+    "roa_volatility_5yr",
     "ohlson_nits",
     "operating_margin",
     "quality_x_momentum",
@@ -43,10 +44,9 @@
     "net_margin",
     "log_revenue",
     "piotroski_delta_at",
-    "gross_margin_sector_pct",
-    "ev_ebitda_sector_pct"
+    "gross_margin_sector_pct"
   ],
   "n": 45,
   "horizon": "1y",
-  "generated": "2026-05-13T00:10:13.402425+00:00"
+  "generated": "2026-05-13T18:43:00.070620+00:00"
 }

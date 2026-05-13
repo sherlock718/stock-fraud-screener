@@ -8,6 +8,17 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Added (Phase C — model retrain, bias audit, backtest, alpha schema)
+- **`scripts/bias_audit.py`** look-ahead fix: `_period_end_date()` returns `None` when `fiscal_quarter` is null (non-December FY-end companies). Prevents false-positive look-ahead violations. `_count_lookahead()` and `audit_filing_lag()` now skip rows with null `fiscal_quarter`. `pd.to_datetime(..., errors='coerce')` added to handle mixed `None`/`Timestamp` dtype from `.apply()`. CI exit 1 only on true look-ahead leakage (0 violations in production dataset).
+- **`scripts/generate_oof_scores.py`** NEW — walk-forward expanding-window OOF scorer for 5 horizons. Produces `ml_6m_oof`, `ml_1y_oof`, `ml_2y_oof`, `ml_3y_oof`, `ml_5y_oof` columns in `data/historical_dataset_clean.parquet` (NaN for training-window rows, OOF for held-out rows). Dataset now 58,190 rows × 360 columns (+5 OOF columns vs 355).
+- **`scripts/bias_audit.py`** overfitting audit (`audit_overfitting()`): computes `overfit_gap = val_auc - wf_mean_auc` per horizon, flags gap > 0.15 as ⚠️ OVERFIT, writes gaps back to `models/model_meta.json`. All gaps ≤ 0.15 for 6m/1y/2y/3y; 5y skipped (no val_auc — expected WARN).
+- **`scripts/backtester.py`** industry-grade walk-forward backtest: COMPOSITE strategy CAGR +38.1%, excess +24.2% vs SPY, Sharpe 1.181, beta 0.483, tracking_error 0.2983. Outputs `data/backtest_results.json` with all C4 gate fields.
+- **`alpha/horizon_router.py`** HorizonRouter routes 6→6m, 9→1y, 18/24→2y, 36→3y, 60→5y. All C5 routing cases confirmed.
+- **`docs/methodology/models.md`** AUC table updated with Phase C actuals (all 5 horizons); flowchart header updated 355 → 360 features.
+- **`docs/index.md`** tagline updated 355 → 360 columns; Performance at a Glance updated with COMPOSITE strategy row (+38.1% CAGR, +24.2% vs SPY, Sharpe 1.181).
+- **`docs/architecture.md`** column counts updated 355 → 360 in High-Level Overview (B11 node), Storage subgraph (S1 node), and Data Flow Detail (FA node).
+- **`CLAUDE.md`** Performance table updated with Phase C post-retrain actuals (all 5 horizons); Feature engineering row updated 355 → 360 columns; Primary storage row updated to 360 cols.
+
 ### Fixed (phase checks — A4 false-positive WARN)
 - **`scripts/run_phase_checks.py`** A4 check: added `operator_only` allowlist to suppress false-positive WARN for scripts present in `data-update-guide.md` but not in `refresh_data.yml`. Allowlisted: `nfeature_library.py` (mermaid `\n` escape artefact), `auto_update.py` / `merge_snapshots.py` (operator-only), `monitor_drift.py` (separate `monitor_drift.yml` workflow), `push_to_hf.py` (CI uploads inline), `feature_library.py` (module, not runnable), `step5_compute_features.py` (operator step). Result: 61 PASS 0 FAIL 0 WARN.
 

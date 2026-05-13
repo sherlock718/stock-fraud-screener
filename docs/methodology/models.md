@@ -4,7 +4,7 @@
 
 ```mermaid
 flowchart TD
-    A["historical_dataset_clean.parquet<br/>~58K rows · 355 features"] --> PSI["PSI Feature Filter<br/>Population Stability Index per feature<br/>Drops macro-regime features (PSI > 0.25)<br/>~14 features removed (macro regime drifters)"]
+    A["historical_dataset_clean.parquet<br/>~58K rows · 360 features"] --> PSI["PSI Feature Filter<br/>Population Stability Index per feature<br/>Drops macro-regime features (PSI > 0.25)<br/>~14 features removed (macro regime drifters)"]
     PSI --> B["ICIR Feature Selection<br/>IC/ICIR ranking · Spearman dedup r>0.90<br/>→ ~35–45 features per horizon"]
     B --> C["PIT-Safe Temporal Split<br/>filed_date cutoff + fiscal_year cutoff<br/>train ≤ 2022 (filed < 2023-01-01)<br/>val 2023 · test 2024+"]
     C --> D["LightGBM Base Model<br/>n_estimators=600 · max_depth=6 · num_leaves=63<br/>lr=0.03 · reg_alpha=0.1<br/>→ val AUC baseline"]
@@ -20,11 +20,11 @@ flowchart TD
 
 | Horizon | Train Cutoff | Val AUC | Test AUC | WF Mean AUC | Target |
 |---|---|---|---|---|---|
-| 6-month | 2022 | — | — | — | ≥ 0.58 (C2 retrain) |
-| 1-year | 2022 | 0.577 | 0.537 | 0.553 | ≥ 0.62 (C2 retrain) |
-| 2-year | 2022 | — | — | — | ≥ 0.60 (C2 retrain) |
-| 3-year | 2022 | 0.740 | — | 0.643 | ≥ 0.62 ✅ |
-| 5-year | 2022 | — | — | 0.597 | ≥ 0.62 (C2 retrain) |
+| 6-month | 2022 | 0.590 | 0.500 | 0.549 | ≥ 0.58 ❌ |
+| 1-year | 2022 | 0.600 | 0.480 | 0.549 | ≥ 0.62 ❌ |
+| 2-year | 2022 | 0.572 | 0.554 | 0.578 | ≥ 0.60 ❌ |
+| 3-year | 2022 | 0.604 | — | 0.626 | ≥ 0.62 ✅ |
+| 5-year | 2022 | — | — | 0.657 | ≥ 0.62 ✅ |
 
 WF Mean AUC = expanding-window walk-forward CV mean (train on data filed before year t, evaluate year t).
 Walk-forward CV uses PIT-safe filed_date cutoff to prevent look-ahead from late SEC filings.

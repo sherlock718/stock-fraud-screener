@@ -96,7 +96,7 @@ Work through this matrix for every change before staging files.
 |---|---|---|---|
 | US data ingestion | SEC EDGAR 10-K/10-Q | `scripts/run_pipeline.py` | ✅ |
 | Multi-market ingestion | SimFin (EU), DART (KR), TDNET (JP), SEDAR+ (CA), B3 (BR) | `pipeline/` | ✅ |
-| Feature engineering | 355 columns (346 base + 9 new: Montier C1-C6, montier_c_score, sloan_wc_accruals, sloan_lt_accruals) | `pipeline/step5_compute_features.py` + `scripts/patch_equity_vol_features.py` | ✅ |
+| Feature engineering | 360 columns (355 base + 5 OOF: ml_6m_oof, ml_1y_oof, ml_2y_oof, ml_3y_oof, ml_5y_oof) | `pipeline/step5_compute_features.py` + `scripts/generate_oof_scores.py` | ✅ |
 | Quarterly enrichment | 5 intra-year dynamics | `scripts/enrich_quarterly_features.py` | ✅ |
 | Feature imputation | Quarterly cols + size_category recovery | `scripts/impute_features.py` | ✅ |
 | Survivorship correction | Imputes −50% return for delisted | `scripts/mark_survivorship.py` | ✅ |
@@ -105,7 +105,7 @@ Work through this matrix for every change before staging files.
 | Historical ML scoring | Load models → score all rows → write ml_1y/3y/5y to parquet | `scripts/score_historical.py` | ✅ |
 | Alpha factor package | 5-factor scores (Value/Quality/Momentum/Growth/FraudRisk) | `alpha/factors/` | ✅ |
 | Horizon routing | Maps investment horizon (months) to nearest model key | `alpha/horizon_router.py` | ✅ Phase C |
-| Primary storage | Parquet file | `data/historical_dataset_clean.parquet` 58K rows × 355 cols | ✅ |
+| Primary storage | Parquet file | `data/historical_dataset_clean.parquet` 58K rows × 360 cols | ✅ |
 | SPY benchmark data | Annual calendar-year SPY total returns | `data/spy_returns.csv` | ✅ Phase C |
 | TimescaleDB | Hypertable for time-series queries | `infra/db/init.sql` + `scripts/migrate_to_db.py` | ⚠️ DB not loaded |
 | Feature selection | 4-stage pipeline: PSI→IC→ICIR→dedup | `scripts/run_feature_selection.py` | ✅ |
@@ -118,14 +118,14 @@ Work through this matrix for every change before staging files.
 | CI/CD | Weekly refresh + bias audit + drift monitor | `.github/workflows/` | ✅ |
 | Model/dataset hosting | HuggingFace Hub | `scripts/push_to_hf.py` | ✅ |
 
-### Current Performance (Phase B feature sets, pre-Phase C retrain)
+### Current Performance (Phase C — post-retrain actuals)
 | Horizon | WF Mean AUC | Target | Met? |
 |---|---|---|---|
-| 1y | 0.553 | ≥ 0.62 | ❌ (retrain pending) |
-| 3y | 0.643 | ≥ 0.62 | ✅ |
-| 5y | 0.597 | ≥ 0.62 | ❌ (retrain pending) |
-| 6m | — | ≥ 0.58 | pending retrain |
-| 2y | — | ≥ 0.60 | pending retrain |
+| 6m | 0.549 | ≥ 0.58 | ❌ |
+| 1y | 0.549 | ≥ 0.62 | ❌ |
+| 2y | 0.578 | ≥ 0.60 | ❌ |
+| 3y | 0.626 | ≥ 0.62 | ✅ |
+| 5y | 0.657 | ≥ 0.62 | ✅ |
 
 ---
 

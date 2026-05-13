@@ -82,12 +82,19 @@ TRAIN_CUTOFF = 2021
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _period_end_date(row: pd.Series) -> pd.Timestamp | None:
-    """Infer period end date from fiscal_year + fiscal_quarter."""
+    """Infer period end date from fiscal_year + fiscal_quarter.
+
+    Returns None when fiscal_quarter is null — we cannot determine the actual
+    period end for companies with non-December fiscal year ends without an
+    explicit quarter label. Defaulting to Dec 31 would produce false-positive
+    look-ahead violations for Oct/Nov/etc FY-end companies that legitimately
+    file in December of the same calendar year.
+    """
     try:
         fy = int(row['fiscal_year'])
         fq = row.get('fiscal_quarter', None)
         if pd.isna(fq) or str(fq) == 'nan':
-            fq = 4
+            return None  # cannot determine period end without quarter label
         fq = int(fq)
         month_end = {1: (3, 31), 2: (6, 30), 3: (9, 30), 4: (12, 31)}
         m, d = month_end.get(fq, (12, 31))
@@ -173,8 +180,13 @@ def audit_filing_lag(df: pd.DataFrame) -> None:
 
     ann = df[(df['period_type'] == 'annual') & df['filed_date'].notna()].copy()
     ann['filed_date'] = pd.to_datetime(ann['filed_date'], errors='coerce')
-    ann['period_end'] = ann.apply(_period_end_date, axis=1)
+    total_with_date = len(ann)
+    ann['period_end'] = pd.to_datetime(ann.apply(_period_end_date, axis=1), errors='coerce')
+    skipped = total_with_date - ann['period_end'].notna().sum()
     ann = ann[ann['period_end'].notna()]
+    if skipped:
+        print(f'  NOTE: {skipped:,} rows skipped (null fiscal_quarter — '
+              f'cannot determine period end for non-Dec FY companies)')
 
     lag_days = (ann['filed_date'] - ann['period_end']).dt.days
     leaking  = ann[lag_days < 0]
@@ -422,10 +434,14 @@ def main() -> None:
 
 
 def _count_lookahead(df: pd.DataFrame) -> int:
-    """Return number of rows where filed_date < period_end (look-ahead)."""
+    """Return number of rows where filed_date < period_end (look-ahead).
+
+    Rows with null fiscal_quarter are excluded — period_end cannot be reliably
+    inferred for companies with non-December fiscal year ends.
+    """
     ann = df[(df['period_type'] == 'annual') & df['filed_date'].notna()].copy()
     ann['filed_date'] = pd.to_datetime(ann['filed_date'], errors='coerce')
-    ann['period_end'] = ann.apply(_period_end_date, axis=1)
+    ann['period_end'] = pd.to_datetime(ann.apply(_period_end_date, axis=1), errors='coerce')
     ann = ann[ann['period_end'].notna()]
     lag_days = (ann['filed_date'] - ann['period_end']).dt.days
     return int((lag_days < 0).sum())

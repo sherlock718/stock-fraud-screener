@@ -110,14 +110,14 @@ After ICIR ranking, correlated features are deduplicated:
 
 **Result**: ~45 final features per horizon (from ~60 pre-dedup candidates, top-K ICIR).
 
-CLI: `python3 scripts/run_feature_selection.py --help` to see all options; writes `models/feature_sets_{1y,3y,5y}.json`.
+CLI: `python3 scripts/run_feature_selection.py --help` to see all options; writes `models/feature_sets_{6m,1y,2y,3y,5y}.json` (all 5 horizons).
 
 ---
 
 ## Full CLI Reference
 
 ```bash
-# Standalone feature selection (writes models/feature_sets_{1y,3y,5y}.json)
+# Standalone feature selection (writes models/feature_sets_{6m,1y,2y,3y,5y}.json)
 python3 scripts/run_feature_selection.py
 
 # Tighter PSI threshold
@@ -140,7 +140,7 @@ python3 scripts/train_models.py --walk-forward
 
 ## Outputs
 
-After feature selection, `models/feature_sets_{1y,3y,5y}.json` records the final feature set per horizon:
+After feature selection, `models/feature_sets_{6m,1y,2y,3y,5y}.json` records the final feature set per horizon:
 
 ```json
 {
