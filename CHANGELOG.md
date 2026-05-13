@@ -8,6 +8,14 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Phase D6 — Reports & Plots (2026-05-14)
+
+#### D6.1 — Kelly portfolio tearsheet page in generate_reports.py (feat)
+- **`scripts/generate_reports.py`** Added `PORTFOLIO_BACKTEST` + `PORTFOLIO_HOLDINGS` path constants. Added `_load_portfolio_backtest()` and `_load_portfolio_holdings()` helpers. Added `_fig_portfolio_tearsheet()`: 4-panel figure (cumulative wealth vs SPY, annual return bar, drawdown, KPI summary with VaR/CVaR + top 10 holdings table). `generate_pdf()` now accepts `portfolio_backtest` and `portfolio_holdings` kwargs; inserts Kelly portfolio page after the strategy performance page. `main()` loads both files and passes them to `generate_pdf()`.
+- **`docs/developer/scripts.md`** Updated `generate_reports.py` section — new flag table note on PDF page ordering and `rolling_oos_auc.png` output listed.
+
+---
+
 ### Phase D1 — Signal Readiness (2026-05-14)
 
 #### D1.1 — Model retraining with momentum FORCE_INCLUDE + sector-neutral IC (perf)

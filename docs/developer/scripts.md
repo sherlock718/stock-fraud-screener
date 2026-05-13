@@ -565,7 +565,7 @@ python3 scripts/leverage_strategy.py --output reports/leverage_picks.csv
 
 ## Reporting & Monitoring
 
-### `generate_reports.py` — PDF Tearsheet + CSV Picks
+### `generate_reports.py` — PDF Tearsheet + CSV Picks + Kelly Portfolio Page
 
 ```bash
 python3 scripts/generate_reports.py
@@ -579,7 +579,14 @@ python3 scripts/generate_reports.py --strategy composite --no-pdf
 | `--top N` | `20` | Number of top picks to include |
 | `--no-pdf` | False | Skip PDF generation (CSV only) |
 
-Outputs: `reports/tearsheet.pdf`, `reports/weekly_picks.csv`
+**PDF pages** (in order):
+1. Cover page
+2. Strategy tearsheet (cumulative wealth, excess return, drawdown, rolling Sharpe, KPIs) — from `backtest_results.json`
+3. Kelly portfolio tearsheet (cumulative wealth vs SPY, annual return bar, drawdown, KPI table with VaR/CVaR, top 10 holdings) — from `portfolio_backtest.json` + `portfolio_holdings.json`
+4. OOS AUC bar chart per horizon — from `model_meta.json`
+5. Top-N picks preview table
+
+Outputs: `reports/tearsheet.pdf`, `reports/weekly_picks.csv`, `reports/rolling_oos_auc.png`
 
 ---
 
