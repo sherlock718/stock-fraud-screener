@@ -911,6 +911,8 @@ python3 scripts/verify_doc_consistency.py --warn    # print mismatches, exit 0
 
 Single command to mechanically verify all exit criteria from `docs/developer/phase-done-criteria.md`. A phase is only done when this script prints **all PASS**. Run this before declaring any phase complete — human judgment about "I think it's done" is not sufficient.
 
+The A4 diagram-vs-CI check maintains an `operator_only` allowlist of scripts that appear in `data-update-guide.md` but are intentionally absent from `refresh_data.yml` (e.g. operator utilities, modules, or scripts that run in a separate workflow). Update this allowlist in `check_a4_diagram_vs_ci()` if a new operator-only script is added to the guide.
+
 ```bash
 python3 scripts/run_phase_checks.py          # run Phase A + B checks (default)
 python3 scripts/run_phase_checks.py --phase A   # Phase A only

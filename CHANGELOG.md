@@ -8,6 +8,9 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Fixed (phase checks — A4 false-positive WARN)
+- **`scripts/run_phase_checks.py`** A4 check: added `operator_only` allowlist to suppress false-positive WARN for scripts present in `data-update-guide.md` but not in `refresh_data.yml`. Allowlisted: `nfeature_library.py` (mermaid `\n` escape artefact), `auto_update.py` / `merge_snapshots.py` (operator-only), `monitor_drift.py` (separate `monitor_drift.yml` workflow), `push_to_hf.py` (CI uploads inline), `feature_library.py` (module, not runnable), `step5_compute_features.py` (operator step). Result: 61 PASS 0 FAIL 0 WARN.
+
 ### Added (CI/CD — multi-market weekly cron)
 - **`.github/workflows/refresh_data.yml`** weekly cron default changed from `US` to `US CA JP KR EU BR` (all 6 markets with pipeline scripts). `"all"` shortcut now expands to the same 6-market set via a proper loop (was broken — only ran US pipeline). KR pipeline guarded by `DART_API_KEY` secret: skipped with `[WARN]` if secret absent, rest of markets continue. Health-status JSON now records the actual markets string.
 - **`docs/developer/data-update-guide.md`** Section 5 updated: schedule table now shows multi-market cron; new per-market routing table (market → script → API key requirement); KR secret guard behaviour documented.

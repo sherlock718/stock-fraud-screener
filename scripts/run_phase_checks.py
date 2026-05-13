@@ -179,7 +179,18 @@ def check_a4_diagram_vs_ci() -> None:
           f"Missing: {guide_has_core}" if guide_has_core else "all present")
     check("Core scripts in CI", not ci_has_core,
           f"Missing: {ci_has_core}" if ci_has_core else "all present")
+    # Known operator-only / separate-workflow / module scripts — not expected in refresh_data.yml
+    operator_only = {
+        "auto_update.py",            # convenience wrapper for manual runs
+        "merge_snapshots.py",        # operator merge utility
+        "monitor_drift.py",          # runs in monitor_drift.yml, not refresh_data.yml
+        "push_to_hf.py",             # CI uploads inline; guide references operator manual use
+        "feature_library.py",        # module (not a runnable script), referenced in prose
+        "step5_compute_features.py", # operator step when adding new feature columns
+        "nfeature_library.py",       # false positive: \nfeature_library.py in mermaid label
+    }
     guide_only = {s for s in scripts_in_guide if s not in scripts_in_ci
+                  and s not in operator_only
                   and not s.endswith("_test.py") and "run_pipeline" not in s
                   and "phase_a_integrate" not in s and "enrich_" not in s}
     if guide_only:
