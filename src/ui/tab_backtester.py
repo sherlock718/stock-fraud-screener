@@ -10,6 +10,10 @@ import streamlit as st
 
 from src.config import BASE, BT_PATH
 
+PORTFOLIO_BT_PATH  = BASE / 'data' / 'portfolio_backtest.json'
+PORTFOLIO_HOL_PATH = BASE / 'data' / 'portfolio_holdings.json'
+ALPHA_REGISTRY     = BASE / 'data' / 'alpha_registry.json'
+
 
 def tab_backtester() -> None:
     import matplotlib.pyplot as plt
@@ -179,4 +183,150 @@ def tab_backtester() -> None:
             '**Walk-Forward AUC not yet generated.**  \n'
             'Run: `python3 scripts/train_models.py --walk-forward`  \n'
             'Results will appear here automatically once the CSV files exist in `reports/`.'
+        )
+
+    # ── Kelly Portfolio Tearsheet ─────────────────────────────────────────────
+    st.markdown('---')
+    st.subheader('💼 IC-Weighted Kelly Portfolio')
+
+    if PORTFOLIO_BT_PATH.exists():
+        pb = json.loads(PORTFOLIO_BT_PATH.read_text())
+        annual = pb.get('annual_returns', [])
+
+        if annual:
+            adf = pd.DataFrame(annual).set_index('year')
+
+            col1, col2, col3, col4, col5 = st.columns(5)
+            col1.metric('CAGR', f"{pb.get('cagr_pct', 0):+.1f}%")
+            col2.metric('Sharpe', f"{pb.get('sharpe', 0):.2f}" if pb.get('sharpe') else 'N/A')
+            col3.metric('Max DD', f"{pb.get('max_drawdown_pct', 0):.1f}%")
+            col4.metric('VaR 95%', f"{pb.get('var_95_pct', 0):.1f}%" if pb.get('var_95_pct') is not None else 'N/A')
+            col5.metric('CVaR 99%', f"{pb.get('cvar_99_pct', 0):.1f}%" if pb.get('cvar_99_pct') is not None else 'N/A')
+
+            # Cumulative wealth vs SPY
+            fig_p, ax_p = plt.subplots(figsize=(12, 3.5))
+            cum_port = (1 + adf['return_pct'] / 100).cumprod()
+            ax_p.plot(cum_port.index, cum_port.values, lw=2, label='Kelly Portfolio', color='#2196F3')
+            if 'spy_return_pct' in adf.columns:
+                cum_spy = (1 + adf['spy_return_pct'].fillna(0) / 100).cumprod()
+                ax_p.plot(cum_spy.index, cum_spy.values, lw=1.5, ls='--', color='#9E9E9E', label='SPY')
+            ax_p.axhline(1, color='black', lw=0.5, ls=':')
+            ax_p.set_ylabel('Wealth')
+            ax_p.set_title('Cumulative Wealth — Kelly Portfolio vs SPY', fontweight='bold')
+            ax_p.legend()
+            ax_p.grid(alpha=0.3)
+            plt.tight_layout()
+            st.pyplot(fig_p, use_container_width=True)
+            plt.close()
+
+            # Annual return bar
+            fig_a, ax_a = plt.subplots(figsize=(12, 3))
+            rets = adf['return_pct'].fillna(0)
+            colors_a = ['#4CAF50' if v >= 0 else '#F44336' for v in rets]
+            ax_a.bar(rets.index, rets.values, color=colors_a, width=0.7, edgecolor='white')
+            ax_a.axhline(0, color='black', lw=0.8)
+            ax_a.set_ylabel('%')
+            ax_a.set_title('Annual Return (%)', fontweight='bold')
+            ax_a.grid(alpha=0.2, axis='y')
+            plt.tight_layout()
+            st.pyplot(fig_a, use_container_width=True)
+            plt.close()
+
+            # Holdings table
+            if PORTFOLIO_HOL_PATH.exists():
+                hol = pd.read_json(PORTFOLIO_HOL_PATH, orient='records')
+                with st.expander('📋 Current Holdings', expanded=False):
+                    disp_cols = ['ticker']
+                    for c in ['composite_score', 'weight_pct', 'kelly_f', 'market']:
+                        if c in hol.columns:
+                            disp_cols.append(c)
+                    st.dataframe(hol[disp_cols].round(4), use_container_width=True)
+        else:
+            st.info('portfolio_backtest.json exists but has no annual_returns — run build_portfolio.py.')
+    else:
+        st.info(
+            '**Kelly portfolio not yet built.**  \n'
+            'Run: `python3 scripts/build_portfolio.py`'
+        )
+
+    # ── Alpha Signal Browser ──────────────────────────────────────────────────
+    st.markdown('---')
+    st.subheader('🔍 Alpha Signal Browser')
+    st.caption('Selected signals from alpha_registry.json — IC, ICIR, bootstrap confidence intervals.')
+
+    if ALPHA_REGISTRY.exists():
+        reg = json.loads(ALPHA_REGISTRY.read_text())
+        signals = reg.get('signals', [])
+        if signals:
+            sig_df = pd.DataFrame(signals)
+            # normalise column names that may differ across versions
+            rename_map = {
+                'ic_mean': 'IC Mean',
+                'icir': 'ICIR',
+                'n_years': 'Years',
+                'selected': 'Selected',
+                'cagr_pct': 'CAGR %',
+                'sharpe': 'Sharpe',
+                'cagr_bootstrap_mean_pct':   'CAGR CI Mean',
+                'cagr_bootstrap_1sigma_pct': 'CAGR CI 1σ',
+                'sharpe_bootstrap_mean':     'Sharpe CI Mean',
+                'sharpe_bootstrap_1sigma':   'Sharpe CI 1σ',
+            }
+            sig_df = sig_df.rename(columns={k: v for k, v in rename_map.items() if k in sig_df.columns})
+
+            # Filter controls
+            col_f1, col_f2 = st.columns(2)
+            with col_f1:
+                show_selected = st.checkbox('Selected signals only', value=True)
+            with col_f2:
+                sort_col = st.selectbox(
+                    'Sort by',
+                    [c for c in ['ICIR', 'IC Mean', 'CAGR %', 'Sharpe', 'signal_id']
+                     if c in sig_df.columns],
+                    index=0
+                )
+
+            disp = sig_df.copy()
+            if show_selected and 'Selected' in disp.columns:
+                disp = disp[disp['Selected'] == True]  # noqa: E712
+            if sort_col in disp.columns:
+                disp = disp.sort_values(sort_col, ascending=False)
+
+            table_cols = ['signal_id']
+            for c in ['IC Mean', 'ICIR', 'CAGR %', 'Sharpe', 'Years',
+                      'CAGR CI Mean', 'CAGR CI 1σ', 'Sharpe CI Mean', 'Sharpe CI 1σ']:
+                if c in disp.columns:
+                    table_cols.append(c)
+
+            float_cols = [c for c in table_cols if c != 'signal_id' and c in disp.columns]
+            for c in float_cols:
+                disp[c] = pd.to_numeric(disp[c], errors='coerce').round(4)
+
+            st.dataframe(disp[table_cols].reset_index(drop=True),
+                         use_container_width=True, hide_index=True)
+
+            # IC bar chart for top signals
+            if 'IC Mean' in disp.columns and 'signal_id' in disp.columns:
+                top = disp[['signal_id', 'IC Mean']].dropna().head(25)
+                if not top.empty:
+                    fig_ic, ax_ic = plt.subplots(figsize=(12, max(3, len(top) * 0.32)))
+                    colors_ic = ['#4CAF50' if v >= 0.03 else ('#FFC107' if v >= 0 else '#F44336')
+                                 for v in top['IC Mean']]
+                    ax_ic.barh(top['signal_id'], top['IC Mean'], color=colors_ic, edgecolor='white')
+                    ax_ic.axvline(0.02, color='green', ls='--', lw=1, alpha=0.7, label='IC target 0.02')
+                    ax_ic.axvline(0.0,  color='red',   ls=':',  lw=0.8)
+                    ax_ic.set_xlabel('IC Mean (Spearman vs forward_return_1y)')
+                    ax_ic.set_title('Alpha Signals — IC Mean (top 25 by ICIR)', fontweight='bold')
+                    ax_ic.invert_yaxis()
+                    ax_ic.legend(fontsize=8)
+                    ax_ic.grid(alpha=0.25, axis='x')
+                    plt.tight_layout()
+                    st.pyplot(fig_ic, use_container_width=True)
+                    plt.close()
+        else:
+            st.info('alpha_registry.json is empty — run build_alpha_registry.py.')
+    else:
+        st.info(
+            '**Alpha registry not found.**  \n'
+            'Run: `python3 scripts/build_alpha_registry.py`'
         )

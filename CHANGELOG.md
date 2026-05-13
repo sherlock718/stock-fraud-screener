@@ -14,6 +14,10 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 - **`scripts/generate_reports.py`** Added `PORTFOLIO_BACKTEST` + `PORTFOLIO_HOLDINGS` path constants. Added `_load_portfolio_backtest()` and `_load_portfolio_holdings()` helpers. Added `_fig_portfolio_tearsheet()`: 4-panel figure (cumulative wealth vs SPY, annual return bar, drawdown, KPI summary with VaR/CVaR + top 10 holdings table). `generate_pdf()` now accepts `portfolio_backtest` and `portfolio_holdings` kwargs; inserts Kelly portfolio page after the strategy performance page. `main()` loads both files and passes them to `generate_pdf()`.
 - **`docs/developer/scripts.md`** Updated `generate_reports.py` section — new flag table note on PDF page ordering and `rolling_oos_auc.png` output listed.
 
+#### D7.1 — Kelly portfolio tearsheet + alpha signal browser in Tab 5 (feat)
+- **`src/ui/tab_backtester.py`** Added path constants for `portfolio_backtest.json`, `portfolio_holdings.json`, `alpha_registry.json`. New **Kelly Portfolio** section: KPI strip (CAGR, Sharpe, Max DD, VaR 95%, CVaR 99%), cumulative wealth vs SPY line chart, annual return bar chart, collapsible holdings table. New **Alpha Signal Browser** section: filterable/sortable signal table (IC Mean, ICIR, CAGR, Sharpe, bootstrap CIs), horizontal IC bar chart for top 25 signals.
+- **`docs/guide/app.md`** Tab 5 section updated to document Kelly portfolio and alpha signal browser sub-sections.
+
 ---
 
 ### Phase D1 — Signal Readiness (2026-05-14)

@@ -75,7 +75,7 @@ Cross-market risk comparison.
 
 ## Tab 5 — Backtester
 
-Walk-forward strategy performance simulation.
+Walk-forward strategy performance simulation, Kelly portfolio tearsheet, and alpha signal browser.
 
 **What you'll see:**
 
@@ -84,8 +84,19 @@ Walk-forward strategy performance simulation.
 - Max drawdown chart
 - Rolling 3-year Sharpe ratio
 - KPI table: CAGR, Sharpe, Sortino, Calmar, Max Drawdown, Hit Rate
+- Walk-forward AUC chart by horizon (expanding-window CV)
 
-**Strategies available in the dropdown:**
+**Kelly Portfolio section** (requires `data/portfolio_backtest.json`):
+- KPI metrics strip: CAGR, Sharpe, Max DD, VaR 95%, CVaR 99%
+- Cumulative wealth vs SPY line chart
+- Annual return bar chart
+- Collapsible current holdings table with weights and Kelly fractions
+
+**Alpha Signal Browser** (requires `data/alpha_registry.json`):
+- Filterable / sortable table of all selected signals (IC Mean, ICIR, CAGR, Sharpe, bootstrap CIs)
+- Horizontal IC bar chart for top 25 signals (green ≥ 0.03, amber ≥ 0, red < 0)
+
+**Strategies available:**
 
 | Strategy | Description |
 |---|---|
