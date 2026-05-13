@@ -69,6 +69,10 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 - **`CLAUDE.md`** Phase Scope Definition section: Locks Phase A/B/C scope. Three rules: no re-auditing, Phase C items never in Phase A/B, done requires the checklist file.
 - **`docs/developer/pipeline-integrity.md`** Phase Closure section: Replaced vague checklist with pointer to `phase-done-criteria.md`.
 
+### Fixed (docs — column count sync)
+- **`docs/developer/phase-done-criteria.md`** A1 assertion corrected 346 → 355 to match actual production parquet shape (58,190 × 355).
+- **`docs/developer/data-update-guide.md`** column lineage table: added Montier/Sloan accrual step row, final state now correctly shows 355 columns.
+
 
 
 ---

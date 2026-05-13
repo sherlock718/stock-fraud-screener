@@ -33,7 +33,7 @@ python3 -c "
 import pandas as pd
 df = pd.read_parquet('data/historical_dataset_clean.parquet')
 assert df.shape[0] >= 58000, f'Too few rows: {df.shape[0]}'
-assert df.shape[1] == 346, f'Wrong col count: {df.shape[1]}'
+assert df.shape[1] == 355, f'Wrong col count: {df.shape[1]}'
 print(f'Shape OK: {df.shape}')
 "
 

@@ -248,5 +248,6 @@ Korean companies sometimes file multiple fiscal years in a single batch submissi
 | After quarterly enrichment + imputation + patch | 58,307 | 341 |
 | After equity/vol patch + alpha scores + ML scores | 58,307 | 346 |
 | After BR null-ticker drop + growth winsorization | 58,190 | 346 |
+| After Montier C1-C6, montier_c_score, sloan_wc_accruals, sloan_lt_accruals | 58,190 | 355 |
 
-Current production dataset: **58,190 rows × 346 columns**
+Current production dataset: **58,190 rows × 355 columns**
