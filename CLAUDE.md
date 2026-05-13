@@ -118,14 +118,14 @@ Work through this matrix for every change before staging files.
 | CI/CD | Weekly refresh + bias audit + drift monitor | `.github/workflows/` | ✅ |
 | Model/dataset hosting | HuggingFace Hub | `scripts/push_to_hf.py` | ✅ |
 
-### Current Performance (Phase C — post-retrain actuals)
+### Current Performance (Phase D1 — post-D1.1 retrain actuals)
 | Horizon | WF Mean AUC | Target | Met? |
 |---|---|---|---|
-| 6m | 0.549 | ≥ 0.58 | ❌ |
-| 1y | 0.549 | ≥ 0.62 | ❌ |
-| 2y | 0.578 | ≥ 0.60 | ❌ |
-| 3y | 0.626 | ≥ 0.62 | ✅ |
-| 5y | 0.657 | ≥ 0.62 | ✅ |
+| 6m | 0.563 | ≥ 0.58 | ❌ |
+| 1y | 0.563 | ≥ 0.62 | ❌ |
+| 2y | 0.589 | ≥ 0.60 | ❌ |
+| 3y | 0.625 | ≥ 0.62 | ✅ |
+| 5y | 0.620 | ≥ 0.62 | ✅ |
 
 ---
 

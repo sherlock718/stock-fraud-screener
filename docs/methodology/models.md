@@ -20,11 +20,11 @@ flowchart TD
 
 | Horizon | Train Cutoff | Val AUC | Test AUC | WF Mean AUC | Target |
 |---|---|---|---|---|---|
-| 6-month | 2022 | 0.590 | 0.500 | 0.549 | ≥ 0.58 ❌ |
-| 1-year | 2022 | 0.600 | 0.480 | 0.549 | ≥ 0.62 ❌ |
-| 2-year | 2022 | 0.572 | 0.554 | 0.578 | ≥ 0.60 ❌ |
-| 3-year | 2022 | 0.604 | — | 0.626 | ≥ 0.62 ✅ |
-| 5-year | 2022 | — | — | 0.657 | ≥ 0.62 ✅ |
+| 6-month | 2022 | 0.607 | 0.506 | 0.563 | ≥ 0.58 ❌ |
+| 1-year | 2022 | 0.599 | 0.484 | 0.563 | ≥ 0.62 ❌ |
+| 2-year | 2022 | 0.585 | 0.585 | 0.589 | ≥ 0.60 ❌ |
+| 3-year | 2022 | 0.635 | — | 0.625 | ≥ 0.62 ✅ |
+| 5-year | 2022 | — | — | 0.620 | ≥ 0.62 ✅ |
 
 WF Mean AUC = expanding-window walk-forward CV mean (train on data filed before year t, evaluate year t).
 Walk-forward CV uses PIT-safe filed_date cutoff to prevent look-ahead from late SEC filings.

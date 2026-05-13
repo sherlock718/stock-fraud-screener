@@ -8,6 +8,25 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Phase D1 — Signal Readiness (2026-05-14)
+
+#### D1.1 — Model retraining with momentum FORCE_INCLUDE + sector-neutral IC (perf)
+- **`scripts/train_models.py`** Confirmed TRAIN_CUTOFF=2022 (reverting TRAIN_CUTOFF=2023 regression). FORCE_INCLUDE_6M/1Y=['quality_x_momentum','vol_rank_12m'], FORCE_INCLUDE_2Y=['vol_rank_12m'] injected momentum features. sector_neutral=True default. min_ic_stability=0.6 default.
+- **`models/model_{6m,1y,2y,3y,5y}.joblib`** Retrained; final feature counts: 6m=31, 1y=30, 2y=28, 3y=30, 5y=26.
+- **`models/model_meta.json`** Updated with D1.1 val_auc/wf_mean_auc actuals.
+- **`reports/walk_forward_auc_{6m,1y,2y,3y,5y}.csv`** New WF CV results (9 folds, expanding window, PIT-safe).
+- **`docs/methodology/models.md`** AUC table updated: 6m WF=0.563, 1y WF=0.563, 2y WF=0.589, 3y WF=0.625 ✅, 5y WF=0.620 ✅.
+- **`docs/index.md`** Performance at a Glance table updated with D1.1 actuals.
+- **`CLAUDE.md`** Current Performance section updated to Phase D1 actuals.
+
+#### D1.2 — Bootstrap confidence intervals in backtester (feat)
+- **`scripts/backtester.py`** `bootstrap_ci()` added — block bootstrap (2000 samples, block_size=3y) producing CAGR ± 1σ and Sharpe ± 1σ. `run_backtest()` returns 4 CI fields: `cagr_bootstrap_mean_pct`, `cagr_bootstrap_1sigma_pct`, `sharpe_bootstrap_mean`, `sharpe_bootstrap_1sigma`. `print_tearsheet()` displays Sharpe CI 1σ and CAGR CI 1σ bands.
+
+#### D1.3 — alpha_registry.json max_drawdown audit + bootstrap CI fields (fix/feat)
+- **`scripts/build_alpha_registry.py`** Added `max_drawdown_note` field (documents annual-frequency limitation: 0.0 = all annual periods positive, not a bug). Added 4 bootstrap CI fields from D1.2 `run_backtest()` output to each signal entry.
+
+---
+
 ### Doc sweep — fraud→alpha reframe + 5-horizon + 360-col sync (2026-05-14)
 - **`docs/guide/app.md`** All "fraud score / fraud probability" language replaced with "alpha score / composite score" throughout Tabs 1–4,6; ML horizon description updated to "6m through 5y via HorizonRouter"
 - **`docs/developer/data-update-guide.md`** Production dataset updated 355→360 cols; workflow diagram node updated from `ml_1y/3y/5y` to `ml_{6m,1y,2y,3y,5y}`

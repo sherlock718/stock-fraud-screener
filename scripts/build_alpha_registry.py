@@ -218,10 +218,20 @@ def build_registry(
             'ic_mean':       round(float(ic_mean), 4) if not np.isnan(ic_mean) else None,
             'icir':          round(float(icir), 4)    if not np.isnan(icir)    else None,
             'cagr_pct':      cagr,
+            'cagr_bootstrap_mean_pct':   result.get('cagr_bootstrap_mean_pct'),
+            'cagr_bootstrap_1sigma_pct': result.get('cagr_bootstrap_1sigma_pct'),
             'sharpe':        sharpe,
+            'sharpe_bootstrap_mean':     result.get('sharpe_bootstrap_mean'),
+            'sharpe_bootstrap_1sigma':   result.get('sharpe_bootstrap_1sigma'),
             'sortino':       result.get('sortino'),
             'calmar':        result.get('calmar'),
             'max_drawdown_pct': max_dd,
+            'max_drawdown_note': (
+                'Annual-frequency backtest; intra-year drawdowns not captured. '
+                '0.0 means all annual periods were positive — '
+                'use bootstrap_1sigma for statistical uncertainty.'
+                if max_dd == 0.0 else None
+            ),
             'excess_cagr_vs_spy': result.get('excess_cagr_vs_spy'),
             'beta_vs_spy':   result.get('beta_vs_spy'),
             'hit_rate_pct':  result.get('hit_rate_pct'),

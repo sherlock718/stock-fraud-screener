@@ -440,7 +440,11 @@ python3 scripts/backtester.py --market US --fill-missing -0.5
 
 **Output**: `data/backtest_results.json` with per-strategy: `cagr_pct`, `spy_cagr_pct`,
 `excess_cagr_vs_spy`, `beta_vs_spy`, `alpha_vs_spy`, `r_squared_vs_spy`, `tracking_error`,
-`annual_turnover_pct`, `var_95_pct`, `max_drawdown_duration_months`, `sharpe`, `sortino`, `calmar`.
+`annual_turnover_pct`, `var_95_pct`, `max_drawdown_duration_months`, `sharpe`, `sortino`, `calmar`,
+`cagr_bootstrap_mean_pct`, `cagr_bootstrap_1sigma_pct`, `sharpe_bootstrap_mean`, `sharpe_bootstrap_1sigma`.
+
+`run_backtest()` computes block bootstrap CIs (2000 samples, block_size=3y) via `bootstrap_ci()`.
+`--tearsheet` displays Sharpe CI 1σ and CAGR CI 1σ bands.
 
 ---
 
@@ -470,8 +474,9 @@ python3 scripts/build_alpha_registry.py --market US   # US market only
 **Output**: `data/alpha_registry.json` — top-level keys: `generated_at`, `selection_criteria`,
 `signals` (list). Per signal: `signal_id`, `category` (`factor`/`ml`), `horizon`, `market`,
 `features_used`, `ic_mean`, `icir`, `cagr_pct`, `sharpe`, `sortino`, `calmar`,
-`max_drawdown_pct`, `excess_cagr_vs_spy`, `beta_vs_spy`, `hit_rate_pct`, `n_years`,
-`top_n`, `cost_bps`, `selected`.
+`max_drawdown_pct`, `max_drawdown_note` (explains 0.0 annual-freq artifact),
+`cagr_bootstrap_mean_pct`, `cagr_bootstrap_1sigma_pct`, `sharpe_bootstrap_mean`, `sharpe_bootstrap_1sigma`,
+`excess_cagr_vs_spy`, `beta_vs_spy`, `hit_rate_pct`, `n_years`, `top_n`, `cost_bps`, `selected`.
 
 **Re-run when**: any `alpha/factors/*.py` compute function changes, OOF scores are regenerated,
 or selection thresholds are adjusted.

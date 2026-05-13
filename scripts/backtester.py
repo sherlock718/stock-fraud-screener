@@ -609,6 +609,9 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
             rs = (w.mean() - RISK_FREE / 3) / w.std() if w.std() > 0 else None
             rolling_sharpe_3y.append(round(float(rs), 3) if rs is not None else None)
 
+    # Bootstrap CIs (block bootstrap, 2000 samples)
+    boot = bootstrap_ci(rets_arr)
+
     return {
         'label':                label,
         'n_years':              n,
@@ -635,6 +638,10 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
         'best_year_pct':        round(res['port_ret'].max() * 100, 2),
         'worst_year_pct':       round(res['port_ret'].min() * 100, 2),
         'survivorship_pct':     round(total_survivorship_dropped / max(total_picks_attempted, 1) * 100, 1),
+        'cagr_bootstrap_mean_pct':   boot.get('cagr_bootstrap_mean_pct'),
+        'cagr_bootstrap_1sigma_pct': boot.get('cagr_bootstrap_1sigma_pct'),
+        'sharpe_bootstrap_mean':     boot.get('sharpe_bootstrap_mean'),
+        'sharpe_bootstrap_1sigma':   boot.get('sharpe_bootstrap_1sigma'),
         'annual_returns': [
             {
                 'year':            int(r['year']),
@@ -654,6 +661,43 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
 
 
 # ── Tearsheet printer ─────────────────────────────────────────────────────────
+
+def bootstrap_ci(annual_returns: np.ndarray, n_boot: int = 2000,
+                 risk_free: float = RISK_FREE) -> dict:
+    """Resample annual returns to produce 1σ confidence intervals for CAGR and Sharpe.
+
+    Returns dict with keys: cagr_mean, cagr_1sigma, sharpe_mean, sharpe_1sigma.
+    Uses block bootstrap (block_size=3y) to preserve mild autocorrelation.
+    """
+    n = len(annual_returns)
+    if n < 4:
+        return {}
+
+    rng = np.random.default_rng(42)
+    block_size = min(3, n // 3)
+    cagrs, sharpes = [], []
+
+    for _ in range(n_boot):
+        # Block bootstrap: sample start indices, then take consecutive blocks
+        n_blocks = int(np.ceil(n / block_size))
+        starts = rng.integers(0, n - block_size + 1, size=n_blocks)
+        sample = np.concatenate([annual_returns[s:s + block_size] for s in starts])[:n]
+        c = float(np.prod(1 + sample) ** (1 / n) - 1)
+        v = float(sample.std())
+        s = float((c - risk_free) / v) if v > 0 else np.nan
+        cagrs.append(c)
+        sharpes.append(s)
+
+    cagrs_arr = np.array(cagrs)
+    sharpes_arr = np.array([s for s in sharpes if not np.isnan(s)])
+
+    return {
+        'cagr_bootstrap_mean_pct':   round(float(np.mean(cagrs_arr)) * 100, 2),
+        'cagr_bootstrap_1sigma_pct': round(float(np.std(cagrs_arr)) * 100, 2),
+        'sharpe_bootstrap_mean':     round(float(np.mean(sharpes_arr)), 3) if len(sharpes_arr) else None,
+        'sharpe_bootstrap_1sigma':   round(float(np.std(sharpes_arr)), 3) if len(sharpes_arr) else None,
+    }
+
 
 def print_tearsheet(result: dict) -> None:
     if result.get('n_years', 0) == 0:
@@ -680,6 +724,16 @@ def print_tearsheet(result: dict) -> None:
               f'tracking_err={te:.3f}' if te else
               f'  Factor Attr:     beta={beta:.2f}  alpha={alpha:.4f}  R²={r2:.2f}')
     print(f'  Sharpe:          {result["sharpe"]}')
+    boot_s = result.get('sharpe_bootstrap_mean')
+    boot_s1 = result.get('sharpe_bootstrap_1sigma')
+    if boot_s is not None:
+        print(f'  Sharpe CI 1σ:    {boot_s:.3f} ± {boot_s1:.3f}  '
+              f'[{boot_s - boot_s1:.3f}, {boot_s + boot_s1:.3f}]')
+    boot_c = result.get('cagr_bootstrap_mean_pct')
+    boot_c1 = result.get('cagr_bootstrap_1sigma_pct')
+    if boot_c is not None:
+        print(f'  CAGR CI 1σ:      {boot_c:+.1f}% ± {boot_c1:.1f}%  '
+              f'[{boot_c - boot_c1:+.1f}%, {boot_c + boot_c1:+.1f}%]')
     print(f'  Sortino:         {result["sortino"]}')
     print(f'  Calmar:          {result["calmar"]}')
     print(f'  Info Ratio:      {result["info_ratio"]}')
