@@ -8,6 +8,15 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Added (Phase B completion — IC decay analysis)
+- **`notebooks/06_ic_decay.ipynb`** NEW — institutional-grade IC decay analysis notebook. 12 cells covering: annual cross-sectional Spearman IC per feature per horizon per year (1y/3y/5y); factor group aggregation (Value/Quality/Momentum/Growth/FraudRisk); IC decay curves with confidence bands; exponential decay fit + half-life estimation (IC(t) = IC₀ × exp(-λt)); year-by-year IC stability heatmap; regime-conditional IC (Bear/Crisis={2008,2009,2020,2022} vs Expansion); lag-1 IC autocorrelation; signal-type diagnostic (short/medium/long-horizon). IC-ready markets: US/KR/CA/JP only (min 30 tickers per cross-section).
+- **`reports/ic_decay_by_group.png`** NEW — IC time-series curves per factor group × horizon with ±1σ bands.
+- **`reports/ic_stability_heatmap.png`** NEW — year-by-year IC stability heatmap (group/horizon × fiscal_year).
+- **`reports/ic_regime_decay.png`** NEW — regime-conditional IC bar chart (Bear/Crisis vs Expansion per group × horizon).
+- **`reports/ic_autocorrelation.png`** NEW — lag-1 IC autocorrelation heatmap (year-over-year IC persistence).
+- **`CONTEXT.md`** Phase B status updated to COMPLETE; Phase B gaps section replaced with "Status: COMPLETE" summary.
+- **`ROADMAP.md`** Step 6 status updated to COMPLETE; all stale ❌ Todo rows replaced with ✅ Done and correct filenames.
+
 ### Added (anti-drift process)
 - **`scripts/run_phase_checks.py`** NEW — single-command Phase A/B/C done verifier. Mechanically runs all exit criteria from `docs/developer/phase-done-criteria.md`. Phase A: dataset shape/quality, EDA notebook outputs, CI schedule completeness, diagram vs CI consistency. Phase B: feature library formula coverage, engineering guards (DSRI clip, growth winsorization, sector_pct fiscal_year grouping, montier_c2 ppe_net), feature selection integrity (no ML columns in feature sets, PSI=0.25, NW+FDR), factor research CSVs, notebook outputs. Phase C: OOF scores, model horizons/AUC targets, backtest results, alpha schema. Exits 1 on any FAIL; supports `--phase A|B|C|AB` and `--strict` (treat WARN as FAIL). A phase is only done when this script prints all PASS.
 - **`docs/developer/scripts.md`** added section for `run_phase_checks.py` with full flag table, per-phase check tables, and anti-drift rule note.

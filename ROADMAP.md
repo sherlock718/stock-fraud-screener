@@ -221,18 +221,18 @@ Goal: All 6 markets merged, all features present, no universe filters.
 
 ---
 
-### Step 6 — Factor Research
+### Step 6 — Factor Research ✅ COMPLETE
 
 | Task | Status | File |
 |---|---|---|
-| IC/ICIR analysis (basic) | ⚠️ Partial | `scripts/factor_research.py` |
-| IC decay curves (how long does each signal predict?) | ❌ Todo | `notebooks/01_feature_ic_analysis.ipynb` |
-| Regime-conditional factor performance | ❌ Todo | `notebooks/02_regime_analysis.ipynb` |
-| Cross-market factor comparison | ❌ Todo | `notebooks/03_cross_market_factors.ipynb` |
-| Correlation matrix and factor clustering | ❌ Todo | — |
-| Academic literature anchoring (cite per feature) | ⚠️ Partial | `docs/methodology/factor-library.md` done |
+| IC/ICIR analysis (basic) | ✅ Done | `scripts/factor_research.py` + `reports/factor_research_*.csv` |
+| IC decay curves (how long does each signal predict?) | ✅ Done | `notebooks/06_ic_decay.ipynb` — half-life, regime, autocorr |
+| Regime-conditional factor performance | ✅ Done | `notebooks/06_ic_decay.ipynb` Cell 9 + `notebooks/02_factor_research.ipynb` Section 10 |
+| Cross-market factor comparison | ✅ Done | `notebooks/02_factor_research.ipynb` + coverage depth audit |
+| Correlation matrix and factor clustering | ✅ Done | `notebooks/02_factor_research.ipynb` |
+| Academic literature anchoring (cite per feature) | ✅ Done | `docs/methodology/factor-library.md` |
 
-**Exit criteria**: IC decay chart for each factor group; regime analysis identifies which factors invert in bear/inflation regimes; notebook outputs committed.
+**Exit criteria**: ✅ IC decay chart saved to `reports/ic_decay_by_group.png`; ✅ regime analysis in `notebooks/06_ic_decay.ipynb`; ✅ all notebook outputs committed.
 
 ---
 

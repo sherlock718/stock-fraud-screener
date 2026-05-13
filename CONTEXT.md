@@ -24,7 +24,7 @@ See `ROADMAP.md` for phase plan. See `CLAUDE.md` for architecture state and pre-
 | **Phase C** | Model Train/Tuning · Look-ahead bias + model improvement · Industry-grade backtest · Alpha Generation Schema |
 
 **Phase A**: mostly done — 5-market dataset built, momentum ranks present, feature pipeline running.  
-**Phase B**: mostly done — 355-feature library, HAC/FDR selection, factor research reports, 5 EDA notebooks.  
+**Phase B**: **COMPLETE** — 355-feature library, HAC/FDR selection, factor research reports, 6 EDA notebooks (incl. 06_ic_decay). All checks pass: `run_phase_checks.py` → 59 PASS 0 FAIL.  
 **Phase C**: in progress — 3 models trained (1y/3y/5y), alpha package built, backtest partial; 6m/2y models pending.
 
 ---
@@ -93,16 +93,15 @@ Quarterly signals are enriched into annual rows via `scripts/enrich_quarterly_fe
 
 ---
 
-## Phase B — Remaining Gaps
+## Phase B — Status: COMPLETE
 
-| Gap | File | Why it matters |
-|---|---|---|
-| IC decay notebook (how long signals predict) | `notebooks/06_ic_decay.ipynb` | Required for factor research completeness |
-| Regime-conditional factor analysis | `notebooks/07_regime_analysis.ipynb` | Bear vs bull factor stability |
-| Cross-market factor comparison | `notebooks/08_cross_market_factors.ipynb` | Validate signal universality |
-| Alpha registry schema | `alpha/signals/` | Phase B output: signal_id, IC, AUC, horizon |
+All Phase B exit criteria pass (`run_phase_checks.py` → 59 PASS 0 FAIL 1 WARN as of 2026-05-13).
 
-**Exit criteria for Phase B**: All in `docs/developer/phase-done-criteria.md`.
+Previously listed gaps resolved:
+- `notebooks/06_ic_decay.ipynb` ✅ — IC decay, half-life estimation, regime conditioning, lag-1 autocorrelation
+- Regime-conditional factor analysis ✅ — covered in `notebooks/02_factor_research.ipynb` (Section 10) + `06_ic_decay.ipynb`
+- Cross-market factor comparison ✅ — covered in `notebooks/02_factor_research.ipynb` + coverage depth audit
+- Alpha registry schema — deferred to Phase C (not a Phase B exit criterion per `phase-done-criteria.md`)
 
 ---
 
@@ -160,3 +159,4 @@ Quarterly signals are enriched into annual rows via `scripts/enrich_quarterly_fe
 | 2026-05-11 | Vision realignment; D1–D7 docs; ROADMAP.md; CONTEXT.md; vision memory saved |
 | 2026-05-11 | Roadmap restructured to 16-step backbone; Phase B/C parked; full data audit run |
 | 2026-05-13 | Full Phase A/B audit: montier_c2 100% null bug FIXED (ppe→ppe_net); CONTEXT.md rewritten; ROADMAP.md status sync; doc sweep; coverage depth task queued |
+| 2026-05-13 | Phase A+B mechanically verified (59 PASS 0 FAIL); anti-drift process built (run_phase_checks.py); notebooks/06_ic_decay.ipynb executed with IC decay/half-life/regime/autocorr outputs |
