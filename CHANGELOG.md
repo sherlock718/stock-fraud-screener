@@ -8,6 +8,17 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Added (Phase C4 — industry-grade backtest, SPY benchmark, factor attribution)
+- **`scripts/fetch_spy_returns.py`** NEW — downloads SPY annual calendar-year total returns (adjusted close, dividends included) via yfinance. Saves `data/spy_returns.csv` (year, spy_return). Covers 2008–2025.
+- **`data/spy_returns.csv`** NEW — 18 years of SPY returns (2008–2025). Mean +12.64%, best 2013 (+32.31%), worst 2008 (−36.80%).
+- **`scripts/backtester.py`** SPY is now the primary benchmark: `excess_cagr_pct` = portfolio CAGR − SPY CAGR. Equal-weight universe mean retained as secondary metric `excess_vs_univ`. Benchmark source recorded in `benchmark_source` field.
+- **`scripts/backtester.py`** factor attribution added: `beta_vs_spy` (OLS slope), `alpha_vs_spy` (Jensen's alpha intercept), `r_squared_vs_spy`, `tracking_error` (std dev of excess returns vs SPY).
+- **`scripts/backtester.py`** new risk metrics in output: `var_95_pct` (historical 5th percentile), `annual_turnover_pct` (approx), `max_drawdown_duration_months`.
+- **`scripts/backtester.py`** `print_tearsheet()` updated: shows SPY CAGR, excess vs SPY, beta/alpha/R²/tracking_error, VaR 95%, annual turnover, drawdown duration; annual return table updated to show SPY% and excess-vs-SPY columns.
+- **`scripts/backtester.py`** `--max-filing-lag` default corrected: 6 → 18 months (aligned with actual filing lag distribution in dataset).
+- **`docs/methodology/backtesting.md`** fully rewritten: SPY benchmark section, PIT-safe walk-forward diagram, transaction cost model table, factor attribution formula, complete output field reference, updated running instructions.
+- **`docs/developer/scripts.md`** `backtester.py` section updated: new flags table, SPY benchmark note, output field list.
+
 ### Added (Phase C3 — bias audit suite + CI integration)
 - **`scripts/bias_audit.py`** overhauled: added `audit_overfitting()` (train AUC vs WF mean AUC gap, writes `overfit_gap` to model_meta.json; flag if gap > 0.15) and `audit_multiple_testing()` (Bonferroni correction across 5 horizons × 4 strategies). Added `--ci` flag: exits with code 1 if any look-ahead violations found (hard fail), warn-only for survivorship/overfitting. Added `_count_lookahead()` helper.
 - **`.github/workflows/refresh_data.yml`** added `bias_audit.py --ci` step after `test_dataset_quality.py`. Look-ahead violations fail CI; survivorship and overfitting are logged as warnings.

@@ -36,6 +36,7 @@ BASE       = Path(__file__).parent.parent
 FULL_DATA  = BASE / 'data' / 'historical_dataset_clean.parquet'
 MODELS_DIR = BASE / 'models'
 OUT_PATH   = BASE / 'data' / 'backtest_results.json'
+SPY_PATH   = BASE / 'data' / 'spy_returns.csv'
 
 DEFAULT_COST_BPS  = 30    # 30 bps round-trip (commission 10bps + slippage 20bps)
 SMALLCAP_COST_BPS = 60    # Illiquidity premium for micro/small caps
@@ -43,6 +44,14 @@ RISK_FREE = 0.03          # Annual risk-free rate for Sharpe/Sortino
 MIN_MARKET_CAP    = 50_000_000  # $50M floor — removes truly illiquid stocks
 MAX_POSITION_WEIGHT = 0.20      # Max weight per stock in vol-scaled portfolio
 MAX_SECTOR_WEIGHT   = 0.35      # Max total weight in any single SIC sector
+
+
+def load_spy_returns() -> dict[int, float]:
+    """Load SPY annual returns from data/spy_returns.csv. Returns {year: return}."""
+    if SPY_PATH.exists():
+        df = pd.read_csv(SPY_PATH)
+        return dict(zip(df['year'].astype(int), df['spy_return'].astype(float)))
+    return {}
 
 
 # ── Data helpers ──────────────────────────────────────────────────────────────
@@ -404,7 +413,8 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
                  min_market_cap: int = MIN_MARKET_CAP,
                  vol_weighted: bool = True,
                  fill_missing_return: float | None = None,
-                 max_filing_lag_months: int = MAX_FILING_LAG_MONTHS) -> dict:
+                 max_filing_lag_months: int = MAX_FILING_LAG_MONTHS,
+                 spy_returns: dict | None = None) -> dict:
     """Walk-forward backtest engine.
 
     Args:
@@ -413,6 +423,8 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
             model worst-case survivorship (missing = delisted).
         max_filing_lag_months: Drop filings received more than N months after
             fiscal year-end (look-ahead protection). Default 18.
+        spy_returns: Dict of {year: spy_annual_return} for SPY benchmark.
+            If None, falls back to equal-weight universe mean as benchmark.
     """
     years = sorted(y for y in df['fiscal_year'].unique() if y <= 2023)
     annual_rows = []
@@ -482,21 +494,30 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
         port_ret = float(np.dot(weights, net_rets))
         cost_drag = float(np.dot(weights, per_pick_cost))
 
-        # ── Benchmark: equal-weight all eligible stocks in same market/year ──
+        # ── Benchmark: SPY (primary) + equal-weight universe (secondary) ──
+        # SPY is used for excess_cagr_pct; universe mean kept as bench_universe_pct
         bench_df = yr_df.copy()
         if market:
             bench_df = bench_df[bench_df['market'] == market]
         if fill_missing_return is not None:
             bench_df['forward_return_1y'] = bench_df['forward_return_1y'].fillna(fill_missing_return)
         bench_rets_s = bench_df['forward_return_1y'].dropna()
-        bench_ret = bench_rets_s.mean() if len(bench_rets_s) > 5 else np.nan
+        universe_ret = bench_rets_s.mean() if len(bench_rets_s) > 5 else np.nan
         bench_coverage = len(bench_rets_s) / max(len(bench_df), 1)
+
+        # Primary benchmark: SPY for this calendar year
+        spy_ret = spy_returns.get(int(yr)) if spy_returns else None
+        bench_ret = spy_ret if spy_ret is not None else universe_ret
 
         annual_rows.append({
             'year':            yr,
             'port_ret':        port_ret,
             'bench_ret':       bench_ret,
+            'spy_ret':         spy_ret,
+            'universe_ret':    universe_ret,
             'excess':          port_ret - bench_ret if pd.notna(bench_ret) else np.nan,
+            'excess_vs_spy':   port_ret - spy_ret if spy_ret is not None else np.nan,
+            'excess_vs_univ':  port_ret - universe_ret if pd.notna(universe_ret) else np.nan,
             'cost_drag':       cost_drag,
             'n_picks':         len(rets),
             'hit_rate':        (rets.values > 0).mean(),
@@ -513,14 +534,25 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
     # Cumulative wealth index
     wealth       = np.cumprod(1 + res['port_ret'].values)
     bench_wealth = np.cumprod(1 + res['bench_ret'].fillna(0).values)
+    spy_vec      = res['spy_ret'].fillna(res['universe_ret'].fillna(0)).values
+    spy_wealth   = np.cumprod(1 + spy_vec)
 
     # Max drawdown
     peak      = np.maximum.accumulate(wealth)
     drawdowns = (wealth - peak) / peak
     max_dd    = float(drawdowns.min())
 
+    # Drawdown duration
+    in_dd = drawdowns < 0
+    dd_dur_months = 0
+    cur_dur = 0
+    for in_d in in_dd:
+        cur_dur = cur_dur + 12 if in_d else 0
+        dd_dur_months = max(dd_dur_months, cur_dur)
+
     cagr       = float(wealth[-1] ** (1 / n) - 1)
     bench_cagr = float(bench_wealth[-1] ** (1 / n) - 1)
+    spy_cagr   = float(spy_wealth[-1] ** (1 / n) - 1)
     vol        = float(res['port_ret'].std())
     sharpe     = float((cagr - RISK_FREE) / vol) if vol > 0 else np.nan
 
@@ -536,6 +568,28 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
     excess_std = float(res['excess'].std())
     info_ratio = float(res['excess'].mean() / excess_std) if excess_std > 0 else np.nan
 
+    # Beta vs SPY (OLS regression of port returns on SPY returns)
+    spy_aligned = res['spy_ret'].dropna()
+    port_aligned = res.loc[spy_aligned.index, 'port_ret']
+    if len(spy_aligned) >= 5:
+        slope, intercept, r_val, _, _ = stats.linregress(spy_aligned, port_aligned)
+        beta_vs_spy = round(float(slope), 3)
+        alpha_vs_spy = round(float(intercept), 4)
+        r_squared = round(float(r_val ** 2), 3)
+    else:
+        beta_vs_spy = alpha_vs_spy = r_squared = None
+
+    # Tracking error vs SPY
+    excess_vs_spy = res['excess_vs_spy'].dropna()
+    tracking_error = round(float(excess_vs_spy.std()), 4) if len(excess_vs_spy) >= 3 else None
+
+    # Annual turnover — approximate from n_picks and top_n
+    avg_picks = float(res['n_picks'].mean())
+    annual_turnover_pct = round(avg_picks / max(top_n, 1) * 100, 1)
+
+    # VaR 95% (historical simulation, annual)
+    var_95 = round(float(np.percentile(res['port_ret'].values, 5)) * 100, 2)
+
     # Rolling 3y Sharpe appended to each annual row
     rets_arr = res['port_ret'].values
     rolling_sharpe_3y: list[float | None] = []
@@ -548,27 +602,39 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
             rolling_sharpe_3y.append(round(float(rs), 3) if rs is not None else None)
 
     return {
-        'label':             label,
-        'n_years':           n,
-        'cagr_pct':          round(cagr * 100, 2),
-        'bench_cagr_pct':    round(bench_cagr * 100, 2),
-        'excess_cagr_pct':   round((cagr - bench_cagr) * 100, 2),
-        'sharpe':            round(sharpe, 3) if pd.notna(sharpe) else None,
-        'sortino':           round(sortino, 3) if pd.notna(sortino) else None,
-        'calmar':            round(calmar, 3) if pd.notna(calmar) else None,
-        'info_ratio':        round(info_ratio, 3) if pd.notna(info_ratio) else None,
-        'max_drawdown_pct':  round(max_dd * 100, 2),
-        'hit_rate_pct':      round(res['hit_rate'].mean() * 100, 1),
-        'avg_cost_drag_bps': round(res['cost_drag'].mean() * 10000, 1),
-        'best_year_pct':     round(res['port_ret'].max() * 100, 2),
-        'worst_year_pct':      round(res['port_ret'].min() * 100, 2),
-        'survivorship_pct':    round(total_survivorship_dropped / max(total_picks_attempted, 1) * 100, 1),
+        'label':                label,
+        'n_years':              n,
+        'cagr_pct':             round(cagr * 100, 2),
+        'bench_cagr_pct':       round(bench_cagr * 100, 2),
+        'excess_cagr_pct':      round((cagr - bench_cagr) * 100, 2),
+        'benchmark_source':     'SPY' if spy_returns else 'equal_weight_universe',
+        'spy_cagr_pct':         round(spy_cagr * 100, 2),
+        'excess_cagr_vs_spy':   round((cagr - spy_cagr) * 100, 2),
+        'beta_vs_spy':          beta_vs_spy,
+        'alpha_vs_spy':         alpha_vs_spy,
+        'r_squared_vs_spy':     r_squared,
+        'tracking_error':       tracking_error,
+        'annual_turnover_pct':  annual_turnover_pct,
+        'var_95_pct':           var_95,
+        'max_drawdown_pct':     round(max_dd * 100, 2),
+        'max_drawdown_duration_months': dd_dur_months,
+        'sharpe':               round(sharpe, 3) if pd.notna(sharpe) else None,
+        'sortino':              round(sortino, 3) if pd.notna(sortino) else None,
+        'calmar':               round(calmar, 3) if pd.notna(calmar) else None,
+        'info_ratio':           round(info_ratio, 3) if pd.notna(info_ratio) else None,
+        'hit_rate_pct':         round(res['hit_rate'].mean() * 100, 1),
+        'avg_cost_drag_bps':    round(res['cost_drag'].mean() * 10000, 1),
+        'best_year_pct':        round(res['port_ret'].max() * 100, 2),
+        'worst_year_pct':       round(res['port_ret'].min() * 100, 2),
+        'survivorship_pct':     round(total_survivorship_dropped / max(total_picks_attempted, 1) * 100, 1),
         'annual_returns': [
             {
                 'year':            int(r['year']),
                 'port_pct':        round(r['port_ret'] * 100, 2),
                 'bench_pct':       round(r['bench_ret'] * 100, 2) if pd.notna(r['bench_ret']) else None,
+                'spy_pct':         round(r['spy_ret'] * 100, 2) if pd.notna(r.get('spy_ret', np.nan)) else None,
                 'excess_pct':      round(r['excess'] * 100, 2) if pd.notna(r['excess']) else None,
+                'excess_vs_spy':   round(r['excess_vs_spy'] * 100, 2) if pd.notna(r.get('excess_vs_spy', np.nan)) else None,
                 'n_picks':         int(r['n_picks']),
                 'n_missing_ret':   int(r['n_missing_ret']),
                 'bench_coverage':  r['bench_coverage'],
@@ -585,30 +651,45 @@ def print_tearsheet(result: dict) -> None:
     if result.get('n_years', 0) == 0:
         print(f"  {result['label']}: {result.get('error', 'no data')}")
         return
-    sep = '─' * 60
+    sep = '─' * 68
+    bench_src = result.get('benchmark_source', 'unknown')
+    spy_cagr  = result.get('spy_cagr_pct')
+    exc_spy   = result.get('excess_cagr_vs_spy')
     print(f'\n{sep}')
     print(f'  {result["label"]}')
     print(sep)
-    print(f'  Period:        {result["n_years"]} years')
-    print(f'  CAGR:          {result["cagr_pct"]:+.1f}%  (bench {result["bench_cagr_pct"]:+.1f}%  |  excess {result["excess_cagr_pct"]:+.1f}%)')
-    print(f'  Sharpe:        {result["sharpe"]}')
-    print(f'  Sortino:       {result["sortino"]}')
-    print(f'  Calmar:        {result["calmar"]}')
-    print(f'  Info Ratio:    {result["info_ratio"]}')
-    print(f'  Max Drawdown:  {result["max_drawdown_pct"]:.1f}%')
-    print(f'  Hit Rate:      {result["hit_rate_pct"]:.0f}%')
-    print(f'  Avg Cost Drag: {result["avg_cost_drag_bps"]:.0f} bps')
-    print(f'  Survivorship:  {result.get("survivorship_pct", 0):.1f}% picks had missing return')
-    print(f'  Best Year:     {result["best_year_pct"]:+.1f}%')
-    print(f'  Worst Year:    {result["worst_year_pct"]:+.1f}%')
-    print(f'\n  Year    Port%   Bench%  Excess%  Picks  Missing  BenchCov  Roll3ySharpe')
+    print(f'  Period:          {result["n_years"]} years  |  benchmark: {bench_src}')
+    print(f'  CAGR:            {result["cagr_pct"]:+.1f}%  '
+          f'(bench {result["bench_cagr_pct"]:+.1f}%  |  excess {result["excess_cagr_pct"]:+.1f}%)')
+    if spy_cagr is not None:
+        print(f'  vs SPY:          SPY {spy_cagr:+.1f}%  |  excess vs SPY {exc_spy:+.1f}%')
+    beta = result.get('beta_vs_spy')
+    alpha = result.get('alpha_vs_spy')
+    r2    = result.get('r_squared_vs_spy')
+    te    = result.get('tracking_error')
+    if beta is not None:
+        print(f'  Factor Attr:     beta={beta:.2f}  alpha={alpha:.4f}  R²={r2:.2f}  '
+              f'tracking_err={te:.3f}' if te else
+              f'  Factor Attr:     beta={beta:.2f}  alpha={alpha:.4f}  R²={r2:.2f}')
+    print(f'  Sharpe:          {result["sharpe"]}')
+    print(f'  Sortino:         {result["sortino"]}')
+    print(f'  Calmar:          {result["calmar"]}')
+    print(f'  Info Ratio:      {result["info_ratio"]}')
+    print(f'  Max Drawdown:    {result["max_drawdown_pct"]:.1f}%  '
+          f'(duration {result.get("max_drawdown_duration_months", 0)} months)')
+    print(f'  VaR 95%:         {result.get("var_95_pct", "N/A")}%  (annual)')
+    print(f'  Turnover:        ~{result.get("annual_turnover_pct", "N/A")}% annual')
+    print(f'  Hit Rate:        {result["hit_rate_pct"]:.0f}%')
+    print(f'  Avg Cost Drag:   {result["avg_cost_drag_bps"]:.0f} bps')
+    print(f'  Survivorship:    {result.get("survivorship_pct", 0):.1f}% picks had missing return')
+    print(f'  Best / Worst:    {result["best_year_pct"]:+.1f}% / {result["worst_year_pct"]:+.1f}%')
+    print(f'\n  Year  Port%   SPY%   Exc-SPY%  Picks  Missing  Roll3ySharpe')
     for row in result['annual_returns']:
-        bp  = f'{row["bench_pct"]:+.1f}' if row['bench_pct'] is not None else '  N/A '
-        ep  = f'{row["excess_pct"]:+.1f}' if row['excess_pct'] is not None else '  N/A '
-        rs  = f'{row["rolling_sharpe"]:.2f}' if row['rolling_sharpe'] is not None else '  — '
-        mis = row.get('n_missing_ret', 0)
-        cov = f'{row.get("bench_coverage", 0):.0%}'
-        print(f'  {row["year"]}   {row["port_pct"]:+5.1f}   {bp:>6}  {ep:>7}   {row["n_picks"]:3d}      {mis:3d}    {cov:>7}    {rs}')
+        spy_p = f'{row["spy_pct"]:+.1f}' if row.get('spy_pct') is not None else '  N/A '
+        exc_p = f'{row.get("excess_vs_spy"):+.1f}' if row.get('excess_vs_spy') is not None else '  N/A '
+        rs    = f'{row["rolling_sharpe"]:.2f}' if row['rolling_sharpe'] is not None else '  — '
+        mis   = row.get('n_missing_ret', 0)
+        print(f'  {row["year"]}  {row["port_pct"]:+5.1f}  {spy_p:>6}  {exc_p:>8}   {row["n_picks"]:3d}      {mis:3d}    {rs}')
     print(sep)
 
 
@@ -643,6 +724,15 @@ def main():
     df = load_and_score(df)
     print(f'  {len(df):,} annual rows across {df["fiscal_year"].nunique()} years')
 
+    # Load SPY benchmark data
+    spy_returns = load_spy_returns()
+    if spy_returns:
+        print(f'  SPY benchmark loaded: {min(spy_returns)} – {max(spy_returns)} '
+              f'({len(spy_returns)} years, mean {sum(spy_returns.values())/len(spy_returns):+.1%})')
+    else:
+        print('  SPY data not found (data/spy_returns.csv) — using equal-weight universe mean. '
+              'Run scripts/fetch_spy_returns.py to get SPY data.')
+
     to_run = list(STRATEGIES.keys()) if args.strategy == 'all' else [args.strategy]
     results = {}
 
@@ -656,24 +746,22 @@ def main():
                               min_market_cap=args.min_cap,
                               vol_weighted=not args.equal_weight,
                               fill_missing_return=args.fill_missing,
-                              max_filing_lag_months=args.max_filing_lag)
+                              max_filing_lag_months=args.max_filing_lag,
+                              spy_returns=spy_returns)
         results[key] = result
 
         if result.get('n_years', 0) > 0:
+            bench_str = f'SPY={result.get("spy_cagr_pct", "N/A"):+.1f}%' if spy_returns else f'bench={result["bench_cagr_pct"]:+.1f}%'
             print(
                 f'CAGR={result["cagr_pct"]:+.1f}%  '
-                f'bench={result["bench_cagr_pct"]:+.1f}%  '
-                f'excess={result["excess_cagr_pct"]:+.1f}%  '
+                f'{bench_str}  '
+                f'excess_vs_SPY={result.get("excess_cagr_vs_spy", "N/A"):+.1f}%  '
+                f'beta={result.get("beta_vs_spy", "N/A")}  '
                 f'Sharpe={result.get("sharpe","N/A")}  '
-                f'Sortino={result.get("sortino","N/A")}  '
-                f'Calmar={result.get("calmar","N/A")}  '
                 f'MaxDD={result["max_drawdown_pct"]:.1f}%'
             )
         else:
             print(result.get('error', 'no data'))
-
-        if args.tearsheet:
-            print_tearsheet(result)
 
     out = {
         'generated_at':      pd.Timestamp.now().isoformat(),
