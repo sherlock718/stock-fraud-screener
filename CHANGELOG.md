@@ -27,6 +27,14 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ---
 
+### Phase D4 — Investment Framework (2026-05-14)
+
+#### D4.1 — Investment framework document (docs)
+- **`docs/methodology/investment-framework.md`** New document: 27 numbered rules covering universe (liquidity floor, market scope, fiscal-year anchoring), scoring (IC-weighted composite, horizon filtering, percentile-rank normalisation), portfolio construction (long-only default, top-N selection, fractional Kelly, position/sector caps), transaction costs (4-tier slippage, annual rebalance assumption), risk limits (VaR 95%, CVaR 99% gate, max drawdown monitoring, beta/alpha reporting), benchmark (SPY), live monitoring (drawdown circuit breaker, IC decay tracking, model drift), data integrity (PIT safety, survivorship correction, minimum history), and operational procedures (weekly refresh, registry versioning, commit convention).
+- **`docs/methodology/index.md`** Added link to investment-framework.md.
+
+---
+
 ### Phase D3 — Risk & Compliance (2026-05-14)
 
 #### D3.1 — CVaR 99%, tiered slippage, VaR/CVaR gates (feat)

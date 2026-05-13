@@ -11,3 +11,4 @@ Technical reference for researchers and quants.
 - **[Leverage Strategy](leverage.md)** — long/short construction with Kelly sizing
 - **[Case Studies](case-studies.md)** — 10 documented fraud cases with pre-revelation quantitative signals
 - **[Benchmarking](benchmarking.md)** — AUC-ROC comparison of all models vs confirmed fraud labels
+- **[Investment Framework](investment-framework.md)** — 27 numbered rules: universe, scoring, sizing, risk limits, monitoring
