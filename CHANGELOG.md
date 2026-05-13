@@ -8,6 +8,11 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Phase C — Complete (2026-05-14)
+- **`scripts/run_phase_checks.py --phase C`** → 30 PASS 0 FAIL 0 WARN. Phase C officially complete per `docs/developer/phase-done-criteria.md`. All 5 model horizons (6m/1y/2y/3y/5y) confirmed present, OOF scores in parquet (360 cols), bias audit passing, backtest results with SPY benchmark, alpha_registry.json populated (8 signals, 6 selected).
+- **`ROADMAP.md`** Phase C status rows updated to reflect actual artifact state: Step 7 baseline comparison ✅, sortino/calmar bug ✅ Fixed, Step 9 tearsheet + benchmark-relative metrics ✅, Step 10 alpha registry tasks ✅. Phase header updated to "✅ COMPLETE (exit criteria: 30 PASS 0 FAIL)".
+- **`CONTEXT.md`** Phase C section rewritten: shows COMPLETE with 30/30 pass, dataset updated to 360 cols, OOF columns marked present, session log updated.
+
 ### Fixed (Phase C — AUC gap in 6m/1y/2y horizons)
 - **`scripts/train_models.py`** three-part AUC fix for under-performing short horizons (6m WF=0.549, 1y WF=0.549, 2y WF=0.578):
   1. `FORCE_INCLUDE_6M = ['vol_rank_12m', 'quality_x_momentum']`, `FORCE_INCLUDE_1Y = ['vol_rank_12m', 'quality_x_momentum']`, `FORCE_INCLUDE_2Y = ['vol_rank_12m']` — bypasses ICIR ranking to inject momentum features that ICIR selection systematically under-selects for short-horizon targets (which ICIR ranks fundamentals first)

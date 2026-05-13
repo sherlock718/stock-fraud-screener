@@ -25,13 +25,14 @@ See `ROADMAP.md` for phase plan. See `CLAUDE.md` for architecture state and pre-
 
 **Phase A**: mostly done — 5-market dataset built, momentum ranks present, feature pipeline running.  
 **Phase B**: **COMPLETE** — 355-feature library, HAC/FDR selection, factor research reports, 6 EDA notebooks (incl. 06_ic_decay). All checks pass: `run_phase_checks.py` → 59 PASS 0 FAIL.  
-**Phase C**: in progress — 3 models trained (1y/3y/5y), alpha package built, backtest partial; 6m/2y models pending.
+**Phase C**: **COMPLETE** — `run_phase_checks.py --phase C` → 30 PASS 0 FAIL 0 WARN (2026-05-14). All 5 model horizons trained, OOF scores generated, bias audit passed, backtest run (CAGR +38.1%, Sharpe 1.181), alpha_registry.json built (8 signals, 6 selected).  
+Remaining Phase C enhancements (beyond exit criteria): retrain 6m/1y/2y to meet AUC targets (fixes coded), ablation study, slippage modelling, per-signal JSONs in `reports/alpha_backtests/`.
 
 ---
 
-## Verified Data State (as of 2026-05-13)
+## Verified Data State (as of 2026-05-14)
 
-### historical_dataset_clean.parquet — 58,190 rows × 355 cols (all annual)
+### historical_dataset_clean.parquet — 58,190 rows × 360 cols (355 base + 5 OOF)
 
 Quarterly signals are enriched into annual rows via `scripts/enrich_quarterly_features.py`.
 
@@ -68,7 +69,7 @@ Quarterly signals are enriched into annual rows via `scripts/enrich_quarterly_fe
 | Column / Group | Null Rate | Notes |
 |---|---|---|
 | ml_1y, ml_3y, ml_5y | 0% | ✅ Static ML scores present |
-| ml_*_oof | absent | ❌ OOF scores not generated yet (Phase C) |
+| ml_*_oof (6m/1y/2y/3y/5y) | varies | ✅ OOF scores generated (NaN for training-window rows) |
 | alpha_composite | 41.6% | ✅ Present; limited by value/momentum data |
 | alpha_fraud_risk | 0% | ✅ Present |
 | momentum_12m_rank | 7.9% | ✅ Present |
@@ -105,18 +106,26 @@ Previously listed gaps resolved:
 
 ---
 
-## Phase C — Current State
+## Phase C — Status: COMPLETE (2026-05-14)
+
+`run_phase_checks.py --phase C` → **30 PASS 0 FAIL 0 WARN**
 
 | Item | Status |
 |---|---|
-| Models (1y/3y/5y) | ✅ Trained; val_auc 1y=0.577, 3y=0.740, 5y=NaN |
-| 6m/2y models | ❌ Not yet trained |
-| OOF scoring | ❌ `generate_oof_scores.py` exists, not yet run |
-| Bias audit | ⚠️ `bias_audit.py` exists; pass/fail not confirmed |
-| SPY benchmark data | ✅ `data/spy_returns.csv` present |
-| Backtest | ⚠️ `backtester.py` partial — SPY benchmark wired, per-alpha backtest missing |
+| Models (all 5 horizons: 6m/1y/2y/3y/5y) | ✅ Trained + feature sets + model_meta.json |
+| OOF scoring | ✅ `ml_6m_oof`, `ml_1y_oof`, `ml_2y_oof`, `ml_3y_oof`, `ml_5y_oof` in parquet |
+| Bias audit | ✅ `bias_audit.py` passes all 4 checks |
+| SPY benchmark data | ✅ `data/spy_returns.csv` (18 years) |
+| Backtest | ✅ COMPOSITE +38.1% CAGR, +24.2% vs SPY, Sharpe 1.181 |
 | Alpha package | ✅ `alpha/factors/` — 5 factor scores, HorizonRouter |
-| Alpha registry | ❌ Not yet built |
+| Alpha registry | ✅ `data/alpha_registry.json` — 8 signals, 6 selected |
+| Baseline comparison | ✅ `baseline_lr_{6m,1y,2y,3y,5y}.joblib` all present |
+
+**Phase C enhancements queued (beyond exit criteria):**
+- Retrain 6m/1y/2y with FORCE_INCLUDE + sector-neutral IC + stability filter → improve AUC (currently 6m=0.549, 1y=0.549, 2y=0.578)
+- Ablation study (feature group contribution analysis)
+- Slippage modelling in `scripts/backtester.py`
+- Per-signal JSON files `reports/alpha_backtests/{signal_id}.json`
 
 ---
 
@@ -160,3 +169,4 @@ Previously listed gaps resolved:
 | 2026-05-11 | Roadmap restructured to 16-step backbone; Phase B/C parked; full data audit run |
 | 2026-05-13 | Full Phase A/B audit: montier_c2 100% null bug FIXED (ppe→ppe_net); CONTEXT.md rewritten; ROADMAP.md status sync; doc sweep; coverage depth task queued |
 | 2026-05-13 | Phase A+B mechanically verified (59 PASS 0 FAIL); anti-drift process built (run_phase_checks.py); notebooks/06_ic_decay.ipynb executed with IC decay/half-life/regime/autocorr outputs |
+| 2026-05-14 | Phase C mechanically verified: `run_phase_checks.py --phase C` → 30 PASS 0 FAIL 0 WARN. All 5 model horizons confirmed present, OOF scores in parquet, bias audit passed, backtest complete (CAGR +38.1%), alpha_registry.json has 8 signals (6 selected). ROADMAP.md + CONTEXT.md synced to reflect Phase C COMPLETE. |
