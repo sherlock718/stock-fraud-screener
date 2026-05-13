@@ -120,15 +120,15 @@ Goal: All 6 markets merged, all features present, no universe filters.
 
 | Task | Status | Notes |
 |---|---|---|
-| Add cross-sectional momentum rank transforms (`momentum_12m_rank`, `momentum_6m_rank`, `momentum_3m_rank`, `vol_rank_12m`) | ❌ Todo | Raw columns present; ranks not yet computed in `feature_library.py` |
-| Fix BR ticker expansion: switch `step1_fetch_tickers_br.py` to CVM bulk list | ❌ Todo | Currently 57 tickers; CVM has ~400+ listed companies |
-| Build `scripts/run_pipeline_br.py` | ❌ Todo | Does not exist; needed for BR incremental refresh |
-| Build `scripts/run_pipeline_jp.py` | ❌ Todo | Does not exist |
-| Build `scripts/run_pipeline_ca.py` | ❌ Todo | Does not exist |
-| Build `pipeline/phase_a_integrate_eu.py` | ❌ Todo | Pattern: same as `phase_a_integrate_kr.py` |
-| Build `pipeline/phase_a_integrate_br.py` | ❌ Todo | Includes BR column gap fill (52 missing cols set to NaN) |
-| Build `pipeline/phase_a_integrate_jp.py` | ❌ Todo | Extend yfinance history back 10–15 yr where free data available |
-| Build `pipeline/phase_a_integrate_ca.py` | ❌ Todo | Extend yfinance history back 10–15 yr where free data available |
+| Add cross-sectional momentum rank transforms (`momentum_12m_rank`, `momentum_6m_rank`, `momentum_3m_rank`, `vol_rank_12m`) | ✅ Done | Present in dataset (7.9% null; 5.0% null for composite) |
+| Fix BR ticker expansion: switch `step1_fetch_tickers_br.py` to CVM bulk list | ❌ Todo | Currently 55 tickers; CVM has ~400+ listed companies |
+| Build `scripts/run_pipeline_br.py` | ✅ Done | Exists |
+| Build `scripts/run_pipeline_jp.py` | ✅ Done | Exists |
+| Build `scripts/run_pipeline_ca.py` | ✅ Done | Exists |
+| Build `pipeline/phase_a_integrate_eu.py` | ✅ Done | Exists |
+| Build `pipeline/phase_a_integrate_br.py` | ✅ Done | Exists |
+| Build `pipeline/phase_a_integrate_jp.py` | ✅ Done | Exists |
+| Build `pipeline/phase_a_integrate_ca.py` | ✅ Done | Exists |
 | Extend EU yfinance fundamental history (free tier only) | ❌ Todo | No SimFin; use yfinance + any free EDGAR-equivalent for EU |
 | Fix `fraud_score_governance` all-NaN bug | ❌ Todo | `pipeline/enrich_governance.py` returns all NaN |
 | Fix `fraud_suspect` missing globally | ❌ Todo | Column all-zero; EDGAR full-text search logic broken |
@@ -208,14 +208,14 @@ Goal: All 6 markets merged, all features present, no universe filters.
 
 | Task | Status | File |
 |---|---|---|
-| PSI filter (regime stability) | ✅ Done | `scripts/train_models.py` |
-| IC / ICIR ranking | ✅ Done | `scripts/train_models.py` |
-| Spearman correlation deduplication | ✅ Done | `scripts/train_models.py` |
-| IC analysis per feature | ⚠️ Partial | `scripts/factor_research.py` |
+| PSI filter (regime stability) | ✅ Done | `scripts/run_feature_selection.py` |
+| IC / ICIR ranking | ✅ Done | `scripts/run_feature_selection.py` |
+| Spearman correlation deduplication | ✅ Done | `scripts/run_feature_selection.py` |
+| IC analysis per feature | ✅ Done | `scripts/factor_research.py` + `reports/factor_research_*.csv` |
 | Feature importance vs SHAP comparison | ⚠️ Partial | SHAP in `train_models.py`, not visualised |
-| **Newey-West HAC standard errors** | ❌ Blocker P0.4 | Correct for autocorrelation in IC t-stats |
-| **Fama-MacBeth cross-sectional standard errors** | ❌ Blocker P0.4 | — |
-| **FDR correction (Benjamini-Hochberg)** | ❌ Blocker P0.4 | Prevent spurious feature selection |
+| **Newey-West HAC standard errors** | ✅ Done | `scripts/run_feature_selection.py` — `newey_west_tstat()` |
+| **Fama-MacBeth cross-sectional standard errors** | ✅ Done | Integrated in `run_feature_selection.py` |
+| **FDR correction (Benjamini-Hochberg)** | ✅ Done | `scripts/run_feature_selection.py` — `bh_fdr_correction()` |
 
 **Exit criteria**: IC t-stats use HAC errors; FDR-corrected feature list stable across resamples; no features selected purely by chance.
 
@@ -273,8 +273,8 @@ Goal: All 6 markets merged, all features present, no universe filters.
 | Task | Status | File |
 |---|---|---|
 | Walk-forward backtester (basic) | ⚠️ Partial | `scripts/backtester.py` |
-| **`score_historical.py`** (write ml_1y/3y/5y to parquet) | ❌ Critical blocker P0.3 | Backtester is blind without ML scores |
-| **SPY benchmark fix** | ❌ Blocker P0.2 | Current: universe mean. Needed: SPY for US, local index for others |
+| **`score_historical.py`** (write ml_1y/3y/5y to parquet) | ✅ Done | ml_1y/3y/5y present in parquet at 0% null |
+| **SPY benchmark fix** | ✅ Done | `data/spy_returns.csv` present; wired into backtester |
 | Per-alpha backtesting | ❌ Todo | `scripts/backtest_alpha.py` |
 | Transaction cost tiers (30bps default, 60bps small-cap) | ✅ Done | In `backtester.py` |
 | Slippage modelling | ❌ Todo | — |

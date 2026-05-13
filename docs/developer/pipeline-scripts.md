@@ -99,7 +99,9 @@ Output: `data/macro.parquet` (or `data/macro{suffix}.parquet`)
 
 ### `step5_compute_features.py` — Compute Features
 
-Calls `feature_library.py` to compute 314 base features across 8 categories, plus 5 cross-sectional momentum rank features (324 total). All computations are purely cross-sectional within a fiscal year — no look-forward information is used.
+Calls `feature_library.py` to compute 314 base features across 8 categories, plus 5 cross-sectional momentum rank features (324 total). Also computes Montier C-score (7 columns) and Sloan decomposition columns not in the shared library. All computations are purely cross-sectional within a fiscal year — no look-forward information is used.
+
+**Montier C2 note**: `add_montier_c_score()` uses `ppe_net` (19.4% null) for the C2 depreciation-rate signal. Do **not** revert to `property_plant_equipment` (95.7% null) — doing so makes `montier_c2` and `montier_c_score` 100% null.
 
 See [Feature Engineering →](../methodology/features.md) for the full feature list by category.
 

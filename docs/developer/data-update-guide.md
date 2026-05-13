@@ -253,3 +253,5 @@ Korean companies sometimes file multiple fiscal years in a single batch submissi
 | After Montier C1-C6, montier_c_score, sloan_wc_accruals, sloan_lt_accruals | 58,190 | 355 |
 
 Current production dataset: **58,190 rows × 355 columns**
+
+> **Montier C2 note (2026-05-13)**: `add_montier_c_score()` in `step5_compute_features.py` uses `ppe_net` for the C2 depreciation rate signal (19.4% null). Do not revert to `property_plant_equipment` (95.7% null) — that makes `montier_c2` 100% null.

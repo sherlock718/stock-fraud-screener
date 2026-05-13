@@ -395,7 +395,7 @@ def add_montier_c_score(df: pd.DataFrame) -> pd.DataFrame:
     rec    = df.get('accounts_receivable',  nan)
     inv    = df.get('inventory',            nan)
     dep    = df.get('depreciation',         nan)
-    ppe    = df.get('property_plant_equipment', nan)
+    ppe    = df.get('ppe_net',               nan)   # use ppe_net (19% null) not property_plant_equipment (96% null)
     sga    = df.get('sga_expense',          nan)
     ni     = df.get('net_income',           nan)
     ocf    = df.get('operating_cash_flow',  nan)

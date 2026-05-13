@@ -153,6 +153,25 @@ Fixed columns (all were near-0% fill due to equity coalesce bug): `roe`, `roic`,
 
 **Dependencies**: Requires `data/snapshots_combined.parquet` and `data/price_cache.db`.
 
+---
+
+### `patch_montier_c2.py` — Montier C2 null fix
+
+One-shot patch that recomputes all 7 Montier C-score columns in `data/historical_dataset_clean.parquet` after fixing the root cause in `pipeline/step5_compute_features.py` (C2 used `property_plant_equipment` which is 95.7% null; changed to `ppe_net` which is 19.4% null).
+
+```bash
+python3 scripts/patch_montier_c2.py            # Recompute and save
+python3 scripts/patch_montier_c2.py --dry-run  # Print null rates only, no write
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--dry-run` | off | Print post-fix null rates but do not write parquet |
+
+**Fixed columns**: `montier_c1` (24.5% null), `montier_c2` (41.6% null, was 100%), `montier_c3` (21.8%), `montier_c4` (48.3%), `montier_c5` (26.5%), `montier_c6` (16.9%), `montier_c_score` (24.5%).
+
+**Root cause**: `add_montier_c_score()` in `step5_compute_features.py` computed the C2 depreciation rate signal using `property_plant_equipment` (95.7% null). The null mask `c2[(dep.isna()) | (ppe.isna())] = np.nan` propagated those nulls through the entire `montier_c2` column. Fix: use `ppe_net` (19.4% null).
+
 
 ---
 

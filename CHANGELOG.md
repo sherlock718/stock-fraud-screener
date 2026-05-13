@@ -16,6 +16,9 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 - **`docs/architecture.md`** Deployment Architecture: `bias_audit.py --ci` step added in CI after dataset quality check; hard fail on look-ahead violation shown in diagram.
 
 ### Fixed
+- **`pipeline/step5_compute_features.py`** `montier_c2`: replaced `property_plant_equipment` (95.7% null) with `ppe_net` (19.4% null) in Montier C2 depreciation-rate computation. Column was previously 100% null; now 41.6% null (limited by `depreciation` availability). `montier_c_score` composite coverage improves to 75.5%.
+- **`scripts/patch_montier_c2.py`** (new): one-shot patch script to recompute all 7 montier columns on existing parquet without a full pipeline rebuild.
+- **`data/historical_dataset_clean.parquet`** all 7 montier columns patched in-place (58,190 rows × 355 cols).
 - **`docs/developer/phase-done-criteria.md`** HorizonRouter test case: 18m → `'2y'` (not `'1y'`). Boundary is exclusive upper bound for 1y range; 18m routes to the longer 2y model (conservative bias).
 
 ### Added (Phase C6 — documentation, diagrams, phase-done-criteria sync)
