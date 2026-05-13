@@ -77,6 +77,12 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 - **`docs/developer/data-update-guide.md`** Mermaid diagram node, line 48, and line 99: check count corrected from 92/53 → **98** to match current `test_dataset_quality.py`.
 - **`docs/architecture.md`** Data Flow diagram: added Montier/Sloan node (341 → 355 cols) between IMP and PSI; final alpha node updated from "335 → 341" to "341 → 355 cols total".
 
+### Added (sync enforcement — prevents future doc drift)
+- **`scripts/verify_doc_consistency.py`** (new): reads live parquet + key docs, verifies column counts, row counts, feature counts, and quality check count are consistent across all 8 doc files. `--warn` flag for CI advisory mode.
+- **`.github/workflows/refresh_data.yml`** added `verify_doc_consistency.py --warn` step after feature selection — CI now flags numeric drift in the weekly run log.
+- **`scripts/check_sync.py`** 5 new trigger rules: `step5-columns` (step5 changes → architecture.md + data-update-guide.md), `quality-check-count` (test_dataset_quality.py changes → data-update-guide.md + phase-done-criteria.md + scripts.md), `feature-selection-counts` (run_feature_selection.py / feature_sets_*.json changes → index.md + scripts.md + feature-selection.md), `ci-workflow` (refresh_data.yml → data-update-guide.md).
+- **`docs/developer/scripts.md`** documented `verify_doc_consistency.py` and updated `check_sync.py` section with new rule coverage.
+
 
 
 ---

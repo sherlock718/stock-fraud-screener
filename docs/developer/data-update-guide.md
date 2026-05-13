@@ -28,7 +28,8 @@ flowchart TD
     H3 --> H4[compute_alpha.py\n5-factor alpha scores]
     H4 --> H5[score_historical.py\nML fraud scores ml_1y/3y/5y]
     H5 --> I[test_dataset_quality.py\n98 checks must pass]
-    I -->|pass| J[push_to_hf.py\nupload to HuggingFace Hub]
+    I -->|pass| I2[verify_doc_consistency.py\nnumbers consistent across docs]
+    I2 --> J[push_to_hf.py\nupload to HuggingFace Hub]
     I -->|fail| K[Fix root cause\nre-run from affected step]
     J --> L[git commit + push\nGitHub → Streamlit Cloud auto-deploys]
 ```

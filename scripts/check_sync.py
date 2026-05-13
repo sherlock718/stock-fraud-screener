@@ -54,14 +54,49 @@ RULES: list[Rule] = [
             "docs/architecture.md",
             "docs/methodology/models.md",
             "docs/methodology/features.md",
-            "docs/methodology/pipeline.md",
             "docs/index.md",
-            "docs/markets.md",
-            "docs/developer/setup.md",
-            "docs/developer/scripts.md",
+            "docs/developer/data-update-guide.md",
+            "docs/developer/phase-done-criteria.md",
             "README.md",
         ],
         message="Update column count in all Mermaid nodes and every doc that references feature/column counts.",
+    ),
+    Rule(
+        name="step5-columns",
+        trigger_desc="pipeline/step5_compute_features.py changed (new columns may have been added)",
+        required_files=[
+            "docs/architecture.md",
+            "docs/developer/data-update-guide.md",
+            "docs/developer/pipeline-scripts.md",
+            "docs/methodology/features.md",
+        ],
+        message="Update column counts in architecture.md Data Flow diagram + data-update-guide.md lineage table.",
+    ),
+    Rule(
+        name="quality-check-count",
+        trigger_desc="scripts/test_dataset_quality.py changed (check count may have changed)",
+        required_files=[
+            "docs/developer/data-update-guide.md",
+            "docs/developer/phase-done-criteria.md",
+            "docs/developer/scripts.md",
+        ],
+        message="Update check count (e.g. '98 checks') in data-update-guide.md, phase-done-criteria.md, and scripts.md.",
+    ),
+    Rule(
+        name="feature-selection-counts",
+        trigger_desc="scripts/run_feature_selection.py or models/feature_sets_*.json changed",
+        required_files=[
+            "docs/index.md",
+            "docs/developer/scripts.md",
+            "docs/methodology/feature-selection.md",
+        ],
+        message="Update 45/45/41 feature counts in index.md, scripts.md, and feature-selection.md.",
+    ),
+    Rule(
+        name="ci-workflow",
+        trigger_desc=".github/workflows/refresh_data.yml changed",
+        required_files=["docs/developer/data-update-guide.md"],
+        message="Update the Mermaid operator diagram in data-update-guide.md to match new CI steps.",
     ),
     Rule(
         name="ml-pipeline",
@@ -72,7 +107,7 @@ RULES: list[Rule] = [
     Rule(
         name="pipeline-steps",
         trigger_desc="Pipeline step scripts (run_pipeline.py, enrich_quarterly_features.py, mark_survivorship.py) changed",
-        required_files=["docs/architecture.md"],
+        required_files=["docs/architecture.md", "docs/developer/data-update-guide.md"],
         message="Update Data Pipeline subgraph and Data Flow Detail diagram in docs/architecture.md.",
     ),
     Rule(
@@ -148,6 +183,15 @@ def triggered_rules(changed: set[str]) -> list[tuple[Rule, list[str]]]:
             triggered = _starts_with_any(changed, ("scripts/",))
         elif rule.name == "feature-count":
             triggered = "pipeline/feature_library.py" in changed
+        elif rule.name == "step5-columns":
+            triggered = "pipeline/step5_compute_features.py" in changed
+        elif rule.name == "quality-check-count":
+            triggered = "scripts/test_dataset_quality.py" in changed
+        elif rule.name == "feature-selection-counts":
+            triggered = _any_in(changed, ["scripts/run_feature_selection.py"]) or \
+                        any(f.startswith("models/feature_sets_") for f in changed)
+        elif rule.name == "ci-workflow":
+            triggered = ".github/workflows/refresh_data.yml" in changed
         elif rule.name == "ml-pipeline":
             triggered = _any_in(changed, ["scripts/train_models.py", "scripts/tune_models.py"])
         elif rule.name == "pipeline-steps":

@@ -805,3 +805,24 @@ python3 scripts/check_sync.py --files a.py b.py    # check a specific list of fi
 **Exit codes**: `0` = all rules satisfied, `1` = sync violations found.
 
 The pre-commit hook at `.git/hooks/pre-commit` calls this automatically before every `git commit`. To bypass in emergencies: `git commit --no-verify`.
+
+**Rules now cover**: scripts/ changes → scripts.md; step5 columns → architecture.md + data-update-guide.md; test_dataset_quality.py changes → data-update-guide.md + phase-done-criteria.md; run_feature_selection.py / feature_sets_*.json changes → index.md + scripts.md + feature-selection.md; refresh_data.yml changes → data-update-guide.md.
+
+---
+
+### `verify_doc_consistency.py` — Cross-File Fact Verifier
+
+Reads the live parquet and key docs, then checks that column counts, row counts, feature counts, and quality check counts are consistent across all files. Run before Phase gate checks or after any dataset change.
+
+```bash
+python3 scripts/verify_doc_consistency.py           # fail if any mismatch
+python3 scripts/verify_doc_consistency.py --warn    # print mismatches, exit 0
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--warn` | False | Print failures but always exit 0 (used in CI as advisory) |
+
+**Checks**: column count (355) in index.md, README.md, architecture.md, models.md, CLAUDE.md, phase-done-criteria.md, data-update-guide.md; feature counts (45/45/41) in index.md, scripts.md, feature-selection.md; row count (58,190) in index.md; quality check count (98) in data-update-guide.md.
+
+**In CI**: runs weekly after `run_feature_selection.py` as a non-blocking advisory step. Output appears in the GitHub Actions log.

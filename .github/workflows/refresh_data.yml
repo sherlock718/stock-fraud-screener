@@ -140,6 +140,10 @@ jobs:
         run: |
           python3 scripts/run_feature_selection.py || echo "feature selection failed (non-fatal)"
 
+      - name: Verify doc consistency (numbers match across all docs)
+        run: |
+          python3 scripts/verify_doc_consistency.py --warn || echo "doc consistency check failed — review verify_doc_consistency output above"
+
       - name: Write health status
         if: always()
         run: |
