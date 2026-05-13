@@ -21,13 +21,12 @@
     "beneish_aqi",
     "earnings_yield",
     "piotroski_shares_ok",
-    "asset_turnover",
+    "altman_x5",
     "roa_volatility_5yr",
     "shares_at_filing",
     "shares_growth",
     "filing_lag_days",
     "roa_sector_pct",
-    "gross_profit_to_assets",
     "quality_x_momentum",
     "piotroski_ocf_pos",
     "price_to_52w_high",
@@ -38,12 +37,12 @@
     "soft_assets_ratio",
     "piotroski_delta_roa",
     "ohlson_roe",
-    "accruals_avg_3y",
     "ocf_to_ni_sector_pct",
     "piotroski_roa_pos",
-    "altman_z_score_sector_pct"
+    "altman_z_score_sector_pct",
+    "working_capital"
   ],
-  "n": 42,
+  "n": 41,
   "horizon": "5y",
-  "generated": "2026-05-12T23:33:03.951035+00:00"
+  "generated": "2026-05-13T00:12:07.966344+00:00"
 }

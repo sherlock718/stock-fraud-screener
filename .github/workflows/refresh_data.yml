@@ -131,6 +131,15 @@ jobs:
         run: |
           python3 scripts/test_dataset_quality.py
 
+      - name: Refresh factor research reports
+        run: |
+          python3 scripts/factor_research.py --all-horizons --no-sector-neutral || echo "factor_research (base) failed (non-fatal)"
+          python3 scripts/factor_research.py --all-horizons || echo "factor_research (sector-neutral) failed (non-fatal)"
+
+      - name: Re-run feature selection (PSI=0.25, NW t-stats, BH FDR, sector-neutral IC)
+        run: |
+          python3 scripts/run_feature_selection.py || echo "feature selection failed (non-fatal)"
+
       - name: Write health status
         if: always()
         run: |

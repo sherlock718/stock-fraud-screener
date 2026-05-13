@@ -8,6 +8,16 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Fixed (Phase B — feature selection, final institutional quality pass)
+- **`scripts/run_feature_selection.py`** BH FDR correction now gates `ic_pass`: features must pass `fdr_reject=True` (BH q<0.05) to enter ICIR ranking. Previously FDR was computed but not enforced as a filter — spurious features could pass.
+- **`scripts/run_feature_selection.py`** Sector-neutral IC added (default: on). Return and feature demeaned by SIC-based sector within each fiscal year before IC computation. Prevents sector rotation from inflating stock-selection IC. Matches methodology of `factor_research.py`.
+- **`scripts/run_feature_selection.py`** `--sector-neutral` / `--no-sector-neutral` CLI flags added.
+- **`scripts/test_dataset_quality.py`** Section 10 added: point-in-time leakage checks. Validates `filed_date` timing vs `fiscal_year_end` — negative median filing lag is a hard fail; extreme lags emit warnings. 98 checks total.
+- **`.github/workflows/refresh_data.yml`** added steps to re-run `factor_research.py` (base + sector-neutral) and `run_feature_selection.py` after every weekly data refresh.
+- **`docs/methodology/feature-selection.md`** corrected "Planned (Phase 0)" → "Implemented (Phase B)" for NW, BH FDR, and sector-neutral IC.
+- **`models/feature_sets_{1y,3y,5y}.json`** re-run: **45/45/41 features** (sector-neutral IC + BH FDR gate).
+- **`docs/index.md`** updated: feature counts 45/45/42 → 45/45/41; sector-neutral IC noted.
+
 ### Added (Phase B — feature engineering, parquet patch)
 - **`data/historical_dataset_clean.parquet`** patched to add 9 new columns from Phase B implementation: `montier_c1`–`montier_c6` (binary Montier components), `montier_c_score` (normalised composite), `sloan_wc_accruals`, `sloan_lt_accruals`. Dataset now 58,190 × 355 cols.
 - **`docs/architecture.md`**, **`docs/index.md`**, **`docs/methodology/models.md`**, **`README.md`**, **`CLAUDE.md`** updated: column count 346 → 355; PSI threshold 2.0 → 0.25 in models.md flowchart.

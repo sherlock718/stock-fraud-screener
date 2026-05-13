@@ -13,14 +13,14 @@
     "book_to_market",
     "vol_rank_12m",
     "vol_prior_6m",
-    "altman_x5",
+    "asset_turnover",
     "pb_ratio_sector_pct",
     "fcf_yield",
     "piotroski_f_score_9",
     "piotroski_shares_ok",
     "earnings_yield",
     "beneish_aqi",
-    "roa_volatility_5yr",
+    "earnings_stability_roa_5yr",
     "sga",
     "piotroski_ocf_pos",
     "gross_profit_to_assets",
@@ -28,7 +28,7 @@
     "quality_x_momentum",
     "ocf_to_assets",
     "accruals_avg_3y",
-    "shares_growth",
+    "shares_dilution",
     "price_to_52w_high",
     "operating_margin_sector_pct",
     "roa_sector_pct",
@@ -48,5 +48,5 @@
   ],
   "n": 45,
   "horizon": "3y",
-  "generated": "2026-05-12T23:32:47.583659+00:00"
+  "generated": "2026-05-13T00:11:15.636999+00:00"
 }

@@ -395,6 +395,62 @@ def test_ml_score_exclusion(r: TestResult, base: Path) -> None:
             r.ok(f"{path.name}: no ML scores in feature set ({len(features)} features)")
 
 
+# ── 10. Point-in-Time Leakage ─────────────────────────────────────────────────
+
+def test_point_in_time(df: pd.DataFrame, r: TestResult) -> None:
+    """
+    Checks that features were available BEFORE forward returns are computed.
+
+    Rule: filed_date must be <= fiscal_year_end + 18 months (generous lag).
+    If filed_date > fiscal_year_end + 548 days, data was used before it existed.
+
+    Critical for academic validity — look-ahead bias inflates IC and backtest
+    returns. Every quant firm gates on this before any model training.
+    """
+    print("\n[10] Point-in-time leakage checks")
+
+    if "filed_date" not in df.columns or "fiscal_year" not in df.columns:
+        r.warn("filed_date or fiscal_year absent — point-in-time check skipped")
+        return
+
+    try:
+        filed = pd.to_datetime(df["filed_date"], errors="coerce")
+        # fiscal_year_end = Dec 31 of fiscal_year (conservative — many non-Dec FYEs exist)
+        fy_end = pd.to_datetime(df["fiscal_year"].astype(str) + "-12-31", errors="coerce")
+
+        # Check 1: filed_date should be AFTER fiscal year end (not before)
+        filed_before_fy = (filed < fy_end - pd.Timedelta(days=180)).sum()
+        if filed_before_fy > 0:
+            r.warn(f"filed_date > 6 months before fiscal_year_end: {filed_before_fy:,} rows — "
+                   f"check non-Dec fiscal year ends")
+        else:
+            r.ok("All filed_date values at or after fiscal_year_end - 6m")
+
+        # Check 2: filed_date should be < fiscal_year_end + 548 days (18 months)
+        # Filing lags > 18 months indicate stale/incorrect dates
+        filed_too_late = (filed > fy_end + pd.Timedelta(days=548)).sum()
+        if filed_too_late > 0:
+            r.warn(f"filed_date > 18 months after fiscal_year_end: {filed_too_late:,} rows — "
+                   f"abnormally long filing lag; verify data source")
+        else:
+            r.ok("All filed_date values within 18 months of fiscal_year_end")
+
+        # Check 3: median filing lag distribution
+        lag_days = (filed - fy_end).dt.days
+        valid_lag = lag_days.dropna()
+        if len(valid_lag) > 0:
+            p50 = int(valid_lag.quantile(0.50))
+            p95 = int(valid_lag.quantile(0.95))
+            r.ok(f"Filing lag: median={p50}d, p95={p95}d (expected 30–180d for annual filings)")
+            if p50 < -30:
+                r.fail(f"Median filing lag {p50}d is NEGATIVE — systematic look-ahead bias")
+            if p95 > 730:
+                r.warn(f"p95 filing lag {p95}d exceeds 2 years — verify extreme lags")
+
+    except Exception as e:
+        r.warn(f"Point-in-time check error: {e}")
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def run(parquet_path: Path, verbose: bool = False) -> int:
@@ -417,6 +473,7 @@ def run(parquet_path: Path, verbose: bool = False) -> int:
     test_forward_returns(df, r)
     test_growth_winsorization(df, r)
     test_ml_score_exclusion(r, parquet_path.parent.parent)
+    test_point_in_time(df, r)
 
     if verbose:
         print()

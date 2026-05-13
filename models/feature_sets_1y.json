@@ -36,7 +36,6 @@
     "current_ratio_sector_pct",
     "shares_growth",
     "earnings_stability_roa_5yr",
-    "beneish_gmi",
     "ohlson_nits",
     "operating_margin",
     "quality_x_momentum",
@@ -44,9 +43,10 @@
     "net_margin",
     "log_revenue",
     "piotroski_delta_at",
-    "gross_margin_sector_pct"
+    "gross_margin_sector_pct",
+    "ev_ebitda_sector_pct"
   ],
   "n": 45,
   "horizon": "1y",
-  "generated": "2026-05-12T23:32:27.269297+00:00"
+  "generated": "2026-05-13T00:10:13.402425+00:00"
 }

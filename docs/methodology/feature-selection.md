@@ -88,13 +88,14 @@ The current IC implementation treats each year's IC as an independent observatio
 1. **Autocorrelation** — IC values in adjacent years are correlated (macro regimes persist)
 2. **Cross-sectional dependence** — companies share sector exposures
 
-**Planned (Phase 0)**:
+**Implemented (Phase B)**:
 
-| Improvement | Description |
-|---|---|
-| **Newey-West HAC standard errors** | Correct for autocorrelation in IC time series using heteroskedasticity-autocorrelation-consistent covariance. Lags = floor(4 × (T/100)^(2/9)). Widens confidence intervals on stable macro-correlated features. |
-| **Fama-MacBeth t-statistics** | Run cross-sectional OLS each year; compute t-stat on mean coefficient across years. Standard approach in academic factor research (Fama & MacBeth 1973). |
-| **FDR correction (Benjamini-Hochberg)** | With ~185 candidates, ~5% will appear significant by chance. B-H procedure controls False Discovery Rate at q < 0.10, reducing spurious factor selection. |
+| Improvement | Status | Description |
+|---|---|---|
+| **Newey-West HAC standard errors** | ✅ `run_feature_selection.py` | Corrects for autocorrelation in IC time series. Bartlett kernel, max_lags=4. Ref: Newey & West (1987). |
+| **BH FDR correction** | ✅ `run_feature_selection.py` — gates `ic_pass` | With ~200 candidates, ~10 pass p<0.05 by chance. BH controls FDR at q=0.05. Ref: Benjamini & Hochberg (1995). |
+| **Sector-neutral IC** | ✅ `run_feature_selection.py --sector-neutral` (default) | Demeaned within (fiscal_year, sic_sector) before IC. Removes sector rotation from stock-selection IC. |
+| **Fama-MacBeth t-statistics** | ✅ `notebooks/02_ic_analysis.ipynb` Sec 9 | Cross-sectional OLS each year; t-stat on mean slope. Research/validation only; feature selection uses NW IC t-stat. |
 
 ---
 

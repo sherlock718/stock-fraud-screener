@@ -139,18 +139,60 @@ def ic_icir_filter(
     return_col: str,
     ic_min: float = IC_MIN_ABS,
     top_k: int = TOP_K_ICIR,
+    sector_neutral: bool = True,
 ) -> tuple[list[str], pd.DataFrame]:
+    """
+    IC/ICIR filter with Newey-West t-stats and BH FDR gating.
+
+    sector_neutral=True: demeans return and feature within each (fiscal_year, sector)
+    group before computing IC. Removes sector-driven IC inflation.
+    Reference: standard practice at AQR, Two Sigma — sector neutralization
+    prevents macro sector bets from masquerading as stock-selection alpha.
+    """
+    def _compute_yearly_ic(df: pd.DataFrame, feat: str, ret_col: str) -> pd.Series:
+        """Compute IC per year, optionally sector-neutral."""
+        def _sic_to_sector(sic: pd.Series) -> pd.Series:
+            s = pd.to_numeric(sic, errors="coerce").fillna(0).astype(int)
+            sector = pd.Series("Other", index=s.index)
+            sector[s.between(100,  999)]  = "Agriculture/Mining"
+            sector[s.between(1000, 1499)] = "Mining/Resources"
+            sector[s.between(1500, 1999)] = "Construction"
+            sector[s.between(2000, 3999)] = "Manufacturing"
+            sector[s.between(4000, 4999)] = "Utilities/Transport"
+            sector[s.between(5000, 5999)] = "Trade"
+            sector[s.between(6000, 6799)] = "Finance/Insurance/RE"
+            sector[s.between(7000, 7999)] = "Services/Hospitality"
+            sector[s.between(8000, 8999)] = "Services/Professional"
+            return sector
+
+        sic_col = "sic_sector" if "sic_sector" in df.columns else (
+                  "sic_code"   if "sic_code"   in df.columns else None)
+
+        ics = {}
+        for yr, grp in df.groupby("fiscal_year"):
+            sub = grp[[feat, ret_col]].dropna()
+            if len(sub) < 6:
+                continue
+            if sector_neutral and sic_col is not None:
+                sub = sub.copy()
+                sectors = _sic_to_sector(grp.loc[sub.index, sic_col])
+                for col in [feat, ret_col]:
+                    demeaned = sub[col].copy().astype(float)
+                    for sec in sectors.unique():
+                        mask = (sectors == sec) & sub[col].notna()
+                        if mask.sum() >= 5:
+                            demeaned[mask] -= sub.loc[mask, col].median()
+                    sub[col] = demeaned
+            ics[yr] = sub[feat].corr(sub[ret_col], method="spearman")
+        return pd.Series(ics)
+
     ic_tbl = compute_ic_table(df_train, features, return_col)
 
     # ── Newey-West HAC t-statistics for each feature's IC time series ──
     nw_tstats = {}
     nw_pvalues = {}
     for feat in ic_tbl.index:
-        yearly_ic = df_train.groupby("fiscal_year").apply(
-            lambda g, f=feat: g[[f, return_col]].dropna()[f].corr(
-                g[[f, return_col]].dropna()[return_col], method="spearman"
-            ) if g[[f, return_col]].dropna().__len__() > 5 else np.nan
-        )
+        yearly_ic = _compute_yearly_ic(df_train, feat, return_col)
         t = newey_west_tstat(yearly_ic)
         nw_tstats[feat] = t
         # two-tailed p-value from t-distribution (df = n_years - 1)
@@ -177,9 +219,10 @@ def ic_icir_filter(
 
     ic_pass = ic_tbl[
         (ic_tbl["mean_ic"].abs() >= ic_min) &
-        (ic_tbl["n_years"] >= N_YEARS_MIN)
+        (ic_tbl["n_years"] >= N_YEARS_MIN) &
+        (ic_tbl["fdr_reject"].fillna(False))  # BH FDR gate: only keep features where H0 rejected
     ]
-    print(f"    IC screen (|mean_IC| >= {ic_min}): {len(ic_tbl)} → {len(ic_pass)}")
+    print(f"    IC+FDR screen (|mean_IC| >= {ic_min}, BH FDR q<0.05): {len(ic_tbl)} → {len(ic_pass)}")
 
     ranked = ic_pass.sort_values("icir", key=abs, ascending=False)
     topk   = ranked.head(top_k)
@@ -196,6 +239,7 @@ def run_selection(
     ic_min: float  = IC_MIN_ABS,
     top_k: int     = TOP_K_ICIR,
     corr_thr: float = CORR_THRESHOLD,
+    sector_neutral: bool = True,
 ) -> dict:
     ret_col, beat_col = HORIZONS[horizon]
 
@@ -214,7 +258,8 @@ def run_selection(
         print(f"    WARNING: only {len(df_train_ret)} train rows with {ret_col} — skipping horizon")
         return {}
 
-    ic_pass, ic_tbl = ic_icir_filter(df_train_ret, psi_pass, ret_col, ic_min, top_k)
+    ic_pass, ic_tbl = ic_icir_filter(df_train_ret, psi_pass, ret_col, ic_min, top_k,
+                                      sector_neutral=sector_neutral)
 
     # Force-include (only features that survived PSI and exist in data)
     for fi in force_include:
@@ -250,6 +295,10 @@ def main():
     parser.add_argument("--ic-min",        type=float, default=IC_MIN_ABS)
     parser.add_argument("--top-k",         type=int,   default=TOP_K_ICIR)
     parser.add_argument("--corr",          type=float, default=CORR_THRESHOLD)
+    parser.add_argument("--sector-neutral", dest="sector_neutral", action="store_true",  default=True,
+                        help="Demean return and feature within sector before IC (default: on)")
+    parser.add_argument("--no-sector-neutral", dest="sector_neutral", action="store_false",
+                        help="Disable sector-neutral IC")
     parser.add_argument("--dry-run", action="store_true",
                         help="Print stats but do not write JSON files")
     args = parser.parse_args()
@@ -259,10 +308,12 @@ def main():
     ic_min   = args.ic_min
     top_k    = args.top_k
     corr_thr = args.corr
+    sn       = args.sector_neutral
 
     print("Loading data …")
     df = load_data()
     print(f"  {len(df):,} annual rows · {df.shape[1]} columns")
+    print(f"  Sector-neutral IC: {sn}")
 
     all_summaries = []
     results = {}
@@ -271,7 +322,8 @@ def main():
         force = FORCE_INCLUDE_1Y if horizon == "1y" else []
         result = run_selection(df, horizon, force,
                                psi_thr=psi_thr, ic_min=ic_min,
-                               top_k=top_k, corr_thr=corr_thr)
+                               top_k=top_k, corr_thr=corr_thr,
+                               sector_neutral=sn)
         if not result:
             continue
         results[horizon] = result

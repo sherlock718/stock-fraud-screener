@@ -274,10 +274,11 @@ Output files: `tickers_ca.parquet`, `snapshots_ca.parquet`, `prices_ca.parquet`,
 
 ### `run_feature_selection.py` — Standalone Feature Selection Pipeline
 
-Runs the full PSI → IC → ICIR → Spearman deduplication pipeline across all three horizons and writes `models/feature_sets_{1y,3y,5y}.json`. IC stage now includes Newey-West HAC t-statistics and Benjamini-Hochberg FDR correction.
+Runs the full PSI → IC+FDR → ICIR → Spearman deduplication pipeline across all three horizons. IC stage uses Newey-West HAC t-statistics, Benjamini-Hochberg FDR correction (q<0.05, hard gate), and sector-neutral IC (SIC demeaning by default).
 
 ```bash
-python3 scripts/run_feature_selection.py               # Full run, writes JSON files
+python3 scripts/run_feature_selection.py               # Full run, sector-neutral IC (default)
+python3 scripts/run_feature_selection.py --no-sector-neutral  # Disable sector demeaning
 python3 scripts/run_feature_selection.py --dry-run     # Print stats only, no files written
 python3 scripts/run_feature_selection.py --psi-threshold 0.20 --ic-min 0.03
 ```
@@ -288,10 +289,12 @@ python3 scripts/run_feature_selection.py --psi-threshold 0.20 --ic-min 0.03
 | `--ic-min FLOAT` | `0.02` | Minimum \|mean IC\| to pass the IC screen |
 | `--top-k INT` | `60` | Keep top-K features by \|ICIR\| before deduplication |
 | `--corr FLOAT` | `0.90` | Spearman \|r\| threshold for near-duplicate removal |
+| `--sector-neutral` | on | Demean return + feature by SIC sector each year before IC |
+| `--no-sector-neutral` | — | Disable sector-neutral IC |
 | `--dry-run` | off | Print coverage stats but do not write files |
 
 **Outputs**:
-- `models/feature_sets_{1y,3y,5y}.json` — selected feature list per horizon (~45 features each)
+- `models/feature_sets_{1y,3y,5y}.json` — selected feature list per horizon (45/45/41 features)
 - `reports/feature_selection_summary.csv` — IC, ICIR, PSI, `ic_tstat_nw`, `ic_pval_nw`, `fdr_reject` for all candidates
 
 ---
@@ -716,11 +719,11 @@ Fixes applied:
 
 ### `test_dataset_quality.py` — Dataset Quality Test Suite
 
-92-check automated test suite for `data/historical_dataset_clean.parquet`. Run after any dataset modification to verify integrity before push.
+98-check automated test suite for `data/historical_dataset_clean.parquet`. 10 sections: schema, structural, market coverage, fill rates, distributions, fraud labels, forward returns (winsorization), growth winsorization, ML score exclusion, point-in-time leakage. Run after any dataset modification.
 
 ```bash
 python3 scripts/test_dataset_quality.py              # show failures/warnings only
-python3 scripts/test_dataset_quality.py --verbose    # print all 92 checks
+python3 scripts/test_dataset_quality.py --verbose    # print all 98 checks
 python3 scripts/test_dataset_quality.py --parquet PATH  # custom file
 ```
 
