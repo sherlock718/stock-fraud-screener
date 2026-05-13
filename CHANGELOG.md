@@ -73,6 +73,10 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 - **`docs/developer/phase-done-criteria.md`** A1 assertion corrected 346 → 355 to match actual production parquet shape (58,190 × 355).
 - **`docs/developer/data-update-guide.md`** column lineage table: added Montier/Sloan accrual step row, final state now correctly shows 355 columns.
 
+### Fixed (docs — quality check count + diagram sync)
+- **`docs/developer/data-update-guide.md`** Mermaid diagram node, line 48, and line 99: check count corrected from 92/53 → **98** to match current `test_dataset_quality.py`.
+- **`docs/architecture.md`** Data Flow diagram: added Montier/Sloan node (341 → 355 cols) between IMP and PSI; final alpha node updated from "335 → 341" to "341 → 355 cols total".
+
 
 
 ---

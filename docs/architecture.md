@@ -122,14 +122,15 @@ flowchart LR
     F -->|+5 quarterly dynamics| Q[Quarterly-Enriched<br/>historical_dataset_clean.parquet<br/>58K rows · 326 cols]
     Q -->|delisted imputation| SB[Survivorship-Corrected<br/>likely_delisted flag]
     SB -->|quarterly imputation<br/>+ size_category| IMP[Imputed Dataset<br/>58K rows · 341 cols]
-    IMP -->|PSI filter| PSI[PSI-Filtered Candidates<br/>~185 features]
+    IMP -->|Montier C-Score<br/>+ Sloan accruals| FEAT[Feature-Complete Dataset<br/>58K rows · 355 cols]
+    FEAT -->|PSI filter| PSI[PSI-Filtered Candidates<br/>~185 features]
     PSI -->|ICIR filter| G[~35 features/horizon]
     G -->|LightGBM fit| H[Base Models]
     H -->|Optuna search| I[Tuned Models]
     I -->|CatBoost blend| J[Ensemble]
     J -->|Platt scaling| K[Calibrated Proba 0–1]
     K -->|score_historical.py| L[ml_1y / ml_3y / ml_5y<br/>written back to parquet]
-    L -->|compute_alpha.py| FA[5-Factor<br/>Composite Alpha Score<br/>335 → 341 cols total]
+    L -->|compute_alpha.py| FA[5-Factor<br/>Composite Alpha Score<br/>341 → 355 cols total]
     SB -->|bulk load| DB[TimescaleDB<br/>hypertable — Phase C — deferred]
 ```
 

@@ -27,7 +27,7 @@ flowchart TD
     H2 --> H3[mark_survivorship.py --fix\nsurvivorship correction]
     H3 --> H4[compute_alpha.py\n5-factor alpha scores]
     H4 --> H5[score_historical.py\nML fraud scores ml_1y/3y/5y]
-    H5 --> I[test_dataset_quality.py\n92 checks must pass]
+    H5 --> I[test_dataset_quality.py\n98 checks must pass]
     I -->|pass| J[push_to_hf.py\nupload to HuggingFace Hub]
     I -->|fail| K[Fix root cause\nre-run from affected step]
     J --> L[git commit + push\nGitHub → Streamlit Cloud auto-deploys]
@@ -45,7 +45,7 @@ flowchart TD
 python3 scripts/test_dataset_quality.py --verbose
 ```
 
-All 53 checks must pass before and after any dataset modification.
+All 98 checks must pass before and after any dataset modification.
 
 ---
 
@@ -96,7 +96,7 @@ Always re-run the enrichment stack and quality checks:
 
 ```bash
 python3 pipeline/enrich_fraud_taxonomy.py    # refresh fraud scores
-python3 scripts/test_dataset_quality.py      # verify all 53 checks pass
+python3 scripts/test_dataset_quality.py      # verify all 98 checks pass
 ```
 
 ---
