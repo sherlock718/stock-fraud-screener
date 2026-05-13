@@ -27,6 +27,14 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ---
 
+### Phase D5 — Monitoring (2026-05-14)
+
+#### D5.1 — Per-alpha IC decay + drawdown circuit breaker (feat)
+- **`scripts/monitor_drift.py`** Added `analyse_ic_decay()`: loads `alpha_registry.json`, computes annual Spearman IC (signal vs `forward_return_1y`) per fiscal year, then rolling mean over the most recent 3y / 6y / 12y windows. Flags signals with 3y rolling IC < 0.02 (decay warn) or latest IC < 0 (decay alert). Added `check_drawdown_circuit_breaker()`: loads `portfolio_backtest.json`, computes cumulative return series, detects current drawdown from peak, warns if drawdown exceeds `--dd-gate` threshold with circuit-breaker action message. Added `--dd-gate` (default 20%), `--skip-ic-decay`, `--skip-dd` CLI flags. Both new sections are included in `reports/drift_report.json`. Any alert from either section sets `any_alert=true` (exit code 1).
+- **`docs/developer/scripts.md`** Updated `monitor_drift.py` section: new flags table rows, IC decay and drawdown circuit-breaker descriptions.
+
+---
+
 ### Phase D4 — Investment Framework (2026-05-14)
 
 #### D4.1 — Investment framework document (docs)

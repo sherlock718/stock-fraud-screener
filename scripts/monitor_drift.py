@@ -5,9 +5,12 @@ Compares a recent scoring window against the training distribution to flag:
   1. Population Stability Index (PSI) per feature — PSI > 0.2 = significant drift
   2. Val AUC vs current-window AUC (requires forward_return labels)
   3. Score distribution shift (mean predicted probability drift)
+  4. Per-alpha IC decay (rolling 3y / 6y / 12y windows) — flags signals with
+     3y rolling IC < 0.02 or negative IC in the latest window
+  5. Drawdown circuit breaker — warns if realised portfolio drawdown > 20%
 
 Outputs:
-  reports/drift_report.json   PSI scores + AUC delta per horizon
+  reports/drift_report.json   PSI scores + AUC delta + IC decay per horizon
   reports/drift_report.csv    Per-feature PSI table
 
 Exit code 1 if any PSI > PSI_ALERT or AUC degrades > AUC_DROP_ALERT.
@@ -18,6 +21,7 @@ Usage:
     python3 scripts/monitor_drift.py --window 2024   # compare vs 2024 data
     python3 scripts/monitor_drift.py --psi-alert 0.2
     python3 scripts/monitor_drift.py --auc-alert 0.05
+    python3 scripts/monitor_drift.py --dd-gate 20    # circuit breaker at 20% drawdown
 """
 from __future__ import annotations
 
@@ -36,11 +40,15 @@ from scipy import stats
 BASE      = Path(__file__).parent.parent
 META_PATH = BASE / 'models' / 'model_meta.json'
 DATA_PATH = BASE / 'data' / 'historical_dataset_clean.parquet'
+REGISTRY  = BASE / 'data' / 'alpha_registry.json'
+BACKTEST  = BASE / 'data' / 'portfolio_backtest.json'
 REPORTS   = BASE / 'reports'
 REPORTS.mkdir(exist_ok=True)
 
 PSI_ALERT      = 0.20   # PSI threshold — "significant shift"
 AUC_DROP_ALERT = 0.05   # flag if AUC drops more than this vs val baseline
+IC_DECAY_WARN  = 0.02   # flag if rolling IC falls below this
+DD_GATE        = 20.0   # default drawdown circuit-breaker threshold (%)
 
 
 def _load_data() -> pd.DataFrame:
@@ -156,6 +164,119 @@ def analyse_horizon(h: str, meta: dict, df_train: pd.DataFrame,
     }
 
 
+def analyse_ic_decay(df: pd.DataFrame) -> dict:
+    """Compute rolling IC for each selected signal over 3y / 6y / 12y windows.
+
+    IC = Spearman rank correlation between signal values and forward_return_1y,
+    computed cross-sectionally within each fiscal year, then averaged over the
+    most recent N fiscal years.
+
+    Returns a dict with per-signal rolling IC values and decay flags.
+    """
+    if not REGISTRY.exists():
+        return {'error': 'alpha_registry.json not found'}
+
+    with open(REGISTRY) as f:
+        reg = json.load(f)
+
+    selected = [s for s in reg['signals'] if s.get('selected', True)]
+    signal_ids = [s['signal_id'] for s in selected]
+    ret_col = 'forward_return_1y'
+
+    if ret_col not in df.columns:
+        return {'error': f'{ret_col} not in dataset'}
+
+    years = sorted(df['fiscal_year'].dropna().unique().astype(int))
+
+    # Compute annual IC for each signal × year
+    annual_ic: dict[str, dict[int, float]] = {sid: {} for sid in signal_ids}
+    for year in years:
+        yr = df[df['fiscal_year'] == year].dropna(subset=[ret_col])
+        if len(yr) < 20:
+            continue
+        for sid in signal_ids:
+            if sid not in yr.columns:
+                continue
+            sub = yr[[sid, ret_col]].dropna()
+            if len(sub) < 20:
+                continue
+            ic_val = float(sub[sid].rank().corr(sub[ret_col].rank()))
+            if not np.isnan(ic_val):
+                annual_ic[sid][year] = ic_val
+
+    windows = {'3y': 3, '6y': 6, '12y': 12}
+    signal_results = []
+    decay_alerts = []
+
+    for sid in signal_ids:
+        ic_series = annual_ic[sid]
+        if not ic_series:
+            continue
+        sorted_years = sorted(ic_series.keys())
+        row: dict = {'signal_id': sid}
+        for label, n in windows.items():
+            recent = sorted_years[-n:] if len(sorted_years) >= n else sorted_years
+            vals = [ic_series[y] for y in recent]
+            row[f'ic_{label}'] = round(float(np.mean(vals)), 4) if vals else None
+
+        ic_3y = row.get('ic_3y')
+        latest_ic = ic_series.get(sorted_years[-1]) if sorted_years else None
+        row['latest_ic'] = round(latest_ic, 4) if latest_ic is not None else None
+        row['decay_warn'] = (ic_3y is not None and ic_3y < IC_DECAY_WARN)
+        row['decay_alert'] = (latest_ic is not None and latest_ic < 0.0)
+
+        if row['decay_alert']:
+            decay_alerts.append(f'{sid}: latest IC={latest_ic:.4f} (NEGATIVE)')
+        elif row['decay_warn']:
+            decay_alerts.append(f'{sid}: 3y rolling IC={ic_3y:.4f} < {IC_DECAY_WARN}')
+
+        signal_results.append(row)
+
+    return {
+        'n_signals': len(signal_results),
+        'n_decay_warns': sum(1 for r in signal_results if r['decay_warn']),
+        'n_decay_alerts': sum(1 for r in signal_results if r['decay_alert']),
+        'decay_messages': decay_alerts,
+        'signals': signal_results,
+    }
+
+
+def check_drawdown_circuit_breaker(dd_gate: float) -> dict:
+    """Load portfolio_backtest.json and compute current drawdown from peak.
+
+    If the most recent cumulative drawdown exceeds dd_gate (%), emit a warning.
+    Returns a dict with cumulative return, peak, current drawdown, and alert flag.
+    """
+    if not BACKTEST.exists():
+        return {'error': 'portfolio_backtest.json not found — run build_portfolio.py first'}
+
+    with open(BACKTEST) as f:
+        bt = json.load(f)
+
+    annual = bt.get('annual_returns', [])
+    if not annual:
+        return {'error': 'no annual_returns in portfolio_backtest.json'}
+
+    returns = np.array([r['return_pct'] / 100.0 for r in annual])
+    cum = np.cumprod(1.0 + returns)
+    peak = np.maximum.accumulate(cum)
+    drawdowns = (cum - peak) / peak
+    current_dd_pct = round(float(drawdowns[-1]) * 100, 2)
+    max_dd_pct = round(float(drawdowns.min()) * 100, 2)
+
+    alert = current_dd_pct < -dd_gate
+    result = {
+        'n_years': len(returns),
+        'latest_year': annual[-1]['year'],
+        'cumulative_return_pct': round(float(cum[-1] - 1) * 100, 2),
+        'current_drawdown_pct': current_dd_pct,
+        'max_drawdown_pct': max_dd_pct,
+        'dd_gate_pct': -dd_gate,
+        'circuit_breaker_active': alert,
+    }
+    return result
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument('--window', type=int, default=None,
@@ -164,6 +285,13 @@ def main() -> None:
                         help=f'PSI alert threshold (default: {PSI_ALERT})')
     parser.add_argument('--auc-alert', type=float, default=AUC_DROP_ALERT,
                         help=f'AUC drop alert threshold (default: {AUC_DROP_ALERT})')
+    parser.add_argument('--dd-gate', type=float, default=DD_GATE, dest='dd_gate',
+                        help=f'Drawdown circuit-breaker threshold in %% (default: {DD_GATE}). '
+                             'Warns if current portfolio drawdown exceeds this value.')
+    parser.add_argument('--skip-ic-decay', action='store_true', dest='skip_ic_decay',
+                        help='Skip per-alpha IC decay analysis')
+    parser.add_argument('--skip-dd', action='store_true', dest='skip_dd',
+                        help='Skip drawdown circuit-breaker check')
     args = parser.parse_args()
 
     psi_threshold = args.psi_alert
@@ -230,6 +358,43 @@ def main() -> None:
         'any_alert':            any_alert,
         'horizons':             results,
     }
+
+    # ── IC decay analysis ─────────────────────────────────────────────────────
+    ic_decay_result: dict = {}
+    if not args.skip_ic_decay:
+        print('\n  IC decay analysis...', flush=True)
+        ic_decay_result = analyse_ic_decay(df)
+        if 'error' in ic_decay_result:
+            print(f'  WARNING: IC decay skipped — {ic_decay_result["error"]}')
+        else:
+            n_w = ic_decay_result['n_decay_warns']
+            n_a = ic_decay_result['n_decay_alerts']
+            print(f'  IC decay: {n_w} warn(s), {n_a} alert(s)')
+            for msg in ic_decay_result.get('decay_messages', []):
+                print(f'    ! {msg}')
+            if n_a > 0:
+                any_alert = True
+        drift_report['ic_decay'] = ic_decay_result
+
+    # ── Drawdown circuit breaker ──────────────────────────────────────────────
+    dd_result: dict = {}
+    if not args.skip_dd:
+        print('\n  Drawdown circuit-breaker check...', flush=True)
+        dd_result = check_drawdown_circuit_breaker(args.dd_gate)
+        if 'error' in dd_result:
+            print(f'  WARNING: drawdown check skipped — {dd_result["error"]}')
+        else:
+            print(f'  Current DD: {dd_result["current_drawdown_pct"]:+.1f}%  '
+                  f'(max: {dd_result["max_drawdown_pct"]:+.1f}%  '
+                  f'gate: {dd_result["dd_gate_pct"]:+.1f}%)')
+            if dd_result['circuit_breaker_active']:
+                print(f'  !! CIRCUIT BREAKER: drawdown {dd_result["current_drawdown_pct"]:+.1f}%'
+                      f' exceeds gate {dd_result["dd_gate_pct"]:+.1f}% — '
+                      'HALVE POSITION SIZE, no new positions until DD < 10%')
+                any_alert = True
+        drift_report['drawdown'] = dd_result
+
+    drift_report['any_alert'] = any_alert
     report_path = REPORTS / 'drift_report.json'
     report_path.write_text(json.dumps(drift_report, indent=2))
 

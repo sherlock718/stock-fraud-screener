@@ -583,13 +583,16 @@ Outputs: `reports/tearsheet.pdf`, `reports/weekly_picks.csv`
 
 ---
 
-### `monitor_drift.py` — PSI + AUC Drift Monitoring
+### `monitor_drift.py` — PSI + AUC Drift Monitoring + IC Decay + Drawdown Circuit Breaker
 
 ```bash
 python3 scripts/monitor_drift.py
 python3 scripts/monitor_drift.py --window 2024
 python3 scripts/monitor_drift.py --psi-alert 0.20
 python3 scripts/monitor_drift.py --auc-alert 0.05
+python3 scripts/monitor_drift.py --dd-gate 20        # circuit breaker at 20% drawdown
+python3 scripts/monitor_drift.py --skip-ic-decay     # skip IC decay step
+python3 scripts/monitor_drift.py --skip-dd           # skip drawdown check
 ```
 
 | Flag | Default | Description |
@@ -597,10 +600,17 @@ python3 scripts/monitor_drift.py --auc-alert 0.05
 | `--window YEAR` | Latest year | Scoring window to compare against training distribution |
 | `--psi-alert FLOAT` | `0.20` | PSI threshold that triggers alert (exit code 1) |
 | `--auc-alert FLOAT` | `0.05` | AUC drop threshold that triggers alert |
+| `--dd-gate FLOAT` | `20` | Drawdown circuit-breaker threshold in % — warns if current portfolio drawdown exceeds this |
+| `--skip-ic-decay` | False | Skip per-alpha IC decay analysis |
+| `--skip-dd` | False | Skip drawdown circuit-breaker check |
 
 PSI interpretation: < 0.10 stable · 0.10–0.20 monitor · ≥ 0.20 alert
 
-Outputs: `reports/drift_report.json`, `reports/drift_report.csv`
+**IC decay analysis** (D5 addition): For each selected signal in `alpha_registry.json`, computes rolling Spearman IC (signal vs `forward_return_1y`) over the most recent 3y / 6y / 12y of fiscal-year data. Flags signals with 3y rolling IC < 0.02 (warn) or latest IC < 0 (alert). Decay messages are printed and included in `drift_report.json`.
+
+**Drawdown circuit breaker** (D5 addition): Loads `data/portfolio_backtest.json` and computes current drawdown from the cumulative return peak. If drawdown exceeds `--dd-gate`, prints a circuit-breaker message (halve position sizing, no new positions until drawdown recovers below 10%) and sets `any_alert=true`.
+
+Outputs: `reports/drift_report.json` (includes `ic_decay` and `drawdown` sections), `reports/drift_report.csv`
 Exit code 1 if any alert fires (used by GitHub Actions to emit a warning).
 
 ---
