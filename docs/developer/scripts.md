@@ -483,6 +483,46 @@ or selection thresholds are adjusted.
 
 ---
 
+### `build_portfolio.py` — IC-Weighted Kelly Portfolio Constructor
+
+```bash
+python3 scripts/build_portfolio.py                                      # Default: long_only, horizon=1y, all markets
+python3 scripts/build_portfolio.py --strategy long_short --horizon 3y
+python3 scripts/build_portfolio.py --market US --top-n 20 --tearsheet
+python3 scripts/build_portfolio.py --horizon all --kelly-fraction 0.25 --tearsheet
+```
+
+Reads `data/alpha_registry.json` to IC-weight selected signals into a composite score.
+Ranks stocks, applies market-cap filter ($50M), quarter-Kelly position sizing, sector cap,
+and position cap. Runs a historical annual backtest and outputs current-year holdings.
+
+Horizon filter (`--horizon`): keeps all factor signals (horizon-agnostic) plus the ML OOF
+signal matching the horizon (e.g. `--horizon 3y` keeps `ml_3y_oof`). Use `all` to include
+all three OOF signals.
+
+Latest holdings use the most recent fiscal year with ≥ `--top-n` complete signal rows
+(skips 2026/2027 where OOF scores are zero).
+
+| Flag | Default | Description |
+|---|---|---|
+| `--strategy` | `long_only` | `long_only` or `long_short` (top N long, bottom N short, 50/50 notional) |
+| `--horizon` | `1y` | ML OOF signal horizon: `1y`, `3y`, `5y`, `all` |
+| `--market` | `all` | Market filter: `US`, `KR`, `all`, etc. |
+| `--top-n` | `30` | Stocks selected long (and short) per year |
+| `--kelly-fraction` | `0.25` | Fractional Kelly multiplier (≤ 0.25× full Kelly) |
+| `--sector-cap` | `0.40` | Maximum total weight in any single SIC sector |
+| `--position-cap` | `0.05` | Maximum weight per stock (5%) |
+| `--min-market-cap` | `50000000` | Minimum market cap in USD ($50M liquidity floor) |
+| `--tearsheet` | False | Print formatted tearsheet to stdout |
+
+**Output**:
+- `data/portfolio_holdings.json` — latest-year holdings: `ticker`, `market`, `composite_score`, `weight_pct`, `market_cap_m`, `sic_code`
+- `data/portfolio_backtest.json` — backtest: `cagr_pct`, `sharpe`, `sortino`, `max_drawdown_pct`, `spy_cagr_pct`, `excess_cagr_pct`, `beta`, `alpha_annualised_pct`, `annual_returns`, `signals_used`, `ic_weights`
+
+**Re-run when**: alpha registry is rebuilt, or to change strategy/horizon/sizing parameters.
+
+---
+
 ### `factor_research.py` — IC / ICIR Analysis
 
 ```bash

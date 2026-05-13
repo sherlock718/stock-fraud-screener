@@ -27,6 +27,14 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ---
 
+### Phase D2 — Portfolio Construction (2026-05-14)
+
+#### D2.1 — IC-weighted Kelly portfolio constructor (feat)
+- **`scripts/build_portfolio.py`** New script: reads `data/alpha_registry.json`, IC-weights selected signals into composite score, applies $50M market-cap filter, quarter-Kelly (≤0.25×) position sizing, 5% position cap, 40% sector cap. Supports `--strategy long_only|long_short`, `--horizon 1y|3y|5y|all`, `--market`, `--tearsheet`. Outputs `data/portfolio_holdings.json` (current-year top-30 with weights) and `data/portfolio_backtest.json` (annual return series + Sharpe/CAGR/beta). Backtest: CAGR +34.1%, Sharpe 1.409, Beta 0.348 (all markets, all signals).
+- **`docs/developer/scripts.md`** Added `build_portfolio.py` section with flags table and output spec.
+
+---
+
 ### Doc sweep — fraud→alpha reframe + 5-horizon + 360-col sync (2026-05-14)
 - **`docs/guide/app.md`** All "fraud score / fraud probability" language replaced with "alpha score / composite score" throughout Tabs 1–4,6; ML horizon description updated to "6m through 5y via HorizonRouter"
 - **`docs/developer/data-update-guide.md`** Production dataset updated 355→360 cols; workflow diagram node updated from `ml_1y/3y/5y` to `ml_{6m,1y,2y,3y,5y}`
