@@ -376,11 +376,13 @@ python3 scripts/tune_models.py --no-catboost
 
 | Flag | Default | Description |
 |---|---|---|
-| `--horizon` | All | One of `1y`, `3y`, `5y`; omit to tune all |
-| `--trials N` | `50` | Number of Optuna trials per horizon |
+| `--horizon` | All | One of `6m`, `1y`, `2y`, `3y`, `5y`; omit to tune all |
+| `--trials N` | `100` | Number of Optuna trials per horizon |
 | `--no-catboost` | False | Skip CatBoost training; LightGBM only |
 
 Soft ensemble output: `0.5 × lgbm_proba + 0.5 × catboost_proba`
+
+Uses same PIT-safe filed_date split as `train_models.py`.
 
 ---
 

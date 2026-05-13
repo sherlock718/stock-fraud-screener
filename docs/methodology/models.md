@@ -20,16 +20,19 @@ flowchart TD
 
 | Horizon | Train Cutoff | Val AUC | Test AUC | WF Mean AUC | Target |
 |---|---|---|---|---|---|
-| 1-year | 2022 | 0.577 | 0.537 | 0.553 | ≥ 0.62 |
+| 6-month | 2022 | — | — | — | ≥ 0.58 (C2 retrain) |
+| 1-year | 2022 | 0.577 | 0.537 | 0.553 | ≥ 0.62 (C2 retrain) |
+| 2-year | 2022 | — | — | — | ≥ 0.60 (C2 retrain) |
 | 3-year | 2022 | 0.740 | — | 0.643 | ≥ 0.62 ✅ |
-| 5-year | 2022 | — | — | 0.597 | ≥ 0.62 |
+| 5-year | 2022 | — | — | 0.597 | ≥ 0.62 (C2 retrain) |
 
 WF Mean AUC = expanding-window walk-forward CV mean (train on data filed before year t, evaluate year t).
 Walk-forward CV uses PIT-safe filed_date cutoff to prevent look-ahead from late SEC filings.
-AUC of 0.5 = random. Target ≥ 0.62 for production deployment.
+AUC of 0.5 = random. Targets: 3y/5y ≥ 0.62; 1y/2y ≥ 0.60; 6m ≥ 0.58 (shorter horizons are noisier).
 
-> **Phase C update (C1):** `walk_forward_cv()` patched to use `filed_date` cutoff per fold year.
-> `generate_oof_scores.py` produces true OOS scores `ml_{h}_oof`. C2 will retrain on Phase B 45/45/41 features.
+> **Phase C update (C1/C2):** `walk_forward_cv()` patched to use `filed_date` cutoff per fold year.
+> `generate_oof_scores.py` produces true OOS scores `ml_{h}_oof` for all 5 horizons.
+> C2 retraining on Phase B 45/45/41 features + new 6m/2y feature selection runs after this commit.
 
 
 ## Target Variable

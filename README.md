@@ -59,16 +59,20 @@ tests/
 
 ## ML Models
 
-| Horizon | Features | Train Rows | WF Mean AUC |
-|---------|----------|------------|-------------|
-| 1y      | 45       | varies     | 0.553       |
-| 3y      | 45       | varies     | 0.643 ✅    |
-| 5y      | 41       | varies     | 0.597       |
+5 discrete horizon models (6m/1y/2y/3y/5y) — user selects investment horizon → HorizonRouter maps to nearest trained model.
+
+| Horizon | Features | WF Mean AUC |
+|---------|----------|-------------|
+| 6m      | TBD (C2) | TBD         |
+| 1y      | 45       | 0.553       |
+| 2y      | TBD (C2) | TBD         |
+| 3y      | 45       | 0.643 ✅    |
+| 5y      | 41       | 0.597       |
 
 - Target: beat local market index over horizon
-- Feature selection: BH FDR gate + top features by |ICIR| (IC/StdIC), deduplicated at |Spearman| > 0.90
-- PIT-safe splits: train cutoff uses both `fiscal_year` and `filed_date` to eliminate 6-month filing lag look-ahead
-- OOF scores (`ml_{h}_oof`): `generate_oof_scores.py` produces true out-of-sample scores via expanding-window walk-forward
+- Feature selection: BH FDR gate + top features by |ICIR|, deduplicated at |Spearman| > 0.90
+- PIT-safe splits: `filed_date` + `fiscal_year` cutoff to eliminate look-ahead from late SEC filings
+- OOF scores (`ml_{h}_oof`): `generate_oof_scores.py` produces true out-of-sample scores
 
 ---
 

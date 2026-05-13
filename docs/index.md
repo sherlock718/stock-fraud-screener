@@ -8,11 +8,13 @@ The platform scores companies across five orthogonal factor groups — **Value, 
 
 ## Performance at a Glance
 
-| Model Horizon | Validation AUC | WF Mean AUC | Target (≥ 0.62) |
+| Model Horizon | Validation AUC | WF Mean AUC | Target |
 |---|---|---|---|
-| 1-year | 0.577 | 0.553 | ❌ (C2 retrain in progress) |
-| 3-year | 0.740 | 0.643 | ✅ |
-| 5-year | — | 0.597 | ❌ (C2 retrain in progress) |
+| 6-month | — | — | ≥ 0.58 (C2 retrain) |
+| 1-year | 0.577 | 0.553 | ≥ 0.62 (C2 retrain) |
+| 2-year | — | — | ≥ 0.60 (C2 retrain) |
+| 3-year | 0.740 | 0.643 | ≥ 0.62 ✅ |
+| 5-year | — | 0.597 | ≥ 0.62 (C2 retrain) |
 
 | Strategy | CAGR (net) | Excess vs Benchmark | Sharpe |
 |---|---|---|---|

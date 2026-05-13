@@ -51,7 +51,9 @@ sys.path.insert(0, str(BASE))
 from pipeline.feature_library import add_normalised_ratios, add_piotroski_ext
 
 ALL_HORIZONS = {
+    '6m': ('forward_return_6m', 'beat_local_market_6m'),
     '1y': ('forward_return_1y', 'beat_local_market_1y'),
+    '2y': ('forward_return_2y', 'beat_local_market_2y'),
     '3y': ('forward_return_3y', 'beat_local_market_3y'),
     '5y': ('forward_return_5y', 'beat_local_market_5y'),
 }
@@ -246,8 +248,8 @@ def run_oof(df: pd.DataFrame, horizon: str, beat_col: str,
 def main() -> None:
     parser = argparse.ArgumentParser(description='Walk-forward OOF scoring — writes ml_*_oof columns')
     parser.add_argument('--parquet', default='data/historical_dataset_clean.parquet')
-    parser.add_argument('--horizons', nargs='+', default=['1y', '3y', '5y'],
-                        help='Horizons to score (default: 1y 3y 5y)')
+    parser.add_argument('--horizons', nargs='+', default=['6m', '1y', '2y', '3y', '5y'],
+                        help='Horizons to score (default: 6m 1y 2y 3y 5y)')
     parser.add_argument('--min-train-years', type=int, default=6,
                         help='Min fiscal years in training window before first OOF score (default: 6)')
     parser.add_argument('--n-estimators', type=int, default=600,

@@ -61,8 +61,8 @@ REPORTS    = BASE / 'reports'
 MODELS_DIR.mkdir(exist_ok=True)
 REPORTS.mkdir(exist_ok=True)
 
-HORIZONS = {'1y', '3y', '5y'}
-N_OPTUNA_TRIALS = 60
+HORIZONS = {'6m', '1y', '2y', '3y', '5y'}
+N_OPTUNA_TRIALS = 100
 
 
 def _load_meta() -> dict:
@@ -83,7 +83,12 @@ def _load_data_for_horizon(meta: dict, h: str) -> tuple:
     beat_col     = m['beat_col']
     train_medians = m['train_medians']
 
-    df_train = df[df['fiscal_year'] <= train_cutoff].copy()
+    filed = pd.to_datetime(df.get('filed_date', pd.NaT), errors='coerce')
+    cutoff_date = pd.Timestamp(f'{train_cutoff + 1}-01-01')
+    df_train = df[
+        (df['fiscal_year'] <= train_cutoff) &
+        (filed.isna() | (filed < cutoff_date))
+    ].copy()
     df_val   = df[(df['fiscal_year'] > train_cutoff) & (df['fiscal_year'] <= val_end)].copy()
     df_test  = df[df['fiscal_year'] > val_end].copy()
     return df_train, df_val, df_test, features, beat_col, train_medians
@@ -224,7 +229,7 @@ def calibrate_model(model, X_val: pd.DataFrame, y_val: pd.Series):
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument('--horizon', default=None, choices=['1y', '3y', '5y'],
+    parser.add_argument('--horizon', default=None, choices=['6m', '1y', '2y', '3y', '5y'],
                         help='Single horizon to tune (default: all)')
     parser.add_argument('--trials', type=int, default=N_OPTUNA_TRIALS,
                         help=f'Optuna trials per horizon (default: {N_OPTUNA_TRIALS})')

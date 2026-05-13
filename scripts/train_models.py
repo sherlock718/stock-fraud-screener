@@ -66,7 +66,9 @@ TRAIN_CUTOFF = 2022   # last fiscal year included in training
 VAL_END      = 2023   # val = (TRAIN_CUTOFF, VAL_END]; test = > VAL_END
 
 HORIZONS = {
+    '6m': ('forward_return_6m', 'beat_local_market_6m'),
     '1y': ('forward_return_1y', 'beat_local_market_1y'),
+    '2y': ('forward_return_2y', 'beat_local_market_2y'),
     '3y': ('forward_return_3y', 'beat_local_market_3y'),
     '5y': ('forward_return_5y', 'beat_local_market_5y'),
 }
@@ -105,7 +107,9 @@ EXCLUDE = {
     # including training rows, so IC(ml_1y, forward_return_1y) is inflated for 2008-TRAIN_CUTOFF.
     # OOF columns (ml_*_oof) are also excluded — they ARE clean but shouldn't be ML input features.
     'ml_1y', 'ml_3y', 'ml_5y',
+    'ml_6m', 'ml_2y',
     'ml_1y_oof', 'ml_3y_oof', 'ml_5y_oof',
+    'ml_6m_oof', 'ml_2y_oof',
     # Alpha composites — hand-crafted composites of raw features; including them alongside
     # their component features causes signal double-counting and inflates ICIR.
     'alpha_fraud_risk', 'alpha_composite', 'alpha_value', 'alpha_quality', 'alpha_growth',

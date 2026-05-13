@@ -8,7 +8,13 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
-### Added (Phase C1 — look-ahead fix + OOF scoring)
+### Added (Phase C2 — new horizons 6m/2y + 5-model training config)
+- **`scripts/train_models.py`** HORIZONS dict extended: added `6m` (forward_return_6m / beat_local_market_6m) and `2y` (forward_return_2y / beat_local_market_2y). Now covers 5 discrete horizons: 6m/1y/2y/3y/5y. EXCLUDE set updated with ml_6m/ml_2y/ml_6m_oof/ml_2y_oof.
+- **`scripts/generate_oof_scores.py`** ALL_HORIZONS extended to all 5 horizons; default `--horizons` now `6m 1y 2y 3y 5y`.
+- **`scripts/tune_models.py`** HORIZONS set extended to 5 horizons; N_OPTUNA_TRIALS 60→100; `_load_data_for_horizon()` patched to use filed_date PIT-safe split matching train_models.py; `--horizon` choices extended.
+- All 5 forward return columns (`forward_return_6m`, `forward_return_2y`) already present in parquet from step3_enrich_prices.py — no data pipeline changes required.
+
+
 - **`scripts/generate_oof_scores.py`** NEW — walk-forward OOF scorer. For each fiscal year Y: trains on `filed_date < Jan 1 of Y`, scores `fiscal_year == Y`. Writes `ml_1y_oof`, `ml_3y_oof`, `ml_5y_oof` to parquet (NaN for training-window rows). Eliminates in-sample contamination from `score_historical.py`.
 - **`scripts/train_models.py`** enhanced model config: `n_estimators` 400→600, `max_depth` 5→6, `num_leaves` 31→63, `learning_rate` 0.04→0.03, added `reg_alpha=0.1`, `reg_lambda=1.0`.
 - **`scripts/train_models.py`** `--max-psi` default 2.0→0.25 (aligned with `run_feature_selection.py`).
