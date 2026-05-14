@@ -8,6 +8,24 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Factor research look-ahead fix, IC decay analysis, regression bias audit (2026-05-14)
+
+#### Fix ML-score look-ahead contamination in factor IC table (fix)
+- **`scripts/factor_research.py`**: expanded `EXCLUDE_PATTERNS` to exclude all ML-derived and composite scores (`ml_1y/2y/3y/5y/6m`, `_oof`, `ml_pred_excess`, `composite_score`, `alpha_*`). Previously `ml_3y` was included as an IC candidate, artificially inflating its ICIR to 5.68 and Q5 spread to 110% — direct look-ahead contamination since static ML scores are trained on the full dataset. After fix, max Q5 spread is 0.47 and all top factors are pure fundamentals.
+- **`scripts/factor_research.py`**: added `compute_ic_decay()` function and `--ic-decay` / `--decay-top N` CLI flags. Computes IC at 1y, 3y, 5y lags for top-N factors and estimates signal half-life. Value/quality factors show >5y half-life (structural); recession-regime factors show ~2.2-2.5y half-life (tactical).
+- **`reports/factor_research_{1y,3y,5y}_sn.csv`**: regenerated with clean EXCLUDE_PATTERNS.
+- **`reports/ic_decay_halflife.csv`** (new): IC at 1y/3y/5y and estimated half-life for top 20 factors.
+
+#### Add regression model bias audit — Audit 5 (feat)
+- **`scripts/bias_audit.py`**: added `_REGRESSION_CONTAMINATED` set and `audit_regression_model()` function (Audit 5). Three checks: (1) feature contamination scan against ML/forward-return columns, (2) walk-forward IC distribution from `regression_ic_3y.csv`, (3) permutation test (50 shuffles) using `model.feature_name_` for alignment. Results: no contaminated features ✓, WF IC 0.337 (⚠ suspicious but genuine), permutation z=26.8 ✓.
+
+#### Fix backtest annual_returns key mismatch in UI (fix)
+- **`src/ui/tab_backtester.py`**: fixed key mismatch where UI read `port_ret`/`bench_ret` (decimal) but `backtest_results.json` stores `port_pct`/`bench_pct` (percentage). Annual returns and cumulative wealth charts now render correctly.
+- **`data/backtest_results.json`**: re-generated with monthly price cache — composite strategy MaxDD=-20.8% (was 0.0%), CAGR=+37.1%, Sharpe=1.566.
+
+#### Docs update
+- **`docs/developer/scripts.md`**: updated `factor_research.py` section with `--ic-decay`/`--decay-top` flags and ML exclusion note; updated `bias_audit.py` section to describe Audit 5 (regression model checks).
+
 ### Streamlit Cloud deployment fix (2026-05-14)
 
 - **`app.py`** (new): two-line shim that imports and calls `main()` from `app_v2.py`. Fixes Streamlit Cloud deployment where the dashboard is configured to launch `app.py` but the actual entry point is `app_v2.py`.

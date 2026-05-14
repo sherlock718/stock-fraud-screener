@@ -78,8 +78,8 @@ def tab_backtester() -> None:
             ax.text(0.5, 0.5, 'No data', ha='center', va='center', transform=ax.transAxes)
             continue
         years  = [r['year'] for r in ann]
-        rets   = [r['port_ret'] * 100 for r in ann]
-        bench  = [r.get('bench_ret', 0) * 100 for r in ann]
+        rets   = [r['port_pct'] for r in ann]
+        bench  = [r.get('bench_pct', 0) for r in ann]
         colors = ['#4CAF50' if v >= 0 else '#F44336' for v in rets]
         ax.bar(years, rets, color=colors, alpha=0.85, label='Strategy', edgecolor='white')
         ax.plot(years, bench, color='gray', lw=1.5, ls='--', label='Benchmark', marker='o', ms=3)
@@ -102,12 +102,12 @@ def tab_backtester() -> None:
         if not ann:
             continue
         years  = [r['year'] for r in ann]
-        rets   = np.array([r['port_ret'] for r in ann])
+        rets   = np.array([r['port_pct'] / 100 for r in ann])
         wealth = np.cumprod(1 + rets)
         ax2.plot(years, wealth, lw=2, label=s.get('label', key),
                  color=colors_map.get(key, None))
         if not plotted_bench:
-            bench    = np.array([r.get('bench_ret', 0) for r in ann])
+            bench    = np.array([r.get('bench_pct', 0) / 100 for r in ann])
             b_wealth = np.cumprod(1 + bench)
             ax2.plot(years, b_wealth, lw=1.5, ls='--', color='gray',
                      label='Benchmark (equal-weight)')

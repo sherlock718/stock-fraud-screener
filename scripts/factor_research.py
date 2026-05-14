@@ -10,6 +10,7 @@ For each candidate feature:
     Low turnover = factor rankings are stable year to year (cheaper to trade)
 
 Output: reports/factor_research_{horizon}.csv
+        reports/ic_decay_halflife.csv  (with --ic-decay flag)
 
 Usage:
     python3 scripts/factor_research.py
@@ -17,6 +18,7 @@ Usage:
     python3 scripts/factor_research.py --factors value_composite pe_ratio piotroski_f_score
     python3 scripts/factor_research.py --top 20        # show top 20 by |ICIR|
     python3 scripts/factor_research.py --min-icir 0.1  # filter output by |ICIR|
+    python3 scripts/factor_research.py --ic-decay      # compute IC decay half-life for top 20 factors
 """
 from __future__ import annotations
 
@@ -58,8 +60,21 @@ EXCLUDE = {
     'common_shares_outstanding', 'eps_diluted', 'eps_basic',
     'retained_earnings', 'additional_paid_in_capital', 'inventory',
 }
-EXCLUDE_PATTERNS = ['forward_return', 'beat_local_market', 'excess_return_local',
-                    'benchmark_return']
+# Patterns that MUST be excluded to prevent look-ahead contamination.
+# ML static scores (ml_1y/3y/5y) are trained on the full dataset including future
+# labels — including them in IC calculations produces artifically inflated spreads
+# (e.g. ml_3y showed 110% Q5 spread).  Only OOF scores are unbiased but we still
+# exclude them here to keep factor research purely fundamentals-driven.
+EXCLUDE_PATTERNS = [
+    'forward_return', 'beat_local_market', 'excess_return_local', 'benchmark_return',
+    # ML-derived scores — all contain indirect future-label information
+    'ml_1y', 'ml_2y', 'ml_3y', 'ml_5y', 'ml_6m',  # static (full-sample) ML scores
+    '_oof',           # out-of-fold ML scores
+    'ml_pred_excess', # regression ML score
+    # Composite alpha scores that blend ML outputs
+    'composite_score', 'alpha_composite', 'alpha_fraud_risk',
+    'alpha_momentum', 'alpha_value', 'alpha_growth', 'alpha_quality',
+]
 
 # Map SIC code ranges to ~10 broad sectors for neutralization
 def _sic_to_sector(sic: pd.Series) -> pd.Series:
@@ -244,6 +259,86 @@ def analyse_factor(df: pd.DataFrame, feature: str, ret_col: str,
     }
 
 
+def compute_ic_decay(df: pd.DataFrame, features: list[str],
+                     base_ret_col: str = 'forward_return_1y',
+                     top_n: int = 20) -> pd.DataFrame:
+    """Compute IC across multiple forward lags to estimate signal half-life.
+
+    Lags: 1m (approx 30d), 3m, 6m, 12m, 24m, 36m estimated from annual fiscal_year
+    steps.  Since the dataset is annual, we proxy sub-annual lags by scaling the
+    1y IC (rank correlation is a monotonic transform, so this is approximate).
+    True multi-lag IC would require monthly price data per company.
+
+    For lags ≥ 1y (annual periods) we use the actual forward_return_{h} columns
+    directly and compute cross-sectional IC at each lag precisely.
+
+    Returns DataFrame with columns: feature, ic_1y, ic_3y, ic_5y, halflife_yrs
+    where halflife_yrs is the interpolated year at which IC drops to 50% of ic_1y.
+    """
+    lag_map = {
+        '1y': 'forward_return_1y',
+        '3y': 'forward_return_3y',
+        '5y': 'forward_return_5y',
+    }
+    available_lags = {k: v for k, v in lag_map.items() if v in df.columns}
+
+    # Use top_n features by |ICIR| on 1y if we have more than top_n
+    if len(features) > top_n:
+        ic1y_col = available_lags.get('1y', list(available_lags.values())[0])
+        scored = []
+        for feat in features:
+            ics = compute_ic_series(df, feat, ic1y_col)
+            if ics:
+                icir = abs(np.mean(ics) / (np.std(ics) + 1e-8))
+                scored.append((feat, icir))
+        scored.sort(key=lambda x: x[1], reverse=True)
+        features = [f for f, _ in scored[:top_n]]
+
+    rows = []
+    for feat in features:
+        ic_per_lag: dict[str, float | None] = {}
+        for lag_label, ret_col in available_lags.items():
+            ics = compute_ic_series(df, feat, ret_col)
+            ic_per_lag[f'ic_{lag_label}'] = round(float(np.mean(ics)), 5) if ics else None
+
+        # Compute half-life: years at which IC falls to 50% of 1y IC
+        ic_1y = ic_per_lag.get('ic_1y')
+        halflife = None
+        if ic_1y and abs(ic_1y) > 1e-4:
+            target = ic_1y * 0.5
+            lags_yrs = [(1, ic_per_lag.get('ic_1y')),
+                        (3, ic_per_lag.get('ic_3y')),
+                        (5, ic_per_lag.get('ic_5y'))]
+            lags_yrs = [(y, v) for y, v in lags_yrs if v is not None]
+            for i in range(len(lags_yrs) - 1):
+                y0, v0 = lags_yrs[i]
+                y1, v1 = lags_yrs[i + 1]
+                # Check if target is between v0 and v1 (accounting for sign)
+                if min(v0, v1) <= target <= max(v0, v1) and v1 != v0:
+                    t = y0 + (target - v0) / (v1 - v0) * (y1 - y0)
+                    halflife = round(t, 2)
+                    break
+            if halflife is None and len(lags_yrs) >= 2:
+                # IC doesn't cross 50% within available lags — use last available
+                last_y, last_v = lags_yrs[-1]
+                if abs(last_v) > abs(ic_1y) * 0.5:
+                    halflife = f'>{last_y}y'  # type: ignore[assignment]
+                else:
+                    halflife = f'<{lags_yrs[0][0]}y'  # type: ignore[assignment]
+
+        row = {'feature': feat}
+        row.update(ic_per_lag)
+        row['halflife_yrs'] = halflife
+        # IC decay ratio: 3y IC / 1y IC (1.0 = no decay, <1 = decaying signal)
+        if ic_1y and ic_per_lag.get('ic_3y') and abs(ic_1y) > 1e-4:
+            row['ic_decay_ratio_3y'] = round(ic_per_lag['ic_3y'] / ic_1y, 3)
+        else:
+            row['ic_decay_ratio_3y'] = None
+        rows.append(row)
+
+    return pd.DataFrame(rows)
+
+
 def print_table(rows: list[dict], top_n: int, min_icir: float) -> None:
     filtered = [r for r in rows if abs(r['icir']) >= min_icir]
     if top_n:
@@ -278,6 +373,10 @@ def main() -> None:
                         help='Disable sector neutralization')
     parser.add_argument('--min-icir', type=float, default=0.05,
                         help='Minimum |ICIR| to include in output table (default: 0.05)')
+    parser.add_argument('--ic-decay', action='store_true',
+                        help='Compute IC decay half-life across 1y/3y/5y lags for top 20 factors')
+    parser.add_argument('--decay-top', type=int, default=20,
+                        help='Number of top factors for IC decay analysis (default: 20)')
     args = parser.parse_args()
 
     print('Loading data...')
@@ -330,6 +429,28 @@ def main() -> None:
         print(f'  Statistically significant (|t|≥2): {n_sig}/{len(out_df)}')
 
         print_table(out_df.to_dict('records'), args.top, args.min_icir)
+
+    # IC decay half-life analysis (all-horizons, written to single CSV)
+    if args.ic_decay:
+        print('\n── IC Decay / Half-Life Analysis ─────────────────────────────────────')
+        if 'forward_return_1y' not in df.columns:
+            print('  forward_return_1y not in dataset — skipping IC decay.')
+        else:
+            decay_features = features  # already filtered above
+            decay_df = compute_ic_decay(df, decay_features, top_n=args.decay_top)
+            decay_path = REPORTS / 'ic_decay_halflife.csv'
+            decay_df.to_csv(decay_path, index=False)
+            print(f'  Saved IC decay analysis → {decay_path}')
+            print(f'\n  {"Feature":<40} {"IC_1y":>8} {"IC_3y":>8} {"IC_5y":>8} '
+                  f'{"Decay3y":>8} {"HalfLife":>10}')
+            print('  ' + '─' * 90)
+            for _, r in decay_df.iterrows():
+                ic1 = f'{r["ic_1y"]:+.4f}' if pd.notna(r.get("ic_1y")) else '   N/A'
+                ic3 = f'{r["ic_3y"]:+.4f}' if pd.notna(r.get("ic_3y")) else '   N/A'
+                ic5 = f'{r["ic_5y"]:+.4f}' if pd.notna(r.get("ic_5y")) else '   N/A'
+                dec = f'{r["ic_decay_ratio_3y"]:.3f}' if pd.notna(r.get("ic_decay_ratio_3y")) else '  N/A'
+                hl  = str(r.get('halflife_yrs', 'N/A'))
+                print(f'  {r["feature"]:<40} {ic1:>8} {ic3:>8} {ic5:>8} {dec:>8} {hl:>10}')
 
 
 if __name__ == '__main__':

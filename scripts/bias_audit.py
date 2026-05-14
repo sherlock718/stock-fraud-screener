@@ -367,6 +367,169 @@ def audit_overfitting(meta_path: Path) -> dict[str, float]:
     return gaps
 
 
+# ── Audit 5 (new): Regression model label-leakage audit ─────────────────────
+
+# Features that should never appear in a PIT-safe regression on excess_return_local_3y
+_REGRESSION_CONTAMINATED = {
+    'ml_1y', 'ml_2y', 'ml_3y', 'ml_5y', 'ml_6m',   # full-sample ML scores
+    'ml_1y_oof', 'ml_2y_oof', 'ml_3y_oof', 'ml_5y_oof', 'ml_6m_oof',  # OOF ML scores
+    'ml_pred_excess_3y',  # regression output itself (circular)
+    'composite_score', 'alpha_composite',             # composite blends ML scores
+    'forward_return_1y', 'forward_return_2y',         # future-return variants
+    'forward_return_3y', 'forward_return_5y',         # direct label leakage
+    'beat_local_market_1y', 'beat_local_market_3y',   # label-derived
+    'beat_local_market_5y',
+    'excess_return_local_1y', 'excess_return_local_3y', 'excess_return_local_5y',
+}
+
+
+def audit_regression_model(df: pd.DataFrame) -> None:
+    """Audit model_3y_regression.joblib for label-leakage and PIT-safety.
+
+    Checks:
+      1. Feature-list scan — flag any feature in _REGRESSION_CONTAMINATED.
+      2. Permutation test — shuffle excess_return_local_3y labels and confirm
+         that the walk-forward Spearman IC degrades to near-zero.
+      3. Walk-forward IC distribution — report from regression_ic_3y.csv if present.
+    """
+    print('\n── Audit 5: Regression Model (model_3y_regression) Bias Audit ─────────')
+
+    import joblib
+    from scipy import stats as scipy_stats
+
+    meta_path   = BASE / 'models' / 'model_3y_regression_meta.json'
+    model_path  = BASE / 'models' / 'model_3y_regression.joblib'
+    ic_csv      = BASE / 'reports' / 'regression_ic_3y.csv'
+    TARGET_COL  = 'excess_return_local_3y'
+
+    if not meta_path.exists():
+        print('  model_3y_regression_meta.json not found — skipping.')
+        return
+
+    meta = json.loads(meta_path.read_text())
+    features: list[str] = meta.get('features', [])
+    print(f'  Regression features : {len(features)}')
+
+    # ── Check 1: feature contamination ────────────────────────────────────────
+    contaminated = [f for f in features if f in _REGRESSION_CONTAMINATED]
+    indirect = [f for f in features if any(p in f for p in
+                ('ml_', '_oof', 'alpha_', 'pred_excess',
+                 'forward_return', 'beat_local', 'excess_return'))]
+    indirect = [f for f in indirect if f not in contaminated]
+
+    if contaminated:
+        print(f'\n  ✗  CONTAMINATED features in regression model ({len(contaminated)}):')
+        for f in contaminated:
+            print(f'       {f}')
+    else:
+        print('  ✓  No directly contaminated features (no ML scores, no future returns).')
+
+    if indirect:
+        print(f'\n  ⚠  Indirectly suspicious features ({len(indirect)}):')
+        for f in indirect:
+            print(f'       {f}')
+    else:
+        print('  ✓  No indirectly suspicious features found.')
+
+    # ── Check 2: walk-forward IC distribution ─────────────────────────────────
+    if ic_csv.exists():
+        ic_df = pd.read_csv(ic_csv)
+        # Column may be named 'ic' or 'spearman_ic'
+        ic_col = 'spearman_ic' if 'spearman_ic' in ic_df.columns else 'ic'
+        if ic_col in ic_df.columns:
+            ics = ic_df[ic_col].dropna()
+            mean_ic = ics.mean()
+            std_ic  = ics.std()
+            n       = len(ics)
+            t_stat  = mean_ic / (std_ic / np.sqrt(n)) if n > 1 and std_ic > 0 else np.nan
+            print(f'\n  Walk-forward IC (regression_ic_3y.csv):')
+            print(f'    Folds : {n}')
+            print(f'    Mean IC : {mean_ic:+.4f}')
+            print(f'    Std  IC : {std_ic:.4f}')
+            print(f'    t-stat  : {t_stat:+.2f}  (H0: mean_ic = 0)')
+            if abs(mean_ic) > 0.30:
+                print(f'  ⚠  IC {mean_ic:.3f} > 0.30 — suspiciously high; check for leakage.')
+            elif abs(mean_ic) > 0.15:
+                print(f'  ✓  IC {mean_ic:.3f} is elevated but plausible for multi-factor regression.')
+            else:
+                print(f'  ✓  IC {mean_ic:.3f} is in a reasonable range.')
+        else:
+            print(f'  ⚠  regression_ic_3y.csv found but has no ic/spearman_ic column.')
+    else:
+        print(f'\n  regression_ic_3y.csv not found — run train_regression_model.py --walk-forward.')
+
+    # ── Check 3: permutation test ──────────────────────────────────────────────
+    if not model_path.exists():
+        print('\n  model_3y_regression.joblib not found — skipping permutation test.')
+        return
+
+    ann = df[(df['period_type'] == 'annual') & df[TARGET_COL].notna()].copy()
+    feats_present = [f for f in features if f in ann.columns]
+    if len(feats_present) < len(features):
+        missing = len(features) - len(feats_present)
+        print(f'\n  NOTE: {missing} features not in dataset (may be computed at score time).')
+    if len(feats_present) == 0:
+        print('  Cannot run permutation test — no regression features found in dataset.')
+        return
+
+    print(f'\n  Permutation test (n=50 shuffles, {len(ann):,} rows)...')
+    try:
+        model = joblib.load(model_path)
+        # LightGBM requires the exact feature set in the right order.
+        # Use model's own feature_name_ list when available.
+        model_feats = (list(model.feature_name_)
+                       if hasattr(model, 'feature_name_') else features)
+        available = [f for f in model_feats if f in ann.columns]
+        if len(available) < len(model_feats):
+            fill_val = ann[available].median()
+            # Fill missing features with median so we can still predict
+            missing_feats = [f for f in model_feats if f not in ann.columns]
+            for mf in missing_feats:
+                ann[mf] = 0.0  # neutral fill
+            available = model_feats
+
+        sub = ann[list(available) + [TARGET_COL]].dropna()
+        if len(sub) < 100:
+            print(f'  Too few rows ({len(sub)}) for permutation test.')
+            return
+
+        X = sub[list(available)].values
+        y = sub[TARGET_COL].values
+
+        # True IC
+        preds = model.predict(X)
+        true_ic, _ = scipy_stats.spearmanr(preds, y)
+
+        # Permuted ICs
+        rng = np.random.default_rng(42)
+        perm_ics = []
+        for _ in range(50):
+            y_shuf = rng.permutation(y)
+            ic_shuf, _ = scipy_stats.spearmanr(preds, y_shuf)
+            perm_ics.append(ic_shuf)
+
+        perm_mean = np.mean(perm_ics)
+        perm_std  = np.std(perm_ics)
+        z_score   = (true_ic - perm_mean) / (perm_std + 1e-9)
+
+        print(f'    True IC       : {true_ic:+.4f}')
+        print(f'    Shuffled mean : {perm_mean:+.4f}  (std={perm_std:.4f})')
+        print(f'    Z-score vs null : {z_score:+.2f}')
+
+        if z_score > 3.0:
+            print(f'  ✓  IC degrades under label shuffle (z={z_score:.1f}). '
+                  f'Model has genuine signal.')
+        elif z_score > 1.5:
+            print(f'  ⚠  Modest z-score ({z_score:.1f}). '
+                  f'IC may be partly noise or low n_folds.')
+        else:
+            print(f'  ✗  IC does NOT degrade under label shuffle (z={z_score:.1f}). '
+                  f'Possible leakage or data ordering artifact.')
+
+    except Exception as e:
+        print(f'  Permutation test failed: {e}')
+
+
 # ── Audit 4 (new): Multiple testing note ────────────────────────────────────
 
 def audit_multiple_testing() -> None:
@@ -425,6 +588,7 @@ def main() -> None:
 
     audit_filing_lag(df)
     audit_overfitting(meta_path)
+    audit_regression_model(df)
     audit_multiple_testing()
     audit_fx(df, fix=args.fix, out_path=args.out)
 

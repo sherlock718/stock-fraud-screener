@@ -608,12 +608,30 @@ Latest holdings use the most recent fiscal year with ≥ `--top-n` complete sign
 ```bash
 python3 scripts/factor_research.py
 python3 scripts/factor_research.py --features gross_margin roe accruals_to_assets
+python3 scripts/factor_research.py --all-horizons --ic-decay --decay-top 20
 python3 scripts/factor_research.py --decay-plot
 ```
 
 Computes IC, ICIR, and factor decay curves for all features. Used to select features for model training.
 
-Output CSV columns: `ic` (mean IC, standard alias), `mean_ic` (same value, legacy name), `icir`, `ic_tstat`, `pct_positive_ic`, `n_years`, `turnover`, `q1_ret`, `q5_ret`, `q_spread`.
+All ML-derived scores (`ml_1y`, `ml_3y`, `ml_5y`, `ml_6m`, `_oof`, `ml_pred_excess`, composite/alpha
+scores) are excluded from IC candidates via `EXCLUDE_PATTERNS` to prevent look-ahead contamination.
+
+| Flag | Default | Description |
+|---|---|---|
+| `--horizon` | `1y` | Forward-return horizon for IC computation (`1y`, `3y`, `5y`) |
+| `--all-horizons` | False | Run IC analysis for 1y, 3y, and 5y horizons in sequence |
+| `--top N` | `20` | Top N factors to display/save |
+| `--features F [F...]` | (all) | Restrict analysis to named features |
+| `--ic-decay` | False | Compute multi-lag IC decay and estimate signal half-life |
+| `--decay-top N` | `20` | Number of top factors to include in IC decay analysis |
+| `--decay-plot` | False | Plot IC decay curves (requires matplotlib) |
+
+Output CSV columns: `ic` (mean IC), `mean_ic` (legacy alias), `icir`, `ic_tstat`, `pct_positive_ic`,
+`n_years`, `turnover`, `q1_ret`, `q5_ret`, `q_spread`.
+
+IC decay output (`reports/ic_decay_halflife.csv`) columns: `feature`, `ic_1y`, `ic_3y`, `ic_5y`,
+`ic_decay_ratio_3y`, `halflife_yrs`.
 
 ---
 
@@ -731,14 +749,18 @@ Non-fatal CI step for dataset quality monitoring. Produces:
 
 ---
 
-### `bias_audit.py` — Bias Audit Suite (Look-Ahead / Survivorship / Overfitting)
+### `bias_audit.py` — Bias Audit Suite (Look-Ahead / Survivorship / Overfitting / Regression)
 
-Runs four bias checks against the dataset and models:
+Runs five bias checks against the dataset and models:
 
 1. **Look-ahead bias** — verifies `filed_date >= period_end_date` for all rows. HARD FAIL in CI.
 2. **Survivorship bias** — checks % of training rows from later-delisted companies (warn if < 5%).
 3. **Overfitting audit** — compares `val_auc` vs walk-forward mean AUC per horizon. Writes `overfit_gap` to `model_meta.json`. Warn if gap > 0.15.
 4. **Multiple testing** — documents Bonferroni correction across 5 horizons × 4 strategies.
+5. **Regression model audit** — three checks for `model_3y_regression.joblib`:
+   - Feature contamination scan: fails if any feature in `_REGRESSION_CONTAMINATED` is in the model's feature set (ML scores, forward returns, composite scores)
+   - Walk-forward IC distribution: reads `reports/regression_ic_3y.csv` (`spearman_ic` column); warns if WF IC mean > 0.30 (suspiciously high)
+   - Permutation test (50 shuffles): shuffles target labels, re-scores, checks IC degrades to ~0; genuine signal confirmed if permutation IC ≪ observed IC (z-score reported)
 
 ```bash
 python3 scripts/bias_audit.py              # full report, exit 0
