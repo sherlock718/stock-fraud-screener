@@ -4,7 +4,7 @@
 
 ```mermaid
 flowchart TD
-    A["historical_dataset_clean.parquet<br/>~58K rows · 360 features"] --> PSI["PSI Feature Filter<br/>Population Stability Index per feature<br/>Drops macro-regime features (PSI > 0.25)<br/>~14 features removed (macro regime drifters)"]
+    A["historical_dataset_clean.parquet<br/>~58K rows · 361 features"] --> PSI["PSI Feature Filter<br/>Population Stability Index per feature<br/>Drops macro-regime features (PSI > 0.25)<br/>~14 features removed (macro regime drifters)"]
     PSI --> B["ICIR Feature Selection<br/>IC/ICIR ranking · Spearman dedup r>0.90<br/>→ ~35–45 features per horizon"]
     B --> C["PIT-Safe Temporal Split<br/>filed_date cutoff + fiscal_year cutoff<br/>train ≤ 2022 (filed < 2023-01-01)<br/>val 2023 · test 2024+"]
     C --> D["LightGBM Base Model<br/>n_estimators=600 · max_depth=6 · num_leaves=63<br/>lr=0.03 · reg_alpha=0.1<br/>→ val AUC baseline"]
@@ -96,6 +96,26 @@ ensemble_proba = 0.5 * lgbm.predict_proba(X)[:,1] + 0.5 * catboost.predict_proba
 Platt scaling: a logistic regression is fit on the validation set using raw model probabilities as the single feature. This maps the raw scores onto better-calibrated probabilities.
 
 Without calibration, ML models often output scores that are miscalibrated — a score of 0.8 might not actually correspond to an 80% probability. Calibration fixes this.
+
+## Regression Model — Excess Return Magnitude
+
+Alongside the binary classifiers, a **LightGBM Huber regression** (`model_3y_regression.joblib`) predicts the *magnitude* of 3-year excess return (`excess_return_local_3y`). This is the Stage 3 ranker in the leverage strategy screener.
+
+**Why Huber?** Equity returns have fat tails. Huber regression is robust to the rare +100%/+200% outlier years that would otherwise dominate an MSE fit. `alpha=0.9` sets the Huber transition point at the 90th percentile of residuals.
+
+**Feature set:** Frozen at the 45 ICIR-selected features from `models/feature_sets_3y.json` (same as the binary 3y classifier). No new feature selection is performed on the regression target — this prevents overfitting to the magnitude target while reusing already-validated predictors.
+
+**Target winsorisation:** `excess_return_local_3y` is winsorised at the train-split 1st/99th percentile `[-1.491, 6.347]` before fitting. Percentiles are computed on the train split only (PIT-safe).
+
+| Split | Spearman IC | N rows |
+|---|---|---|
+| Train | 0.6361 | 32,761 |
+| Val | 0.4239 | 390 |
+| WF mean (9 folds) | 0.3366 | — |
+
+IC > 0.05 = useful for annual rebalance; IC > 0.10 = strong. WF IC 0.34 indicates meaningful ranking ability across unseen years.
+
+**Output column:** `ml_pred_excess_3y` — written to `historical_dataset_clean.parquet` by `score_historical.py`. Used in `leverage_strategy.py` for Stage 3 sort and Kelly-proportional position weighting.
 
 ## Model Artifacts
 

@@ -26,7 +26,7 @@ graph TB
         B8[Survivorship Correction<br/>mark_survivorship.py<br/>impute −50% for delisted]
         B9[Feature Imputation<br/>impute_features.py<br/>+5 quarterly cols + size_category]
         B10[Alpha Scores<br/>compute_alpha.py<br/>5-factor alpha scores]
-        B11[ML Scores<br/>score_historical.py<br/>ml_1y/3y/5y → 360 total cols]
+        B11[ML Scores<br/>score_historical.py<br/>ml_1y/3y/5y + ml_pred_excess_3y → 361 total cols]
         B1 --> B2 --> B3 --> B4 --> B5 --> B6 --> B7 --> B8 --> B9 --> B10 --> B11
     end
 
@@ -65,7 +65,7 @@ graph TB
     end
 
     subgraph Storage["Storage"]
-        S1[Parquet<br/>data/historical_dataset_clean.parquet<br/>58K rows · 360 columns]
+        S1[Parquet<br/>data/historical_dataset_clean.parquet<br/>58K rows · 361 columns]
         S2[TimescaleDB<br/>hypertable — infra/db/init.sql<br/>Phase C — deferred]
     end
 

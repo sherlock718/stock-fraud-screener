@@ -1,6 +1,15 @@
 """
 Leverage & position sizing strategy for the stock fraud screener.
 
+3-stage screener (when model_3y_regression.joblib is available):
+  Stage 1 — Hard fundamental gate: Piotroski ≥ 6, Beneish M < -1.78,
+             Altman Z > 1.81, P/B < 5.0, market cap ≥ $50M
+  Stage 2 — Direction gate: ml_score_3y > 0.52 (binary classifier P(beat_market))
+  Stage 3 — Magnitude ranker: sort survivors by ml_pred_excess_3y (Huber regression)
+  Stage 4 — Kelly position sizing: w_i ∝ max(ml_pred_excess_3y_i, 0)
+
+Falls back to composite_score() weighting when regression model is unavailable.
+
 Outputs per-ticker leverage recommendations based on:
 - Kelly criterion (half-Kelly for safety)
 - Volatility-adjusted position sizing
@@ -41,6 +50,15 @@ MIN_PIOTROSKI       = 6     # Quality gate for leveraged positions
 MAX_BENEISH         = -1.78 # Manipulation threshold (Beneish M-score)
 MIN_ALTMAN_Z        = 1.81  # Distress threshold
 
+# --- 3-stage screener thresholds (Stage 1 extension) ---
+STAGE1_MAX_PB       = 5.0   # Academic value ceiling: exclude deeply overvalued names
+STAGE1_MIN_CAP      = 50e6  # $50M liquidity floor (no ADTV data; cap is proxy)
+STAGE2_ML_THRESHOLD = 0.52  # Direction gate: ml_score_3y must beat near-random baseline
+
+REGRESSION_MODEL_FILE = 'model_3y_regression.joblib'
+REGRESSION_META_FILE  = 'model_3y_regression_meta.json'
+REGRESSION_COL        = 'ml_pred_excess_3y'
+
 
 def load_data(market: str) -> pd.DataFrame:
     src = FULL_DATA if FULL_DATA.exists() else DATA_PATH
@@ -60,6 +78,11 @@ def load_models() -> dict:
         p = MODELS_DIR / f'model_{h}.joblib'
         if p.exists():
             models[h] = joblib.load(p)
+    reg_path = MODELS_DIR / REGRESSION_MODEL_FILE
+    reg_meta = MODELS_DIR / REGRESSION_META_FILE
+    if reg_path.exists() and reg_meta.exists():
+        models['_regression'] = joblib.load(reg_path)
+        models['_regression_meta'] = json.loads(reg_meta.read_text())
     return models
 
 
@@ -72,9 +95,22 @@ def score_tickers(df: pd.DataFrame, models: dict) -> pd.DataFrame:
 
     meta = json.loads(meta_path.read_text())
     for h, clf in models.items():
+        if h.startswith('_'):
+            continue
         feats = [f for f in meta[h]['features'] if f in df.columns]
         X = df[feats].fillna(df[feats].median())
         df[f'ml_score_{h}'] = clf.predict_proba(X)[:, 1]
+
+    # Regression model: predict excess return magnitude
+    if '_regression' in models:
+        reg_meta = models['_regression_meta']
+        feats = [f for f in reg_meta['features'] if f in df.columns]
+        medians = reg_meta['train_medians']
+        X = df[feats].copy()
+        for col in X.columns:
+            X[col] = X[col].fillna(medians.get(col, 0.0))
+        df[REGRESSION_COL] = models['_regression'].predict(X).astype(np.float32)
+
     return df
 
 
@@ -114,9 +150,33 @@ def quality_gate(df: pd.DataFrame) -> pd.DataFrame:
     if 'likely_delisted' in df.columns:
         safe &= df['likely_delisted'].fillna(1) == 0
 
+    if 'price_to_book' in df.columns:
+        safe &= df['price_to_book'].fillna(999) < STAGE1_MAX_PB
+
+    if 'market_cap_at_filing' in df.columns:
+        safe &= df['market_cap_at_filing'].fillna(0) >= STAGE1_MIN_CAP
+
     df['leverage_safe'] = safe.astype(int)
     return df
 
+
+def _apply_three_stage_filter(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Stage 1: hard fundamental gate (Piotroski, Beneish, Altman, P/B, market cap).
+    Stage 2: direction gate — ml_score_3y > STAGE2_ML_THRESHOLD (requires binary model).
+    Stage 3: sort survivors by ml_pred_excess_3y descending (requires regression model).
+    Falls back gracefully when models are absent.
+    """
+    df = quality_gate(df)
+    df = df[df['leverage_safe'] == 1].copy()
+
+    if 'ml_score_3y' in df.columns and df['ml_score_3y'].notna().sum() > 0:
+        df = df[df['ml_score_3y'] > STAGE2_ML_THRESHOLD].copy()
+
+    if REGRESSION_COL in df.columns and df[REGRESSION_COL].notna().sum() > 0:
+        df = df.sort_values(REGRESSION_COL, ascending=False)
+    elif 'composite_score' in df.columns:
+        df = df.sort_values('composite_score', ascending=False)
 
 def kelly_position(win_rate: float, avg_win: float, avg_loss: float) -> float:
     """Kelly fraction = win_rate/avg_loss - loss_rate/avg_win, capped at MAX_LEVERAGE."""
@@ -130,40 +190,47 @@ def kelly_position(win_rate: float, avg_win: float, avg_loss: float) -> float:
 
 def size_positions(df: pd.DataFrame, top_n: int, capital: float) -> pd.DataFrame:
     """
-    Assign position sizes to top_n tickers.
-    Positions sum to 100% of capital. Each position is score-weighted,
-    capped at MAX_POSITION_PCT. Leverage applied only to leverage-safe names.
+    Assign position sizes to top_n tickers using the 3-stage screener.
+    When ml_pred_excess_3y is available, weights are proportional to predicted
+    excess return (Kelly-like). Falls back to composite_score weighting.
+    Positions sum to 100% of capital, capped at MAX_POSITION_PCT.
     """
     HIST_WIN_RATE = 0.65
     HIST_AVG_WIN  = 0.45
     HIST_AVG_LOSS = 0.22
 
-    df = df.sort_values('composite_score', ascending=False).head(top_n).copy()
-    df = quality_gate(df)
+    # Run 3-stage filter; head(top_n) applied after Stage 3 sort
+    filtered = _apply_three_stage_filter(df).head(top_n).copy()
     base_kelly = kelly_position(HIST_WIN_RATE, HIST_AVG_WIN, HIST_AVG_LOSS)
 
-    # Score-proportional weights, normalised to sum to 1, capped at MAX_POSITION_PCT
-    scores = df['composite_score'].fillna(0).values
-    weights = scores / scores.sum()
+    # Weight by predicted excess return when available; else composite_score
+    use_regression = (
+        REGRESSION_COL in filtered.columns and
+        filtered[REGRESSION_COL].notna().sum() > 0
+    )
+    if use_regression:
+        raw_weights = filtered[REGRESSION_COL].clip(lower=0).fillna(0).values
+    else:
+        raw_weights = filtered['composite_score'].fillna(0).values
+
+    total = raw_weights.sum()
+    weights = raw_weights / total if total > 0 else np.ones(len(filtered)) / len(filtered)
     weights = np.minimum(weights, MAX_POSITION_PCT)
-    weights = weights / weights.sum()  # re-normalise after capping
+    weights = weights / weights.sum()
 
     positions = []
-    for i, (_, row) in enumerate(df.iterrows()):
+    for i, (_, row) in enumerate(filtered.iterrows()):
         pos_pct = weights[i]
         pos_eur = capital * pos_pct
-
-        if row.get('leverage_safe', 0) == 1:
-            leverage = min(base_kelly, MAX_LEVERAGE)
-            strategy = _pick_strategy(row, leverage)
-        else:
-            leverage = 1.0
-            strategy = 'Equity only — quality gate failed'
+        leverage = min(base_kelly, MAX_LEVERAGE)
+        strategy = _pick_strategy(row, leverage)
 
         positions.append({
             'ticker':          row.get('ticker', ''),
             'name':              str(row.get('name', ''))[:30],
             'composite_score':   round(float(row.get('composite_score', 0)), 3),
+            'ml_pred_excess_3y': round(float(row.get(REGRESSION_COL, np.nan) or np.nan), 4)
+                                  if pd.notna(row.get(REGRESSION_COL)) else np.nan,
             'leverage_safe':     int(row.get('leverage_safe', 0)),
             'position_pct':      round(pos_pct * 100, 1),
             'position_eur':      round(pos_eur, 0),
@@ -172,7 +239,8 @@ def size_positions(df: pd.DataFrame, top_n: int, capital: float) -> pd.DataFrame
             'strategy':          strategy,
             'piotroski':         row.get('piotroski_f_score', np.nan),
             'beneish':           row.get('beneish_m_score', np.nan),
-            'ml_1y':             round(float(row.get('ml_score_1y', np.nan) or np.nan), 3) if pd.notna(row.get('ml_score_1y')) else np.nan,
+            'ml_3y':             round(float(row.get('ml_score_3y', np.nan) or np.nan), 3)
+                                  if pd.notna(row.get('ml_score_3y')) else np.nan,
         })
 
     return pd.DataFrame(positions)
@@ -180,17 +248,14 @@ def size_positions(df: pd.DataFrame, top_n: int, capital: float) -> pd.DataFrame
 
 def _pick_strategy(row: pd.Series, leverage: float) -> str:
     """Pick the most appropriate leveraged strategy for a ticker."""
-    ml_1y = row.get('ml_score_1y', 0.5) or 0.5
+    ml_3y = row.get('ml_score_3y', 0.5) or 0.5
     mkt_cap = row.get('market_cap_at_filing', 0) or 0
 
-    if ml_1y >= 0.75 and mkt_cap > 1e9:
-        # High conviction large-cap: LEAPS calls (3–5x leverage, defined risk)
+    if ml_3y >= 0.75 and mkt_cap > 1e9:
         return f'LEAPS calls (12–18mo, delta ~0.70) | {leverage:.1f}x'
-    elif ml_1y >= 0.65:
-        # Medium conviction: 2:1 margin long
+    elif ml_3y >= 0.65:
         return f'2:1 margin long | {leverage:.1f}x'
     else:
-        # Lower conviction: equity only, no leverage
         return 'Equity only (score below leverage threshold)'
 
 
@@ -248,8 +313,9 @@ def print_report(positions: pd.DataFrame, shorts: pd.DataFrame,
     print(f"  Total notional: €{total_notional:,.0f} ({total_notional/capital*100:.0f}% of capital)")
     print(f"{'='*70}\n")
 
-    display_cols = ['ticker', 'composite_score', 'position_pct', 'position_eur',
-                    'leverage_mult', 'notional_eur', 'piotroski', 'beneish', 'ml_1y', 'strategy']
+    display_cols = ['ticker', 'ml_pred_excess_3y', 'composite_score', 'position_pct',
+                    'position_eur', 'leverage_mult', 'notional_eur', 'piotroski',
+                    'beneish', 'ml_3y', 'strategy']
     available = [c for c in display_cols if c in positions.columns]
     print(positions[available].to_string(index=False))
 
@@ -264,9 +330,10 @@ def print_report(positions: pd.DataFrame, shorts: pd.DataFrame,
     print(f"  Half-Kelly fraction:     {HALF_KELLY_FRACTION}")
     print(f"  Max single position:     {MAX_POSITION_PCT*100:.0f}%")
     print(f"  Max leverage:            {MAX_LEVERAGE}x")
-    print(f"  Min Piotroski F-score:   {MIN_PIOTROSKI}")
-    print(f"  Max Beneish M-score:     {MAX_BENEISH} (below = manipulation risk; above = short candidate)")
-    print(f"  Min Altman Z-score:      {MIN_ALTMAN_Z} (below = distress risk)")
+    print(f"  Stage 1 — Min Piotroski: {MIN_PIOTROSKI} | Max Beneish: {MAX_BENEISH} | Min Altman Z: {MIN_ALTMAN_Z}")
+    print(f"  Stage 1 — Max P/B:       {STAGE1_MAX_PB} | Min market cap: ${STAGE1_MIN_CAP/1e6:.0f}M")
+    print(f"  Stage 2 — ml_score_3y >  {STAGE2_ML_THRESHOLD} (direction gate)")
+    print(f"  Stage 3 — ranked by      ml_pred_excess_3y (magnitude ranker)")
 
     print(f"\n--- Strategy Guide ---")
     print(f"  LEAPS calls:    Buy 12–18mo deep ITM calls (delta ~0.70)")

@@ -96,7 +96,7 @@ Work through this matrix for every change before staging files.
 |---|---|---|---|
 | US data ingestion | SEC EDGAR 10-K/10-Q | `scripts/run_pipeline.py` | ✅ |
 | Multi-market ingestion | SimFin (EU), DART (KR), TDNET (JP), SEDAR+ (CA), B3 (BR) | `pipeline/` | ✅ |
-| Feature engineering | 360 columns (355 base + 5 OOF: ml_6m_oof, ml_1y_oof, ml_2y_oof, ml_3y_oof, ml_5y_oof) | `pipeline/step5_compute_features.py` + `scripts/generate_oof_scores.py` | ✅ |
+| Feature engineering | 361 columns (355 base + 5 OOF + 1 regression: ml_pred_excess_3y) | `pipeline/step5_compute_features.py` + `scripts/generate_oof_scores.py` + `scripts/score_historical.py` | ✅ |
 | Quarterly enrichment | 5 intra-year dynamics | `scripts/enrich_quarterly_features.py` | ✅ |
 | Feature imputation | Quarterly cols + size_category recovery | `scripts/impute_features.py` | ✅ |
 | Survivorship correction | Imputes −50% return for delisted | `scripts/mark_survivorship.py` | ✅ |
@@ -105,11 +105,12 @@ Work through this matrix for every change before staging files.
 | Historical ML scoring | Load models → score all rows → write ml_1y/3y/5y to parquet | `scripts/score_historical.py` | ✅ |
 | Alpha factor package | 5-factor scores (Value/Quality/Momentum/Growth/FraudRisk) | `alpha/factors/` | ✅ |
 | Horizon routing | Maps investment horizon (months) to nearest model key | `alpha/horizon_router.py` | ✅ Phase C |
-| Primary storage | Parquet file | `data/historical_dataset_clean.parquet` 58K rows × 360 cols | ✅ |
+| Primary storage | Parquet file | `data/historical_dataset_clean.parquet` 58K rows × 361 cols | ✅ |
 | SPY benchmark data | Annual calendar-year SPY total returns | `data/spy_returns.csv` | ✅ Phase C |
 | TimescaleDB | Hypertable for time-series queries | `infra/db/init.sql` + `scripts/migrate_to_db.py` | ⚠️ DB not loaded |
 | Feature selection | 4-stage pipeline: PSI→IC→ICIR→dedup | `scripts/run_feature_selection.py` | ✅ |
 | ML models | LightGBM 5 horizons (6m/1y/2y/3y/5y), filed-date PIT-safe, n_estimators=600 | `scripts/train_models.py` | ✅ Phase C |
+| Regression model | LightGBM Huber → excess_return_local_3y magnitude; WF IC 0.34 | `scripts/train_regression_model.py` | ✅ |
 | Calibration + tuning | Platt scaling, Optuna 100 trials | `scripts/tune_models.py` | ✅ |
 | Bias audit | Look-ahead + survivorship + overfitting + multiple testing | `scripts/bias_audit.py` | ✅ Phase C |
 | Drift monitoring | PSI + rolling AUC | `scripts/monitor_drift.py` | ✅ |

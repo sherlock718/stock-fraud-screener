@@ -8,6 +8,14 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### 3-stage screener with regression magnitude ranker (2026-05-14)
+
+#### Add LightGBM Huber regression model for excess return magnitude (feat)
+- **`scripts/train_regression_model.py`** (new): trains LightGBM Huber regressor to predict `excess_return_local_3y`. Reuses frozen 45-feature ICIR set from `models/feature_sets_3y.json`. PIT-safe temporal split, winsorized target, expanding-window walk-forward CV with Spearman IC per fold. Outputs `models/model_3y_regression.joblib`, `models/model_3y_regression_meta.json`, `reports/regression_ic_3y.csv`.
+- **`scripts/score_historical.py`**: added `score_regression()` function and `--skip-regression` flag. When `model_3y_regression.joblib` is present, writes `ml_pred_excess_3y` column to the parquet for all rows.
+- **`scripts/leverage_strategy.py`**: refactored to 3-stage screener. Stage 1 extended with P/B < 5.0 and market cap ≥ $50M gates. New `_apply_three_stage_filter()` chains Stage 1 → Stage 2 (ml_score_3y > 0.52) → Stage 3 (sort by ml_pred_excess_3y). Position weights now proportional to `ml_pred_excess_3y` (Kelly-like) when regression model is available; falls back to `composite_score`. `_pick_strategy()` updated to use `ml_score_3y` (replaces sub-random `ml_score_1y`).
+- **`docs/developer/scripts.md`**: added `train_regression_model.py` section; updated `score_historical.py` and `leverage_strategy.py` entries with new flags and 3-stage description.
+
 ### Signal integrity fixes (2026-05-14)
 
 #### Remove sub-random ml_score_1y from leverage composite (fix)

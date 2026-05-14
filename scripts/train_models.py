@@ -108,6 +108,7 @@ EXCLUDE = {
     # OOF columns (ml_*_oof) are also excluded — they ARE clean but shouldn't be ML input features.
     'ml_1y', 'ml_3y', 'ml_5y',
     'ml_6m', 'ml_2y',
+    'ml_pred_excess_3y',           # regression magnitude output — also in-sample contaminated
     'ml_1y_oof', 'ml_3y_oof', 'ml_5y_oof',
     'ml_6m_oof', 'ml_2y_oof',
     # Alpha composites — hand-crafted composites of raw features; including them alongside

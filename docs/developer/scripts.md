@@ -37,13 +37,16 @@ Pipeline steps:
 
 Loads `model_{1y,3y,5y}.joblib` and `model_meta.json`, scores all 58K rows, and writes
 `ml_1y`, `ml_3y`, `ml_5y` float columns (probability of beating local benchmark) back to
-`data/historical_dataset_clean.parquet`. Missing features are filled with per-horizon
-`train_medians` stored in model_meta.json.
+`data/historical_dataset_clean.parquet`. Also loads `model_3y_regression.joblib` (if present)
+and writes `ml_pred_excess_3y` — the predicted magnitude of 3y excess return used by the
+Stage 3 magnitude ranker in `leverage_strategy.py`. Missing features are filled with
+per-horizon `train_medians` stored in model_meta.json.
 
 ```bash
 python3 scripts/score_historical.py                  # Score and write parquet
 python3 scripts/score_historical.py --dry-run        # Score only, print stats, no write
 python3 scripts/score_historical.py --parquet PATH   # Use alternate parquet path
+python3 scripts/score_historical.py --skip-regression  # Skip ml_pred_excess_3y scoring
 ```
 
 | Flag | Default | Description |
@@ -51,9 +54,11 @@ python3 scripts/score_historical.py --parquet PATH   # Use alternate parquet pat
 | `--parquet` | `data/historical_dataset_clean.parquet` | Dataset path |
 | `--models-dir` | `models/` | Directory with model_*.joblib + model_meta.json |
 | `--dry-run` | off | Print score distribution but do not write parquet |
+| `--skip-regression` | off | Skip loading `model_3y_regression.joblib` (faster if not needed) |
 
-**Outputs**: Updates `data/historical_dataset_clean.parquet` in-place (326 → 329 columns).
-After running, `ml_1y`, `ml_3y`, `ml_5y` are available for the backtester and alpha factor package.
+**Outputs**: Updates `data/historical_dataset_clean.parquet` in-place.
+After running, `ml_1y`, `ml_3y`, `ml_5y`, and `ml_pred_excess_3y` are available for the
+backtester and alpha factor package.
 
 ---
 
@@ -409,7 +414,38 @@ Uses same PIT-safe filed_date split as `train_models.py`.
 
 ---
 
-## Backtesting & Research
+### `train_regression_model.py` — Huber Regression for Excess Return Magnitude
+
+Trains a LightGBM Huber regressor to predict `excess_return_local_3y` (continuous % outperformance).
+Used as the Stage 3 magnitude ranker in `leverage_strategy.py` — two stocks with equal direction
+probability `ml_score_3y` are ranked by their predicted return magnitude.
+
+Reuses the frozen 45-feature ICIR-selected set from `models/feature_sets_3y.json` (no new
+feature selection performed on the regression target). Primary evaluation metric: Spearman IC
+(rank correlation of predicted vs actual excess return). IC > 0.05 is useful; IC > 0.10 is strong.
+
+```bash
+python3 scripts/train_regression_model.py                   # Train with defaults + walk-forward CV
+python3 scripts/train_regression_model.py --no-walk-forward # Skip WF CV (faster)
+python3 scripts/train_regression_model.py --train-cutoff 2020
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--train-cutoff` | `2022` | Last fiscal_year included in training set |
+| `--val-end` | `2023` | Last fiscal_year included in validation set |
+| `--walk-forward` | on | Run expanding-window walk-forward CV (Spearman IC per fold) |
+| `--no-walk-forward` | off | Skip walk-forward CV |
+
+**Outputs**:
+- `models/model_3y_regression.joblib` — trained Huber regressor
+- `models/model_3y_regression_meta.json` — feature list, IC stats, train medians, winsorization bounds
+- `reports/regression_ic_3y.csv` — walk-forward Spearman IC per fold
+
+**Run after**: `train_models.py` (needs `models/feature_sets_3y.json`).
+**Run before**: `score_historical.py` (to write `ml_pred_excess_3y` to parquet).
+
+---
 
 ### `backtester.py` — Walk-Forward Backtester
 
@@ -543,11 +579,20 @@ Output CSV columns: `ic` (mean IC, standard alias), `mean_ic` (same value, legac
 
 ---
 
-### `leverage_strategy.py` — Long/Short Kelly Portfolio
+### `leverage_strategy.py` — 3-Stage Long/Short Kelly Portfolio
+
+Implements a 3-stage screener on top of the composite score:
+- **Stage 1** — Hard fundamental gate: Piotroski ≥ 6, Beneish M < -1.78, Altman Z > 1.81, P/B < 5.0, market cap ≥ $50M
+- **Stage 2** — Direction gate: `ml_score_3y > 0.52` (binary classifier P(beat_market))
+- **Stage 3** — Magnitude ranker: sort survivors by `ml_pred_excess_3y` (Huber regression)
+- **Stage 4** — Kelly position sizing proportional to `ml_pred_excess_3y`
+
+Falls back to `composite_score` weighting when the regression model is unavailable.
 
 ```bash
 python3 scripts/leverage_strategy.py
-python3 scripts/leverage_strategy.py --top-long 15 --top-short 8
+python3 scripts/leverage_strategy.py --market US --top-long 20
+python3 scripts/leverage_strategy.py --market KR --top-long 15 --capital 10000
 python3 scripts/leverage_strategy.py --long-only
 python3 scripts/leverage_strategy.py --min-piotroski 7 --max-beneish -2.0
 python3 scripts/leverage_strategy.py --output reports/leverage_picks.csv
@@ -555,12 +600,16 @@ python3 scripts/leverage_strategy.py --output reports/leverage_picks.csv
 
 | Flag | Default | Description |
 |---|---|---|
-| `--top-long N` | `10` | Top N long candidates |
-| `--top-short N` | `5` | Top N short candidates |
+| `--market` | `US` | Market code (US, KR, CA, ...) |
+| `--top-long N` | `20` | Top N long candidates after 3-stage filter |
+| `--top-short N` | `10` | Top N short candidates (Beneish-ranked) |
+| `--capital FLOAT` | `10000` | Portfolio capital in EUR |
 | `--long-only` | False | Suppress all short positions |
-| `--min-piotroski N` | `6` | Piotroski F-Score threshold for longs |
-| `--max-beneish FLOAT` | `-1.78` | Beneish M-Score upper bound for longs |
-| `--output PATH` | `reports/leverage_picks.csv` | Output CSV path |
+| `--min-piotroski N` | `6` | Piotroski F-Score threshold (Stage 1) |
+| `--max-beneish FLOAT` | `-1.78` | Beneish M-Score upper bound (Stage 1) |
+| `--output PATH` | `data/leverage_positions_<market>.csv` | Output CSV path |
+
+**Outputs**: `data/leverage_positions_<market>.csv` (long book), `data/short_book_<market>.csv` (short book).
 
 ---
 
