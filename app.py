@@ -1,0 +1,2 @@
+from app_v2 import main
+main()

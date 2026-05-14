@@ -8,6 +8,10 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Streamlit Cloud deployment fix (2026-05-14)
+
+- **`app.py`** (new): two-line shim that imports and calls `main()` from `app_v2.py`. Fixes Streamlit Cloud deployment where the dashboard is configured to launch `app.py` but the actual entry point is `app_v2.py`.
+
 ### Phase D2 — Monthly NAV MaxDD and ADTV liquidity filter (2026-05-14)
 
 #### Fix MaxDD=0% bug and add ADTV filter (fix + feat)
