@@ -816,6 +816,7 @@ python3 scripts/bias_audit.py --fix        # also compute FX-adjusted return col
 
 Uploads `data/historical_dataset_clean.parquet` and model artifacts to a HuggingFace Hub dataset repository.
 Requires `HF_TOKEN` environment variable (or `~/.huggingface/token`).
+Uploads models for all 5 horizons: `6m`, `1y`, `2y`, `3y`, `5y`.
 
 ```bash
 # Upload both dataset and models

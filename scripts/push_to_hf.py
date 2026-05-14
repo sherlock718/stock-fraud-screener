@@ -4,7 +4,7 @@ Push dataset and models to HuggingFace Hub.
 Files uploaded:
   data/historical_dataset_clean.parquet  →  datasets/{HF_REPO}/historical_dataset_clean.parquet
   models/model_meta.json                 →  datasets/{HF_REPO}/models/model_meta.json
-  models/model_{h}.joblib                →  datasets/{HF_REPO}/models/model_{h}.joblib  (h in 1y/3y/5y)
+  models/model_{h}.joblib                →  datasets/{HF_REPO}/models/model_{h}.joblib  (h in 6m/1y/2y/3y/5y)
   models/baseline_lr_{h}.joblib          →  datasets/{HF_REPO}/models/baseline_lr_{h}.joblib
   models/model_3y_regression.joblib      →  datasets/{HF_REPO}/models/model_3y_regression.joblib
   models/model_3y_regression_meta.json   →  datasets/{HF_REPO}/models/model_3y_regression_meta.json
@@ -28,7 +28,7 @@ from pathlib import Path
 BASE       = Path(__file__).parent.parent
 DATA_PATH  = BASE / 'data' / 'historical_dataset_clean.parquet'
 MODELS_DIR = BASE / 'models'
-HORIZONS   = ['1y', '3y', '5y']
+HORIZONS   = ['6m', '1y', '2y', '3y', '5y']
 
 
 def _get_token() -> str | None:

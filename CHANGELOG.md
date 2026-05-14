@@ -16,6 +16,8 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 - **`models/model_meta.json`**: updated with `tuned_val_auc` and `tuned_test_auc` fields for 6m and 1y.
 - **`docs/methodology/models.md`**: AUC table updated with tuned columns.
 - **`docs/index.md`**: Performance at a Glance table updated.
+- **`scripts/push_to_hf.py`**: `HORIZONS` extended from `['1y','3y','5y']` to `['6m','1y','2y','3y','5y']` — all 5 horizons now pushed to HuggingFace Hub.
+
 
 ### Publish showcase notebook with full outputs (2026-05-14)
 
