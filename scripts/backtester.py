@@ -32,11 +32,12 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from pipeline.feature_library import add_normalised_ratios, add_piotroski_ext
 
-BASE       = Path(__file__).parent.parent
-FULL_DATA  = BASE / 'data' / 'historical_dataset_clean.parquet'
-MODELS_DIR = BASE / 'models'
-OUT_PATH   = BASE / 'data' / 'backtest_results.json'
-SPY_PATH   = BASE / 'data' / 'spy_returns.csv'
+BASE              = Path(__file__).parent.parent
+FULL_DATA         = BASE / 'data' / 'historical_dataset_clean.parquet'
+MODELS_DIR        = BASE / 'models'
+OUT_PATH          = BASE / 'data' / 'backtest_results.json'
+SPY_PATH          = BASE / 'data' / 'spy_returns.csv'
+MONTHLY_CACHE     = BASE / 'data' / 'monthly_prices.parquet'
 
 DEFAULT_COST_BPS  = 30    # 30 bps round-trip (commission 10bps + slippage 20bps)
 SMALLCAP_COST_BPS = 60    # Illiquidity premium for micro/small caps
@@ -60,6 +61,126 @@ def load_spy_returns() -> dict[int, float]:
         df = pd.read_csv(SPY_PATH)
         return dict(zip(df['year'].astype(int), df['spy_return'].astype(float)))
     return {}
+
+
+def load_monthly_prices() -> pd.DataFrame | None:
+    """Load monthly price cache built by build_monthly_price_cache.py."""
+    if not MONTHLY_CACHE.exists():
+        return None
+    df = pd.read_parquet(MONTHLY_CACHE)
+    df['date'] = pd.to_datetime(df['date'])
+    return df
+
+
+def compute_monthly_nav(annual_rows: list[dict], monthly_px: pd.DataFrame) -> tuple[float, int]:
+    """Build a monthly portfolio NAV and return (max_drawdown, max_dd_months).
+
+    For each backtest year, reconstruct the portfolio's monthly return path
+    by weighting each pick's monthly return by its allocation weight, then
+    chain these into a single continuous NAV series.
+
+    Falls back to annual-frequency drawdown if monthly data is missing.
+    """
+    nav_monthly: list[float] = [1.0]
+
+    for row in annual_rows:
+        yr   = int(row['year'])
+        # Portfolio holds stocks selected from fiscal_year=yr filings,
+        # held for calendar year yr+1 (Jan–Dec of the following year).
+        hold_start = pd.Timestamp(f'{yr+1}-01-01')
+        hold_end   = pd.Timestamp(f'{yr+1}-12-31')
+
+        picks     = row.get('_picks_valid')
+        weights   = row.get('_weights')
+        if picks is None or weights is None:
+            # Fallback: advance NAV by the known annual return
+            nav_monthly.append(nav_monthly[-1] * (1 + row['port_ret']))
+            continue
+
+        # Get monthly price data for each pick over the holding period
+        tickers = picks['ticker'].tolist()
+        mask = (
+            (monthly_px['ticker'].isin(tickers)) &
+            (monthly_px['date'] >= hold_start) &
+            (monthly_px['date'] <= hold_end)
+        )
+        sub = monthly_px[mask].copy()
+
+        if sub.empty:
+            nav_monthly.append(nav_monthly[-1] * (1 + row['port_ret']))
+            continue
+
+        # Compute monthly returns per ticker
+        sub = sub.sort_values(['ticker', 'date'])
+        sub['monthly_ret'] = sub.groupby('ticker')['adj_close'].pct_change()
+
+        # Pivot to (date × ticker) matrix, fill with 0 for missing months
+        ret_matrix = sub.pivot_table(
+            index='date', columns='ticker', values='monthly_ret'
+        ).reindex(columns=tickers).fillna(0.0)
+
+        if ret_matrix.empty:
+            nav_monthly.append(nav_monthly[-1] * (1 + row['port_ret']))
+            continue
+
+        # Weight vector aligned to tickers order
+        ticker_to_weight = dict(zip(tickers, weights))
+        w = np.array([ticker_to_weight.get(t, 0.0) for t in ret_matrix.columns])
+        w = w / w.sum() if w.sum() > 0 else np.ones(len(w)) / len(w)
+
+        # Monthly portfolio returns; accumulate into NAV
+        port_monthly_rets = ret_matrix.values @ w
+        nav_segment = nav_monthly[-1] * np.cumprod(1 + port_monthly_rets)
+        nav_monthly.extend(nav_segment.tolist())
+
+    nav = np.array(nav_monthly)
+    peak = np.maximum.accumulate(nav)
+    drawdowns = (nav - peak) / np.where(peak > 0, peak, 1)
+    max_dd = float(drawdowns.min())
+
+    # Drawdown duration in months
+    in_dd = drawdowns < 0
+    dd_months = 0
+    cur = 0
+    for d in in_dd:
+        cur = cur + 1 if d else 0
+        dd_months = max(dd_months, cur)
+
+    return max_dd, dd_months
+
+
+def adtv_filter(yr_df: pd.DataFrame, monthly_px: pd.DataFrame | None,
+                yr: int, max_pct_adtv: float = 0.05) -> pd.DataFrame:
+    """Remove picks whose intended position size exceeds max_pct_adtv of 30d ADTV.
+
+    Position size is estimated as equal-weight within the portfolio scaled by
+    a hypothetical $1M AUM. This is a conservative liquidity screen — the
+    actual constraint should be tightened at live trading time.
+
+    Args:
+        max_pct_adtv: Maximum fraction of ADTV a single position may represent.
+            Default 5% — standard institutional liquidity constraint.
+    """
+    if monthly_px is None or yr_df.empty:
+        return yr_df
+
+    # Use ADTV from last 3 months of the prior year (Dec of yr-1 through Feb of yr)
+    # so we don't peek into the holding period
+    obs_end   = pd.Timestamp(f'{yr}-12-31')
+    obs_start = pd.Timestamp(f'{yr}-09-30')
+    sub = monthly_px[
+        (monthly_px['date'] >= obs_start) &
+        (monthly_px['date'] <= obs_end)
+    ].groupby('ticker')['adtv_30d'].mean().reset_index()
+    sub.columns = ['ticker', 'adtv_est']
+
+    merged = yr_df.merge(sub, on='ticker', how='left')
+    # Drop tickers with known ADTV that is too low for a 5% position in $1M portfolio
+    # 5% of $1M = $50K; require adtv >= $50K / max_pct_adtv = $1M minimum ADTV
+    # If ADTV is unknown, keep the stock (conservative: don't exclude unknown)
+    min_adtv = 50_000 / max_pct_adtv  # = $1M ADTV for 5% constraint
+    keep = merged['adtv_est'].isna() | (merged['adtv_est'] >= min_adtv)
+    return yr_df[keep.values]
 
 
 # ── Data helpers ──────────────────────────────────────────────────────────────
@@ -422,7 +543,10 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
                  vol_weighted: bool = True,
                  fill_missing_return: float | None = None,
                  max_filing_lag_months: int = MAX_FILING_LAG_MONTHS,
-                 spy_returns: dict | None = None) -> dict:
+                 spy_returns: dict | None = None,
+                 monthly_px: pd.DataFrame | None = None,
+                 use_adtv_filter: bool = True,
+                 max_pct_adtv: float = 0.05) -> dict:
     """Walk-forward backtest engine.
 
     Args:
@@ -433,6 +557,12 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
             fiscal year-end (look-ahead protection). Default 18.
         spy_returns: Dict of {year: spy_annual_return} for SPY benchmark.
             If None, falls back to equal-weight universe mean as benchmark.
+        monthly_px: Monthly price cache from build_monthly_price_cache.py.
+            When provided, MaxDD is computed from a monthly NAV curve instead
+            of the annual wealth index (fixes the MaxDD=0% bug).
+        use_adtv_filter: When True and monthly_px is available, remove picks
+            that would require trading > max_pct_adtv of 30d ADTV.
+        max_pct_adtv: Liquidity threshold (default 5% of ADTV).
     """
     years = sorted(y for y in df['fiscal_year'].unique() if y <= 2023)
     annual_rows = []
@@ -448,6 +578,11 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
         # Liquidity pre-filter: remove stocks below market cap threshold
         if min_market_cap > 0 and 'market_cap_at_filing' in yr_df.columns:
             yr_df = yr_df[yr_df['market_cap_at_filing'].fillna(0) >= min_market_cap]
+
+        # ADTV liquidity filter: remove tickers too illiquid for a 5%-ADTV position
+        if use_adtv_filter and monthly_px is not None:
+            yr_df = adtv_filter(yr_df, monthly_px, yr, max_pct_adtv)
+
         idx = filter_fn(yr_df, top_n, market)
         picks = yr_df.loc[idx]
 
@@ -537,6 +672,9 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
             'hit_rate':        (rets.values > 0).mean(),
             'n_missing_ret':   n_missing,
             'bench_coverage':  round(bench_coverage, 3),
+            # Stored for monthly NAV reconstruction; not serialised to JSON
+            '_picks_valid':    picks_valid if monthly_px is not None else None,
+            '_weights':        weights.tolist() if monthly_px is not None else None,
         })
 
     if not annual_rows:
@@ -551,18 +689,20 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
     spy_vec      = res['spy_ret'].fillna(res['universe_ret'].fillna(0)).values
     spy_wealth   = np.cumprod(1 + spy_vec)
 
-    # Max drawdown
-    peak      = np.maximum.accumulate(wealth)
-    drawdowns = (wealth - peak) / peak
-    max_dd    = float(drawdowns.min())
-
-    # Drawdown duration
-    in_dd = drawdowns < 0
-    dd_dur_months = 0
-    cur_dur = 0
-    for in_d in in_dd:
-        cur_dur = cur_dur + 12 if in_d else 0
-        dd_dur_months = max(dd_dur_months, cur_dur)
+    # Max drawdown — use monthly NAV curve when price cache is available
+    if monthly_px is not None:
+        max_dd, dd_dur_months = compute_monthly_nav(annual_rows, monthly_px)
+    else:
+        # Fallback: annual-frequency drawdown (understates true intra-year drawdowns)
+        peak      = np.maximum.accumulate(wealth)
+        drawdowns = (wealth - peak) / peak
+        max_dd    = float(drawdowns.min())
+        in_dd = drawdowns < 0
+        dd_dur_months = 0
+        cur_dur = 0
+        for in_d in in_dd:
+            cur_dur = cur_dur + 12 if in_d else 0
+            dd_dur_months = max(dd_dur_months, cur_dur)
 
     cagr       = float(wealth[-1] ** (1 / n) - 1)
     bench_cagr = float(bench_wealth[-1] ** (1 / n) - 1)
@@ -799,6 +939,8 @@ def main():
                              f'(look-ahead filter, default {MAX_FILING_LAG_MONTHS})')
     parser.add_argument('--tearsheet', action='store_true',
                         help='Print detailed tearsheet for each strategy')
+    parser.add_argument('--no-adtv', action='store_true',
+                        help='Disable ADTV liquidity filter (use if monthly_prices.parquet not built)')
     args = parser.parse_args()
 
     print('Loading + scoring full historical data...')
@@ -815,6 +957,17 @@ def main():
         print('  SPY data not found (data/spy_returns.csv) — using equal-weight universe mean. '
               'Run scripts/fetch_spy_returns.py to get SPY data.')
 
+    # Load monthly price cache for true MaxDD and ADTV filter
+    monthly_px = load_monthly_prices()
+    if monthly_px is not None:
+        print(f'  Monthly price cache loaded: {len(monthly_px):,} rows '
+              f'({monthly_px["ticker"].nunique()} tickers, '
+              f'{monthly_px["date"].min().date()} – {monthly_px["date"].max().date()})')
+    else:
+        print('  Monthly price cache not found (data/monthly_prices.parquet) — '
+              'MaxDD will use annual approximation, ADTV filter disabled. '
+              'Run scripts/build_monthly_price_cache.py to build it.')
+
     to_run = list(STRATEGIES.keys()) if args.strategy == 'all' else [args.strategy]
     results = {}
 
@@ -829,7 +982,9 @@ def main():
                               vol_weighted=not args.equal_weight,
                               fill_missing_return=args.fill_missing,
                               max_filing_lag_months=args.max_filing_lag,
-                              spy_returns=spy_returns)
+                              spy_returns=spy_returns,
+                              monthly_px=monthly_px,
+                              use_adtv_filter=not args.no_adtv)
         results[key] = result
 
         if result.get('n_years', 0) > 0:
@@ -854,6 +1009,8 @@ def main():
         'vol_weighted':      not args.equal_weight,
         'fill_missing':      args.fill_missing,
         'max_filing_lag':    args.max_filing_lag,
+        'adtv_filter':       not args.no_adtv and monthly_px is not None,
+        'monthly_nav_maxdd': monthly_px is not None,
         'strategies':        results,
     }
     OUT_PATH.write_text(json.dumps(out, indent=2, default=str))

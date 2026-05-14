@@ -6,6 +6,8 @@ Files uploaded:
   models/model_meta.json                 →  datasets/{HF_REPO}/models/model_meta.json
   models/model_{h}.joblib                →  datasets/{HF_REPO}/models/model_{h}.joblib  (h in 1y/3y/5y)
   models/baseline_lr_{h}.joblib          →  datasets/{HF_REPO}/models/baseline_lr_{h}.joblib
+  models/model_3y_regression.joblib      →  datasets/{HF_REPO}/models/model_3y_regression.joblib
+  models/model_3y_regression_meta.json   →  datasets/{HF_REPO}/models/model_3y_regression_meta.json
 
 Requirements:
   - HF_TOKEN env var (or ~/.huggingface/token)
@@ -86,6 +88,14 @@ def push(repo_id: str, push_data: bool, push_models: bool,
                     print(f'  + {p.name} ({size_mb:.1f} MB)')
                 else:
                     print(f'  WARNING: {p} not found — skipping')
+        for name in ('model_3y_regression.joblib', 'model_3y_regression_meta.json'):
+            p = MODELS_DIR / name
+            if p.exists():
+                files_to_upload.append((p, f'models/{name}'))
+                size_mb = p.stat().st_size / 1_048_576
+                print(f'  + {name} ({size_mb:.1f} MB)')
+            else:
+                print(f'  WARNING: {p} not found — skipping')
 
     if not files_to_upload:
         print('Nothing to upload.')

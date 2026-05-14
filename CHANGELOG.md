@@ -8,6 +8,14 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Phase D2 — Monthly NAV MaxDD and ADTV liquidity filter (2026-05-14)
+
+#### Fix MaxDD=0% bug and add ADTV filter (fix + feat)
+- **`scripts/build_monthly_price_cache.py`** (new): dry-runs composite/qem/scdv strategy filters for backtest years 2008–2023 to collect ~200–300 unique tickers, then downloads monthly OHLCV from yfinance in batches of 50. Computes `adtv_30d` (rolling 3-month average of daily dollar volume) and writes `data/monthly_prices.parquet`. Supports `--update` (extend cache) and `--tickers-only` flags.
+- **`scripts/backtester.py`**: added `load_monthly_prices()`, `compute_monthly_nav()`, and `adtv_filter()`. When `data/monthly_prices.parquet` is present, MaxDD is computed from a true monthly NAV curve (reveals intra-year drawdowns invisible at annual granularity). ADTV filter removes picks whose $50K position would exceed 5% of 30d ADTV (PIT-safe: uses Sep–Dec of observation year). New `run_backtest()` params: `monthly_px`, `use_adtv_filter`, `max_pct_adtv`. New `main()` flag: `--no-adtv`. Both features degrade gracefully when the cache is missing.
+- **`docs/developer/scripts.md`**: added `build_monthly_price_cache.py` section; updated `backtester.py` entry with `--no-adtv` flag and monthly-NAV/ADTV description.
+- **`scripts/push_to_hf.py`**: added `model_3y_regression.joblib` and `model_3y_regression_meta.json` to the model upload list.
+
 ### 3-stage screener with regression magnitude ranker (2026-05-14)
 
 #### Add LightGBM Huber regression model for excess return magnitude (feat)
