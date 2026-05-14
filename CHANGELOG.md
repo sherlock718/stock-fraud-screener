@@ -8,6 +8,13 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Add live screener notebook (2026-05-14)
+
+#### Decision-support notebook for investment picks (feat/notebooks)
+- **`notebooks/07_live_screener.ipynb`**: 7-section notebook — loads latest parquet (local or HuggingFace), applies quality gates (Piotroski≥5, Beneish<-1.78, Altman>1.81), margin-of-safety filters (P/B≤3, FCF yield≥3%), micro-cap institution-avoidance filter ($10M–$300M), IC-weighted composite scoring, Kelly-sized long/short recommendations, leverage candidate flag (β<0.80 proxy), and CSV export to `reports/`.
+
+---
+
 ### Fix doc accuracy — data source descriptions and architecture diagrams (2026-05-14)
 
 #### Correct pipeline step1/step2 data source entries (docs)
