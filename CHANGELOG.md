@@ -8,6 +8,17 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Master experiment notebook completed: composite registry + individual signal deep dives (2026-05-14)
+
+#### `notebooks/08_experiment_hub.ipynb` — Task 6 complete (feat/notebook)
+- **Section 3a** (new): Composite Screener Registry leaderboard — loads `data/screener_registry.json`, displays ranked table (CAGR, Sharpe, Sortino, Calmar, MaxDD, Excess vs SPY) and 3-panel chart (CAGR barh, Sharpe barh, Sharpe vs MaxDD scatter) for all 7 named strategies
+- **Section 3b** (updated): Added `### 3b. Individual Alpha Signal Rankings` markdown header above existing alpha registry cells
+- **Section 4** (new): "Screener Deep Dive" split into 4a (composite) and 4b (individual signal)
+  - **4a-load** (`64a2f6bf`): loads selected `SCREENER_REGISTRY_ID` from registry, prints full stats profile (20 metrics)
+  - **4a-annual** (`7b289baf`): dual-panel annual returns chart — grouped bar (strategy vs SPY) + excess return bars with rolling Sharpe twin axis
+  - **4a-peers** (`34f0a302`): 7-metric bar chart comparing selected screener vs all composite peers (selected highlighted red)
+- **Config cell** (updated): Added `SCREENER_REGISTRY_ID = 'COMPOSITE_US'` with inline comments listing all 7 valid options
+
 ### Screener registry: 7 named screener configs with walk-forward backtests (2026-05-14)
 
 #### `build_screener_registry.py` — single-command registry builder (feat/alpha)
