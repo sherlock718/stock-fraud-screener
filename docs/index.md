@@ -8,14 +8,13 @@ The platform scores companies across five orthogonal factor groups — **Value, 
 
 ## Performance at a Glance
 
-| Model Horizon | Validation AUC | WF Mean AUC | Target |
-|---|---|---|---|
-| 6-month | 0.607 | 0.563 | ≥ 0.58 ❌ |
-| 1-year | 0.599 | 0.563 | ≥ 0.62 ❌ |
-| 2-year | 0.585 | 0.589 | ≥ 0.60 ❌ |
-| 3-year | 0.635 | 0.625 | ≥ 0.62 ✅ |
-| 3-year (Optuna-tuned) | **0.664** | — | calibrated 0.677 |
-| 5-year | — | 0.620 | ≥ 0.62 ✅ |
+| Model Horizon | Validation AUC | Tuned Val AUC | WF Mean AUC | Target |
+|---|---|---|---|---|
+| 6-month | 0.607 | **0.617** | 0.5626 | ≥ 0.58 ❌ |
+| 1-year | 0.599 | **0.603** | 0.5634 | ≥ 0.62 ❌ |
+| 2-year | 0.585 | — | 0.589 | ≥ 0.60 ❌ |
+| 3-year | 0.635 | **0.664** | 0.625 | ≥ 0.62 ✅ |
+| 5-year | — | — | 0.620 | ≥ 0.62 ✅ |
 
 | Strategy | CAGR (net) | Excess vs SPY | Sharpe |
 |---|---|---|---|

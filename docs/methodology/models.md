@@ -18,14 +18,15 @@ flowchart TD
 
 ## Model Performance
 
-| Horizon | Train Cutoff | Val AUC | Test AUC | WF Mean AUC | Target |
-|---|---|---|---|---|---|
-| 6-month | 2022 | 0.607 | 0.506 | 0.563 | ≥ 0.58 ❌ |
-| 1-year | 2022 | 0.599 | 0.484 | 0.563 | ≥ 0.62 ❌ |
-| 2-year | 2022 | 0.585 | 0.585 | 0.589 | ≥ 0.60 ❌ |
-| 3-year | 2022 | 0.635 | — | 0.625 | ≥ 0.62 ✅ |
-| 3-year (Optuna-tuned) | 2022 | **0.6644** | — | — | calibrated ensemble 0.6773 |
-| 5-year | 2022 | — | — | 0.620 | ≥ 0.62 ✅ |
+| Horizon | Train Cutoff | Val AUC | Tuned Val AUC | Test AUC | Tuned Test AUC | WF Mean AUC | Target |
+|---|---|---|---|---|---|---|---|
+| 6-month | 2022 | 0.607 | **0.617** | 0.506 | **0.517** | 0.5626 | ≥ 0.58 ❌ |
+| 1-year | 2022 | 0.599 | **0.603** | 0.484 | **0.496** | 0.5634 | ≥ 0.62 ❌ |
+| 2-year | 2022 | 0.585 | — | 0.585 | — | 0.589 | ≥ 0.60 ❌ |
+| 3-year | 2022 | 0.635 | **0.6644** | — | — | 0.625 | ≥ 0.62 ✅ |
+| 5-year | 2022 | — | — | — | — | 0.620 | ≥ 0.62 ✅ |
+
+Optuna-tuned val AUC for 6m (+1.0pp) and 1y (+0.37pp) — Optuna run with 60 trials, TPE sampler. WF Mean AUC not re-computed post-tuning; would require re-running `train_models.py` with tuned hyperparameters.
 
 WF Mean AUC = expanding-window walk-forward CV mean (train on data filed before year t, evaluate year t).
 Walk-forward CV uses PIT-safe filed_date cutoff to prevent look-ahead from late SEC filings.

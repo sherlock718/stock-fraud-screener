@@ -8,6 +8,15 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Optuna tuning for 6m and 1y horizon models (2026-05-14)
+
+#### Tune 6m and 1y LightGBM models with Optuna (perf)
+- **`models/model_6m.joblib`**: Optuna 60-trial TPE tuning — tuned val AUC 0.617 (+1.0pp vs 0.607 baseline), tuned test AUC 0.517 (+1.2pp). WF Mean AUC 0.5626 (target ≥ 0.58 — not yet met; WF re-run with tuned params required for formal measurement).
+- **`models/model_1y.joblib`**: Optuna 60-trial TPE tuning — tuned val AUC 0.603 (+0.37pp), tuned test AUC 0.496 (+1.2pp). WF Mean AUC 0.5634 (target ≥ 0.62 — not met; short-horizon fundamentals-only models are inherently noisy).
+- **`models/model_meta.json`**: updated with `tuned_val_auc` and `tuned_test_auc` fields for 6m and 1y.
+- **`docs/methodology/models.md`**: AUC table updated with tuned columns.
+- **`docs/index.md`**: Performance at a Glance table updated.
+
 ### Publish showcase notebook with full outputs (2026-05-14)
 
 #### Execute and publish research showcase notebook (feat)
