@@ -33,7 +33,7 @@ def fetch_spy(start_year: int, end_year: int) -> pd.DataFrame:
     print(f'Downloading SPY adjusted close {start_year}–{end_year}...')
     raw = yf.download('SPY', start=f'{start_year - 1}-12-01',
                       end=f'{end_year + 1}-01-31',
-                      auto_adjust=True, progress=False)
+                      auto_adjust=False, progress=False)
     if raw is None or raw.empty:
         sys.exit('ERROR: yfinance returned no data for SPY.')
 

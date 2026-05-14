@@ -18,7 +18,7 @@ graph TB
     subgraph Pipeline["Data Pipeline — pipeline/ + scripts/"]
         B1[Step 1<br/>Fetch Tickers]
         B2[Step 2<br/>Build Snapshots]
-        B3[Step 3<br/>Enrich Prices<br/>vol_prior 6m/12m/36m/60m]
+        B3[Step 3<br/>Enrich Prices<br/>vol_prior 6m/12m/36m/60m<br/>auto_adjust=False]
         B4[Step 4<br/>Enrich Macro]
         B5[Step 5<br/>Compute Features<br/>sector_pct ranked within fiscal_year]
         B6[Step 6<br/>Clean Dataset]

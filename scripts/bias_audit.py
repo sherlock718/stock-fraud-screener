@@ -106,7 +106,7 @@ def _period_end_date(row: pd.Series) -> pd.Timestamp | None:
 def _fetch_fx_series(ticker: str) -> pd.Series | None:
     """Return daily Close price series for a yfinance FX ticker, or None."""
     try:
-        raw = yf.download(ticker, start='2005-01-01', auto_adjust=True, progress=False)
+        raw = yf.download(ticker, start='2005-01-01', auto_adjust=False, progress=False)
         if raw is None or raw.empty:
             return None
         close = raw['Close']

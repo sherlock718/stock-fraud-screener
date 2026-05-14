@@ -768,3 +768,13 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 - **`docs/developer/scripts.md`** — added Process Automation section with `check_sync.py`
   flags table and pre-commit hook documentation
 
+
+
+### Bug fixes: auto_adjust=False, OOF contamination fix (2026-05-14)
+
+#### Critical correctness fixes across yfinance callers and fraud risk factor (fix/pipeline,alpha)
+- **`pipeline/step3_enrich_prices.py`**: Changed `auto_adjust=True` → `auto_adjust=False` in `tk.history()` to prevent retroactive price adjustments from corrupting momentum features and return labels
+- **`scripts/bias_audit.py`**: Changed `auto_adjust=True` → `auto_adjust=False` in `yf.download()` call
+- **`scripts/build_monthly_price_cache.py`**: Changed `auto_adjust=True` → `auto_adjust=False`
+- **`scripts/fetch_spy_returns.py`**: Changed `auto_adjust=True` → `auto_adjust=False`
+- **`alpha/factors/fraud_risk.py`**: Replaced contaminated `ml_1y/ml_3y/ml_5y` signals with `ml_1y_oof/ml_3y_oof/ml_5y_oof` (walk-forward unbiased OOF scores) in `_ML_SIGNALS`; contaminated signals include training rows and inflate in-sample alpha

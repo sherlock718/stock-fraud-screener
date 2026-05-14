@@ -16,7 +16,7 @@ flowchart TD
     B -->|New ticker| D[Add to tickers_{mkt}.parquet\nrun from step 2]
     B -->|New feature column| E[Add formula to\nfeature_library.py\nAND step3 or step5]
 
-    C --> F[phase_a_integrate_{mkt}.py\nor merge_snapshots.py]
+    C --> F[merge_snapshots.py]
     D --> F
     E --> G[step5_compute_features.py]
     G --> F

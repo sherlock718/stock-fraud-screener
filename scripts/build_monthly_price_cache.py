@@ -138,7 +138,7 @@ def _download_batch(tickers: list[str], start: str, end: str) -> pd.DataFrame:
         start=start,
         end=end,
         interval='1mo',
-        auto_adjust=True,
+        auto_adjust=False,
         progress=False,
         threads=True,
     )

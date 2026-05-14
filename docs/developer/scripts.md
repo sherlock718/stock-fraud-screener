@@ -532,6 +532,8 @@ python3 scripts/build_monthly_price_cache.py --extra-tickers AAPL MSFT  # Add ex
 **Output**: `data/monthly_prices.parquet` — columns: `ticker | date | adj_close | volume | adtv_30d`.
 Covers 2007-01-01 through today (one extra year before backtest start for ADTV warm-up).
 
+> **Note**: yfinance is called with `auto_adjust=False` to prevent retroactive price adjustments from corrupting momentum features and return labels.
+
 ---
 
 ### `build_alpha_registry.py` — Alpha Registry Builder
@@ -821,9 +823,26 @@ python3 scripts/bias_audit.py --fix        # also compute FX-adjusted return col
 | `--fix` | off | Compute and write `forward_return_{h}_usd` FX-adjusted columns to parquet |
 | `--out PATH` | in-place | Output parquet path when `--fix` is set |
 
+> **Note**: Benchmark download uses `auto_adjust=False` to ensure price series are not retroactively adjusted.
+
 ---
 
 ## Data Utilities
+
+### `fetch_spy_returns.py` — SPY Benchmark Returns Downloader
+
+Downloads annual total-return data for SPY from yfinance and writes `data/spy_returns.csv`.
+Used by `backtester.py` for benchmark comparison and alpha-over-market calculations.
+
+```bash
+python3 scripts/fetch_spy_returns.py
+```
+
+**Output**: `data/spy_returns.csv` — columns: `year | spy_return`.
+
+> **Note**: Uses `auto_adjust=False` to avoid retroactive adjustments to historical prices.
+
+---
 
 ### `push_to_hf.py` — Upload to HuggingFace Hub
 

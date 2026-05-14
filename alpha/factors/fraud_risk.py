@@ -9,7 +9,7 @@ Signals used:
   - ohlson_prob_bankruptcy  (high = distress → invert)
   - altman_z_score      (high = healthy → no invert)
   - fraud_score_composite   (high = risky → invert)
-  - ml_1y, ml_3y, ml_5y    (high = likely to beat market → no invert)
+  - ml_1y_oof, ml_3y_oof, ml_5y_oof (unbiased OOF; high = likely to beat market → no invert)
                              Note: ML scores proxy fundamental quality, not fraud
 """
 
@@ -25,7 +25,7 @@ _SIGNALS = [
     ("fraud_score_distress",    True),
 ]
 
-_ML_SIGNALS = ["ml_1y", "ml_3y", "ml_5y"]
+_ML_SIGNALS = ["ml_1y_oof", "ml_3y_oof", "ml_5y_oof"]
 
 
 def _winsorize(s: pd.Series, q: float = 0.01) -> pd.Series:

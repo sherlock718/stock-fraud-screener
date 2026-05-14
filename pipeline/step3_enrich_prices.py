@@ -209,7 +209,7 @@ def fetch_price_series(ticker: str) -> pd.Series | None:
 
     def _fetch():
         tk = yf.Ticker(ticker)
-        hist = tk.history(period='max', auto_adjust=True, actions=False)
+        hist = tk.history(period='max', auto_adjust=False, actions=False)
         if hist.empty:
             return None
         close = hist['Close'].copy()
