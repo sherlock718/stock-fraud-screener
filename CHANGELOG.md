@@ -889,3 +889,19 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 - **`scripts/build_monthly_price_cache.py`**: Changed `auto_adjust=True` → `auto_adjust=False`
 - **`scripts/fetch_spy_returns.py`**: Changed `auto_adjust=True` → `auto_adjust=False`
 - **`alpha/factors/fraud_risk.py`**: Replaced contaminated `ml_1y/ml_3y/ml_5y` signals with `ml_1y_oof/ml_3y_oof/ml_5y_oof` (walk-forward unbiased OOF scores) in `_ML_SIGNALS`; contaminated signals include training rows and inflate in-sample alpha
+
+---
+
+### Section 9 — High-Conviction Leveraged Portfolio (2026-05-15)
+
+#### notebooks/08_experiment_hub.ipynb — 3 new cells (sec9md000, sec9cfg01, sec9main2)
+
+- **Safety gate scoring**: 4 hard gates — Piotroski F ≥ 7, Altman Z > 1.81, FCF yield > 0, Beneish M < −1.78
+- **Tier classification**: Tier 1 = all 4 gates, Tier 2 = 3/4, Tier 3 = 2/4
+- **Leverage multiplier**: Tier-1 × β<0.5 → 2.0×; β<0.8 → 1.5×; β<1.0 → 1.25×; Tier-2 × β<1.0 → 1.1×; hard cap 2.0×
+- **Conviction rank**: composite_score × gates_passed / 4 (penalizes high-composite stocks failing gates)
+- **Implied CAGR**: linear fit 8 + composite_score × 27 (8% at 0 → 35% at 1.0)
+- **Levered CAGR**: implied_cagr × leverage_x
+- **Net Kelly**: kelly_pct × leverage_x
+- **Output**: styled table (RdYlGn gradient on composite + levered CAGR, bar on leverage_x), 2-panel chart, CSV export
+- **Results**: 25 candidates (top 30%), 6 Tier-1, 19 Tier-2, 20 picks → `data/leveraged_picks_2026-05-15.csv`
