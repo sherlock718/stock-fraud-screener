@@ -26,8 +26,11 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 #### Add plain-English investment thesis generator (feat)
 - **`alpha/explain.py`** (new): generates per-ticker buy rationale in plain English. Covers predicted 3-year excess return, Piotroski quality verdict, Beneish fraud risk, Altman distress risk, valuation snapshot (P/B, FCF yield, market cap), ML conviction level, recommended strategy (LEAPS/margin/equity-only), risk flag detection, and a 4-point margin of safety checklist. CLI: `python3 alpha/explain.py --market US --top 15`. API: `from alpha.explain import explain_pick, explain_many`.
 
+#### Fix missing return statement in `_apply_three_stage_filter` (fix)
+- **`scripts/leverage_strategy.py`**: fixed missing `return df` at end of `_apply_three_stage_filter()`. Without it the function returned `None`, causing a `TypeError` when the caller tried to call `.head()` on the result.
+
 #### Docs update
-- **`docs/developer/scripts.md`**: updated `factor_research.py` section with `--ic-decay`/`--decay-top` flags and ML exclusion note; updated `bias_audit.py` section to describe Audit 5 (regression model checks).
+- **`docs/developer/scripts.md`**: added `alpha/explain.py` section (usage, flags table, API examples, outputs); updated `factor_research.py` section with `--ic-decay`/`--decay-top` flags and ML exclusion note; updated `bias_audit.py` section to describe Audit 5 (regression model checks).
 
 ### Streamlit Cloud deployment fix (2026-05-14)
 

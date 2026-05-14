@@ -669,6 +669,40 @@ python3 scripts/leverage_strategy.py --output reports/leverage_picks.csv
 
 ---
 
+### `alpha/explain.py` — Plain-English Investment Thesis Generator
+
+Converts quantitative screener output into a human-readable buy/sell rationale for each
+stock. Reads the same parquet + models used by `leverage_strategy.py` and produces
+structured plain-English sections: WHY BUY, Financial Quality (Piotroski), Fraud Risk
+(Beneish), Distress Risk (Altman Z), Valuation, ML Signal, Recommended Trade, Risk Flags,
+and a 4-point Margin of Safety checklist.
+
+```bash
+python3 alpha/explain.py --market US --top 15
+python3 alpha/explain.py --market KR --top 10 --capital 20000
+python3 alpha/explain.py --market US --output reports/thesis_us.txt
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--market` | `US` | Market code (US, KR, CA, ...) |
+| `--top N` | `15` | Top N long picks to explain |
+| `--capital FLOAT` | `50000` | Portfolio capital used for position sizing context |
+| `--output PATH` | None | Write text report to this file (stdout if omitted) |
+
+**API usage**:
+```python
+from alpha.explain import explain_pick, explain_many
+text   = explain_pick('APOG', df_row)      # single-ticker thesis
+report = explain_many(positions_df, raw_df) # batch report
+```
+
+**Outputs**: Plain text to stdout (and optionally a `.txt` file). No parquet writes.
+
+**Re-run when**: leverage picks change, models are retrained, or a new market is added.
+
+---
+
 ## Reporting & Monitoring
 
 ### `generate_reports.py` — PDF Tearsheet + CSV Picks + Kelly Portfolio Page

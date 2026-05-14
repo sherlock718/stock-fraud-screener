@@ -178,6 +178,9 @@ def _apply_three_stage_filter(df: pd.DataFrame) -> pd.DataFrame:
     elif 'composite_score' in df.columns:
         df = df.sort_values('composite_score', ascending=False)
 
+    return df
+
+
 def kelly_position(win_rate: float, avg_win: float, avg_loss: float) -> float:
     """Kelly fraction = win_rate/avg_loss - loss_rate/avg_win, capped at MAX_LEVERAGE."""
     if avg_loss <= 0 or avg_win <= 0:
