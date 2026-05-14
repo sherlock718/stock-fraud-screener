@@ -79,11 +79,11 @@ def score_tickers(df: pd.DataFrame, models: dict) -> pd.DataFrame:
 
 
 def composite_score(df: pd.DataFrame) -> pd.DataFrame:
+    # ml_score_1y removed: test AUC 0.484 (sub-random). 3y is the only validated signal.
     cols = {
         'value_composite':   0.25,
         'quality_composite': 0.20,
-        'ml_score_1y':       0.30,
-        'ml_score_3y':       0.15,
+        'ml_score_3y':       0.45,
         'piotroski_f_score': 0.10,
     }
     score = pd.Series(0.0, index=df.index)

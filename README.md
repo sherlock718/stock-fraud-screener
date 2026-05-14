@@ -61,13 +61,14 @@ tests/
 
 5 discrete horizon models (6m/1y/2y/3y/5y) — user selects investment horizon → HorizonRouter maps to nearest trained model.
 
-| Horizon | Features | WF Mean AUC | Target |
-|---------|----------|-------------|--------|
-| 6m      | 42       | 0.549       | ≥ 0.58 ❌ |
-| 1y      | 45       | 0.549       | ≥ 0.62 ❌ |
-| 2y      | 43       | 0.578       | ≥ 0.60 ❌ |
-| 3y      | 45       | 0.626       | ≥ 0.62 ✅ |
-| 5y      | 41       | 0.657       | ≥ 0.62 ✅ |
+| Horizon | Features | Val AUC | WF Mean AUC | Target |
+|---------|----------|---------|-------------|--------|
+| 6m      | 42       | 0.607   | 0.563       | ≥ 0.58 ❌ |
+| 1y      | 45       | 0.599   | 0.563       | ≥ 0.62 ❌ |
+| 2y      | 43       | 0.585   | 0.589       | ≥ 0.60 ❌ |
+| 3y      | 45       | 0.635   | 0.625       | ≥ 0.62 ✅ |
+| 3y (Optuna-tuned) | 45 | **0.6644** | — | calibrated ensemble 0.6773 |
+| 5y      | 41       | —       | 0.620       | ≥ 0.62 ✅ |
 
 - Target: beat local market index over horizon
 - Feature selection: BH FDR gate + top features by |ICIR|, deduplicated at |Spearman| > 0.90

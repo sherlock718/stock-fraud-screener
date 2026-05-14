@@ -8,6 +8,20 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Signal integrity fixes (2026-05-14)
+
+#### Remove sub-random ml_score_1y from leverage composite (fix)
+- **`scripts/leverage_strategy.py`** `composite_score()`: removed `ml_score_1y` (test AUC 0.484, sub-random — was incorrectly weighted at 30%). Redistributed weight to `ml_score_3y` (now 0.45, the only validated signal at WF AUC 0.625). `value_composite` 0.25, `quality_composite` 0.20, `piotroski_f_score` 0.10 unchanged.
+
+#### Add --oot-eval OOT diagnostic to train_models.py (feat)
+- **`scripts/train_models.py`**: added `--oot-eval` flag and `run_oot_diagnostic()` function. Retrains 3y model with `TRAIN_CUTOFF=2019`, tests on `FY2022` (where `beat_local_market_3y` is fully known since 2022+3=2025). Production models are never overwritten. Saves `reports/oot_auc_diagnostic.json` with OOT AUC, sample sizes, and horizon metadata.
+- **`docs/developer/scripts.md`**: added `--oot-eval` row to `train_models.py` flags table.
+
+#### Optuna tuning for 3y horizon (perf)
+- **`scripts/tune_models.py`**: fixed `sys.path` so `scripts.train_models` import resolves correctly; promoted `_CalModel` from local class to module-level to fix pickling. Ran `--no-catboost --horizon 3y --trials 50`; tuned val AUC 0.6644 → calibrated ensemble val AUC 0.6773. Outputs: `models/model_3y_tuned.joblib`, `models/model_3y_calibrated.joblib`, `reports/optuna_study_3y.csv`.
+
+---
+
 ### Phase D6 — Reports & Plots (2026-05-14)
 
 #### D6.1 — Kelly portfolio tearsheet page in generate_reports.py (feat)

@@ -14,6 +14,7 @@ The platform scores companies across five orthogonal factor groups — **Value, 
 | 1-year | 0.599 | 0.563 | ≥ 0.62 ❌ |
 | 2-year | 0.585 | 0.589 | ≥ 0.60 ❌ |
 | 3-year | 0.635 | 0.625 | ≥ 0.62 ✅ |
+| 3-year (Optuna-tuned) | **0.664** | — | calibrated 0.677 |
 | 5-year | — | 0.620 | ≥ 0.62 ✅ |
 
 | Strategy | CAGR (net) | Excess vs SPY | Sharpe |

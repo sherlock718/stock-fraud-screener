@@ -26,6 +26,7 @@ Usage:
     python3 scripts/train_models.py --train-cutoff 2020  # earlier cutoff
     python3 scripts/train_models.py --no-shap     # skip SHAP computation
     python3 scripts/train_models.py --walk-forward  # run WF CV after training
+    python3 scripts/train_models.py --oot-eval      # OOT diagnostic: retrain 3y with cutoff=2019, test on FY2022
 """
 from __future__ import annotations
 
@@ -414,6 +415,75 @@ def walk_forward_cv(df: pd.DataFrame, features_per_horizon: dict[str, list[str]]
     return wf_aucs
 
 
+def run_oot_diagnostic(df: pd.DataFrame) -> None:
+    """OOT diagnostic for the 3y model only.
+
+    Retrains a fresh 3y model with TRAIN_CUTOFF=2019 (diagnostic only —
+    production model is NOT overwritten). Tests on FY2022, where
+    beat_local_market_3y is fully known (2022+3=2025 prices exist).
+    Saves AUC + sample sizes to reports/oot_auc_diagnostic.json.
+    """
+    OOT_CUTOFF  = 2019   # diagnostic train cutoff
+    OOT_TEST_YR = 2022   # test year: 3y returns fully elapsed by 2025
+    HORIZON     = '3y'
+    ret_col, beat_col = HORIZONS[HORIZON]
+
+    print(f'\n── OOT Diagnostic (3y) ──────────────────────────────')
+    print(f'  Train: fiscal_year <= {OOT_CUTOFF}  |  Test: fiscal_year == {OOT_TEST_YR}')
+
+    filed = pd.to_datetime(df.get('filed_date', pd.NaT), errors='coerce')
+    cutoff_date = pd.Timestamp(f'{OOT_CUTOFF + 1}-01-01')
+
+    df_tr = df[
+        (df['fiscal_year'] <= OOT_CUTOFF) &
+        (filed.isna() | (filed < cutoff_date))
+    ].copy()
+    df_oot = df[df['fiscal_year'] == OOT_TEST_YR].copy()
+    df_oot = df_oot[df_oot[beat_col].notna()]
+
+    n_train_labeled = int(df_tr[beat_col].notna().sum())
+    n_test          = len(df_oot)
+    n_classes       = int(df_oot[beat_col].nunique()) if n_test > 0 else 0
+
+    print(f'  Train labeled: {n_train_labeled:,}  |  Test: {n_test:,}  |  Classes: {n_classes}')
+
+    if n_train_labeled < 100 or n_test < 30 or n_classes < 2:
+        msg = (f'Insufficient data for OOT diagnostic '
+               f'(train_labeled={n_train_labeled}, test={n_test}, classes={n_classes})')
+        print(f'  ⚠  {msg}')
+        result = {'error': msg, 'oot_cutoff': OOT_CUTOFF, 'oot_test_year': OOT_TEST_YR}
+        (REPORTS / 'oot_auc_diagnostic.json').write_text(json.dumps(result, indent=2))
+        return
+
+    all_features = get_candidates(df_tr)
+    # Quick IC pass (no sector-neutral for speed)
+    ic_tbl = compute_ic_table(df_tr, all_features, ret_col, sector_neutral=False)
+    mask = ic_tbl['mean_ic'].abs() > 0.02
+    candidates = ic_tbl[mask].index.tolist()[:40]
+    candidates = deduplicate_features(df_tr, candidates, corr_threshold=0.90)
+    print(f'  Features selected: {len(candidates)}')
+
+    clf, feats, _, medians = train_model(df_tr, candidates, beat_col)
+    fa = [f for f in feats if f in df_oot.columns]
+    X_oot = df_oot[fa].fillna(pd.Series(medians))
+    y_oot = df_oot[beat_col].astype(int)
+    oot_auc = roc_auc_score(y_oot, clf.predict_proba(X_oot)[:, 1])
+
+    result = {
+        'horizon':       HORIZON,
+        'oot_cutoff':    OOT_CUTOFF,
+        'oot_test_year': OOT_TEST_YR,
+        'oot_auc':       round(float(oot_auc), 4),
+        'n_train':       n_train_labeled,
+        'n_test':        n_test,
+        'n_features':    len(feats),
+        'note':          'Diagnostic only — production model unchanged',
+    }
+    (REPORTS / 'oot_auc_diagnostic.json').write_text(json.dumps(result, indent=2))
+    print(f'  OOT AUC (3y): {oot_auc:.4f}  (target ≥ 0.62)')
+    print(f'  Saved → reports/oot_auc_diagnostic.json')
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument('--top-n', type=int, default=40,
@@ -432,6 +502,10 @@ def main() -> None:
                         help='Skip SHAP computation (faster run)')
     parser.add_argument('--walk-forward', action='store_true',
                         help='Run expanding-window walk-forward CV after main training')
+    parser.add_argument('--oot-eval', action='store_true',
+                        help='OOT diagnostic: retrain 3y model with cutoff=2019, test on FY2022 '
+                             '(3y returns fully elapsed as of 2025). Does NOT overwrite production '
+                             'models. Saves result to reports/oot_auc_diagnostic.json.')
     parser.add_argument('--max-psi', type=float, default=0.25,
                         help='Drop features with PSI > threshold before IC analysis (default: 0.25)')
     parser.add_argument('--min-ic-stability', type=float, default=0.6,
@@ -621,6 +695,9 @@ def main() -> None:
         m = model_meta[h]
         print(f'  {h:<6}  {m["val_auc"]:>9.4f}  {m["test_auc"]:>10.4f}  '
               f'{m["lr_val_auc"]:>8.4f}  {m["lr_test_auc"]:>9.4f}')
+
+    if args.oot_eval:
+        run_oot_diagnostic(df)
 
 
 if __name__ == '__main__':

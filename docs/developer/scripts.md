@@ -346,6 +346,7 @@ python3 scripts/train_models.py --walk-forward   # PIT-safe walk-forward CV
 | `--val-end YEAR` | `2023` | Last validation year (inclusive); test = after this |
 | `--no-shap` | False | Skip SHAP computation (faster) |
 | `--walk-forward` | False | Run PIT-safe expanding-window walk-forward CV; saves `reports/walk_forward_auc_{h}.csv`; returns per-fold AUC dict |
+| `--oot-eval` | False | OOT diagnostic: retrain 3y model with cutoff=2019, test on FY2022 (beat_local_market_3y fully known as 2022+3=2025 prices exist). Does **not** overwrite production models. Saves `reports/oot_auc_diagnostic.json` |
 
 Outputs: `models/model_{6m,1y,2y,3y,5y}.joblib`, `models/model_meta.json`
 

@@ -24,6 +24,7 @@ flowchart TD
 | 1-year | 2022 | 0.599 | 0.484 | 0.563 | ≥ 0.62 ❌ |
 | 2-year | 2022 | 0.585 | 0.585 | 0.589 | ≥ 0.60 ❌ |
 | 3-year | 2022 | 0.635 | — | 0.625 | ≥ 0.62 ✅ |
+| 3-year (Optuna-tuned) | 2022 | **0.6644** | — | — | calibrated ensemble 0.6773 |
 | 5-year | 2022 | — | — | 0.620 | ≥ 0.62 ✅ |
 
 WF Mean AUC = expanding-window walk-forward CV mean (train on data filed before year t, evaluate year t).

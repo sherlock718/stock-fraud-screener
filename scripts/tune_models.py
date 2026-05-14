@@ -54,7 +54,9 @@ except ImportError:
     CATBOOST_AVAILABLE = False
     print('catboost not installed — skipping CatBoost comparison (pip install catboost)')
 
+import sys
 BASE       = Path(__file__).parent.parent
+sys.path.insert(0, str(BASE))
 META_PATH  = BASE / 'models' / 'model_meta.json'
 MODELS_DIR = BASE / 'models'
 REPORTS    = BASE / 'reports'
@@ -207,21 +209,22 @@ class EnsembleClassifier:
     def classes_(self): return np.array([0, 1])
 
 
+class _CalModel:
+    """Isotonic-calibrated wrapper. Defined at module level to be picklable."""
+    def __init__(self, base, iso): self._base = base; self._iso = iso
+    def predict_proba(self, X):
+        p = self._base.predict_proba(X)[:, 1]
+        cal = self._iso.predict(p)
+        return np.column_stack([1 - cal, cal])
+    @property
+    def classes_(self): return np.array([0, 1])
+
+
 def calibrate_model(model, X_val: pd.DataFrame, y_val: pd.Series):
     """Isotonic calibration on val split."""
     raw_proba = model.predict_proba(X_val)[:, 1]
     iso = IsotonicRegression(out_of_bounds='clip')
     iso.fit(raw_proba, y_val.values)
-
-    class _CalModel:
-        def __init__(self, base, iso): self._base = base; self._iso = iso
-        def predict_proba(self, X):
-            p = self._base.predict_proba(X)[:, 1]
-            cal = self._iso.predict(p)
-            return np.column_stack([1 - cal, cal])
-        @property
-        def classes_(self): return np.array([0, 1])
-
     return _CalModel(model, iso)
 
 
