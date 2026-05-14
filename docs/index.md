@@ -1,6 +1,6 @@
 # Multi-Factor Stock Screener & Alpha Generation Platform
 
-**A research-grade quantitative alpha lab targeting ≥20% annualised ROI — covering 14 markets: US, Korea, Canada, Japan, Brazil, and 9 European markets.**
+**A research-grade quantitative alpha lab targeting ≥25% annualised ROI — covering 14 markets: US, Korea, Canada, Japan, Brazil, and 9 European markets.**
 
 The platform scores companies across five orthogonal factor groups — **Value, Quality, Momentum, Growth, and Fraud Risk** — and combines them into a composite alpha score. It trains LightGBM models on 6-month, 1-year, 2-year, 3-year, and 5-year return horizons using 58,190 company-year observations and 361 columns (355 base features + 5 OOF score columns + 1 regression magnitude column). Feature selection uses PSI (threshold 0.25) → IC → ICIR (Newey-West HAC t-stats + BH FDR q<0.05) → Spearman deduplication. FORCE_INCLUDE momentum features injected for 6m/1y/2y horizons where ICIR under-selects momentum vs fundamentals. Sector-neutral IC (SIC-based demeaning) applied throughout.
 

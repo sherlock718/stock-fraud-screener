@@ -8,6 +8,12 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Raise investment target to ≥25% annualised ROI (2026-05-14)
+
+#### Update vision target across docs (docs)
+- **`ROADMAP.md`**: Vision and investment target raised from ≥20% to ≥25% annualised ROI (reflects COMPOSITE strategy CAGR of +25%+ validated in backtests)
+- **`docs/index.md`**: Tagline updated to ≥25%
+
 ### build_portfolio.py: MoS gate, low-vol filter, implied drawdown, $10M floor (2026-05-14)
 
 #### Vision gap fixes: portfolio risk controls + liquidity floor (feat/portfolio)
