@@ -15,12 +15,12 @@ Fetches the company universe for a given market. Each market variant hits a diff
 | Module | Market | Source |
 |---|---|---|
 | `step1_fetch_tickers.py` | US | SEC EDGAR `/submissions` endpoint (10-K filers) |
-| `step1_fetch_tickers_eu.py` | EU | SimFin API `/companies/list` with IFRS flag |
-| `step1_fetch_tickers_kr.py` | KR | DART `/list` endpoint with auth token |
-| `step1_fetch_tickers_jp.py` | JP | TDNET (paid) |
-| `step1_fetch_tickers_jp_free.py` | JP | TDNET free tier |
-| `step1_fetch_tickers_ca.py` | CA | SEDAR+ scraper |
-| `step1_fetch_tickers_br.py` | BR | B3/CVM listing — text heuristics match, no per-ticker API calls |
+| `step1_fetch_tickers_eu.py` | EU | Wikipedia index constituent tables (DAX, CAC, AEX, IBEX, etc. — 13 indices) |
+| `step1_fetch_tickers_kr.py` | KR | DART corp_code XML zip download + `/company` enrichment |
+| `step1_fetch_tickers_jp.py` | JP | EDINET API — requires free `EDINET_API_KEY` in `.env` |
+| `step1_fetch_tickers_jp_free.py` | JP | Static curated Nikkei 225 + TSE Prime list (~130 tickers, no API key) |
+| `step1_fetch_tickers_ca.py` | CA | TMX public API (TSX + TSXV company directory, no API key required) |
+| `step1_fetch_tickers_br.py` | BR | CVM company register + brapi.dev ticker list — text heuristic matching |
 
 **BR matching** (`step1_fetch_tickers_br.py`): Downloads the CVM company register (~353 active BOLSA companies) and the full brapi.dev ticker list (1,800+ symbols, `/api/available` only). Matches CVM names to 4-letter B3 ticker roots using 6 strategies: (1) first 4 letters of normalised commercial name, (2) first 4 letters of first meaningful word, (3) 4-letter acronym, (4) 2+2 acronym, (5) second word prefix, (6) 3-letter unique match. Stop-words (`BANCO`, `CIA`, `HOLDING`, `PARTICIPACOES`, etc.) are filtered before matching. A `CURATED_OVERRIDES` dict provides confirmed tickers for 11+ companies with acronym-based symbols (BBDC3, BBAS3, CMIG3, BRSR3, etc.). Regex covers share classes 3–9. Match rate: 112 / 353 (32%).
 
@@ -35,11 +35,11 @@ For each ticker, fetches annual financial statements and aligns them by `fiscal_
 | Module | Market | Notes |
 |---|---|---|
 | `step2_build_snapshots.py` | US | SEC EDGAR XBRL |
-| `step2_build_snapshots_eu.py` | EU | SimFin API — requires `SIMFIN_API_KEY` |
+| `step2_build_snapshots_eu.py` | EU | yfinance, no API key — 4–5 years history across DE/FR/NL/BE etc. |
 | `step2_build_snapshots_kr.py` | KR | DART API — requires `DART_API_KEY` |
 | `step2_build_snapshots_jp_free.py` | JP | **Active** — yfinance, no API key. ~122–130 tickers |
-| `step2_build_snapshots_jp.py` | JP | Optional/paid — EDINET API key required; 3,800+ TSE tickers |
-| `step2_build_snapshots_ca.py` | CA | TMX public API |
+| `step2_build_snapshots_jp.py` | JP | Optional — free EDINET API key required; 3,800+ TSE tickers |
+| `step2_build_snapshots_ca.py` | CA | SEDAR+ XBRL filings + yfinance fallback |
 | `step2_build_snapshots_br.py` | BR | CVM + brapi.dev |
 
 **JP note**: `step2_build_snapshots_jp_free.py` is the default active variant and outputs `data/snapshots_jp.parquet`. For full TSE coverage (3,800+ tickers), use `step2_build_snapshots_jp.py` with a free EDINET API key.

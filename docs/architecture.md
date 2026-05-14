@@ -8,9 +8,9 @@ A research-grade quantitative alpha generation platform — from raw filings to 
 graph TB
     subgraph Sources["Data Sources"]
         A1[SEC EDGAR<br/>US 10-K/10-Q]
-        A2[SimFin API<br/>EU/Nordics]
+        A2[yfinance<br/>EU — free tier]
         A3[DART API<br/>Korea]
-        A4[TDNET<br/>Japan]
+        A4[EDINET<br/>Japan]
         A5[SEDAR+<br/>Canada]
         A6[B3/CVM<br/>Brazil]
     end
@@ -123,7 +123,7 @@ graph TB
 
 ```mermaid
 flowchart LR
-    A[Raw API calls<br/>SimFin / EDGAR / DART] -->|ticker lists| B[Ticker Registry<br/>per market]
+    A[Raw API calls<br/>EDGAR / DART / yfinance / EDINET / CVM] -->|ticker lists| B[Ticker Registry<br/>per market]
     B -->|company metadata| C[Annual + Quarterly Snapshots<br/>fiscal_year × ticker]
     C -->|OHLCV joins| D[Price-Enriched<br/>Snapshots]
     D -->|macro joins<br/>T-bill · inflation| E[Macro-Enriched<br/>Snapshots]
@@ -141,7 +141,7 @@ flowchart LR
     K -->|score_historical.py| L[ml_1y / ml_3y / ml_5y<br/>written back to parquet]
     K -->|generate_oof_scores.py<br/>walk-forward OOF| OOF[ml_1y_oof / ml_3y_oof / ml_5y_oof<br/>NaN for training rows]
     OOF -->|horizon_router.py<br/>months → model key| HR[HorizonRouter<br/>6m · 1y · 2y · 3y · 5y]
-    L -->|compute_alpha.py| FA[5-Factor<br/>Composite Alpha Score<br/>341 → 360 cols total]
+    L -->|compute_alpha.py| FA[5-Factor<br/>Composite Alpha Score<br/>+6 alpha cols]
     SB -->|bulk load| DB[TimescaleDB<br/>hypertable — Phase C — deferred]
 ```
 

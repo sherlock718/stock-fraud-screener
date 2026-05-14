@@ -8,6 +8,16 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Fix doc accuracy — data source descriptions and architecture diagrams (2026-05-14)
+
+#### Correct pipeline step1/step2 data source entries (docs)
+- **`docs/developer/pipeline-scripts.md`**: Fixed step2 table — EU was SimFin (wrong) → yfinance no API key; JP was "Optional/paid" (wrong) → free EDINET API key; CA was TMX public API (wrong) → SEDAR+ XBRL filings + yfinance fallback. (step1 corrections were in prior commit.)
+- **`docs/architecture.md`**: Data Sources subgraph A2 SimFin→yfinance EU, A4 TDNET→EDINET. Data Flow node text corrected (EDGAR/DART/yfinance/EDINET/CVM). Alpha label fixed from "341→360 cols total" → "+6 alpha cols".
+- **`CLAUDE.md`**: Architecture State multi-market ingestion row corrected (SimFin/TDNET → yfinance/EDINET).
+- **`research/`**: Archived stale notebooks (01_metric_exploration, 02_historical_dataset, 04_factor_research) to `research/archive/`.
+
+---
+
 ### Fix Streamlit Cloud build failure — Linux wheel compatibility (2026-05-14)
 
 #### Fix pip install on Linux manylinux build environment (fix/deploy)

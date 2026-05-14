@@ -95,7 +95,7 @@ Work through this matrix for every change before staging files.
 | Layer | Technology | Location | Status |
 |---|---|---|---|
 | US data ingestion | SEC EDGAR 10-K/10-Q | `scripts/run_pipeline.py` | ✅ |
-| Multi-market ingestion | SimFin (EU), DART (KR), TDNET (JP), SEDAR+ (CA), B3 (BR) | `pipeline/` | ✅ |
+| Multi-market ingestion | yfinance (EU/JP free), DART (KR), EDINET (JP full), SEDAR+ (CA), CVM/brapi (BR) | `pipeline/` | ✅ |
 | Feature engineering | 361 columns (355 base + 5 OOF + 1 regression: ml_pred_excess_3y) | `pipeline/step5_compute_features.py` + `scripts/generate_oof_scores.py` + `scripts/score_historical.py` | ✅ |
 | Quarterly enrichment | 5 intra-year dynamics | `scripts/enrich_quarterly_features.py` | ✅ |
 | Feature imputation | Quarterly cols + size_category recovery | `scripts/impute_features.py` | ✅ |
