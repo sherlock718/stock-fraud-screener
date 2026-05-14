@@ -420,36 +420,38 @@ Uses same PIT-safe filed_date split as `train_models.py`.
 
 ---
 
-### `train_regression_model.py` — Huber Regression for Excess Return Magnitude
+### `train_regression_model.py` — Huber Regression for Continuous CAGR (All Horizons)
 
-Trains a LightGBM Huber regressor to predict `excess_return_local_3y` (continuous % outperformance).
-Used as the Stage 3 magnitude ranker in `leverage_strategy.py` — two stocks with equal direction
-probability `ml_score_3y` are ranked by their predicted return magnitude.
+Trains LightGBM Huber regression models to predict **continuous excess return** (CAGR, decimal)
+for all 5 horizons: 6m, 1y, 2y, 3y, 5y. Target is `excess_return_local_{h}` (outperformance vs
+local market index), falling back to `forward_return_{h}` if the excess column is unavailable.
 
-Reuses the frozen 45-feature ICIR-selected set from `models/feature_sets_3y.json` (no new
-feature selection performed on the regression target). Primary evaluation metric: Spearman IC
-(rank correlation of predicted vs actual excess return). IC > 0.05 is useful; IC > 0.10 is strong.
+Reuses the frozen ICIR-selected feature set from `models/feature_sets_{h}.json` per horizon (no
+new feature selection on the regression target — prevents overfitting). Primary metric: Spearman IC
+(rank correlation of predicted vs actual excess return). IC > 0.05 useful; IC > 0.10 strong.
 
 ```bash
-python3 scripts/train_regression_model.py                   # Train with defaults + walk-forward CV
-python3 scripts/train_regression_model.py --no-walk-forward # Skip WF CV (faster)
+python3 scripts/train_regression_model.py                       # All 5 horizons + walk-forward CV
+python3 scripts/train_regression_model.py --horizons 1y 3y 5y  # Subset of horizons
+python3 scripts/train_regression_model.py --horizons 3y --no-walk-forward
 python3 scripts/train_regression_model.py --train-cutoff 2020
 ```
 
 | Flag | Default | Description |
 |---|---|---|
+| `--horizons H [H ...]` | all 5 | Horizons to train: `6m 1y 2y 3y 5y` |
 | `--train-cutoff` | `2022` | Last fiscal_year included in training set |
 | `--val-end` | `2023` | Last fiscal_year included in validation set |
 | `--walk-forward` | on | Run expanding-window walk-forward CV (Spearman IC per fold) |
-| `--no-walk-forward` | off | Skip walk-forward CV |
+| `--no-walk-forward` | off | Skip walk-forward CV (faster) |
 
-**Outputs**:
-- `models/model_3y_regression.joblib` — trained Huber regressor
-- `models/model_3y_regression_meta.json` — feature list, IC stats, train medians, winsorization bounds
-- `reports/regression_ic_3y.csv` — walk-forward Spearman IC per fold
+**Outputs per horizon** (e.g. `3y`):
+- `models/model_{h}_regression.joblib` — trained Huber regressor (5 files total)
+- `models/model_{h}_regression_meta.json` — feature list, IC stats, train medians, winsorization bounds
+- `reports/regression_ic_{h}.csv` — walk-forward Spearman IC per fold
 
-**Run after**: `train_models.py` (needs `models/feature_sets_3y.json`).
-**Run before**: `score_historical.py` (to write `ml_pred_excess_3y` to parquet).
+**Run after**: `train_models.py` (needs `models/feature_sets_{h}.json` for each horizon).
+**Run before**: `score_historical.py` (to write `ml_pred_excess_{h}` columns to parquet).
 
 ---
 

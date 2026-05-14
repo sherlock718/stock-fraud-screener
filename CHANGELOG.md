@@ -8,6 +8,12 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Regression model extended to all 5 horizons — continuous CAGR output (2026-05-14)
+
+#### `train_regression_model.py` rewritten: all-horizon support (feat/models)
+- **`scripts/train_regression_model.py`**: Rewrote to train LightGBM Huber regression models for all 5 horizons (6m/1y/2y/3y/5y), not just 3y. Target is `excess_return_local_{h}` (continuous CAGR vs local market index), falling back to `forward_return_{h}`. Added `--horizons` argument; reuses frozen `feature_sets_{h}.json` per horizon (no new feature selection on regression target). PIT-safe WF CV excludes incomplete folds via `max_test_year = max_year - ceil(horizon_years) + 1`. Outputs `model_{h}_regression.joblib`, `model_{h}_regression_meta.json`, `reports/regression_ic_{h}.csv` per horizon.
+- **`docs/developer/scripts.md`**: Updated `train_regression_model.py` section — added `--horizons` flag, updated outputs/description to all-5-horizon support.
+
 ### Model tuning: XGBoost ensemble, purged CV embargo, sector z-score, tighter dedup (2026-05-14)
 
 #### Four concrete improvements to reduce feature leakage and increase model diversity (perf/models)
