@@ -8,6 +8,13 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Fix Streamlit Cloud build failure — Linux wheel compatibility (2026-05-14)
+
+#### Fix pip install on Linux manylinux build environment (fix/deploy)
+- **`requirements.txt`**: Downgraded `pyarrow` 21.0.0 → 20.0.0 and `pandas` 2.3.3 → 2.3.2. Both 21.0.0 and 2.3.3 lack binary wheels for Linux manylinux on PyPI, causing Streamlit Cloud builds to fail with "Exited with status 1".
+
+---
+
 ### Retrain with tuned params + expanded FORCE_INCLUDE features for 6m/1y (2026-05-14)
 
 #### Fix best_params propagation and add WF CV with Optuna hyperparameters (fix/perf)
