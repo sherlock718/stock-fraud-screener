@@ -8,6 +8,17 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Section 6 Decision Tree Screener — rule-based top 100 (2026-05-14)
+
+#### `notebooks/08_experiment_hub.ipynb` — added Section 6 Decision Tree Screener
+- Trains `DecisionTreeClassifier(max_depth=5, min_samples_leaf=30)` on same feature set as LightGBM for configurable horizon
+- Prints interpretable branching rules via `export_text()` (depth ≤ 3)
+- Scores full current universe (latest annual snapshot per ticker/market)
+- Displays top 100 companies ranked by DT probability with green gradient styling
+- Exports results to `reports/dt_screener_top100_{horizon}_{date}.csv`
+
+---
+
 ### Schema drift fix + LightGBM vs Decision Tree overfitting analysis (2026-05-14)
 
 #### `data/historical_dataset_clean.parquet` — patched 4 missing columns (361 → 367 cols)
