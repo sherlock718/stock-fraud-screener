@@ -70,7 +70,7 @@ graph TB
     end
 
     subgraph Outputs["Outputs & Serving"]
-        E1[Streamlit App<br/>app_v2.py · multi-tab dashboard]
+        E1[Experiment Notebook<br/>notebooks/08_experiment_hub.ipynb<br/>manual execution · 5 sections]
         E2[FastAPI<br/>api/ · screener router<br/>filters + pagination]
         E3[Reports<br/>PDF tearsheet · CSV picks]
         E4[HuggingFace Hub<br/>Dataset + Models]
@@ -116,7 +116,7 @@ graph TB
 | Bias audit | `scripts/bias_audit.py` | 4 audits: look-ahead (PIT) · survivorship · overfitting (overfit_gap) · multiple testing (Bonferroni) | ✅ Phase C |
 | Generate reports | `scripts/generate_reports.py` | PDF tearsheet + weekly picks | ✅ |
 | DB migration | `scripts/migrate_to_db.py` | Load parquet → TimescaleDB hypertable | Phase C — deferred |
-| App | `app_v2.py` | Streamlit dashboard (Phase 2: add 5-factor UI) | ✅ |
+| Experiment Notebook | `notebooks/08_experiment_hub.ipynb` | Master research frontend — Feature Selection · Model Perf · Screener Rankings · Deep Dive · Live Picks | ✅ |
 | FastAPI | `api/` | REST screener with filters + pagination | ✅ |
 
 ## Data Flow Detail
@@ -157,8 +157,8 @@ graph LR
     AUDIT -->|parquet + status| E[HuggingFace Hub<br/>Dataset repo]
     C -->|models| F[HuggingFace Hub<br/>Model repo]
     D -->|drift report| G[Artifacts + warning]
-    E -->|download at startup| H[Streamlit Cloud<br/>app_v2.py · dashboard]
-    F -->|download at startup| H
+    E -->|download locally| H[Experiment Notebook<br/>notebooks/08_experiment_hub.ipynb<br/>manual execution — local only]
+    F -->|download locally| H
     E -->|download at startup| I[FastAPI service<br/>api/main.py · screener router]
     F -->|download at startup| I
     E -->|migrate_to_db.py| J[TimescaleDB<br/>hypertable — Phase C — deferred]

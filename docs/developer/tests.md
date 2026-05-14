@@ -67,7 +67,7 @@ Verifies the bias audit's period-end date logic.
 
 ### `TestScoreCompanies`
 
-Verifies scoring logic in `app_v2.py` using a mock model.
+Verifies scoring logic using a mock model (from `app_v2.py`, retained for coverage).
 
 | Test | What it checks |
 |---|---|
@@ -89,7 +89,7 @@ Verifies scoring logic in `app_v2.py` using a mock model.
 |---|---|
 | Full model training | Requires full dataset; 30–60 min; done by CI artifacts |
 | Pipeline data fetch | Requires SEC EDGAR / SimFin / DART network access |
-| Streamlit UI rendering | No headless Streamlit test runner available |
+| Notebook rendering | Tested by manual execution of `notebooks/08_experiment_hub.ipynb` |
 | PDF tearsheet output | Requires `reportlab`; tested manually |
 | HuggingFace upload | Requires `HF_TOKEN`; tested via GitHub Actions dry-run |
 

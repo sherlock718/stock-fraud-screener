@@ -19,7 +19,6 @@ Key dependencies installed:
 
 | Package | Version | Purpose |
 |---|---|---|
-| streamlit | 1.50.0 | Web app framework |
 | lightgbm | 4.6.0 | Primary ML model |
 | catboost | 1.2.7 | Ensemble component |
 | optuna | 4.3.0 | Hyperparameter tuning |
@@ -56,31 +55,29 @@ For Optuna-tuned models with CatBoost ensemble:
 python3 scripts/tune_models.py
 ```
 
-## 4 — Launch the App
+## 4 — Launch the Research Notebook
 
 ```bash
-streamlit run app_v2.py
+# Rebuild screener and alpha registries first (if not already built)
+python3 scripts/build_screener_registry.py
+python3 scripts/build_alpha_registry.py
+
+# Open the experiment hub notebook
+jupyter notebook notebooks/08_experiment_hub.ipynb
 ```
 
-The app opens at `http://localhost:8501`.
+The notebook has 5 sections:
 
-## What You'll See
-
-The app has 8 tabs:
-
-| Tab | What it shows |
+| Section | What it shows |
 |---|---|
-| **Overview** | Score distribution, top picks, market summary |
-| **Screener** | Filter all companies by score, market, SIC code |
-| **Company Profile** | Per-company deep dive with SHAP attribution |
-| **Realtime Chart** | Live price chart + fraud score overlay |
-| **Factor Research** | IC/ICIR charts, factor decay |
-| **Backtest** | Walk-forward strategy performance |
-| **Market Overview** | Cross-market comparison |
-| **Model Diagnostics** | AUC, calibration, PSI drift |
+| **1. Feature Selection** | PSI / ICIR feature stability and selection results |
+| **2. Model Performance** | Walk-forward AUC, calibration, OOF scores |
+| **3. Screener Rankings** | 3a: composite registry leaderboard · 3b: individual alpha signals |
+| **4. Deep Dive** | 4a: composite strategy detail · 4b: individual signal deep dive |
+| **5. Live Picks** | Current top-ranked companies per screener |
 
 ## Next Steps
 
-- [App Walkthrough →](guide/app.md) — tour of every tab
-- [Score Interpretation →](guide/scores.md) — what the numbers mean
 - [Architecture →](architecture.md) — how the system works
+- [Score Interpretation →](guide/scores.md) — what the numbers mean
+- [Backtesting →](methodology/backtesting.md) — walk-forward methodology

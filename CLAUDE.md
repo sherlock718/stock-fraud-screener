@@ -51,7 +51,7 @@ Work through this matrix for every change before staging files.
 | ML pipeline structural change | `docs/methodology/models.md` Mermaid flowchart + `docs/architecture.md` ML System subgraph |
 | New system component (DB, API, queue) | `docs/architecture.md` — add node to High-Level Overview + row to Component Map |
 | New API endpoint | Docstring in route file; if user-facing add entry to `docs/developer/` |
-| New UI tab or feature in Streamlit | `docs/guide/app.md` |
+| New UI tab or feature in Experiment Notebook | `notebooks/08_experiment_hub.ipynb` |
 | Any of the above | `CHANGELOG.md` — add entry under `[Unreleased]` with the script/file name bolded |
 | All changes | Commit with conventional message: `feat(scope):`, `fix(scope):`, `docs:`, `perf:`, etc. |
 
@@ -114,7 +114,7 @@ Work through this matrix for every change before staging files.
 | Calibration + tuning | Platt scaling, Optuna 100 trials | `scripts/tune_models.py` | ✅ |
 | Bias audit | Look-ahead + survivorship + overfitting + multiple testing | `scripts/bias_audit.py` | ✅ Phase C |
 | Drift monitoring | PSI + rolling AUC | `scripts/monitor_drift.py` | ✅ |
-| Streamlit UI | 10-tab app, horizon slider, alpha screener | `app_v2.py` | ✅ |
+| Experiment Notebook | Master research frontend · screener rankings · deep dive · live picks | `notebooks/08_experiment_hub.ipynb` | ✅ |
 | FastAPI | Screener router, pagination | `api/` | ✅ built |
 | CI/CD | Weekly refresh + bias audit + drift monitor | `.github/workflows/` | ✅ |
 | Model/dataset hosting | HuggingFace Hub | `scripts/push_to_hf.py` | ✅ |
@@ -149,7 +149,7 @@ Work through this matrix for every change before staging files.
 | Feature definitions (314 base formulas) | `pipeline/feature_library.py` |
 | Horizon router | `alpha/horizon_router.py` |
 | Factor package | `alpha/factors/` |
-| App entry point | `app_v2.py` |
+| Research frontend | `notebooks/08_experiment_hub.ipynb` |
 | API entry point | `api/main.py` |
 | Architecture doc | `docs/architecture.md` |
 | Scripts reference | `docs/developer/scripts.md` |

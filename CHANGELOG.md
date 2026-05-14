@@ -8,6 +8,20 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Architecture: experiment notebook declared as primary frontend; Streamlit archived (2026-05-14)
+
+#### Documentation — all Streamlit references replaced with notebook frontend (docs/arch)
+- **`docs/architecture.md`**: Outputs subgraph E1 → Experiment Notebook node; Component Map App row → Experiment Notebook row; Deployment Architecture Streamlit Cloud node → local notebook node
+- **`docs/index.md`**: Mermaid diagram G node → Experiment Notebook; "I want to use the app" tab → "I want to use the notebook"; deployment link text updated
+- **`CLAUDE.md`**: Architecture table Streamlit UI row → Experiment Notebook row; key file locations App entry point → research frontend; Change Checklist Streamlit UI row → notebook row
+- **`docs/developer/deployment.md`**: Streamlit Cloud section replaced with Research Frontend section (local notebook execution)
+- **`docs/quickstart.md`**: Step 4 "Launch the App" → notebook launch; streamlit dependency removed; Next Steps updated
+- **`docs/guide/app.md`**: Deprecation note added — `app_v2.py` archived, notebook is active frontend
+- **`docs/developer/setup.md`**: app_v2.py entry annotated as archived; launch step → notebook
+- **`docs/developer/tests.md`**: Streamlit UI test coverage note → notebook rendering note
+- **`docs/developer/schema-change-guide.md`**: `app_v2.py` check → notebook check
+- **`docs/methodology/backtesting.md`**: backtest_results.json consumer updated to notebook Section 3
+
 ### Master experiment notebook completed: composite registry + individual signal deep dives (2026-05-14)
 
 #### `notebooks/08_experiment_hub.ipynb` — Task 6 complete (feat/notebook)

@@ -1,27 +1,15 @@
 # Deployment
 
-## Streamlit Cloud
+## Research Frontend
 
-The app is deployed on Streamlit Cloud, loading data from HuggingFace Hub at startup.
+The primary research frontend is `notebooks/08_experiment_hub.ipynb` — a local Jupyter notebook with 5 sections: Feature Selection, Model Performance, Screener Rankings, Deep Dive, and Live Picks. It reads pre-built registry files (`data/screener_registry.json`, `data/alpha_registry.json`) and the clean parquet locally. No server deployment is required.
 
-### How it works
-
-1. `app_v2.py` checks for `data/historical_dataset_clean.parquet` at startup
-2. If not found locally, downloads from `HF_REPO` using `huggingface_hub`
-3. Similarly downloads model files from `HF_REPO` (model repo)
-4. Caches data in Streamlit's session cache to avoid re-downloading on every page navigation
-
-### Streamlit Cloud Setup
-
-1. Push the repo to GitHub
-2. Connect to Streamlit Cloud at `share.streamlit.io`
-3. Set the main file to `app_v2.py`
-4. Add secrets in Streamlit Cloud settings:
-
-```toml
-# .streamlit/secrets.toml (local dev only, never commit)
-HF_TOKEN = "hf_xxx"
-HF_REPO = "sherlock718/stock-fraud-screener"
+```bash
+# Run the full experiment notebook
+jupyter notebook notebooks/08_experiment_hub.ipynb
+# Or rebuild screener registries first:
+python3 scripts/build_screener_registry.py
+python3 scripts/build_alpha_registry.py
 ```
 
 ## GitHub Actions

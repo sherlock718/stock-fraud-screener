@@ -1,5 +1,7 @@
 # App Walkthrough
 
+> **Note:** `app_v2.py` (Streamlit) is archived. The active research frontend is `notebooks/08_experiment_hub.ipynb` — run it with `jupyter notebook notebooks/08_experiment_hub.ipynb`. The sections below document the legacy Streamlit tabs for reference only.
+
 The Streamlit app (`app_v2.py`) has 10 tabs. This page walks through each one.
 
 ---

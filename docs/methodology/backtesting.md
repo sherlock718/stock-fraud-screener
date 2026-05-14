@@ -148,7 +148,7 @@ python3 scripts/backtester.py --market US --cost 40
 python3 scripts/backtester.py --fill-missing -0.5
 ```
 
-Output: `data/backtest_results.json` — consumed by the Backtest tab in `app_v2.py`.
+Output: `data/backtest_results.json` — consumed by Section 3 of `notebooks/08_experiment_hub.ipynb`.
 
 ## Important Caveats
 

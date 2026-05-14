@@ -24,11 +24,11 @@ The platform scores companies across five orthogonal factor groups — **Value, 
 
 ## Choose Your Starting Point
 
-=== "I want to use the app"
+=== "I want to use the notebook"
 
-    **[Quick Start →](quickstart.md)** — install and launch in 5 minutes
+    **[Quick Start →](quickstart.md)** — install and run in 5 minutes
 
-    **[App Walkthrough →](guide/app.md)** — tour of all tabs
+    **[Architecture →](architecture.md)** — system overview and data flow
 
     **[Score Interpretation →](guide/scores.md)** — what the numbers mean
 
@@ -52,7 +52,7 @@ The platform scores companies across five orthogonal factor groups — **Value, 
 
     **[Pipeline Modules →](developer/pipeline-scripts.md)** — every module in pipeline/
 
-    **[Deployment →](developer/deployment.md)** — Streamlit Cloud + GitHub Actions
+    **[Deployment →](developer/deployment.md)** — GitHub Actions + HuggingFace
 
     **[Monitoring →](developer/monitoring.md)** — PSI drift alerts, CI workflows
 
@@ -76,7 +76,7 @@ graph LR
     C --> E["Composite Alpha Score<br/>0–1 · SHAP attribution"]
     D --> E
     E --> F["Portfolio<br/>4 strategies"]
-    E --> G["Streamlit App<br/>Multi-tab dashboard"]
+    E --> G["Experiment Notebook<br/>08_experiment_hub.ipynb<br/>manual execution"]
 ```
 
 ---

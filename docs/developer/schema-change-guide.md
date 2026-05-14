@@ -41,7 +41,7 @@ Checklist before renaming:
 - [ ] Search all `.py` files for the old name: `grep -r "old_name" --include="*.py"`
 - [ ] Search all `.ipynb` files: `grep -r "old_name" --include="*.ipynb"`
 - [ ] Check `scripts/test_dataset_quality.py` `FILL_THRESHOLDS` dict
-- [ ] Check `app_v2.py` display logic
+- [ ] Check `notebooks/08_experiment_hub.ipynb` display logic
 - [ ] Check `api/` screener filter logic
 - [ ] Check `models/model_meta.json` feature lists — if the column is an ML feature, the trained model references it by name; **you must retrain** after renaming
 

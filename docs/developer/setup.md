@@ -29,7 +29,7 @@ pip install mkdocs-material
 
 ```
 stock-fraud-screener/
-├── app_v2.py                  # Main Streamlit app (10 tabs)
+├── app_v2.py                  # Streamlit app (archived — notebook is now primary frontend)
 ├── requirements.txt
 ├── mkdocs.yml
 │
@@ -217,8 +217,8 @@ python3 scripts/backtester.py
 # 5. Generate reports
 python3 scripts/generate_reports.py --top 25
 
-# 6. Launch app
-streamlit run app_v2.py
+# 6. Open the research notebook
+jupyter notebook notebooks/08_experiment_hub.ipynb
 ```
 
 ## Development Branch
