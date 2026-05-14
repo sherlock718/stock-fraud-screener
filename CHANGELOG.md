@@ -8,6 +8,15 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Section 6 DT Backtest — walk-forward expanding window, no look-ahead bias (2026-05-15)
+
+#### `notebooks/08_experiment_hub.ipynb` — cell `1248e80a` Part B replaced with proper walk-forward backtest
+- **Problem fixed**: original Part B trained `DecisionTreeClassifier` on full history then scored historical years with the same model — look-ahead bias inflated CAGR/Sharpe
+- **Fix**: for each year Y, fresh DT trained on `fiscal_year < Y` only (expanding window); year Y scored with that held-out model
+- Guard: `WF_MIN_TRAIN_ROWS = 200` skips years without sufficient training history
+- Per-horizon annualization via `hor_years_map = {'6m': 0.5, '1y': 1, '2y': 2, '3y': 3, '5y': 5}`
+- Part A (per-rule leaf stats) retained as in-sample rule inspection with clear label; not used for performance claims
+
 ### Section 6 Decision Tree Screener — multi-horizon (all 5) (2026-05-15)
 
 #### `notebooks/08_experiment_hub.ipynb` — extended DT screener to all 5 horizons
