@@ -8,6 +8,14 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Fix Streamlit Cloud deployment + ML scoring (2026-05-14)
+
+#### Fix broken cloud deployment and ML scoring (fix)
+- **`src/data.py`**: `_hf_download_bytes` now passes `HF_TOKEN` env var to `hf_hub_download` — required for private HuggingFace Hub repos on Streamlit Cloud.
+- **`src/data.py`**: `load_data()` shows a clear `st.error` with instructions when both `HF_REPO` and local parquet are absent, instead of crashing with a FileNotFoundError.
+- **`src/data.py`**: `load_models()` checks local files first, then falls back to HF Hub.
+- **`src/data.py`**: Adds derived column `financing_cashflow_to_assets = financing_cash_flow / total_assets` at load time — fixes all-NaN ML scores caused by LightGBM feature count mismatch.
+
 ### Factor research look-ahead fix, IC decay analysis, regression bias audit (2026-05-14)
 
 #### Fix ML-score look-ahead contamination in factor IC table (fix)
