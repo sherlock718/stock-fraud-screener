@@ -8,6 +8,13 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Section 6 Decision Tree Screener — multi-horizon (all 5) (2026-05-15)
+
+#### `notebooks/08_experiment_hub.ipynb` — extended DT screener to all 5 horizons
+- Cell `690181fe`: `DT_HORIZONS = ['6m','1y','2y','3y','5y']`; trains one DT per horizon, stores in `dt_models`/`dt_feats_by_h`/`X_train_by_h`/`y_train_by_h`; prints AUC table + rules per horizon
+- Cell `79ad780b`: loops all 5 horizons; scores universe per model; applies filters; displays 5 styled top-100 tables; exports `dt_screener_top100_{h}_{today}.csv` per horizon; stores in `dt_top_by_h`
+- Cell `1248e80a`: loops all 5 horizons; per-rule leaf stats (Part A) + year-by-year backtest with correct per-horizon CAGR annualization via `hor_years_map` (Part B)
+
 ### Section 6 Decision Tree Screener — executed cells with outputs (2026-05-15)
 
 #### `notebooks/08_experiment_hub.ipynb` — executed all three Section 6 cells
