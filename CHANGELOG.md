@@ -8,6 +8,11 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Publish showcase notebook with full outputs (2026-05-14)
+
+#### Execute and publish research showcase notebook (feat)
+- **`research/showcase.ipynb`**: executed notebook with full cell outputs — 19 code cells, 0 errors. Covers dataset overview, factor analysis, feature selection, model training, Optuna tuning, walk-forward validation, SHAP importance, backtest, live screener demo.
+
 ### Fix Streamlit Cloud deployment + ML scoring (2026-05-14)
 
 #### Fix broken cloud deployment and ML scoring (fix)
