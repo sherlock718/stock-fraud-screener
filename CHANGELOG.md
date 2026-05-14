@@ -8,6 +8,16 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Section 6 Decision Tree Screener — filters + CAGR performance (2026-05-14)
+
+#### `notebooks/08_experiment_hub.ipynb` — added filters and historical CAGR to Section 6
+- Added 6 filter config variables: `DT_MARKETS`, `DT_MIN_SCORE`, `DT_MIN_MARKET_CAP`, `DT_PIOTROSKI_MIN`, `DT_BENEISH_MAX`, `DT_ALTMAN_MIN`
+- Filter application block applies all active filters to universe before top-N display; prints before/after counts
+- New CAGR performance cell (two parts):
+  - **Per-rule stats**: `dt_model.apply()` → per leaf-node hit rate, avg return, implied CAGR, styled with `background_gradient(cmap='RdYlGn')`
+  - **Year-by-year backtest**: equal-weight top-N portfolio per `fiscal_year` → implied CAGR, excess vs benchmark, hit rate, Sharpe; two-panel chart (annual CAGR bars + CAGR-by-leaf bars); styled year-by-year table
+  - NOTE: in-sample reference only — DT trained on full history
+
 ### Section 6 Decision Tree Screener — rule-based top 100 (2026-05-14)
 
 #### `notebooks/08_experiment_hub.ipynb` — added Section 6 Decision Tree Screener
