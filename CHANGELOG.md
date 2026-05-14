@@ -8,6 +8,12 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Version 2 roadmap documented (2026-05-14)
+
+#### Documentation
+- **`docs/developer/roadmap.md`**: Created — 6-section v2 plan covering AUC improvements (6m/1y/2y), quarterly data pipeline, portfolio construction, live data pipeline, alternative data (Form 4 insider), and production API deployment
+- **`docs/developer/index.md`**: Roadmap link added
+
 ### Architecture: experiment notebook declared as primary frontend; Streamlit archived (2026-05-14)
 
 #### Documentation — all Streamlit references replaced with notebook frontend (docs/arch)
