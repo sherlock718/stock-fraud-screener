@@ -8,6 +8,15 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### build_portfolio.py: MoS gate, low-vol filter, implied drawdown, $10M floor (2026-05-14)
+
+#### Vision gap fixes: portfolio risk controls + liquidity floor (feat/portfolio)
+- **`scripts/build_portfolio.py`**: `MIN_MARKET_CAP` lowered 50M → $10M (micro-cap / institution-avoidance niche)
+- **`scripts/build_portfolio.py`**: Added `--mos-min-score FLOAT` — margin-of-safety gate requiring `alpha_value >= threshold` before stock selection; applied in both `run_backtest` and `build_current_holdings`
+- **`scripts/build_portfolio.py`**: Added `--low-vol-only` — retains only stocks in bottom-half of trailing 12m volatility per year; applied in both backtest and holdings paths
+- **`scripts/build_portfolio.py`**: Added `implied_max_drawdown_pct` to backtest output — `−max(|max_dd|, 2σ)` proxy that corrects the annual-sampling artifact (pure year-end drawdown misses intra-year troughs)
+- **`docs/developer/scripts.md`**: Updated `build_portfolio.py` flags table and output description
+
 ### Re-tune 6m/1y/2y models — D1.3 (2026-05-14)
 
 #### 60-trial Optuna re-run for 6m, 1y, 2y horizons (perf/models)

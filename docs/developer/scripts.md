@@ -571,10 +571,11 @@ python3 scripts/build_portfolio.py                                      # Defaul
 python3 scripts/build_portfolio.py --strategy long_short --horizon 3y
 python3 scripts/build_portfolio.py --market US --top-n 20 --tearsheet
 python3 scripts/build_portfolio.py --horizon all --kelly-fraction 0.25 --tearsheet
+python3 scripts/build_portfolio.py --mos-min-score 0.55 --low-vol-only  # MoS gate + low-vol filter
 ```
 
 Reads `data/alpha_registry.json` to IC-weight selected signals into a composite score.
-Ranks stocks, applies market-cap filter ($50M), quarter-Kelly position sizing, sector cap,
+Ranks stocks, applies market-cap filter ($10M), quarter-Kelly position sizing, sector cap,
 and position cap. Runs a historical annual backtest and outputs current-year holdings.
 
 Horizon filter (`--horizon`): keeps all factor signals (horizon-agnostic) plus the ML OOF
@@ -593,14 +594,18 @@ Latest holdings use the most recent fiscal year with ≥ `--top-n` complete sign
 | `--kelly-fraction` | `0.25` | Fractional Kelly multiplier (≤ 0.25× full Kelly) |
 | `--sector-cap` | `0.40` | Maximum total weight in any single SIC sector |
 | `--position-cap` | `0.05` | Maximum weight per stock (5%) |
-| `--min-market-cap` | `50000000` | Minimum market cap in USD ($50M liquidity floor) |
+| `--min-market-cap` | `10000000` | Minimum market cap in USD ($10M floor — micro-cap / institution-avoidance niche) |
 | `--var-gate` | None | Warn if historical VaR 95% is worse than threshold (e.g. `-30` for −30%) |
 | `--cvar-gate` | None | Abort if historical CVaR 99% is worse than threshold (e.g. `-40` for −40%) |
+| `--mos-min-score` | None | Margin-of-safety gate: require `alpha_value >= threshold` before selection |
+| `--low-vol-only` | False | Keep only stocks in bottom-half of trailing 12m volatility distribution |
 | `--tearsheet` | False | Print formatted tearsheet to stdout |
 
 **Output**:
 - `data/portfolio_holdings.json` — latest-year holdings: `ticker`, `market`, `composite_score`, `weight_pct`, `market_cap_m`, `sic_code`
-- `data/portfolio_backtest.json` — backtest: `cagr_pct`, `sharpe`, `sortino`, `max_drawdown_pct`, `var_95_pct`, `cvar_99_pct`, `spy_cagr_pct`, `excess_cagr_pct`, `beta`, `alpha_annualised_pct`, `annual_returns`, `signals_used`, `ic_weights`
+- `data/portfolio_backtest.json` — backtest: `cagr_pct`, `sharpe`, `sortino`, `max_drawdown_pct`, `implied_max_drawdown_pct`, `var_95_pct`, `cvar_99_pct`, `spy_cagr_pct`, `excess_cagr_pct`, `beta`, `alpha_annualised_pct`, `annual_returns`, `signals_used`, `ic_weights`
+
+Note: `max_drawdown_pct` is computed from annual year-end snapshots and understates true intra-year drawdowns. `implied_max_drawdown_pct` = `−max(|max_dd|, 2σ)` is a conservative proxy that adds a 2-sigma floor.
 
 **Re-run when**: alpha registry is rebuilt, or to change strategy/horizon/sizing parameters.
 

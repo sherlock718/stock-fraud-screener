@@ -34,7 +34,7 @@ BACKTEST_OUT = BASE / 'data' / 'portfolio_backtest.json'
 SPY_PATH     = BASE / 'data' / 'spy_returns.csv'
 
 RISK_FREE      = 0.03
-MIN_MARKET_CAP = 50_000_000  # $50M liquidity floor (no ADV data available)
+MIN_MARKET_CAP = 10_000_000  # $10M floor — micro-cap / institution-avoidance niche
 
 
 # ── Registry ──────────────────────────────────────────────────────────────────
@@ -145,6 +145,13 @@ def run_backtest(df: pd.DataFrame, signal_cols: list[str],
         yr = df[df['fiscal_year'] == year].copy()
         if 'market_cap_at_filing' in yr.columns:
             yr = yr[yr['market_cap_at_filing'] >= args.min_market_cap]
+        # Margin-of-safety gate: require minimum alpha_value percentile
+        if getattr(args, 'mos_min_score', None) is not None and 'alpha_value' in yr.columns:
+            yr = yr[yr['alpha_value'] >= args.mos_min_score]
+        # Low-vol filter: keep only bottom-half by trailing 12m volatility
+        if getattr(args, 'low_vol_only', False) and 'vol_prior_12m' in yr.columns:
+            vol_median = yr['vol_prior_12m'].median()
+            yr = yr[yr['vol_prior_12m'] <= vol_median]
         if len(yr) < args.top_n or ret_col not in yr.columns:
             continue
         yr = yr.dropna(subset=[ret_col])
@@ -191,6 +198,7 @@ def run_backtest(df: pd.DataFrame, signal_cols: list[str],
     cum = np.cumprod(1 + arr)
     peak = np.maximum.accumulate(cum)
     max_dd = float(((cum - peak) / peak).min())
+    implied_max_dd = -max(abs(max_dd), 2 * vol)  # annual sampling understates true dd; 2σ floor
     var_95 = round(float(np.percentile(arr, 5)) * 100, 2)
     _tail = arr[arr <= np.percentile(arr, 1)]
     cvar_99 = round(float(_tail.mean()) * 100, 2) if len(_tail) > 0 else var_95
@@ -219,6 +227,7 @@ def run_backtest(df: pd.DataFrame, signal_cols: list[str],
         'sharpe': round(sharpe, 3) if sharpe is not None else None,
         'sortino': round(sortino, 3) if sortino is not None else None,
         'max_drawdown_pct': round(max_dd * 100, 2),
+        'implied_max_drawdown_pct': round(implied_max_dd * 100, 2),
         'var_95_pct': var_95,
         'cvar_99_pct': cvar_99,
         'spy_cagr_pct': round(spy_cagr * 100, 2) if spy_cagr is not None else None,
@@ -256,6 +265,11 @@ def build_current_holdings(df: pd.DataFrame, signal_cols: list[str],
     yr = df[df['fiscal_year'] == latest_year].copy()
     if 'market_cap_at_filing' in yr.columns:
         yr = yr[yr['market_cap_at_filing'] >= args.min_market_cap]
+    if getattr(args, 'mos_min_score', None) is not None and 'alpha_value' in yr.columns:
+        yr = yr[yr['alpha_value'] >= args.mos_min_score]
+    if getattr(args, 'low_vol_only', False) and 'vol_prior_12m' in yr.columns:
+        vol_median = yr['vol_prior_12m'].median()
+        yr = yr[yr['vol_prior_12m'] <= vol_median]
 
     composite = compute_composite(yr, signal_cols, ic_weights)
     yr = yr.assign(_composite=composite)
@@ -302,6 +316,7 @@ def print_tearsheet(result: dict, holdings: dict) -> None:
     print(f"  Sharpe              : {_fmt(result.get('sharpe'), ':.3f')}")
     print(f"  Sortino             : {_fmt(result.get('sortino'), ':.3f')}")
     print(f"  Max Drawdown        : {_fmt(result.get('max_drawdown_pct'), ':+.1f', '%')}")
+    print(f"  Implied MaxDD (2σ)  : {_fmt(result.get('implied_max_drawdown_pct'), ':+.1f', '%')}")
     print(f"  VaR 95%             : {_fmt(result.get('var_95_pct'), ':+.1f', '%')}")
     print(f"  CVaR 99%            : {_fmt(result.get('cvar_99_pct'), ':+.1f', '%')}")
     print(f"  Beta vs SPY         : {_fmt(result.get('beta'), ':.3f')}")
@@ -351,6 +366,10 @@ def main() -> None:
                         help='Halt if historical VaR 95%% is worse than this threshold (e.g. -30 for -30%%)')
     parser.add_argument('--cvar-gate', type=float, default=None, dest='cvar_gate',
                         help='Halt if historical CVaR 99%% is worse than this threshold (e.g. -40 for -40%%)')
+    parser.add_argument('--mos-min-score', type=float, default=None, dest='mos_min_score',
+                        help='Margin-of-safety gate: require alpha_value >= this threshold (e.g. 0.55)')
+    parser.add_argument('--low-vol-only', action='store_true', dest='low_vol_only',
+                        help='Keep only stocks in bottom-half of trailing 12m volatility distribution')
     parser.add_argument('--tearsheet', action='store_true',
                         help='Print formatted tearsheet to stdout')
     args = parser.parse_args()
