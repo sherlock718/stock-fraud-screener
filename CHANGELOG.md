@@ -8,6 +8,17 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Repo structure clean-up (2026-05-14)
+
+#### Removed dead files, archived EDA notebooks, merged requirements (chore/repo)
+- Deleted **`pipeline/phase_a_integrate_{br,ca,eu,jp,kr}.py`** — one-time market integration scripts, no longer needed
+- Deleted **`research/03_ml_model.ipynb`**, **`research/showcase.ipynb`** — superseded
+- Removed **`HF_TOKEN.md`** — security risk; secrets belong in `.env` / CI vars only
+- Moved **`notebooks/01–06_*.ipynb`** → **`research/notebooks/`** (EDA archive)
+- Deleted **`notebooks/07_live_screener.ipynb`** — superseded by `08_experiment_hub.ipynb`
+- Added **`notebooks/08_experiment_hub.ipynb`** — new master notebook
+- Merged **`requirements-api.txt`** into **`requirements.txt`**; deleted `requirements-api.txt`
+
 ### Regression model extended to all 5 horizons — continuous CAGR output (2026-05-14)
 
 #### `train_regression_model.py` rewritten: all-horizon support (feat/models)

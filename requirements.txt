@@ -13,3 +13,11 @@ scipy==1.13.1
 huggingface_hub==1.8.0
 shap==0.47.2
 xgboost>=2.0.0
+
+# API dependencies
+fastapi==0.115.12
+uvicorn[standard]==0.34.2
+sqlalchemy==2.0.41
+psycopg2-binary==2.9.10
+pydantic==2.11.4
+python-multipart==0.0.20
