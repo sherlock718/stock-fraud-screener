@@ -23,6 +23,9 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 - **`src/ui/tab_backtester.py`**: fixed key mismatch where UI read `port_ret`/`bench_ret` (decimal) but `backtest_results.json` stores `port_pct`/`bench_pct` (percentage). Annual returns and cumulative wealth charts now render correctly.
 - **`data/backtest_results.json`**: re-generated with monthly price cache — composite strategy MaxDD=-20.8% (was 0.0%), CAGR=+37.1%, Sharpe=1.566.
 
+#### Add plain-English investment thesis generator (feat)
+- **`alpha/explain.py`** (new): generates per-ticker buy rationale in plain English. Covers predicted 3-year excess return, Piotroski quality verdict, Beneish fraud risk, Altman distress risk, valuation snapshot (P/B, FCF yield, market cap), ML conviction level, recommended strategy (LEAPS/margin/equity-only), risk flag detection, and a 4-point margin of safety checklist. CLI: `python3 alpha/explain.py --market US --top 15`. API: `from alpha.explain import explain_pick, explain_many`.
+
 #### Docs update
 - **`docs/developer/scripts.md`**: updated `factor_research.py` section with `--ic-decay`/`--decay-top` flags and ML exclusion note; updated `bias_audit.py` section to describe Audit 5 (regression model checks).
 
