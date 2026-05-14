@@ -264,4 +264,14 @@ def run():
 
 
 if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser(description='Step 4 — Add FRED macro context')
+    parser.add_argument('--snapshots', type=str, default=None, help='Path to snapshots parquet')
+    parser.add_argument('--suffix',    type=str, default='',   help='Market suffix, e.g. _br')
+    args = parser.parse_args()
+
+    if args.snapshots:
+        SNAP = Path(args.snapshots)
+    if args.suffix:
+        OUT = DATA / f'macro{args.suffix}.parquet'
     run()

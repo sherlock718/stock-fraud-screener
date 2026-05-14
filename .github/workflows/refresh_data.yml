@@ -45,7 +45,7 @@ jobs:
           import shutil, pathlib
           try:
             path = hf_hub_download(
-              repo_id=os.environ['HF_REPO'],
+              repo_id='ekrash718/stock-screener-data',
               filename='historical_dataset_clean.parquet',
               repo_type='dataset',
               token=os.environ.get('HF_TOKEN')
@@ -57,35 +57,101 @@ jobs:
             print(f'No existing dataset (starting fresh): {e}')
           " || echo "Dataset base download skipped"
         env:
-          HF_REPO: ${{ secrets.HF_REPO }}
+          HF_REPO: ekrash718/stock-screener-data
 
       - name: Run data pipeline
         env:
-          MARKETS: ${{ github.event.inputs.markets || 'US' }}
+          MARKETS: ${{ github.event.inputs.markets || 'US CA JP KR EU BR' }}
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
         run: |
+          # Expand "all" to the canonical 6-market set
           if [ "$MARKETS" = "all" ]; then
-            python3 scripts/run_pipeline.py
-          else
-            for market in $MARKETS; do
-              echo "=== Refreshing $market ==="
-              case $market in
-                EU|DE|FR|IT|ES|SE|NL|PT|DK|FI)
-                  python3 scripts/run_pipeline_eu.py --market $market ;;
-                KR)
-                  python3 scripts/run_pipeline_kr.py ;;
-                *)
-                  python3 scripts/run_pipeline.py --market $market ;;
-              esac
-            done
+            MARKETS="US CA JP KR EU BR"
           fi
+          for market in $MARKETS; do
+            echo "=== Refreshing $market ==="
+            case $market in
+              EU|DE|FR|IT|ES|SE|NL|PT|DK|FI)
+                python3 scripts/run_pipeline_eu.py --market $market ;;
+              KR)
+                if [ -z "$DART_API_KEY" ]; then
+                  echo "[WARN] DART_API_KEY not set — skipping KR pipeline"
+                else
+                  python3 scripts/run_pipeline_kr.py
+                fi ;;
+              *)
+                python3 scripts/run_pipeline.py --market $market ;;
+            esac
+          done
 
       - name: Fix dataset quality
         run: |
           python3 scripts/fix_dataset_quality.py
 
+      - name: Post-process — enrich quarterly features
+        run: |
+          python3 scripts/enrich_quarterly_features.py
+
+      - name: Post-process — impute quarterly features + size_category
+        run: |
+          python3 scripts/impute_features.py
+
+      - name: Post-process — survivorship correction
+        run: |
+          python3 scripts/mark_survivorship.py --fix
+
+      - name: Post-process — compute 5-factor alpha scores
+        run: |
+          python3 scripts/compute_alpha.py
+
+      - name: Post-process — apply ML fraud scores (requires models/)
+        run: |
+          # Download models from HuggingFace if not already present
+          python3 -c "
+          import os, pathlib
+          from huggingface_hub import hf_hub_download
+          import shutil
+          token = os.environ.get('HF_TOKEN')
+          repo = 'ekrash718/stock-screener-data'
+          models_dir = pathlib.Path('models')
+          models_dir.mkdir(exist_ok=True)
+          for fname in ['model_1y.joblib','model_3y.joblib','model_5y.joblib','model_meta.json']:
+              if not (models_dir / fname).exists():
+                  try:
+                      p = hf_hub_download(repo_id=repo, filename=fname, repo_type='dataset', token=token)
+                      shutil.copy(p, models_dir / fname)
+                      print(f'Downloaded {fname}')
+                  except Exception as e:
+                      print(f'Skipping {fname}: {e}')
+          " || true
+          python3 scripts/score_historical.py || echo "ML scoring skipped (models unavailable)"
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+
       - name: Check data quality (mandatory gate)
         run: |
           python3 scripts/check_data.py --fail-fast
+
+      - name: Run full dataset quality suite
+        run: |
+          python3 scripts/test_dataset_quality.py
+
+      - name: Bias audit (look-ahead hard fail; survivorship/overfitting warn-only)
+        run: |
+          python3 scripts/bias_audit.py --ci
+
+      - name: Refresh factor research reports
+        run: |
+          python3 scripts/factor_research.py --all-horizons --no-sector-neutral || echo "factor_research (base) failed (non-fatal)"
+          python3 scripts/factor_research.py --all-horizons || echo "factor_research (sector-neutral) failed (non-fatal)"
+
+      - name: Re-run feature selection (PSI=0.25, NW t-stats, BH FDR, sector-neutral IC)
+        run: |
+          python3 scripts/run_feature_selection.py || echo "feature selection failed (non-fatal)"
+
+      - name: Verify doc consistency (numbers match across all docs)
+        run: |
+          python3 scripts/verify_doc_consistency.py --warn || echo "doc consistency check failed — review verify_doc_consistency output above"
 
       - name: Write health status
         if: always()
@@ -95,7 +161,7 @@ jobs:
           status = {
             'last_refresh': datetime.datetime.utcnow().isoformat() + 'Z',
             'trigger': 'github_actions',
-            'markets': '${{ github.event.inputs.markets || 'US' }}',
+            'markets': '${{ github.event.inputs.markets || 'US CA JP KR EU BR' }}',
             'workflow_run': '${{ github.run_id }}',
             'status': 'success' if '--no-error' not in sys.argv else 'error',
           }
@@ -113,7 +179,7 @@ jobs:
         if: success()
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-          HF_REPO: ${{ secrets.HF_REPO }}
+          HF_REPO: ekrash718/stock-screener-data
         run: |
           python3 -c "
           import os

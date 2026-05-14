@@ -9,6 +9,7 @@ import pandas as pd
 import streamlit as st
 
 from src.config import BASE, WL_PATH, WL_LIVE
+from src.scoring import composite_rank, score_companies
 
 _FRAUD_TREND_COLS = [
     'fraud_score_composite',
@@ -60,7 +61,7 @@ def _fraud_alerts(df_all: pd.DataFrame, tickers: list[str]) -> list[dict]:
     return sorted(alerts, key=lambda x: abs(x['Δ Change']), reverse=True)
 
 
-def tab_watchlist(df_all: pd.DataFrame | None = None) -> None:
+def tab_watchlist(df_all: pd.DataFrame | None = None, models: dict | None = None, meta: dict | None = None) -> None:
     st.header('⭐ Watchlist & Price Alerts')
 
     def _load_wl() -> dict:
@@ -192,3 +193,33 @@ def tab_watchlist(df_all: pd.DataFrame | None = None) -> None:
     st.download_button('⬇️ Download watchlist CSV',
                        df_wl.to_csv(index=False),
                        'watchlist.csv', 'text/csv')
+
+    # --- vs Screener Top Picks ---
+    if df_all is not None and models and meta:
+        with st.expander('📊 Compare vs Screener Top Picks'):
+            src = df_all[df_all['period_type'] == 'annual'] if 'period_type' in df_all.columns else df_all
+            latest = src.sort_values('fiscal_year', ascending=False).drop_duplicates('ticker', keep='first')
+            scored = score_companies(latest, models, meta, horizon='1y')
+            scored = composite_rank(scored)
+            scored = scored[scored['composite_score'].notna()].copy()
+            scored['rank'] = scored['composite_score'].rank(ascending=False, method='min').astype(int)
+            total = len(scored)
+
+            wl_tickers = list(wl.keys())
+            wl_rows = scored[scored['ticker'].isin(wl_tickers)].copy()
+
+            if wl_rows.empty:
+                st.info('No watchlist tickers found in the current screener universe.')
+            else:
+                display_cols = ['ticker', 'rank', 'composite_score', 'ml_score',
+                                'fraud_score_composite', 'piotroski_f_score', 'fiscal_year']
+                show = [c for c in display_cols if c in wl_rows.columns]
+                disp = wl_rows[show].copy()
+                disp.insert(2, 'percentile', ((1 - (disp['rank'] - 1) / total) * 100).round(1))
+                disp = disp.sort_values('rank')
+                st.caption(f'Watchlist tickers ranked against {total:,} companies in screener (1y horizon, latest filing)')
+                st.dataframe(disp, use_container_width=True, hide_index=True)
+
+                missing = [t for t in wl_tickers if t not in wl_rows['ticker'].values]
+                if missing:
+                    st.caption(f'Not in screener universe: {", ".join(missing)}')

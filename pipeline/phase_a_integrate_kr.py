@@ -14,7 +14,7 @@ This script:
   7. Applies P0d (fraud taxonomy sub-scores)
   8. Applies P0f (universe classification)
   9. Applies P0g (data confidence score)
- 10. Aligns to the 313-column schema of historical_dataset_clean.parquet
+ 10. Aligns to the 319-column schema of historical_dataset_clean.parquet
  11. Concatenates and saves in-place
 
 Usage:
@@ -333,7 +333,7 @@ def run(dry_run: bool = False) -> None:
     # ── Apply P0f universe classification ────────────────────────────────────
     print('\n[8/9] Applying P0f universe classification...')
     try:
-        df = classify_universe(df)
+        df = classify_universe(df, apply_filters=False)
         in_u = int(df['in_universe'].sum())
         print(f'  in_universe=1: {in_u:,} / {len(df):,} rows')
     except Exception as e:
@@ -351,7 +351,7 @@ def run(dry_run: bool = False) -> None:
         df['data_confidence'] = np.nan
 
     # ── Align to target schema ────────────────────────────────────────────────
-    print('\n[9/9] Aligning KR rows to 313-column schema...')
+    print('\n[9/9] Aligning KR rows to 319-column schema...')
     for col in target_cols:
         if col not in df.columns:
             df[col] = np.nan
@@ -359,7 +359,6 @@ def run(dry_run: bool = False) -> None:
     # Keep only columns in target schema (in target order)
     kr_aligned = df[target_cols].copy()
     print(f'  KR aligned: {len(kr_aligned):,} rows × {len(kr_aligned.columns)} cols')
-
     # ── Stats ──────────────────────────────────────────────────────────────────
     annual_kr = (kr_aligned['period_type'] == 'annual').sum() if 'period_type' in kr_aligned.columns else 0
     print(f'\n  KR rows summary:')

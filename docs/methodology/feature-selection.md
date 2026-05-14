@@ -1,0 +1,168 @@
+# Feature Selection Methodology
+
+The pipeline selects ~45 features per horizon from an initial pool of ~207 candidates (357 raw columns minus identifiers/targets, PSI-rejected features). Selection runs in four sequential filters: **PSI → IC → ICIR → Spearman deduplication**. IC stage now includes Newey-West HAC t-statistics and Benjamini-Hochberg FDR correction.
+
+---
+
+## Pipeline Overview
+
+```mermaid
+flowchart LR
+    A["357 raw columns"] --> PSI["1. PSI Filter<br/>drops drifted features<br/>PSI > 0.25 → removed<br/>~14 removed → ~207 left"]
+    PSI --> IC["2. IC Screen<br/>|mean IC| ≥ 0.02<br/>IC stability ≥ 60% years<br/>min 5 years of data"]
+    IC --> ICIR["3. ICIR Ranking<br/>ICIR = mean(IC) / std(IC)<br/>sort descending · keep top-N"]
+    ICIR --> DEDUP["4. Spearman Dedup<br/>|r| > 0.90 → drop weaker ICIR<br/>→ ~45 features per horizon"]
+    DEDUP --> MODEL["LightGBM<br/>1y / 3y / 5y"]
+```
+
+---
+
+## Step 1 — PSI Filter
+
+**What**: Population Stability Index measures how much a feature's distribution has shifted between the training period and the current scoring period.
+
+**Formula**:
+
+```
+PSI = Σ (P_score_i − P_train_i) × ln(P_score_i / P_train_i)
+```
+
+Where `i` indexes 10 equal-frequency buckets of the feature distribution.
+
+**Thresholds**:
+
+| PSI | Interpretation |
+|---|---|
+| < 0.10 | Stable — no concern |
+| 0.10 – 0.20 | Monitor |
+| ≥ 0.20 | Alert — feature distribution has shifted |
+
+The training default uses `PSI_THRESHOLD = 0.25` — the institutional standard threshold where PSI ≥ 0.25 indicates a significant distribution shift. At this threshold, ~14 features are removed (macro-regime features like T-bill rates, CPI, yield spreads that shift substantially between training and scoring periods).
+
+**Why before IC**: if a feature's distribution has shifted significantly, its historical IC estimate is unreliable for forward prediction. Computing IC on a drifted feature is garbage-in, garbage-out.
+
+**CLI**: `python3 scripts/run_feature_selection.py --psi-threshold 0.25` (default).
+
+---
+
+## Step 2 — IC Screen
+
+**Information Coefficient (IC)** is Spearman rank correlation between a feature value at fiscal year-end and the forward return over the horizon.
+
+```
+IC_t = SpearmanCorr(feature_rank_t, return_rank_{t+h})
+```
+
+Computed cross-sectionally within each fiscal year. A positive IC means the feature ranks companies in the right order; IC of 0.05 is considered economically meaningful.
+
+**Filters applied**:
+
+| Flag | Default | Meaning |
+|---|---|---|
+| `--min-ic` | `0.02` | \|mean IC across years\| must exceed this |
+| `--min-ic-stability` | `0.60` | Fraction of years where IC has the same sign as mean IC |
+| `--min-ic-years` | `5` | Feature must have valid IC in at least 5 years (prevents ICIR inflation from single-year fluke) |
+
+The stability filter is the most important: a feature with mean IC of 0.04 but only 40% sign consistency is directionally unreliable and gets dropped even if its average looks positive.
+
+---
+
+## Step 3 — ICIR Ranking
+
+**ICIR (Information Coefficient Information Ratio)** is the ratio of mean IC to IC standard deviation across years — a signal-to-noise metric:
+
+```
+ICIR = mean(IC_t) / std(IC_t)
+```
+
+Higher ICIR means the feature predicts returns *consistently*, not just occasionally. ICIR > 0.5 is a strong signal; most production quant factors operate between 0.3 and 0.8.
+
+After computing ICIR per feature, the pipeline keeps the top-N features by |ICIR| (default `--top-n 40`).
+
+**Why not just use IC?**: A feature with mean IC of 0.06 but std of 0.15 is unstable — it'll be strong in some regimes and flat or inverted in others. ICIR penalises this instability.
+
+### Current Limitations
+
+The current IC implementation treats each year's IC as an independent observation. This understates standard errors because:
+
+1. **Autocorrelation** — IC values in adjacent years are correlated (macro regimes persist)
+2. **Cross-sectional dependence** — companies share sector exposures
+
+**Implemented (Phase B)**:
+
+| Improvement | Status | Description |
+|---|---|---|
+| **Newey-West HAC standard errors** | ✅ `run_feature_selection.py` | Corrects for autocorrelation in IC time series. Bartlett kernel, max_lags=4. Ref: Newey & West (1987). |
+| **BH FDR correction** | ✅ `run_feature_selection.py` — gates `ic_pass` | With ~200 candidates, ~10 pass p<0.05 by chance. BH controls FDR at q=0.05. Ref: Benjamini & Hochberg (1995). |
+| **Sector-neutral IC** | ✅ `run_feature_selection.py --sector-neutral` (default) | Demeaned within (fiscal_year, sic_sector) before IC. Removes sector rotation from stock-selection IC. |
+| **Fama-MacBeth t-statistics** | ✅ `notebooks/02_ic_analysis.ipynb` Sec 9 | Cross-sectional OLS each year; t-stat on mean slope. Research/validation only; feature selection uses NW IC t-stat. |
+
+---
+
+## Step 4 — Spearman Deduplication
+
+After ICIR ranking, correlated features are deduplicated:
+
+1. Compute pairwise Spearman rank correlation matrix on the surviving feature set
+2. For any pair with |r| > 0.90: drop the feature with the lower |ICIR|
+
+**Why**: highly correlated features add no independent information but increase model variance. Two features with r = 0.95 are measuring nearly the same thing — keeping both wastes a degree of freedom and inflates feature importance scores.
+
+**Result**: ~45 final features per horizon (from ~60 pre-dedup candidates, top-K ICIR).
+
+CLI: `python3 scripts/run_feature_selection.py --help` to see all options; writes `models/feature_sets_{6m,1y,2y,3y,5y}.json` (all 5 horizons).
+
+---
+
+## Full CLI Reference
+
+```bash
+# Standalone feature selection (writes models/feature_sets_{6m,1y,2y,3y,5y}.json)
+python3 scripts/run_feature_selection.py
+
+# Tighter PSI threshold
+python3 scripts/run_feature_selection.py --psi-threshold 0.20
+
+# Stricter IC minimum
+python3 scripts/run_feature_selection.py --ic-min 0.03
+
+# Keep more features before dedup
+python3 scripts/run_feature_selection.py --top-k 80
+
+# Sector-neutral IC (via train_models.py directly)
+python3 scripts/train_models.py --sector-neutral
+
+# Walk-forward CV
+python3 scripts/train_models.py --walk-forward
+```
+
+---
+
+## Outputs
+
+After feature selection, `models/feature_sets_{6m,1y,2y,3y,5y}.json` records the final feature set per horizon:
+
+```json
+{
+  "features": ["gross_margin", "accruals_to_assets", "piotroski_f_score", ...],
+  "n": 46,
+  "horizon": "1y",
+  "generated": "2025-..."
+}
+```
+
+`reports/feature_selection_summary.csv` contains IC, ICIR, PSI, and selection status for every candidate across all horizons.
+
+Use `scripts/factor_research.py` to view IC, ICIR, t-statistic, and factor decay per feature, or to compare which features appear across horizons.
+
+---
+
+## Why Not PCA or Neural Feature Extraction?
+
+The platform deliberately uses interpretable feature selection:
+
+1. **Regulatory / explainability** — a portfolio manager must be able to attribute each stock pick to specific financial signals
+2. **Overfitting risk** — with ~155K rows and ~185 candidates, latent feature extraction risks learning noise
+3. **Factor decomposition** — the 5-factor framework requires named factors; PCA produces unnamed components that can't be mapped to Value/Quality/Momentum/Growth/Fraud Risk
+
+The Newey-West + FDR improvements (planned Phase 0) address the statistical rigour gap without sacrificing interpretability.

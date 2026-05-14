@@ -1,19 +1,18 @@
 #!/usr/bin/env python3
 """
-EU pipeline runner (SimFin).
+EU pipeline runner (yfinance free-data tier).
 
 Steps:
-  1. step2_build_snapshots_eu → data/snapshots_eu.parquet
-     (No step1 needed — SimFin bulk API returns all EU companies)
-  2. step3_enrich_prices_eu   → data/prices_eu.parquet
-  3. step4_enrich_macro       → data/macro_eu.parquet
-  4. step5_compute_features   → data/historical_dataset_eu.parquet
-  5. step6_clean              → data/historical_dataset_clean_eu.parquet
+  1. step1_fetch_tickers_eu   → data/tickers_eu.parquet   (Wikipedia index scrape)
+  2. step2_build_snapshots_eu → data/snapshots_eu.parquet  (yfinance, ~4-5 years)
+  3-6. Shared pipeline steps on EU snapshots → data/*_eu.parquet
+
+Free-tier coverage: ~350+ major tickers across DE, FR, NL, BE, SE, NO, DK, FI, IT,
+ES, PT, AT, IE via Wikipedia index pages + yfinance fundamentals. No API key required.
 
 Usage:
   python3 scripts/run_pipeline_eu.py build              # full build
   python3 scripts/run_pipeline_eu.py build --step 2     # resume from step 2
-  python3 scripts/run_pipeline_eu.py build --markets de gb se  # specific markets
   python3 scripts/run_pipeline_eu.py build --limit 50   # test run
   python3 scripts/run_pipeline_eu.py status             # check file state
 """
@@ -23,13 +22,11 @@ from __future__ import annotations
 import argparse
 import subprocess
 import sys
-import time
 from datetime import datetime
 from pathlib import Path
 
 BASE = Path(__file__).parent.parent
 DATA = BASE / 'data'
-PIPE = BASE / 'pipeline'
 
 
 def fmt(path: Path) -> str:
@@ -47,7 +44,8 @@ def fmt(path: Path) -> str:
 def status():
     print('\n── EU Pipeline Status ────────────────────────────────')
     files = [
-        ('snapshots_eu.parquet',                'SimFin EU financial snapshots'),
+        ('tickers_eu.parquet',                  'EU company list (Wikipedia index scrape)'),
+        ('snapshots_eu.parquet',                'EU financial snapshots (yfinance)'),
         ('prices_eu.parquet',                   'Price enrichment (EU)'),
         ('macro_eu.parquet',                    'Macro enrichment (EU)'),
         ('historical_dataset_eu.parquet',       'Full feature dataset (EU)'),
@@ -62,10 +60,11 @@ def status():
     print()
 
 
-def run_step(script: str, extra: list[str]):
-    cmd = [sys.executable, script] + extra
+def run_step(script: str, extra: list[str], label: str):
+    cmd = [sys.executable, str(BASE / script)] + extra
     print(f'\n{"="*60}')
-    print(f'[{datetime.now().strftime("%H:%M:%S")}] Running: {" ".join(cmd)}')
+    print(f'[{datetime.now().strftime("%H:%M:%S")}] {label}')
+    print(f'  {" ".join(str(c) for c in cmd)}')
     print('='*60)
     result = subprocess.run(cmd, cwd=BASE)
     if result.returncode != 0:
@@ -74,69 +73,64 @@ def run_step(script: str, extra: list[str]):
 
 
 EU_STEPS = {
-    1: (str(PIPE / 'step2_build_snapshots_eu.py'), 'SimFin EU snapshots'),
-    2: (str(PIPE / 'step3_enrich_prices.py'),       'Price enrichment (EU)'),
+    1: ('pipeline/step1_fetch_tickers_eu.py',   'Step 1 — Fetch EU ticker universe (Wikipedia)'),
+    2: ('pipeline/step2_build_snapshots_eu.py', 'Step 2 — Build EU financial snapshots (yfinance)'),
+    3: ('pipeline/step3_enrich_prices.py',       'Step 3 — Enrich with price data (yfinance)'),
+    4: ('pipeline/step4_enrich_macro.py',        'Step 4 — Enrich with macro data'),
+    5: ('pipeline/step5_compute_features.py',    'Step 5 — Compute 324 features'),
+    6: ('pipeline/step6_clean.py',               'Step 6 — Clean and validate'),
 }
 
-# Steps 3-5 (macro, features, clean) require merging EU snapshots into the
-# combined dataset first, then re-running run_pipeline.py build --step 4.
-# See scripts/merge_snapshots.py for the merge workflow.
-
-STEP_LABELS = {
-    1: 'Step 1/2 — SimFin EU snapshots',
-    2: 'Step 2/2 — Price enrichment',
-}
+LIMIT_STEPS    = {1, 2, 3}
+SNAPSHOT_STEPS = {3, 4, 5, 6}
 
 
-def build(start_step: int, limit: int | None, markets: list[str] | None):
-    for step_num in range(max(start_step, 1), 3):
+def build(start_step: int, limit: int | None):
+    for step_num in range(start_step, 7):
         script, label = EU_STEPS[step_num]
-        extra = []
 
-        if step_num == 1:
-            if markets:
-                extra += ['--markets'] + markets
-            if limit:
-                extra += ['--limit', str(limit)]
-
-        elif step_num == 2:
+        extra: list[str] = []
+        if step_num in LIMIT_STEPS and limit:
+            extra += ['--limit', str(limit)]
+        if step_num in SNAPSHOT_STEPS:
             extra += ['--snapshots', str(DATA / 'snapshots_eu.parquet')]
-            extra += ['--out',       str(DATA / 'prices_eu.parquet')]
-            if limit:
-                extra += ['--limit', str(limit)]
+        if step_num == 3:
+            extra += ['--out', str(DATA / 'prices_eu.parquet')]
+        if step_num in {4, 5, 6}:
+            extra += ['--suffix', '_eu']
 
-        run_step(script, extra)
+        run_step(script, extra, label)
 
     print('\n' + '='*60)
-    print(f'[{datetime.now().strftime("%H:%M:%S")}] EU STEPS 1-2 COMPLETE')
+    print(f'[{datetime.now().strftime("%H:%M:%S")}] EU BUILD COMPLETE')
     print('='*60)
     print()
-    print('Next: merge EU into combined dataset, then run macro + features:')
-    print('  python3 scripts/merge_snapshots.py             # combine US + KR + EU')
-    print('  python3 scripts/run_pipeline.py build --step 4 # macro → features → clean')
+    print('Next: integrate EU into the combined clean dataset:')
+    print('  python3 pipeline/phase_a_integrate_eu.py')
     print()
     status()
 
 
 def main():
-    parser = argparse.ArgumentParser(description='EU (SimFin) pipeline runner')
+    parser = argparse.ArgumentParser(description='EU pipeline runner (yfinance free-data tier)')
     sub = parser.add_subparsers(dest='cmd')
 
-    p_build = sub.add_parser('build')
-    p_build.add_argument('--step',    type=int,  default=1,    help='Resume from step N (1-2)')
-    p_build.add_argument('--limit',   type=int,  default=None, help='Limit companies per market (test runs)')
-    p_build.add_argument('--markets', nargs='+', default=None,
-                         help='Markets to load (default: all 8). E.g.: de gb se')
+    p_build = sub.add_parser('build', help='Run pipeline steps')
+    p_build.add_argument('--step',  type=int, default=1,    help='Resume from step N (1–6)')
+    p_build.add_argument('--limit', type=int, default=None, help='Cap tickers for test runs')
 
-    sub.add_parser('status')
+    sub.add_parser('status', help='Show output file state')
 
     args = parser.parse_args()
 
     if args.cmd == 'status' or args.cmd is None:
         status()
     elif args.cmd == 'build':
-        build(start_step=args.step, limit=args.limit,
-              markets=getattr(args, 'markets', None))
+        if args.step > 2:
+            print('NOTE: Steps 3-6 use shared pipeline scripts with --snapshots / --suffix.')
+            print('      Ensure snapshots_eu.parquet is built (step 2) before resuming.')
+            print()
+        build(start_step=args.step, limit=args.limit)
 
 
 if __name__ == '__main__':

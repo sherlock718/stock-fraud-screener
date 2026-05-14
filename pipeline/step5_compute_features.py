@@ -174,9 +174,16 @@ def add_accruals(df: pd.DataFrame) -> pd.DataFrame:
 
     wc_accruals = delta_rec.fillna(0) + delta_inv.fillna(0) - delta_ap.fillna(0)
     df['wc_accruals_to_assets'] = sdiv(wc_accruals, ta)
+    # Richardson et al. (2005) separately named columns used in Phase B feature sets
+    df['sloan_wc_accruals'] = sdiv(wc_accruals, ta)
 
     # Balance sheet accruals proxy: total accruals split
     df['accruals_to_assets'] = df['sloan_accruals']
+
+    # LT accruals: change in non-current operating assets minus non-current operating liabilities
+    # Approximation: total accruals - WC accruals
+    lt_accruals = (ni - ocf) - wc_accruals.reindex(df.index).fillna(0)
+    df['sloan_lt_accruals'] = sdiv(lt_accruals, ta)
 
     # NOA = Total assets - cash - financial assets - total liabilities + debt
     lt      = df['long_term_debt'].fillna(0)
@@ -248,7 +255,8 @@ def add_fraud_scores(df: pd.DataFrame) -> pd.DataFrame:
 
     # ── Beneish M-score components ──
     # DSRI: Days Sales Receivable Index (rising = manipulation signal)
-    df['beneish_dsri'] = sdiv(sdiv(rec, rev), sdiv(rec * (1 + rev_growth.fillna(0)), rev))
+    # Clipped to [0.5, 3.0] — values outside this range are data errors not manipulation signals
+    df['beneish_dsri'] = sdiv(sdiv(rec, rev), sdiv(rec * (1 + rev_growth.fillna(0)), rev)).clip(0.5, 3.0)
 
     # GMI: Gross Margin Index (falling margin = risk)
     prev_gm = sdiv(gp, rev) / (1 + df.get('gross_margin_change', pd.Series(0, index=df.index)).fillna(0))
@@ -272,9 +280,13 @@ def add_fraud_scores(df: pd.DataFrame) -> pd.DataFrame:
     # SGI: Sales Growth Index
     df['beneish_sgi'] = 1 + rev_growth.fillna(0)
 
-    # DEPI: Depreciation Index
-    dep_rate = sdiv(dep, dep + ppe.fillna(0))
-    df['beneish_depi'] = dep_rate / dep_rate  # simplified: flag if dep rate falling
+    # DEPI: Depreciation Index (prior dep rate / current dep rate; Beneish 1999)
+    # DEPI > 1 means the firm slowed depreciation relative to prior year — earnings manipulation signal
+    dep_growth_ = df.get('depreciation_growth', pd.Series(np.nan, index=df.index)).fillna(asset_growth_)
+    dep_prev_   = sdiv(dep, 1 + dep_growth_.clip(-0.9, 10))
+    dep_rate_t    = sdiv(dep,       dep       + ppe.fillna(0))
+    dep_rate_prev = sdiv(dep_prev_, dep_prev_ + ppe_prev_.fillna(0))
+    df['beneish_depi'] = sdiv(dep_rate_prev, dep_rate_t).clip(0, 5)
 
     # SGAI: SGA Expense Index
     df['beneish_sgai'] = sdiv(sdiv(sga, rev), sdiv(sga, rev) / (1 + rev_growth.fillna(0)).clip(0.5, 2))
@@ -311,7 +323,9 @@ def add_fraud_scores(df: pd.DataFrame) -> pd.DataFrame:
     df['altman_x2'] = sdiv(re,  ta)                              # retained earnings / assets
     df['altman_x3'] = sdiv(oi,  ta)                              # EBIT / assets
     total_liab      = (ta - eq).clip(lower=1e3)                  # avoid div-by-zero on near-zero liabilities
-    df['altman_x4'] = sdiv(mc,  total_liab).clip(upper=20)      # market cap / total liabilities, capped at 20
+    # X4: use book equity when market cap is unavailable (Z''-Score variant — non-US markets)
+    mc_or_book = mc.fillna(eq.clip(lower=0))
+    df['altman_x4'] = sdiv(mc_or_book, total_liab).clip(upper=20)
     df['altman_x5'] = sdiv(rev, ta)                              # sales / assets
 
     df['altman_z_score'] = (
@@ -355,6 +369,91 @@ def add_fraud_scores(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+# ── D2. Montier C-Score ───────────────────────────────────────────────────────
+
+def add_montier_c_score(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Montier C-Score (James Montier 2008) — forensic accounting red-flag index.
+    Six binary variables (0/1 each), composite score = sum (range 0–6).
+    Higher score = more manipulation risk signals present.
+
+    Components:
+      C1: Revenue from credit growing faster than revenue (receivables stuffing)
+      C2: Falling depreciation rate (earnings management via reduced dep)
+      C3: SG&A growing faster than revenue (cost shifting into overheads)
+      C4: Rising receivables (days sales outstanding growth > 0)
+      C5: Growing inventory relative to revenue (channel stuffing)
+      C6: Falling cash conversion (OCF / net income declining)
+
+    Reference: Montier, J. (2008). "Joining the dark side: Pirates, rats and short sellers."
+    Dresdner Kleinwort Research.
+    """
+    nan  = pd.Series(np.nan, index=df.index)
+    zero = pd.Series(0.0,    index=df.index)
+
+    rev    = df.get('revenue',              nan)
+    rec    = df.get('accounts_receivable',  nan)
+    inv    = df.get('inventory',            nan)
+    dep    = df.get('depreciation',         nan)
+    ppe    = df.get('ppe_net',               nan)   # use ppe_net (19% null) not property_plant_equipment (96% null)
+    sga    = df.get('sga_expense',          nan)
+    ni     = df.get('net_income',           nan)
+    ocf    = df.get('operating_cash_flow',  nan)
+
+    rec_growth = df.get('receivables_growth', nan)
+    rev_growth = df.get('revenue_growth',     nan)
+    inv_growth = df.get('inventory_growth',   nan)
+    sga_growth = df.get('sga_growth_yoy',     nan)
+
+    # C1: receivables growing faster than revenue (0/1)
+    c1 = (rec_growth.fillna(0) > rev_growth.fillna(0)).astype(float)
+    c1[rec_growth.isna() & rev_growth.isna()] = np.nan
+
+    # C2: depreciation rate falling YoY — dep / (dep + ppe) this year < prior year
+    dep_rate = sdiv(dep, dep.fillna(0) + ppe.fillna(0))
+    dep_growth_ = df.get('depreciation_growth', zero).fillna(0)
+    asset_growth_ = df.get('assets_growth', zero).fillna(0)
+    dep_prev = sdiv(dep, 1 + dep_growth_.clip(-0.9, 10))
+    ppe_prev = sdiv(ppe.fillna(0), 1 + asset_growth_.clip(-0.9, 10))
+    dep_rate_prev = sdiv(dep_prev, dep_prev.fillna(0) + ppe_prev.fillna(0))
+    c2 = (dep_rate < dep_rate_prev).astype(float)
+    c2[(dep.isna()) | (ppe.isna())] = np.nan
+
+    # C3: SG&A growing faster than revenue (overhead creep)
+    c3 = (sga_growth.fillna(0) > rev_growth.fillna(0)).astype(float)
+    c3[sga_growth.isna() & rev_growth.isna()] = np.nan
+
+    # C4: receivables increasing (DSO rising = collection risk)
+    c4 = (rec_growth.fillna(0) > 0).astype(float)
+    c4[rec_growth.isna()] = np.nan
+
+    # C5: inventory growing faster than revenue (unsold build-up)
+    c5 = (inv_growth.fillna(0) > rev_growth.fillna(0)).astype(float)
+    c5[inv_growth.isna() & rev_growth.isna()] = np.nan
+
+    # C6: cash conversion (OCF/NI) declining — earnings outrunning cash
+    cash_conv = sdiv(ocf, ni)
+    prev_cash_conv = sdiv(ocf, ni) / (1 + df.get('net_income_growth', zero).fillna(0).clip(-0.9, 10))
+    c6 = (cash_conv < prev_cash_conv).astype(float)
+    c6[(ocf.isna()) | (ni.isna())] = np.nan
+
+    df['montier_c1'] = c1
+    df['montier_c2'] = c2
+    df['montier_c3'] = c3
+    df['montier_c4'] = c4
+    df['montier_c5'] = c5
+    df['montier_c6'] = c6
+
+    # Composite: sum of available components scaled to [0,1]
+    c_cols = ['montier_c1', 'montier_c2', 'montier_c3', 'montier_c4', 'montier_c5', 'montier_c6']
+    available = df[c_cols].notna().sum(axis=1)
+    df['montier_c_score'] = df[c_cols].sum(axis=1, min_count=3)  # require ≥3 components
+    # Normalise to [0,1] so it's comparable to other scores
+    df['montier_c_score'] = df['montier_c_score'] / available.clip(lower=1)
+
+    return df
+
+
 # ── E. Liquidity & solvency ───────────────────────────────────────────────────
 
 def add_liquidity(df: pd.DataFrame) -> pd.DataFrame:
@@ -393,7 +492,14 @@ def add_liquidity(df: pd.DataFrame) -> pd.DataFrame:
     df['piotroski_roa_pos']   = (sdiv(ni, ta) > 0).astype(float)
     df['piotroski_delta_roa'] = df.get('net_income_growth', pd.Series(np.nan, index=df.index))
     df['piotroski_delta_lev'] = df.get('debt_growth', pd.Series(np.nan, index=df.index))
-    df['piotroski_delta_liq'] = df.get('current_assets_growth', pd.Series(np.nan, index=df.index))
+    # Piotroski F6: Δ(current_ratio) > 0 — original Piotroski 2000 criterion
+    if 'ticker' in df.columns and 'fiscal_year' in df.columns:
+        _cr_prev = (df.sort_values(['ticker', 'fiscal_year'])
+                      .groupby('ticker')['current_ratio'].shift(1)
+                      .reindex(df.index))
+        df['piotroski_delta_liq'] = df['current_ratio'] - _cr_prev
+    else:
+        df['piotroski_delta_liq'] = df.get('current_assets_growth', pd.Series(np.nan, index=df.index))
 
     return df
 
@@ -461,7 +567,46 @@ def add_size_features(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-# ── H. Interaction features ───────────────────────────────────────────────────
+# ── H. Cross-sectional momentum rank transforms ───────────────────────────────
+
+def add_momentum_ranks(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Cross-sectional percentile ranks within (fiscal_year, market).
+    Separates momentum signal from level — a 20% return ranks differently in a
+    bull year (low rank) vs a bear year (high rank). Jegadeesh & Titman 1993.
+    """
+    group_keys = [k for k in ['fiscal_year', 'market'] if k in df.columns]
+    if not group_keys:
+        return df
+
+    def pct_rank(x: pd.Series) -> pd.Series:
+        if x.notna().sum() < 10:  # cohort guard: sparse cohort ranks are noisy
+            return pd.Series(np.nan, index=x.index)
+        return x.rank(pct=True, na_option='keep')
+
+    raw_cols = {
+        'momentum_12m_rank': 'momentum_12m_prior',
+        'momentum_6m_rank':  'momentum_6m_prior',
+        'momentum_3m_rank':  'momentum_3m_prior',
+    }
+    for rank_col, raw_col in raw_cols.items():
+        if raw_col in df.columns:
+            df[rank_col] = df.groupby(group_keys)[raw_col].transform(pct_rank)
+
+    # Volatility rank — inverted so low-vol = high rank (low-vol premium)
+    if 'vol_prior_12m' in df.columns:
+        df['vol_rank_12m'] = 1.0 - df.groupby(group_keys)['vol_prior_12m'].transform(pct_rank)
+
+    # Composite momentum rank: mean of available horizon ranks
+    rank_cols = [c for c in ['momentum_12m_rank', 'momentum_6m_rank', 'momentum_3m_rank']
+                 if c in df.columns]
+    if rank_cols:
+        df['momentum_composite_rank'] = df[rank_cols].mean(axis=1)
+
+    return df
+
+
+# ── I. Interaction features ───────────────────────────────────────────────────
 
 def add_interactions(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -482,9 +627,11 @@ def add_interactions(df: pd.DataFrame) -> pd.DataFrame:
     roa = df.get('roa',               pd.Series(np.nan, index=df.index))
     bm  = df.get('book_to_market',    pd.Series(np.nan, index=df.index))
 
+    mom_rank = df.get('momentum_12m_rank', mom.rank(pct=True))
+
     df['value_x_quality']    = val * qua
-    df['value_x_momentum']   = val * mom.rank(pct=True)
-    df['quality_x_momentum'] = qua * mom.rank(pct=True)
+    df['value_x_momentum']   = val * mom_rank
+    df['quality_x_momentum'] = qua * mom_rank
     df['small_x_quality']    = (1 / siz.clip(1)) * qua.fillna(0)
 
     # Anti-quality signals (negative interactions)
@@ -523,11 +670,14 @@ def add_sector_percentiles(df: pd.DataFrame) -> pd.DataFrame:
         'momentum_12m_prior', 'ocf_to_ni',
     ]
 
+    # Group by BOTH sector AND fiscal_year — without fiscal_year this ranks a 2005
+    # company against 2005-2024 peers, which is lookahead across time.
+    group_keys = ['sic_2digit', 'fiscal_year'] if 'fiscal_year' in df.columns else ['sic_2digit']
     for feat in rank_features:
         if feat not in df.columns:
             continue
         col_pct = f'{feat}_sector_pct'
-        df[col_pct] = df.groupby('sic_2digit')[feat].transform(
+        df[col_pct] = df.groupby(group_keys, observed=True)[feat].transform(
             lambda x: x.rank(pct=True, na_option='keep')
         )
 
@@ -634,9 +784,16 @@ def run():
         'shares_dilution':         'shares_growth',
         'shares_outstanding':      'common_shares_outstanding',
     }
+    # Coalesce columns that may exist in both src and dst (prefer src which has better coverage)
+    COALESCE_ALIASES = {'equity', 'sga_expense'}
     for src, dst in COLUMN_ALIASES.items():
-        if src in df.columns and dst not in df.columns:
+        if src not in df.columns:
+            continue
+        if dst not in df.columns:
             df[dst] = df[src]
+        elif src in COALESCE_ALIASES:
+            # src has better coverage than the sparse dst coming from snapshots
+            df[dst] = df[src].combine_first(df[dst])
     # asset_growth_yoy maps to two names — handle the second explicitly
     if 'asset_growth_yoy' in df.columns and 'current_assets_growth' not in df.columns:
         df['current_assets_growth'] = df['asset_growth_yoy']
@@ -670,6 +827,9 @@ def run():
     print('  Computing fraud / distress scores ...')
     df = add_fraud_scores(df)
 
+    print('  Computing Montier C-Score ...')
+    df = add_montier_c_score(df)
+
     print('  Computing liquidity & solvency ...')
     df = add_liquidity(df)
 
@@ -678,6 +838,9 @@ def run():
 
     print('  Computing size features ...')
     df = add_size_features(df)
+
+    print('  Computing cross-sectional momentum ranks ...')
+    df = add_momentum_ranks(df)
 
     print('  Computing interaction features ...')
     df = add_interactions(df)
@@ -698,15 +861,48 @@ def run():
     )
     df['earnings_stability_5yr'] = -df['roe_volatility_5yr']  # invert: more stable = higher score
 
-    # ── Winsorize key ratios ───────────────────────────────────────────────────
+    if 'roa' in df.columns:
+        df['roa_volatility_5yr'] = (
+            df.groupby('ticker')['roa']
+            .transform(lambda x: x.rolling(5, min_periods=3).std())
+        )
+        df['earnings_stability_roa_5yr'] = -df['roa_volatility_5yr']
+
+    # ── Winsorize key ratios and growth features ──────────────────────────────
+    # Rule: ALL growth _yoy columns must be winsorized here (pipeline-integrity Rule 6).
+    # Without winsorization, companies growing from near-zero (revenue 1 → 184,343×) or
+    # extreme micro-cap EPS swings dominate LightGBM splits and inflate IC estimates.
     print('  Winsorizing extreme values (1st-99th percentile) ...')
     ratio_cols = [
+        # Valuation ratios
         'pe_ratio', 'pb_ratio', 'ps_ratio', 'ev_ebitda', 'ev_revenue',
+        # Profitability
         'roa', 'roe', 'roic', 'sloan_accruals', 'beneish_m_score',
         'altman_z_score', 'ohlson_o_score', 'ocf_to_ni',
         'days_sales_outstanding', 'days_inventory', 'cash_conversion_cycle',
         'receivables_minus_revenue_growth', 'delta_dso',
         'gross_profit_to_assets', 'earnings_stability_5yr',
+        # Growth YoY — must be winsorized: near-zero base causes extreme multiples
+        'revenue_growth_yoy', 'revenue_growth',
+        'net_income_growth_yoy', 'net_income_growth',
+        'asset_growth_yoy', 'assets_growth',
+        'eps_growth_yoy', 'eps_growth',
+        'gross_profit_growth_yoy',
+        'ocf_growth_yoy', 'ocf_growth',
+        'capex_growth_yoy', 'capex_growth',
+        'receivables_growth_yoy', 'receivables_growth',
+        'inventory_growth_yoy', 'inventory_growth',
+        'ap_growth_yoy', 'ap_growth',
+        'debt_growth_yoy', 'debt_growth',
+        'lt_debt_growth_yoy',
+        'cogs_growth_yoy', 'cogs_growth',
+        'sga_growth_yoy', 'sga_growth',
+        'rd_growth_yoy', 'rd_growth',
+        'ppe_growth_yoy', 'ppe_growth',
+        'equity_growth', 'equity_change_yoy',
+        'shares_dilution', 'shares_growth',
+        # Forensic accounting composites
+        'montier_c_score', 'wc_accruals_to_assets', 'sloan_wc_accruals', 'sloan_lt_accruals',
     ]
     for col in ratio_cols:
         if col in df.columns:
@@ -741,6 +937,8 @@ def run():
         'Interactions':            [c for c in df.columns if '_x_' in c or 'composite' in c
                                     or c.endswith('_in_high_rate') or c.endswith('_in_recession')],
         'Sector percentiles':      [c for c in df.columns if c.endswith('_sector_pct')],
+        'Momentum ranks':          [c for c in df.columns if c.endswith('_rank') and 'momentum' in c
+                                    or c == 'vol_rank_12m'],
     }
 
     print(f'\nStep 5 complete.')
@@ -752,4 +950,23 @@ def run():
 
 
 if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser(description='Step 5 — Compute features')
+    parser.add_argument('--snapshots', type=str, default=None, help='Path to snapshots parquet')
+    parser.add_argument('--prices',    type=str, default=None, help='Path to prices parquet')
+    parser.add_argument('--macro',     type=str, default=None, help='Path to macro parquet')
+    parser.add_argument('--suffix',    type=str, default='',   help='Market suffix, e.g. _br')
+    args = parser.parse_args()
+
+    sfx = args.suffix
+    if args.snapshots:
+        SNAP = Path(args.snapshots)
+    if sfx:
+        OUT   = DATA / f'historical_dataset{sfx}.parquet'
+        PRICE = DATA / f'prices{sfx}.parquet'
+        MACRO = DATA / f'macro{sfx}.parquet'
+    if args.prices:
+        PRICE = Path(args.prices)
+    if args.macro:
+        MACRO = Path(args.macro)
     run()

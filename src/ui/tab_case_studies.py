@@ -5,6 +5,8 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+from src.scoring import score_companies
+
 # --- Case study definitions ---
 # Each entry: ticker (as filed in dataset), market, fraud_year, fraud_type, narrative
 _CASES: list[dict] = [
@@ -340,6 +342,7 @@ _CASES: list[dict] = [
 _SCORE_HISTORY_COLS = [
     'beneish_m_score', 'altman_z_score', 'piotroski_f_score',
     'fraud_score_composite', 'fraud_score_accounting', 'sloan_accruals',
+    'ml_score_1y', 'ml_score_3y',
 ]
 
 
@@ -371,7 +374,7 @@ def _score_chart(company_df: pd.DataFrame, fraud_year: int) -> go.Figure:
     return fig
 
 
-def tab_case_studies(df_all: pd.DataFrame) -> None:
+def tab_case_studies(df_all: pd.DataFrame, models: dict | None = None, meta: dict | None = None) -> None:
     st.title('📚 Fraud Case Study Library')
     st.caption(
         'Real-world fraud cases with the quantitative signals that were detectable in annual filings '
@@ -420,6 +423,11 @@ def tab_case_studies(df_all: pd.DataFrame) -> None:
         )
     else:
         ann = ann.sort_values('fiscal_year')
+        if models and meta:
+            for h in ['1y', '3y']:
+                scored = score_companies(ann, models, meta, horizon=h)
+                if 'ml_score' in scored.columns:
+                    ann[f'ml_score_{h}'] = scored['ml_score'].values
         st.subheader(f'📊 Model Scores from Dataset — {ticker}')
         st.caption(f'{len(ann)} annual rows found | Fiscal years: {int(ann["fiscal_year"].min())}–{int(ann["fiscal_year"].max())}')
 

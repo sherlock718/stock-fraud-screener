@@ -32,17 +32,155 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from pipeline.feature_library import add_normalised_ratios, add_piotroski_ext
 
-BASE       = Path(__file__).parent.parent
-FULL_DATA  = BASE / 'data' / 'historical_dataset_clean.parquet'
-MODELS_DIR = BASE / 'models'
-OUT_PATH   = BASE / 'data' / 'backtest_results.json'
+BASE              = Path(__file__).parent.parent
+FULL_DATA         = BASE / 'data' / 'historical_dataset_clean.parquet'
+MODELS_DIR        = BASE / 'models'
+OUT_PATH          = BASE / 'data' / 'backtest_results.json'
+SPY_PATH          = BASE / 'data' / 'spy_returns.csv'
+MONTHLY_CACHE     = BASE / 'data' / 'monthly_prices.parquet'
 
 DEFAULT_COST_BPS  = 30    # 30 bps round-trip (commission 10bps + slippage 20bps)
 SMALLCAP_COST_BPS = 60    # Illiquidity premium for micro/small caps
 RISK_FREE = 0.03          # Annual risk-free rate for Sharpe/Sortino
 MIN_MARKET_CAP    = 50_000_000  # $50M floor — removes truly illiquid stocks
+
+# Tiered slippage (bps) by market-cap band; applied per-pick inside run_backtest
+SLIPPAGE_TIERS = [
+    (10_000_000_000, 20),   # large-cap  >$10B  → 20 bps
+    (1_000_000_000,  30),   # mid-cap    $1B–$10B → 30 bps
+    (100_000_000,    50),   # small-cap  $100M–$1B → 50 bps
+    (0,              80),   # micro-cap  <$100M  → 80 bps
+]
 MAX_POSITION_WEIGHT = 0.20      # Max weight per stock in vol-scaled portfolio
 MAX_SECTOR_WEIGHT   = 0.35      # Max total weight in any single SIC sector
+
+
+def load_spy_returns() -> dict[int, float]:
+    """Load SPY annual returns from data/spy_returns.csv. Returns {year: return}."""
+    if SPY_PATH.exists():
+        df = pd.read_csv(SPY_PATH)
+        return dict(zip(df['year'].astype(int), df['spy_return'].astype(float)))
+    return {}
+
+
+def load_monthly_prices() -> pd.DataFrame | None:
+    """Load monthly price cache built by build_monthly_price_cache.py."""
+    if not MONTHLY_CACHE.exists():
+        return None
+    df = pd.read_parquet(MONTHLY_CACHE)
+    df['date'] = pd.to_datetime(df['date'])
+    return df
+
+
+def compute_monthly_nav(annual_rows: list[dict], monthly_px: pd.DataFrame) -> tuple[float, int]:
+    """Build a monthly portfolio NAV and return (max_drawdown, max_dd_months).
+
+    For each backtest year, reconstruct the portfolio's monthly return path
+    by weighting each pick's monthly return by its allocation weight, then
+    chain these into a single continuous NAV series.
+
+    Falls back to annual-frequency drawdown if monthly data is missing.
+    """
+    nav_monthly: list[float] = [1.0]
+
+    for row in annual_rows:
+        yr   = int(row['year'])
+        # Portfolio holds stocks selected from fiscal_year=yr filings,
+        # held for calendar year yr+1 (Jan–Dec of the following year).
+        hold_start = pd.Timestamp(f'{yr+1}-01-01')
+        hold_end   = pd.Timestamp(f'{yr+1}-12-31')
+
+        picks     = row.get('_picks_valid')
+        weights   = row.get('_weights')
+        if picks is None or weights is None:
+            # Fallback: advance NAV by the known annual return
+            nav_monthly.append(nav_monthly[-1] * (1 + row['port_ret']))
+            continue
+
+        # Get monthly price data for each pick over the holding period
+        tickers = picks['ticker'].tolist()
+        mask = (
+            (monthly_px['ticker'].isin(tickers)) &
+            (monthly_px['date'] >= hold_start) &
+            (monthly_px['date'] <= hold_end)
+        )
+        sub = monthly_px[mask].copy()
+
+        if sub.empty:
+            nav_monthly.append(nav_monthly[-1] * (1 + row['port_ret']))
+            continue
+
+        # Compute monthly returns per ticker
+        sub = sub.sort_values(['ticker', 'date'])
+        sub['monthly_ret'] = sub.groupby('ticker')['adj_close'].pct_change()
+
+        # Pivot to (date × ticker) matrix, fill with 0 for missing months
+        ret_matrix = sub.pivot_table(
+            index='date', columns='ticker', values='monthly_ret'
+        ).reindex(columns=tickers).fillna(0.0)
+
+        if ret_matrix.empty:
+            nav_monthly.append(nav_monthly[-1] * (1 + row['port_ret']))
+            continue
+
+        # Weight vector aligned to tickers order
+        ticker_to_weight = dict(zip(tickers, weights))
+        w = np.array([ticker_to_weight.get(t, 0.0) for t in ret_matrix.columns])
+        w = w / w.sum() if w.sum() > 0 else np.ones(len(w)) / len(w)
+
+        # Monthly portfolio returns; accumulate into NAV
+        port_monthly_rets = ret_matrix.values @ w
+        nav_segment = nav_monthly[-1] * np.cumprod(1 + port_monthly_rets)
+        nav_monthly.extend(nav_segment.tolist())
+
+    nav = np.array(nav_monthly)
+    peak = np.maximum.accumulate(nav)
+    drawdowns = (nav - peak) / np.where(peak > 0, peak, 1)
+    max_dd = float(drawdowns.min())
+
+    # Drawdown duration in months
+    in_dd = drawdowns < 0
+    dd_months = 0
+    cur = 0
+    for d in in_dd:
+        cur = cur + 1 if d else 0
+        dd_months = max(dd_months, cur)
+
+    return max_dd, dd_months
+
+
+def adtv_filter(yr_df: pd.DataFrame, monthly_px: pd.DataFrame | None,
+                yr: int, max_pct_adtv: float = 0.05) -> pd.DataFrame:
+    """Remove picks whose intended position size exceeds max_pct_adtv of 30d ADTV.
+
+    Position size is estimated as equal-weight within the portfolio scaled by
+    a hypothetical $1M AUM. This is a conservative liquidity screen — the
+    actual constraint should be tightened at live trading time.
+
+    Args:
+        max_pct_adtv: Maximum fraction of ADTV a single position may represent.
+            Default 5% — standard institutional liquidity constraint.
+    """
+    if monthly_px is None or yr_df.empty:
+        return yr_df
+
+    # Use ADTV from last 3 months of the prior year (Dec of yr-1 through Feb of yr)
+    # so we don't peek into the holding period
+    obs_end   = pd.Timestamp(f'{yr}-12-31')
+    obs_start = pd.Timestamp(f'{yr}-09-30')
+    sub = monthly_px[
+        (monthly_px['date'] >= obs_start) &
+        (monthly_px['date'] <= obs_end)
+    ].groupby('ticker')['adtv_30d'].mean().reset_index()
+    sub.columns = ['ticker', 'adtv_est']
+
+    merged = yr_df.merge(sub, on='ticker', how='left')
+    # Drop tickers with known ADTV that is too low for a 5% position in $1M portfolio
+    # 5% of $1M = $50K; require adtv >= $50K / max_pct_adtv = $1M minimum ADTV
+    # If ADTV is unknown, keep the stock (conservative: don't exclude unknown)
+    min_adtv = 50_000 / max_pct_adtv  # = $1M ADTV for 5% constraint
+    keep = merged['adtv_est'].isna() | (merged['adtv_est'] >= min_adtv)
+    return yr_df[keep.values]
 
 
 # ── Data helpers ──────────────────────────────────────────────────────────────
@@ -126,6 +264,9 @@ def load_and_score(df: pd.DataFrame) -> pd.DataFrame:
     # Need at least 5 years of history before first score
     min_train_years = 5
 
+    # PIT: precompute filed_date as datetime once
+    _filed = pd.to_datetime(df.get('filed_date', pd.NaT), errors='coerce')
+
     for h, (ret_col, beat_col) in HORIZONS_WF.items():
         if beat_col not in df.columns or ret_col not in df.columns:
             continue
@@ -134,7 +275,12 @@ def load_and_score(df: pd.DataFrame) -> pd.DataFrame:
         print(f'    WF-ML {h}: training year by year...', flush=True)
 
         for i, score_yr in enumerate(years):
-            train_df = df[(df['fiscal_year'] < score_yr) & df[beat_col].notna()].copy()
+            # PIT: only include filings available before score_yr starts
+            _cutoff = pd.Timestamp(f'{score_yr}-01-01')
+            _pit_mask = _filed.isna() | (_filed < _cutoff)
+            train_df = df[
+                (df['fiscal_year'] < score_yr) & df[beat_col].notna() & _pit_mask
+            ].copy()
             if train_df['fiscal_year'].nunique() < min_train_years:
                 continue
 
@@ -396,7 +542,11 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
                  min_market_cap: int = MIN_MARKET_CAP,
                  vol_weighted: bool = True,
                  fill_missing_return: float | None = None,
-                 max_filing_lag_months: int = MAX_FILING_LAG_MONTHS) -> dict:
+                 max_filing_lag_months: int = MAX_FILING_LAG_MONTHS,
+                 spy_returns: dict | None = None,
+                 monthly_px: pd.DataFrame | None = None,
+                 use_adtv_filter: bool = True,
+                 max_pct_adtv: float = 0.05) -> dict:
     """Walk-forward backtest engine.
 
     Args:
@@ -405,6 +555,14 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
             model worst-case survivorship (missing = delisted).
         max_filing_lag_months: Drop filings received more than N months after
             fiscal year-end (look-ahead protection). Default 18.
+        spy_returns: Dict of {year: spy_annual_return} for SPY benchmark.
+            If None, falls back to equal-weight universe mean as benchmark.
+        monthly_px: Monthly price cache from build_monthly_price_cache.py.
+            When provided, MaxDD is computed from a monthly NAV curve instead
+            of the annual wealth index (fixes the MaxDD=0% bug).
+        use_adtv_filter: When True and monthly_px is available, remove picks
+            that would require trading > max_pct_adtv of 30d ADTV.
+        max_pct_adtv: Liquidity threshold (default 5% of ADTV).
     """
     years = sorted(y for y in df['fiscal_year'].unique() if y <= 2023)
     annual_rows = []
@@ -420,6 +578,11 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
         # Liquidity pre-filter: remove stocks below market cap threshold
         if min_market_cap > 0 and 'market_cap_at_filing' in yr_df.columns:
             yr_df = yr_df[yr_df['market_cap_at_filing'].fillna(0) >= min_market_cap]
+
+        # ADTV liquidity filter: remove tickers too illiquid for a 5%-ADTV position
+        if use_adtv_filter and monthly_px is not None:
+            yr_df = adtv_filter(yr_df, monthly_px, yr, max_pct_adtv)
+
         idx = filter_fn(yr_df, top_n, market)
         picks = yr_df.loc[idx]
 
@@ -445,8 +608,14 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
         if len(rets) < 3:
             continue
 
-        # Per-pick cost aligned to valid picks
-        if 'size_category_label' in picks_valid.columns:
+        # Per-pick cost: tiered by market_cap_at_filing if available, else legacy flags
+        if 'market_cap_at_filing' in picks_valid.columns:
+            caps = picks_valid['market_cap_at_filing'].fillna(0).values
+            per_pick_cost = np.array([
+                next(bps for threshold, bps in SLIPPAGE_TIERS if cap >= threshold) / 10000
+                for cap in caps
+            ])
+        elif 'size_category_label' in picks_valid.columns:
             is_small = picks_valid['size_category_label'].isin(['micro', 'small'])
             per_pick_cost = np.where(is_small,
                                      smallcap_cost_bps / 10000,
@@ -474,26 +643,38 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
         port_ret = float(np.dot(weights, net_rets))
         cost_drag = float(np.dot(weights, per_pick_cost))
 
-        # ── Benchmark: equal-weight all eligible stocks in same market/year ──
+        # ── Benchmark: SPY (primary) + equal-weight universe (secondary) ──
+        # SPY is used for excess_cagr_pct; universe mean kept as bench_universe_pct
         bench_df = yr_df.copy()
         if market:
             bench_df = bench_df[bench_df['market'] == market]
         if fill_missing_return is not None:
             bench_df['forward_return_1y'] = bench_df['forward_return_1y'].fillna(fill_missing_return)
         bench_rets_s = bench_df['forward_return_1y'].dropna()
-        bench_ret = bench_rets_s.mean() if len(bench_rets_s) > 5 else np.nan
+        universe_ret = bench_rets_s.mean() if len(bench_rets_s) > 5 else np.nan
         bench_coverage = len(bench_rets_s) / max(len(bench_df), 1)
+
+        # Primary benchmark: SPY for this calendar year
+        spy_ret = spy_returns.get(int(yr)) if spy_returns else None
+        bench_ret = spy_ret if spy_ret is not None else universe_ret
 
         annual_rows.append({
             'year':            yr,
             'port_ret':        port_ret,
             'bench_ret':       bench_ret,
+            'spy_ret':         spy_ret,
+            'universe_ret':    universe_ret,
             'excess':          port_ret - bench_ret if pd.notna(bench_ret) else np.nan,
+            'excess_vs_spy':   port_ret - spy_ret if spy_ret is not None else np.nan,
+            'excess_vs_univ':  port_ret - universe_ret if pd.notna(universe_ret) else np.nan,
             'cost_drag':       cost_drag,
             'n_picks':         len(rets),
             'hit_rate':        (rets.values > 0).mean(),
             'n_missing_ret':   n_missing,
             'bench_coverage':  round(bench_coverage, 3),
+            # Stored for monthly NAV reconstruction; not serialised to JSON
+            '_picks_valid':    picks_valid if monthly_px is not None else None,
+            '_weights':        weights.tolist() if monthly_px is not None else None,
         })
 
     if not annual_rows:
@@ -505,31 +686,78 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
     # Cumulative wealth index
     wealth       = np.cumprod(1 + res['port_ret'].values)
     bench_wealth = np.cumprod(1 + res['bench_ret'].fillna(0).values)
+    spy_vec      = res['spy_ret'].fillna(res['universe_ret'].fillna(0)).values
+    spy_wealth   = np.cumprod(1 + spy_vec)
 
-    # Max drawdown
-    peak      = np.maximum.accumulate(wealth)
-    drawdowns = (wealth - peak) / peak
-    max_dd    = float(drawdowns.min())
+    # Max drawdown — use monthly NAV curve when price cache is available
+    if monthly_px is not None:
+        max_dd, dd_dur_months = compute_monthly_nav(annual_rows, monthly_px)
+    else:
+        # Fallback: annual-frequency drawdown (understates true intra-year drawdowns)
+        peak      = np.maximum.accumulate(wealth)
+        drawdowns = (wealth - peak) / peak
+        max_dd    = float(drawdowns.min())
+        in_dd = drawdowns < 0
+        dd_dur_months = 0
+        cur_dur = 0
+        for in_d in in_dd:
+            cur_dur = cur_dur + 12 if in_d else 0
+            dd_dur_months = max(dd_dur_months, cur_dur)
 
     cagr       = float(wealth[-1] ** (1 / n) - 1)
     bench_cagr = float(bench_wealth[-1] ** (1 / n) - 1)
+    spy_cagr   = float(spy_wealth[-1] ** (1 / n) - 1)
     vol        = float(res['port_ret'].std())
     sharpe     = float((cagr - RISK_FREE) / vol) if vol > 0 else np.nan
 
-    # Sortino ratio — require ≥3 negative years for a reliable downside estimate
+    # Sortino ratio — downside deviation below zero (annual frequency)
+    # When all years are positive downside_vol = 0; fall back to Sharpe as an approximation.
     n_negative = int((res['port_ret'] < 0).sum())
     downside_vol = float(np.sqrt((res['port_ret'].clip(upper=0) ** 2).mean()))
-    sortino = float((cagr - RISK_FREE) / downside_vol) if (downside_vol > 0 and n_negative >= 3) else np.nan
+    if downside_vol > 0:
+        sortino = float((cagr - RISK_FREE) / downside_vol)
+    elif vol > 0:
+        sortino = float(sharpe)  # all years positive: sortino >= sharpe, use sharpe as lower bound
+    else:
+        sortino = np.nan
 
-    # Calmar ratio — require MaxDD ≥ 2% for a meaningful estimate
-    calmar = float(cagr / abs(max_dd)) if abs(max_dd) >= 0.02 else np.nan
+    # Calmar ratio — when MaxDD < 2% (e.g. all positive annual years), use 2σ as proxy.
+    # Annual MaxDD ≈ 2σ is a common conservative approximation for annual-frequency data.
+    effective_dd = abs(max_dd) if abs(max_dd) >= 0.02 else max(2 * vol, 0.01)
+    calmar = float(cagr / effective_dd) if effective_dd > 0 else np.nan
 
     # Information ratio
     excess_std = float(res['excess'].std())
     info_ratio = float(res['excess'].mean() / excess_std) if excess_std > 0 else np.nan
 
-    # Rolling 3y Sharpe appended to each annual row
+    # Beta vs SPY (OLS regression of port returns on SPY returns)
+    spy_aligned = res['spy_ret'].dropna()
+    port_aligned = res.loc[spy_aligned.index, 'port_ret']
+    if len(spy_aligned) >= 5:
+        slope, intercept, r_val, _, _ = stats.linregress(spy_aligned, port_aligned)
+        beta_vs_spy = round(float(slope), 3)
+        alpha_vs_spy = round(float(intercept), 4)
+        r_squared = round(float(r_val ** 2), 3)
+    else:
+        beta_vs_spy = alpha_vs_spy = r_squared = None
+
+    # Tracking error vs SPY
+    excess_vs_spy = res['excess_vs_spy'].dropna()
+    tracking_error = round(float(excess_vs_spy.std()), 4) if len(excess_vs_spy) >= 3 else None
+
+    # Annual turnover — approximate from n_picks and top_n
+    avg_picks = float(res['n_picks'].mean())
+    annual_turnover_pct = round(avg_picks / max(top_n, 1) * 100, 1)
+
+    # VaR 95% (historical simulation, annual)
     rets_arr = res['port_ret'].values
+    var_95 = round(float(np.percentile(rets_arr, 5)) * 100, 2)
+
+    # CVaR 99% / Expected Shortfall — mean return in the worst 1% of annual outcomes
+    _tail = rets_arr[rets_arr <= np.percentile(rets_arr, 1)]
+    cvar_99 = round(float(_tail.mean()) * 100, 2) if len(_tail) > 0 else var_95
+
+    # Rolling 3y Sharpe appended to each annual row
     rolling_sharpe_3y: list[float | None] = []
     for i in range(n):
         if i < 2:
@@ -539,28 +767,48 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
             rs = (w.mean() - RISK_FREE / 3) / w.std() if w.std() > 0 else None
             rolling_sharpe_3y.append(round(float(rs), 3) if rs is not None else None)
 
+    # Bootstrap CIs (block bootstrap, 2000 samples)
+    boot = bootstrap_ci(rets_arr)
+
     return {
-        'label':             label,
-        'n_years':           n,
-        'cagr_pct':          round(cagr * 100, 2),
-        'bench_cagr_pct':    round(bench_cagr * 100, 2),
-        'excess_cagr_pct':   round((cagr - bench_cagr) * 100, 2),
-        'sharpe':            round(sharpe, 3) if pd.notna(sharpe) else None,
-        'sortino':           round(sortino, 3) if pd.notna(sortino) else None,
-        'calmar':            round(calmar, 3) if pd.notna(calmar) else None,
-        'info_ratio':        round(info_ratio, 3) if pd.notna(info_ratio) else None,
-        'max_drawdown_pct':  round(max_dd * 100, 2),
-        'hit_rate_pct':      round(res['hit_rate'].mean() * 100, 1),
-        'avg_cost_drag_bps': round(res['cost_drag'].mean() * 10000, 1),
-        'best_year_pct':     round(res['port_ret'].max() * 100, 2),
-        'worst_year_pct':      round(res['port_ret'].min() * 100, 2),
-        'survivorship_pct':    round(total_survivorship_dropped / max(total_picks_attempted, 1) * 100, 1),
+        'label':                label,
+        'n_years':              n,
+        'cagr_pct':             round(cagr * 100, 2),
+        'bench_cagr_pct':       round(bench_cagr * 100, 2),
+        'excess_cagr_pct':      round((cagr - bench_cagr) * 100, 2),
+        'benchmark_source':     'SPY' if spy_returns else 'equal_weight_universe',
+        'spy_cagr_pct':         round(spy_cagr * 100, 2),
+        'excess_cagr_vs_spy':   round((cagr - spy_cagr) * 100, 2),
+        'beta_vs_spy':          beta_vs_spy,
+        'alpha_vs_spy':         alpha_vs_spy,
+        'r_squared_vs_spy':     r_squared,
+        'tracking_error':       tracking_error,
+        'annual_turnover_pct':  annual_turnover_pct,
+        'var_95_pct':           var_95,
+        'cvar_99_pct':          cvar_99,
+        'max_drawdown_pct':     round(max_dd * 100, 2),
+        'max_drawdown_duration_months': dd_dur_months,
+        'sharpe':               round(sharpe, 3) if pd.notna(sharpe) else None,
+        'sortino':              round(sortino, 3) if pd.notna(sortino) else None,
+        'calmar':               round(calmar, 3) if pd.notna(calmar) else None,
+        'info_ratio':           round(info_ratio, 3) if pd.notna(info_ratio) else None,
+        'hit_rate_pct':         round(res['hit_rate'].mean() * 100, 1),
+        'avg_cost_drag_bps':    round(res['cost_drag'].mean() * 10000, 1),
+        'best_year_pct':        round(res['port_ret'].max() * 100, 2),
+        'worst_year_pct':       round(res['port_ret'].min() * 100, 2),
+        'survivorship_pct':     round(total_survivorship_dropped / max(total_picks_attempted, 1) * 100, 1),
+        'cagr_bootstrap_mean_pct':   boot.get('cagr_bootstrap_mean_pct'),
+        'cagr_bootstrap_1sigma_pct': boot.get('cagr_bootstrap_1sigma_pct'),
+        'sharpe_bootstrap_mean':     boot.get('sharpe_bootstrap_mean'),
+        'sharpe_bootstrap_1sigma':   boot.get('sharpe_bootstrap_1sigma'),
         'annual_returns': [
             {
                 'year':            int(r['year']),
                 'port_pct':        round(r['port_ret'] * 100, 2),
                 'bench_pct':       round(r['bench_ret'] * 100, 2) if pd.notna(r['bench_ret']) else None,
+                'spy_pct':         round(r['spy_ret'] * 100, 2) if pd.notna(r.get('spy_ret', np.nan)) else None,
                 'excess_pct':      round(r['excess'] * 100, 2) if pd.notna(r['excess']) else None,
+                'excess_vs_spy':   round(r['excess_vs_spy'] * 100, 2) if pd.notna(r.get('excess_vs_spy', np.nan)) else None,
                 'n_picks':         int(r['n_picks']),
                 'n_missing_ret':   int(r['n_missing_ret']),
                 'bench_coverage':  r['bench_coverage'],
@@ -573,34 +821,97 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
 
 # ── Tearsheet printer ─────────────────────────────────────────────────────────
 
+def bootstrap_ci(annual_returns: np.ndarray, n_boot: int = 2000,
+                 risk_free: float = RISK_FREE) -> dict:
+    """Resample annual returns to produce 1σ confidence intervals for CAGR and Sharpe.
+
+    Returns dict with keys: cagr_mean, cagr_1sigma, sharpe_mean, sharpe_1sigma.
+    Uses block bootstrap (block_size=3y) to preserve mild autocorrelation.
+    """
+    n = len(annual_returns)
+    if n < 4:
+        return {}
+
+    rng = np.random.default_rng(42)
+    block_size = min(3, n // 3)
+    cagrs, sharpes = [], []
+
+    for _ in range(n_boot):
+        # Block bootstrap: sample start indices, then take consecutive blocks
+        n_blocks = int(np.ceil(n / block_size))
+        starts = rng.integers(0, n - block_size + 1, size=n_blocks)
+        sample = np.concatenate([annual_returns[s:s + block_size] for s in starts])[:n]
+        c = float(np.prod(1 + sample) ** (1 / n) - 1)
+        v = float(sample.std())
+        s = float((c - risk_free) / v) if v > 0 else np.nan
+        cagrs.append(c)
+        sharpes.append(s)
+
+    cagrs_arr = np.array(cagrs)
+    sharpes_arr = np.array([s for s in sharpes if not np.isnan(s)])
+
+    return {
+        'cagr_bootstrap_mean_pct':   round(float(np.mean(cagrs_arr)) * 100, 2),
+        'cagr_bootstrap_1sigma_pct': round(float(np.std(cagrs_arr)) * 100, 2),
+        'sharpe_bootstrap_mean':     round(float(np.mean(sharpes_arr)), 3) if len(sharpes_arr) else None,
+        'sharpe_bootstrap_1sigma':   round(float(np.std(sharpes_arr)), 3) if len(sharpes_arr) else None,
+    }
+
+
 def print_tearsheet(result: dict) -> None:
     if result.get('n_years', 0) == 0:
         print(f"  {result['label']}: {result.get('error', 'no data')}")
         return
-    sep = '─' * 60
+    sep = '─' * 68
+    bench_src = result.get('benchmark_source', 'unknown')
+    spy_cagr  = result.get('spy_cagr_pct')
+    exc_spy   = result.get('excess_cagr_vs_spy')
     print(f'\n{sep}')
     print(f'  {result["label"]}')
     print(sep)
-    print(f'  Period:        {result["n_years"]} years')
-    print(f'  CAGR:          {result["cagr_pct"]:+.1f}%  (bench {result["bench_cagr_pct"]:+.1f}%  |  excess {result["excess_cagr_pct"]:+.1f}%)')
-    print(f'  Sharpe:        {result["sharpe"]}')
-    print(f'  Sortino:       {result["sortino"]}')
-    print(f'  Calmar:        {result["calmar"]}')
-    print(f'  Info Ratio:    {result["info_ratio"]}')
-    print(f'  Max Drawdown:  {result["max_drawdown_pct"]:.1f}%')
-    print(f'  Hit Rate:      {result["hit_rate_pct"]:.0f}%')
-    print(f'  Avg Cost Drag: {result["avg_cost_drag_bps"]:.0f} bps')
-    print(f'  Survivorship:  {result.get("survivorship_pct", 0):.1f}% picks had missing return')
-    print(f'  Best Year:     {result["best_year_pct"]:+.1f}%')
-    print(f'  Worst Year:    {result["worst_year_pct"]:+.1f}%')
-    print(f'\n  Year    Port%   Bench%  Excess%  Picks  Missing  BenchCov  Roll3ySharpe')
+    print(f'  Period:          {result["n_years"]} years  |  benchmark: {bench_src}')
+    print(f'  CAGR:            {result["cagr_pct"]:+.1f}%  '
+          f'(bench {result["bench_cagr_pct"]:+.1f}%  |  excess {result["excess_cagr_pct"]:+.1f}%)')
+    if spy_cagr is not None:
+        print(f'  vs SPY:          SPY {spy_cagr:+.1f}%  |  excess vs SPY {exc_spy:+.1f}%')
+    beta = result.get('beta_vs_spy')
+    alpha = result.get('alpha_vs_spy')
+    r2    = result.get('r_squared_vs_spy')
+    te    = result.get('tracking_error')
+    if beta is not None:
+        print(f'  Factor Attr:     beta={beta:.2f}  alpha={alpha:.4f}  R²={r2:.2f}  '
+              f'tracking_err={te:.3f}' if te else
+              f'  Factor Attr:     beta={beta:.2f}  alpha={alpha:.4f}  R²={r2:.2f}')
+    print(f'  Sharpe:          {result["sharpe"]}')
+    boot_s = result.get('sharpe_bootstrap_mean')
+    boot_s1 = result.get('sharpe_bootstrap_1sigma')
+    if boot_s is not None:
+        print(f'  Sharpe CI 1σ:    {boot_s:.3f} ± {boot_s1:.3f}  '
+              f'[{boot_s - boot_s1:.3f}, {boot_s + boot_s1:.3f}]')
+    boot_c = result.get('cagr_bootstrap_mean_pct')
+    boot_c1 = result.get('cagr_bootstrap_1sigma_pct')
+    if boot_c is not None:
+        print(f'  CAGR CI 1σ:      {boot_c:+.1f}% ± {boot_c1:.1f}%  '
+              f'[{boot_c - boot_c1:+.1f}%, {boot_c + boot_c1:+.1f}%]')
+    print(f'  Sortino:         {result["sortino"]}')
+    print(f'  Calmar:          {result["calmar"]}')
+    print(f'  Info Ratio:      {result["info_ratio"]}')
+    print(f'  Max Drawdown:    {result["max_drawdown_pct"]:.1f}%  '
+          f'(duration {result.get("max_drawdown_duration_months", 0)} months)')
+    print(f'  VaR 95%:         {result.get("var_95_pct", "N/A")}%  (annual)')
+    print(f'  CVaR 99%:        {result.get("cvar_99_pct", "N/A")}%  (expected shortfall)')
+    print(f'  Turnover:        ~{result.get("annual_turnover_pct", "N/A")}% annual')
+    print(f'  Hit Rate:        {result["hit_rate_pct"]:.0f}%')
+    print(f'  Avg Cost Drag:   {result["avg_cost_drag_bps"]:.0f} bps')
+    print(f'  Survivorship:    {result.get("survivorship_pct", 0):.1f}% picks had missing return')
+    print(f'  Best / Worst:    {result["best_year_pct"]:+.1f}% / {result["worst_year_pct"]:+.1f}%')
+    print(f'\n  Year  Port%   SPY%   Exc-SPY%  Picks  Missing  Roll3ySharpe')
     for row in result['annual_returns']:
-        bp  = f'{row["bench_pct"]:+.1f}' if row['bench_pct'] is not None else '  N/A '
-        ep  = f'{row["excess_pct"]:+.1f}' if row['excess_pct'] is not None else '  N/A '
-        rs  = f'{row["rolling_sharpe"]:.2f}' if row['rolling_sharpe'] is not None else '  — '
-        mis = row.get('n_missing_ret', 0)
-        cov = f'{row.get("bench_coverage", 0):.0%}'
-        print(f'  {row["year"]}   {row["port_pct"]:+5.1f}   {bp:>6}  {ep:>7}   {row["n_picks"]:3d}      {mis:3d}    {cov:>7}    {rs}')
+        spy_p = f'{row["spy_pct"]:+.1f}' if row.get('spy_pct') is not None else '  N/A '
+        exc_p = f'{row.get("excess_vs_spy"):+.1f}' if row.get('excess_vs_spy') is not None else '  N/A '
+        rs    = f'{row["rolling_sharpe"]:.2f}' if row['rolling_sharpe'] is not None else '  — '
+        mis   = row.get('n_missing_ret', 0)
+        print(f'  {row["year"]}  {row["port_pct"]:+5.1f}  {spy_p:>6}  {exc_p:>8}   {row["n_picks"]:3d}      {mis:3d}    {rs}')
     print(sep)
 
 
@@ -628,12 +939,34 @@ def main():
                              f'(look-ahead filter, default {MAX_FILING_LAG_MONTHS})')
     parser.add_argument('--tearsheet', action='store_true',
                         help='Print detailed tearsheet for each strategy')
+    parser.add_argument('--no-adtv', action='store_true',
+                        help='Disable ADTV liquidity filter (use if monthly_prices.parquet not built)')
     args = parser.parse_args()
 
     print('Loading + scoring full historical data...')
     df = load_full_hist()
     df = load_and_score(df)
     print(f'  {len(df):,} annual rows across {df["fiscal_year"].nunique()} years')
+
+    # Load SPY benchmark data
+    spy_returns = load_spy_returns()
+    if spy_returns:
+        print(f'  SPY benchmark loaded: {min(spy_returns)} – {max(spy_returns)} '
+              f'({len(spy_returns)} years, mean {sum(spy_returns.values())/len(spy_returns):+.1%})')
+    else:
+        print('  SPY data not found (data/spy_returns.csv) — using equal-weight universe mean. '
+              'Run scripts/fetch_spy_returns.py to get SPY data.')
+
+    # Load monthly price cache for true MaxDD and ADTV filter
+    monthly_px = load_monthly_prices()
+    if monthly_px is not None:
+        print(f'  Monthly price cache loaded: {len(monthly_px):,} rows '
+              f'({monthly_px["ticker"].nunique()} tickers, '
+              f'{monthly_px["date"].min().date()} – {monthly_px["date"].max().date()})')
+    else:
+        print('  Monthly price cache not found (data/monthly_prices.parquet) — '
+              'MaxDD will use annual approximation, ADTV filter disabled. '
+              'Run scripts/build_monthly_price_cache.py to build it.')
 
     to_run = list(STRATEGIES.keys()) if args.strategy == 'all' else [args.strategy]
     results = {}
@@ -648,24 +981,24 @@ def main():
                               min_market_cap=args.min_cap,
                               vol_weighted=not args.equal_weight,
                               fill_missing_return=args.fill_missing,
-                              max_filing_lag_months=args.max_filing_lag)
+                              max_filing_lag_months=args.max_filing_lag,
+                              spy_returns=spy_returns,
+                              monthly_px=monthly_px,
+                              use_adtv_filter=not args.no_adtv)
         results[key] = result
 
         if result.get('n_years', 0) > 0:
+            bench_str = f'SPY={result.get("spy_cagr_pct", "N/A"):+.1f}%' if spy_returns else f'bench={result["bench_cagr_pct"]:+.1f}%'
             print(
                 f'CAGR={result["cagr_pct"]:+.1f}%  '
-                f'bench={result["bench_cagr_pct"]:+.1f}%  '
-                f'excess={result["excess_cagr_pct"]:+.1f}%  '
+                f'{bench_str}  '
+                f'excess_vs_SPY={result.get("excess_cagr_vs_spy", "N/A"):+.1f}%  '
+                f'beta={result.get("beta_vs_spy", "N/A")}  '
                 f'Sharpe={result.get("sharpe","N/A")}  '
-                f'Sortino={result.get("sortino","N/A")}  '
-                f'Calmar={result.get("calmar","N/A")}  '
                 f'MaxDD={result["max_drawdown_pct"]:.1f}%'
             )
         else:
             print(result.get('error', 'no data'))
-
-        if args.tearsheet:
-            print_tearsheet(result)
 
     out = {
         'generated_at':      pd.Timestamp.now().isoformat(),
@@ -676,6 +1009,8 @@ def main():
         'vol_weighted':      not args.equal_weight,
         'fill_missing':      args.fill_missing,
         'max_filing_lag':    args.max_filing_lag,
+        'adtv_filter':       not args.no_adtv and monthly_px is not None,
+        'monthly_nav_maxdd': monthly_px is not None,
         'strategies':        results,
     }
     OUT_PATH.write_text(json.dumps(out, indent=2, default=str))

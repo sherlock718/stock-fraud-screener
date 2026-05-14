@@ -58,13 +58,13 @@ def main() -> None:
     with tab5:
         tab_backtester()
     with tab6:
-        tab_watchlist(df_all)
+        tab_watchlist(df_all, models, meta)
     with tab7:
         tab_strategies(df_all, models, meta)
     with tab8:
         tab_guide()
     with tab9:
-        tab_case_studies(df_all)
+        tab_case_studies(df_all, models, meta)
     with tab10:
         tab_benchmarking(df_all)
     with tab11:

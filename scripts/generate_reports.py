@@ -3,12 +3,15 @@ Report generator: PDF tearsheet, weekly picks CSV, rolling OOS AUC chart.
 
 Reads:
   data/backtest_results.json   — strategy performance (from backtester.py)
+  data/portfolio_backtest.json — IC-weighted Kelly portfolio backtest (from build_portfolio.py)
+  data/portfolio_holdings.json — current-year top holdings (from build_portfolio.py)
   models/model_meta.json       — per-horizon val/test AUC
   data/historical_dataset_clean.parquet — for current-year picks
 
 Outputs:
   reports/tearsheet.pdf        — multi-page PDF: cumulative wealth, annual returns,
-                                  drawdown, rolling Sharpe, OOS AUC, score distribution
+                                  drawdown, rolling Sharpe, OOS AUC, score distribution,
+                                  portfolio tearsheet (Kelly portfolio page)
   reports/weekly_picks.csv     — top-N picks for the most recent fiscal year
   reports/rolling_oos_auc.png  — standalone OOS AUC chart (for README / CI artifact)
 
@@ -40,12 +43,14 @@ except ImportError:
     MPL_OK = False
     print('matplotlib not available — skipping PDF/PNG output')
 
-BASE        = Path(__file__).parent.parent
-BACKTEST    = BASE / 'data' / 'backtest_results.json'
-META_PATH   = BASE / 'models' / 'model_meta.json'
-DATA_PATH   = BASE / 'data' / 'historical_dataset_clean.parquet'
-MODELS_DIR  = BASE / 'models'
-REPORTS     = BASE / 'reports'
+BASE                = Path(__file__).parent.parent
+BACKTEST            = BASE / 'data' / 'backtest_results.json'
+PORTFOLIO_BACKTEST  = BASE / 'data' / 'portfolio_backtest.json'
+PORTFOLIO_HOLDINGS  = BASE / 'data' / 'portfolio_holdings.json'
+META_PATH           = BASE / 'models' / 'model_meta.json'
+DATA_PATH           = BASE / 'data' / 'historical_dataset_clean.parquet'
+MODELS_DIR          = BASE / 'models'
+REPORTS             = BASE / 'reports'
 REPORTS.mkdir(exist_ok=True)
 
 
@@ -85,6 +90,18 @@ def _load_meta() -> dict | None:
     return json.loads(META_PATH.read_text())
 
 
+def _load_portfolio_backtest() -> dict | None:
+    if not PORTFOLIO_BACKTEST.exists():
+        return None
+    return json.loads(PORTFOLIO_BACKTEST.read_text())
+
+
+def _load_portfolio_holdings() -> pd.DataFrame | None:
+    if not PORTFOLIO_HOLDINGS.exists():
+        return None
+    return pd.read_json(PORTFOLIO_HOLDINGS, orient='records')
+
+
 def _oos_auc_series(meta: dict) -> dict[str, dict]:
     """Extract val/test AUC per horizon from meta."""
     out = {}
@@ -100,6 +117,117 @@ def _oos_auc_series(meta: dict) -> dict[str, dict]:
                 'val_end':          m.get('val_end'),
             }
     return out
+
+
+# ── Portfolio tearsheet ────────────────────────────────────────────────────────
+
+def _fig_portfolio_tearsheet(pb: dict, holdings: pd.DataFrame | None) -> 'plt.Figure':
+    annual = pb.get('annual_returns', [])
+    adf = pd.DataFrame(annual).set_index('year') if annual else pd.DataFrame()
+
+    fig = plt.figure(figsize=(14, 12))
+    fig.suptitle('IC-Weighted Kelly Portfolio — Tearsheet',
+                 fontsize=14, fontweight='bold', y=0.98)
+    gs = gridspec.GridSpec(3, 2, figure=fig, hspace=0.50, wspace=0.35)
+
+    # 1. Cumulative wealth vs SPY
+    ax1 = fig.add_subplot(gs[0, :])
+    if not adf.empty and 'return_pct' in adf.columns:
+        cum_port = (1 + adf['return_pct'] / 100).cumprod()
+        ax1.plot(cum_port.index, cum_port.values, label='Kelly Portfolio',
+                 color='#2196F3', lw=2)
+        if 'spy_return_pct' in adf.columns:
+            cum_spy = (1 + adf['spy_return_pct'].fillna(0) / 100).cumprod()
+            ax1.plot(cum_spy.index, cum_spy.values, label='SPY',
+                     color='#9E9E9E', lw=1.5, ls='--')
+        ax1.axhline(1, color='black', lw=0.5, ls=':')
+        ax1.set_title('Cumulative Wealth vs SPY (start=1)', fontsize=11)
+        ax1.set_ylabel('Wealth')
+        ax1.legend(fontsize=9)
+        ax1.grid(True, alpha=0.3)
+
+    # 2. Annual return bar
+    ax2 = fig.add_subplot(gs[1, 0])
+    if not adf.empty and 'return_pct' in adf.columns:
+        rets = adf['return_pct'].fillna(0)
+        colors = ['#4CAF50' if x >= 0 else '#F44336' for x in rets]
+        ax2.bar(rets.index, rets.values, color=colors, width=0.7)
+        ax2.axhline(0, color='black', lw=0.8)
+        ax2.set_title('Annual Return (%)', fontsize=10)
+        ax2.set_ylabel('%')
+        ax2.grid(True, alpha=0.2, axis='y')
+
+    # 3. Drawdown
+    ax3 = fig.add_subplot(gs[1, 1])
+    if not adf.empty and 'return_pct' in adf.columns:
+        cum = (1 + adf['return_pct'].fillna(0) / 100).cumprod()
+        dd = _drawdown(cum)
+        ax3.fill_between(dd.index, dd.values, 0, color='#F44336', alpha=0.4)
+        ax3.plot(dd.index, dd.values, color='#B71C1C', lw=1.2)
+        ax3.set_title('Portfolio Drawdown (%)', fontsize=10)
+        ax3.set_ylabel('%')
+        ax3.grid(True, alpha=0.2, axis='y')
+
+    # 4. KPI summary
+    ax4 = fig.add_subplot(gs[2, 0])
+    ax4.axis('off')
+    kpis = [
+        ('CAGR',          f'{pb.get("cagr_pct", "?"):+.1f}%'
+                          if isinstance(pb.get("cagr_pct"), (int, float)) else '?'),
+        ('SPY CAGR',      f'{pb.get("spy_cagr_pct", "?"):+.1f}%'
+                          if isinstance(pb.get("spy_cagr_pct"), (int, float)) else '?'),
+        ('Excess CAGR',   f'{pb.get("excess_cagr_pct", "?"):+.1f}%'
+                          if isinstance(pb.get("excess_cagr_pct"), (int, float)) else '?'),
+        ('Sharpe',        str(pb.get('sharpe', '?'))),
+        ('Sortino',       str(pb.get('sortino', '?'))),
+        ('Calmar',        str(pb.get('calmar', '?'))),
+        ('Max DD',        f'{pb.get("max_drawdown_pct", "?"):.1f}%'
+                          if isinstance(pb.get("max_drawdown_pct"), (int, float)) else '?'),
+        ('VaR 95%',       f'{pb.get("var_95_pct", "?"):.1f}%'
+                          if isinstance(pb.get("var_95_pct"), (int, float)) else '?'),
+        ('CVaR 99%',      f'{pb.get("cvar_99_pct", "?"):.1f}%'
+                          if isinstance(pb.get("cvar_99_pct"), (int, float)) else '?'),
+        ('Avg Positions', str(pb.get('avg_positions', '?'))),
+    ]
+    y_pos = 0.95
+    for label, val in kpis:
+        ax4.text(0.05, y_pos, label, transform=ax4.transAxes, fontsize=9, color='#555555')
+        ax4.text(0.65, y_pos, val,   transform=ax4.transAxes, fontsize=9, fontweight='bold')
+        y_pos -= 0.09
+    ax4.set_title('Portfolio KPIs', fontsize=10, pad=8)
+
+    # 5. Top 10 holdings table
+    ax5 = fig.add_subplot(gs[2, 1])
+    ax5.axis('off')
+    if holdings is not None and not holdings.empty:
+        disp = holdings.head(10).copy()
+        disp_cols = ['ticker']
+        for c in ['composite_score', 'weight_pct', 'kelly_f']:
+            if c in disp.columns:
+                disp_cols.append(c)
+        tbl_data = disp[disp_cols]
+        for c in tbl_data.select_dtypes(include='float').columns:
+            tbl_data = tbl_data.copy()
+            tbl_data[c] = tbl_data[c].round(3)
+        table = ax5.table(
+            cellText=tbl_data.values,
+            colLabels=tbl_data.columns,
+            cellLoc='center',
+            loc='center',
+        )
+        table.auto_set_font_size(False)
+        table.set_fontsize(8)
+        table.scale(1, 1.35)
+        for j in range(len(tbl_data.columns)):
+            table[0, j].set_facecolor('#1565C0')
+            table[0, j].set_text_props(color='white', fontweight='bold')
+        for i in range(1, len(tbl_data) + 1):
+            color = '#E3F2FD' if i % 2 == 0 else 'white'
+            for j in range(len(tbl_data.columns)):
+                table[i, j].set_facecolor(color)
+        ax5.set_title('Top 10 Holdings', fontsize=10, pad=8)
+
+    return fig
 
 
 # ── Current picks ─────────────────────────────────────────────────────────────
@@ -328,7 +456,9 @@ def _fig_picks_preview(picks: pd.DataFrame) -> 'plt.Figure':
 # ── PDF assembly ──────────────────────────────────────────────────────────────
 
 def generate_pdf(result: dict | None, oos: dict | None,
-                 picks: pd.DataFrame | None, out_path: Path) -> None:
+                 picks: pd.DataFrame | None, out_path: Path,
+                 portfolio_backtest: dict | None = None,
+                 portfolio_holdings: pd.DataFrame | None = None) -> None:
     if not MPL_OK:
         return
 
@@ -361,6 +491,12 @@ def generate_pdf(result: dict | None, oos: dict | None,
             fig_perf = _fig_performance(result)
             pdf.savefig(fig_perf, bbox_inches='tight')
             plt.close(fig_perf)
+
+        # Kelly portfolio tearsheet
+        if portfolio_backtest is not None and portfolio_backtest.get('annual_returns'):
+            fig_port = _fig_portfolio_tearsheet(portfolio_backtest, portfolio_holdings)
+            pdf.savefig(fig_port, bbox_inches='tight')
+            plt.close(fig_port)
 
         # OOS AUC page
         if oos:
@@ -411,6 +547,11 @@ def main() -> None:
     if not oos:
         print('  No model_meta.json — AUC page will be empty')
 
+    portfolio_backtest = _load_portfolio_backtest()
+    if portfolio_backtest is None:
+        print('  No portfolio_backtest.json — Kelly portfolio page will be skipped')
+    portfolio_holdings = _load_portfolio_holdings()
+
     # Standalone OOS AUC PNG (for CI artifacts, README)
     if oos:
         fig_auc = _fig_oos_auc(oos)
@@ -421,7 +562,9 @@ def main() -> None:
 
     # Full PDF tearsheet
     pdf_path = REPORTS / 'tearsheet.pdf'
-    generate_pdf(result, oos, picks, pdf_path)
+    generate_pdf(result, oos, picks, pdf_path,
+                 portfolio_backtest=portfolio_backtest,
+                 portfolio_holdings=portfolio_holdings)
 
     print('── Done ─────────────────────────────────────────────────────────')
 

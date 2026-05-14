@@ -15,7 +15,7 @@ Filter and rank all companies in the universe.
 | Markets | US, EU, KR, JP, CA, BR (any combination) |
 | Fiscal year range | Slider to restrict to specific years |
 | Market cap preset | All sizes, Neglected ($50M–$500M), Small/Mid/Large cap |
-| ML horizon | 1-year, 3-year, or 5-year fraud prediction window |
+| ML horizon | 6-month through 5-year alpha prediction window (HorizonRouter maps to nearest trained model) |
 | Composite score | Minimum percentile threshold |
 | Risk filters | Exclude likely-delisted; exclude Beneish M > −2.22; exclude Altman Z < 1.81 |
 | Sector filter | GICS sector picker |
@@ -23,7 +23,7 @@ Filter and rank all companies in the universe.
 
 **Output:**
 
-A sortable table with: ticker, company name, composite score, 1y/3y/5y ML fraud probabilities, Beneish M-Score, Piotroski F-Score, market, fiscal year.
+A sortable table with: ticker, company name, composite score, ML alpha scores (6m/1y/2y/3y/5y), Beneish M-Score, Piotroski F-Score, market, fiscal year.
 
 Expand any row to see the mini company card: score over time chart, top-3 concerns, and financial statement sparklines.
 
@@ -35,7 +35,7 @@ Deep dive into a single company.
 
 **What you'll see:**
 
-- **Score timeline** — composite fraud probability across all available fiscal years
+- **Score timeline** — composite alpha score across all available fiscal years
 - **SHAP attribution chart** — horizontal bar chart showing which features drove the score up (red) or down (blue)
 - **Feature table** — values for all ~35 model features with sector-relative percentile comparisons
 - **Accounting flags** — Beneish M-Score breakdown (8 components with radar chart), Altman Z-Score zone, Piotroski F-Score
@@ -54,9 +54,9 @@ Live price chart for any ticker.
 
 - OHLCV candlestick chart (daily, up to 2 years)
 - Volume bars
-- Fraud score overlay as a horizontal reference line
+- Alpha score overlay as a horizontal reference line
 
-Enter any ticker symbol. The fraud score line is static (from the last filed fiscal year) — compare it to where the price was when the annual report was filed.
+Enter any ticker symbol. The alpha score line is static (from the last filed fiscal year) — compare it to where the price was when the annual report was filed.
 
 ---
 
@@ -66,7 +66,7 @@ Cross-market risk comparison.
 
 **What you'll see:**
 
-- Average fraud score by market — which market has the highest aggregate risk?
+- Average alpha score by market — which market has the highest aggregate risk?
 - Score distribution box plots per market
 - Top 10 highest-scoring companies per market
 - Market-level score trend over fiscal years
@@ -75,7 +75,7 @@ Cross-market risk comparison.
 
 ## Tab 5 — Backtester
 
-Walk-forward strategy performance simulation.
+Walk-forward strategy performance simulation, Kelly portfolio tearsheet, and alpha signal browser.
 
 **What you'll see:**
 
@@ -84,8 +84,19 @@ Walk-forward strategy performance simulation.
 - Max drawdown chart
 - Rolling 3-year Sharpe ratio
 - KPI table: CAGR, Sharpe, Sortino, Calmar, Max Drawdown, Hit Rate
+- Walk-forward AUC chart by horizon (expanding-window CV)
 
-**Strategies available in the dropdown:**
+**Kelly Portfolio section** (requires `data/portfolio_backtest.json`):
+- KPI metrics strip: CAGR, Sharpe, Max DD, VaR 95%, CVaR 99%
+- Cumulative wealth vs SPY line chart
+- Annual return bar chart
+- Collapsible current holdings table with weights and Kelly fractions
+
+**Alpha Signal Browser** (requires `data/alpha_registry.json`):
+- Filterable / sortable table of all selected signals (IC Mean, ICIR, CAGR, Sharpe, bootstrap CIs)
+- Horizontal IC bar chart for top 25 signals (green ≥ 0.03, amber ≥ 0, red < 0)
+
+**Strategies available:**
 
 | Strategy | Description |
 |---|---|
@@ -104,7 +115,7 @@ Personalised portfolio monitoring.
 
 **What you'll see:**
 
-- Your saved companies with current fraud scores
+- Your saved companies with current alpha scores
 - Score change alerts — highlighted if any score moved more than ±0.10 since last checked
 - Beneish M-Score and Altman Z-Score status per holding
 - One-click removal from watchlist

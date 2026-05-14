@@ -393,8 +393,11 @@ def enrich_row(row: pd.Series, price_series: pd.Series,
     result['momentum_6m_prior']  = prior_return(price_series, entry_date, 183, skip_days=21)
     result['momentum_3m_prior']  = prior_return(price_series, entry_date, 91,  skip_days=21)
 
-    # Volatility and 52-week high ratio
-    result['vol_prior_12m']    = vol_prior(price_series, entry_date, 252)
+    # Volatility and 52-week high ratio — multiple horizons
+    result['vol_prior_6m']    = vol_prior(price_series, entry_date, 126)
+    result['vol_prior_12m']   = vol_prior(price_series, entry_date, 252)
+    result['vol_prior_36m']   = vol_prior(price_series, entry_date, 756)
+    result['vol_prior_60m']   = vol_prior(price_series, entry_date, 1260)
     result['price_to_52w_high'] = price_to_52w_high(price_series, entry_date)
 
     return result

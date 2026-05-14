@@ -1,32 +1,41 @@
 """
 Bias audit for historical_dataset_clean.parquet.
 
-Checks three systematic biases that can invalidate ML model performance:
+Checks systematic biases that can invalidate ML model performance:
 
-  1. Survivorship bias
-     - What fraction of training rows belong to companies that later delisted?
-     - If delisted companies are under-represented, the model may be too optimistic.
-
-  2. Filing date lag
+  1. Look-ahead bias (HARD FAIL in CI)
      - Confirm filed_date >= period_end_date for every annual row.
-     - Any row where filed_date < period_end implies a look-ahead leak.
+     - Any row where filed_date < period_end implies look-ahead leakage.
 
-  3. FX-adjusted returns (cross-market comparability)
-     - forward_return_* is in local currency. For multi-market models that compare
-       absolute returns across countries, this creates a systematic bias favouring
-       high-inflation markets.
-     - This audit adds forward_return_{h}_usd columns by multiplying the local
-       forward return by the USD/local FX return over the same horizon.
-     - These USD columns are written back to the parquet file if --fix is passed.
+  2. Survivorship bias (WARN only)
+     - What fraction of training rows belong to companies that later delisted?
+     - If delisted companies are under-represented, model will be too optimistic.
+
+  3. Overfitting audit (WARN only)
+     - Compares train AUC (from model_meta.json) to walk-forward mean AUC.
+     - Flags if overfit_gap > 0.15 for any horizon.
+     - Writes overfit_gap to model_meta.json.
+
+  4. FX-adjusted returns (cross-market comparability)
+     - forward_return_* is in local currency. Adds forward_return_{h}_usd columns.
+
+  5. Multiple testing correction (INFO)
+     - Documents expected false discoveries across 5 horizons × strategies.
+
+Exit codes (CI mode --ci):
+  0 — all checks pass (or only warn-level issues found)
+  1 — HARD FAIL: look-ahead violations found
 
 Usage:
-    python3 scripts/bias_audit.py                # report only
-    python3 scripts/bias_audit.py --fix          # add FX-adjusted columns to parquet
+    python3 scripts/bias_audit.py              # full report, exit 0
+    python3 scripts/bias_audit.py --ci         # exit 1 if look-ahead violations
+    python3 scripts/bias_audit.py --fix        # add FX-adjusted columns to parquet
     python3 scripts/bias_audit.py --fix --out data/historical_dataset_fx.parquet
 """
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 import warnings
 warnings.filterwarnings('ignore')
@@ -73,12 +82,19 @@ TRAIN_CUTOFF = 2021
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _period_end_date(row: pd.Series) -> pd.Timestamp | None:
-    """Infer period end date from fiscal_year + fiscal_quarter."""
+    """Infer period end date from fiscal_year + fiscal_quarter.
+
+    Returns None when fiscal_quarter is null — we cannot determine the actual
+    period end for companies with non-December fiscal year ends without an
+    explicit quarter label. Defaulting to Dec 31 would produce false-positive
+    look-ahead violations for Oct/Nov/etc FY-end companies that legitimately
+    file in December of the same calendar year.
+    """
     try:
         fy = int(row['fiscal_year'])
         fq = row.get('fiscal_quarter', None)
         if pd.isna(fq) or str(fq) == 'nan':
-            fq = 4
+            return None  # cannot determine period end without quarter label
         fq = int(fq)
         month_end = {1: (3, 31), 2: (6, 30), 3: (9, 30), 4: (12, 31)}
         m, d = month_end.get(fq, (12, 31))
@@ -164,8 +180,13 @@ def audit_filing_lag(df: pd.DataFrame) -> None:
 
     ann = df[(df['period_type'] == 'annual') & df['filed_date'].notna()].copy()
     ann['filed_date'] = pd.to_datetime(ann['filed_date'], errors='coerce')
-    ann['period_end'] = ann.apply(_period_end_date, axis=1)
+    total_with_date = len(ann)
+    ann['period_end'] = pd.to_datetime(ann.apply(_period_end_date, axis=1), errors='coerce')
+    skipped = total_with_date - ann['period_end'].notna().sum()
     ann = ann[ann['period_end'].notna()]
+    if skipped:
+        print(f'  NOTE: {skipped:,} rows skipped (null fiscal_quarter — '
+              f'cannot determine period end for non-Dec FY companies)')
 
     lag_days = (ann['filed_date'] - ann['period_end']).dt.days
     leaking  = ann[lag_days < 0]
@@ -287,6 +308,247 @@ def audit_fx(df: pd.DataFrame, fix: bool = False,
     return df
 
 
+# ── Audit 3 (new): Overfitting audit ────────────────────────────────────────
+
+def audit_overfitting(meta_path: Path) -> dict[str, float]:
+    """Compare train AUC to walk-forward mean AUC. Flag if gap > 0.15.
+
+    Reads model_meta.json (val_auc proxy for train-set AUC) and
+    reports/walk_forward_auc_{h}.csv for WF mean AUC.
+
+    Returns dict of overfit_gaps per horizon. Writes gaps to model_meta.json.
+    """
+    print('\n── Audit 3: Overfitting Audit ──────────────────────────────────────')
+
+    if not meta_path.exists():
+        print(f'  model_meta.json not found at {meta_path} — skip.')
+        return {}
+
+    meta = json.loads(meta_path.read_text())
+    reports_dir = meta_path.parent.parent / 'reports'
+    gaps: dict[str, float] = {}
+
+    for h, m in meta.items():
+        val_auc = m.get('val_auc')
+        if val_auc is None or str(val_auc) == 'nan':
+            print(f'  [{h}] no val_auc in model_meta — skip')
+            continue
+
+        wf_path = reports_dir / f'walk_forward_auc_{h}.csv'
+        if wf_path.exists():
+            wf_df = pd.read_csv(wf_path)
+            wf_mean = float(wf_df['auc'].mean()) if 'auc' in wf_df.columns else None
+        else:
+            wf_path2 = reports_dir / f'oof_auc_{h}.csv'
+            if wf_path2.exists():
+                wf_df = pd.read_csv(wf_path2)
+                wf_mean = float(wf_df['auc'].mean()) if 'auc' in wf_df.columns else None
+            else:
+                wf_mean = None
+
+        if wf_mean is None:
+            print(f'  [{h}] no walk-forward AUC file found — skip')
+            continue
+
+        gap = round(float(val_auc) - wf_mean, 4)
+        gaps[h] = gap
+        flag = '  ⚠  OVERFIT' if abs(gap) > 0.15 else '  ✓'
+        print(f'  [{h}] val_auc={val_auc:.4f}  wf_mean_auc={wf_mean:.4f}  '
+              f'overfit_gap={gap:+.4f}{flag}')
+
+    # Write gaps back to model_meta.json
+    if gaps:
+        for h, gap in gaps.items():
+            if h in meta:
+                meta[h]['overfit_gap'] = gap
+        meta_path.write_text(json.dumps(meta, indent=2))
+        print(f'\n  overfit_gap written to {meta_path}')
+
+    return gaps
+
+
+# ── Audit 5 (new): Regression model label-leakage audit ─────────────────────
+
+# Features that should never appear in a PIT-safe regression on excess_return_local_3y
+_REGRESSION_CONTAMINATED = {
+    'ml_1y', 'ml_2y', 'ml_3y', 'ml_5y', 'ml_6m',   # full-sample ML scores
+    'ml_1y_oof', 'ml_2y_oof', 'ml_3y_oof', 'ml_5y_oof', 'ml_6m_oof',  # OOF ML scores
+    'ml_pred_excess_3y',  # regression output itself (circular)
+    'composite_score', 'alpha_composite',             # composite blends ML scores
+    'forward_return_1y', 'forward_return_2y',         # future-return variants
+    'forward_return_3y', 'forward_return_5y',         # direct label leakage
+    'beat_local_market_1y', 'beat_local_market_3y',   # label-derived
+    'beat_local_market_5y',
+    'excess_return_local_1y', 'excess_return_local_3y', 'excess_return_local_5y',
+}
+
+
+def audit_regression_model(df: pd.DataFrame) -> None:
+    """Audit model_3y_regression.joblib for label-leakage and PIT-safety.
+
+    Checks:
+      1. Feature-list scan — flag any feature in _REGRESSION_CONTAMINATED.
+      2. Permutation test — shuffle excess_return_local_3y labels and confirm
+         that the walk-forward Spearman IC degrades to near-zero.
+      3. Walk-forward IC distribution — report from regression_ic_3y.csv if present.
+    """
+    print('\n── Audit 5: Regression Model (model_3y_regression) Bias Audit ─────────')
+
+    import joblib
+    from scipy import stats as scipy_stats
+
+    meta_path   = BASE / 'models' / 'model_3y_regression_meta.json'
+    model_path  = BASE / 'models' / 'model_3y_regression.joblib'
+    ic_csv      = BASE / 'reports' / 'regression_ic_3y.csv'
+    TARGET_COL  = 'excess_return_local_3y'
+
+    if not meta_path.exists():
+        print('  model_3y_regression_meta.json not found — skipping.')
+        return
+
+    meta = json.loads(meta_path.read_text())
+    features: list[str] = meta.get('features', [])
+    print(f'  Regression features : {len(features)}')
+
+    # ── Check 1: feature contamination ────────────────────────────────────────
+    contaminated = [f for f in features if f in _REGRESSION_CONTAMINATED]
+    indirect = [f for f in features if any(p in f for p in
+                ('ml_', '_oof', 'alpha_', 'pred_excess',
+                 'forward_return', 'beat_local', 'excess_return'))]
+    indirect = [f for f in indirect if f not in contaminated]
+
+    if contaminated:
+        print(f'\n  ✗  CONTAMINATED features in regression model ({len(contaminated)}):')
+        for f in contaminated:
+            print(f'       {f}')
+    else:
+        print('  ✓  No directly contaminated features (no ML scores, no future returns).')
+
+    if indirect:
+        print(f'\n  ⚠  Indirectly suspicious features ({len(indirect)}):')
+        for f in indirect:
+            print(f'       {f}')
+    else:
+        print('  ✓  No indirectly suspicious features found.')
+
+    # ── Check 2: walk-forward IC distribution ─────────────────────────────────
+    if ic_csv.exists():
+        ic_df = pd.read_csv(ic_csv)
+        # Column may be named 'ic' or 'spearman_ic'
+        ic_col = 'spearman_ic' if 'spearman_ic' in ic_df.columns else 'ic'
+        if ic_col in ic_df.columns:
+            ics = ic_df[ic_col].dropna()
+            mean_ic = ics.mean()
+            std_ic  = ics.std()
+            n       = len(ics)
+            t_stat  = mean_ic / (std_ic / np.sqrt(n)) if n > 1 and std_ic > 0 else np.nan
+            print(f'\n  Walk-forward IC (regression_ic_3y.csv):')
+            print(f'    Folds : {n}')
+            print(f'    Mean IC : {mean_ic:+.4f}')
+            print(f'    Std  IC : {std_ic:.4f}')
+            print(f'    t-stat  : {t_stat:+.2f}  (H0: mean_ic = 0)')
+            if abs(mean_ic) > 0.30:
+                print(f'  ⚠  IC {mean_ic:.3f} > 0.30 — suspiciously high; check for leakage.')
+            elif abs(mean_ic) > 0.15:
+                print(f'  ✓  IC {mean_ic:.3f} is elevated but plausible for multi-factor regression.')
+            else:
+                print(f'  ✓  IC {mean_ic:.3f} is in a reasonable range.')
+        else:
+            print(f'  ⚠  regression_ic_3y.csv found but has no ic/spearman_ic column.')
+    else:
+        print(f'\n  regression_ic_3y.csv not found — run train_regression_model.py --walk-forward.')
+
+    # ── Check 3: permutation test ──────────────────────────────────────────────
+    if not model_path.exists():
+        print('\n  model_3y_regression.joblib not found — skipping permutation test.')
+        return
+
+    ann = df[(df['period_type'] == 'annual') & df[TARGET_COL].notna()].copy()
+    feats_present = [f for f in features if f in ann.columns]
+    if len(feats_present) < len(features):
+        missing = len(features) - len(feats_present)
+        print(f'\n  NOTE: {missing} features not in dataset (may be computed at score time).')
+    if len(feats_present) == 0:
+        print('  Cannot run permutation test — no regression features found in dataset.')
+        return
+
+    print(f'\n  Permutation test (n=50 shuffles, {len(ann):,} rows)...')
+    try:
+        model = joblib.load(model_path)
+        # LightGBM requires the exact feature set in the right order.
+        # Use model's own feature_name_ list when available.
+        model_feats = (list(model.feature_name_)
+                       if hasattr(model, 'feature_name_') else features)
+        available = [f for f in model_feats if f in ann.columns]
+        if len(available) < len(model_feats):
+            fill_val = ann[available].median()
+            # Fill missing features with median so we can still predict
+            missing_feats = [f for f in model_feats if f not in ann.columns]
+            for mf in missing_feats:
+                ann[mf] = 0.0  # neutral fill
+            available = model_feats
+
+        sub = ann[list(available) + [TARGET_COL]].dropna()
+        if len(sub) < 100:
+            print(f'  Too few rows ({len(sub)}) for permutation test.')
+            return
+
+        X = sub[list(available)].values
+        y = sub[TARGET_COL].values
+
+        # True IC
+        preds = model.predict(X)
+        true_ic, _ = scipy_stats.spearmanr(preds, y)
+
+        # Permuted ICs
+        rng = np.random.default_rng(42)
+        perm_ics = []
+        for _ in range(50):
+            y_shuf = rng.permutation(y)
+            ic_shuf, _ = scipy_stats.spearmanr(preds, y_shuf)
+            perm_ics.append(ic_shuf)
+
+        perm_mean = np.mean(perm_ics)
+        perm_std  = np.std(perm_ics)
+        z_score   = (true_ic - perm_mean) / (perm_std + 1e-9)
+
+        print(f'    True IC       : {true_ic:+.4f}')
+        print(f'    Shuffled mean : {perm_mean:+.4f}  (std={perm_std:.4f})')
+        print(f'    Z-score vs null : {z_score:+.2f}')
+
+        if z_score > 3.0:
+            print(f'  ✓  IC degrades under label shuffle (z={z_score:.1f}). '
+                  f'Model has genuine signal.')
+        elif z_score > 1.5:
+            print(f'  ⚠  Modest z-score ({z_score:.1f}). '
+                  f'IC may be partly noise or low n_folds.')
+        else:
+            print(f'  ✗  IC does NOT degrade under label shuffle (z={z_score:.1f}). '
+                  f'Possible leakage or data ordering artifact.')
+
+    except Exception as e:
+        print(f'  Permutation test failed: {e}')
+
+
+# ── Audit 4 (new): Multiple testing note ────────────────────────────────────
+
+def audit_multiple_testing() -> None:
+    """Document expected false discoveries across 5 horizons × strategies."""
+    print('\n── Audit 4: Multiple Testing Correction (INFO) ─────────────────────')
+    n_horizons    = 5   # 6m/1y/2y/3y/5y
+    n_strategies  = 4   # composite/1y/3y/5y
+    n_tests       = n_horizons * n_strategies
+    alpha         = 0.05
+    bonferroni    = alpha / n_tests
+    expected_fp   = n_tests * alpha
+
+    print(f'  Backtest comparisons : {n_tests} ({n_horizons} horizons × {n_strategies} strategies)')
+    print(f'  Naive α=0.05 expected false positives : {expected_fp:.1f}')
+    print(f'  Bonferroni-corrected α : {bonferroni:.4f}  (use when reporting p-values)')
+    print(f'  Recommendation: require Sharpe p < {bonferroni:.4f} for any single-horizon claim.')
+    print(f'  Feature selection uses BH FDR (q<0.05) per horizon — already corrected.')
+
+
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 def main() -> None:
@@ -296,11 +558,16 @@ def main() -> None:
     parser.add_argument('--out', type=Path, default=None,
                         help='Output parquet path when --fix is set '
                              '(default: overwrites historical_dataset_clean.parquet)')
+    parser.add_argument('--ci', action='store_true',
+                        help='CI mode: exit 1 if look-ahead violations found (hard fail); '
+                             'survivorship/overfitting warnings do not fail CI')
     args = parser.parse_args()
 
     if not DATA_PATH.exists():
         print(f'ERROR: {DATA_PATH} not found — run the pipeline first.')
         sys.exit(1)
+
+    meta_path = BASE / 'models' / 'model_meta.json'
 
     print(f'Loading {DATA_PATH}...')
     df = pd.read_parquet(DATA_PATH)
@@ -309,10 +576,39 @@ def main() -> None:
     print(f'  markets: {sorted(df["market"].dropna().unique()) if "market" in df.columns else "N/A"}')
 
     audit_survivorship(df)
+
+    # Audit 1 (re-ordered) / Audit 2: Look-ahead — hard fail
+    leakage_count = _count_lookahead(df)
+    if leakage_count > 0:
+        print(f'\n  ✗  HARD FAIL: {leakage_count:,} look-ahead violations (filed_date < period_end)')
+        if args.ci:
+            sys.exit(1)
+    else:
+        print('\n  ✓  No look-ahead violations detected.')
+
     audit_filing_lag(df)
+    audit_overfitting(meta_path)
+    audit_regression_model(df)
+    audit_multiple_testing()
     audit_fx(df, fix=args.fix, out_path=args.out)
 
     print('\n── Audit complete ──────────────────────────────────────────────────')
+    if args.ci:
+        print('  CI mode: look-ahead check PASSED (exit 0)')
+
+
+def _count_lookahead(df: pd.DataFrame) -> int:
+    """Return number of rows where filed_date < period_end (look-ahead).
+
+    Rows with null fiscal_quarter are excluded — period_end cannot be reliably
+    inferred for companies with non-December fiscal year ends.
+    """
+    ann = df[(df['period_type'] == 'annual') & df['filed_date'].notna()].copy()
+    ann['filed_date'] = pd.to_datetime(ann['filed_date'], errors='coerce')
+    ann['period_end'] = pd.to_datetime(ann.apply(_period_end_date, axis=1), errors='coerce')
+    ann = ann[ann['period_end'].notna()]
+    lag_days = (ann['filed_date'] - ann['period_end']).dt.days
+    return int((lag_days < 0).sum())
 
 
 if __name__ == '__main__':

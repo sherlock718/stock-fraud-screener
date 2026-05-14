@@ -320,3 +320,115 @@ def tab_company_profile(df_all: pd.DataFrame, models: dict, meta: dict) -> None:
                     pass
             except Exception as e:
                 st.error(f'Could not score: {e}')
+
+    # --- Peer Comparison ---
+    st.markdown('---')
+    st.subheader('🏆 Peer Comparison')
+
+    # Determine peer group: SIC code preferred, market as fallback
+    peer_col, peer_val, peer_label = None, None, ''
+    if 'sic_code' in row.index and pd.notna(row.get('sic_code')):
+        peer_col, peer_val = 'sic_code', row['sic_code']
+        peer_label = f'SIC {peer_val}'
+    elif 'market' in row.index and pd.notna(row.get('market')):
+        peer_col, peer_val = 'market', row['market']
+        peer_label = f'Market {peer_val}'
+
+    if peer_col is None:
+        st.info('No sector / market grouping available for peer comparison.')
+    else:
+        src_peer = (df_all[df_all['period_type'] == 'annual']
+                    if 'period_type' in df_all.columns else df_all)
+        peer_df  = src_peer[src_peer[peer_col] == peer_val]
+        peer_latest = (peer_df.sort_values('fiscal_year', ascending=False)
+                              .drop_duplicates('ticker', keep='first'))
+
+        _PEER_METRICS = [
+            'fraud_score_composite', 'beneish_m_score', 'altman_z_score',
+            'piotroski_f_score', 'composite_score',
+        ]
+        peer_metrics = [c for c in _PEER_METRICS
+                        if c in peer_latest.columns and peer_latest[c].notna().any()]
+
+        if len(peer_latest) < 3 or not peer_metrics:
+            st.info(f'Too few peers in {peer_label} (n={len(peer_latest)}) to compare.')
+        else:
+            st.caption(
+                f'Comparing **{selected_ticker}** against {len(peer_latest):,} companies '
+                f'in {peer_label} (latest annual filing each).'
+            )
+
+            pct_rows = []
+            for metric in peer_metrics:
+                my_val = row.get(metric)
+                if pd.isna(my_val):
+                    continue
+                vals = peer_latest[metric].dropna()
+                if len(vals) < 3:
+                    continue
+                my_val_f   = float(my_val)
+                better_cnt = int((vals > my_val_f).sum())   # higher = better for most
+                pct        = round((vals <= my_val_f).mean() * 100, 1)
+                pct_rows.append({
+                    'Metric':      metric.replace('_', ' ').title(),
+                    '_col':        metric,
+                    'My Value':    round(my_val_f, 3),
+                    'Peer Median': round(float(vals.median()), 3),
+                    'p25':         round(float(vals.quantile(0.25)), 3),
+                    'p75':         round(float(vals.quantile(0.75)), 3),
+                    'Percentile':  pct,
+                    'Better Than': f'{better_cnt:,} / {len(vals):,}',
+                })
+
+            if pct_rows:
+                disp_df = pd.DataFrame(pct_rows).drop(columns=['_col'])
+                st.dataframe(disp_df, use_container_width=True, hide_index=True)
+
+                # Box-plot distribution for a chosen metric
+                box_choices = [r['Metric'] for r in pct_rows]
+                box_metric_label = st.selectbox(
+                    'Distribution chart', box_choices, key='profile_peer_metric'
+                )
+                orig_col = next(
+                    (r['_col'] for r in pct_rows if r['Metric'] == box_metric_label), None
+                )
+                if orig_col:
+                    vals_all = peer_latest[orig_col].dropna().tolist()
+                    my_v     = float(row.get(orig_col, np.nan))
+                    fig_box  = go.Figure()
+                    fig_box.add_trace(go.Box(
+                        y=vals_all, name=peer_label,
+                        boxpoints='outliers',
+                        marker_color='#42A5F5',
+                        line_color='#1565C0',
+                    ))
+                    if pd.notna(my_v):
+                        fig_box.add_hline(
+                            y=my_v, line_color='red', line_dash='dash',
+                            annotation_text=f'{selected_ticker}: {my_v:.3f}',
+                            annotation_position='right',
+                        )
+                    fig_box.update_layout(
+                        height=320, margin=dict(t=30, b=20),
+                        yaxis_title=box_metric_label,
+                        title=f'{box_metric_label} — {peer_label} distribution',
+                    )
+                    st.plotly_chart(fig_box, use_container_width=True)
+
+                # Top / bottom peers table
+                sort_col = peer_metrics[0]
+                with st.expander(f'📋 Top / Bottom 10 peers by {sort_col.replace("_", " ").title()}',
+                                 expanded=False):
+                    show_cols = ['ticker', 'name'] + peer_metrics[:4]
+                    show_cols = [c for c in show_cols if c in peer_latest.columns]
+                    pc1, pc2 = st.columns(2)
+                    pc1.caption('Lowest risk (best)')
+                    pc1.dataframe(
+                        peer_latest.nsmallest(10, sort_col)[show_cols],
+                        use_container_width=True, hide_index=True,
+                    )
+                    pc2.caption('Highest risk (worst)')
+                    pc2.dataframe(
+                        peer_latest.nlargest(10, sort_col)[show_cols],
+                        use_container_width=True, hide_index=True,
+                    )

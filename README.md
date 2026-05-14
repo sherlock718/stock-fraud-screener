@@ -1,13 +1,14 @@
-# Stock Fraud & Quantitative Screener
+# Multi-Factor Stock Screener
 
-A research-grade quantitative stock screening and backtesting system built on SEC EDGAR (US), SEDAR+ (Canada), B3 (Brazil), TDNET (Japan), and EU exchange data.
+A research-grade quantitative alpha generation platform covering 14 markets — US, Korea, Canada, Japan, Brazil, and 9 European markets. Built on SEC EDGAR, SEDAR+, B3, TDNET, SimFin, and DART.
 
 ## What It Does
 
-- **Screens** current-year companies using 5 composite signals: value, quality, ML probability, fraud risk, and momentum
+- **Scores** companies across 5 factor groups: Value, Quality, Momentum, Growth, and Fraud Risk — combined into a composite alpha score
+- **Trains** LightGBM models on 1y/3y/5y return horizons using 58,190 company-year observations and 355 columns
 - **Backtests** 4 strategies (COMPOSITE, QEM, SCDV, IARB) with walk-forward ML retraining to avoid look-ahead bias
-- **Flags fraud risk** using Beneish M-Score, Ohlson O-Score, Altman Z-Score, Piotroski F-Score, and custom accruals signals
-- **Ranks factors** by IC/ICIR across 1y/3y/5y horizons for factor research
+- **Flags fraud risk** as one factor — Beneish M-Score, Ohlson O-Score, Altman Z-Score, Piotroski F-Score, AAER-confirmed labels, and ML fraud probability
+- **Ranks factors** by IC/ICIR across 1y/3y/5y horizons for systematic factor research
 
 ---
 
@@ -23,7 +24,7 @@ pipeline/               Raw data ingestion ONLY — fetch, snapshot, enrich, mer
 └── fraud_signals.py            Beneish/Ohlson/Altman/Piotroski scoring
 
 scripts/                Analysis, ML, reporting — consumes output of pipeline/
-├── train_models.py             Train LightGBM models (1y/3y/5y) with ICIR selection
+├── train_models.py             Train LightGBM models (1y/3y/5y) with ICIR selection; alpha_* and ml_* excluded
 ├── tune_models.py              Optuna hyperparameter search + CatBoost ensemble
 ├── backtester.py               Walk-forward backtest engine
 ├── factor_research.py          IC/ICIR/turnover analysis
@@ -58,15 +59,23 @@ tests/
 
 ## ML Models
 
-| Horizon | Features | Train Rows | OOS AUC |
-|---------|----------|------------|---------|
-| 1y      | 27       | 40,907     | 0.749   |
-| 3y      | 31       | 31,151     | 0.780   |
-| 5y      | 31       | 21,965     | 0.856   |
+5 discrete horizon models (6m/1y/2y/3y/5y) — user selects investment horizon → HorizonRouter maps to nearest trained model.
+
+| Horizon | Features | Val AUC | WF Mean AUC | Target |
+|---------|----------|---------|-------------|--------|
+| 6m      | 42       | 0.607   | 0.563       | ≥ 0.58 ❌ |
+| 1y      | 45       | 0.599   | 0.563       | ≥ 0.62 ❌ |
+| 2y      | 43       | 0.585   | 0.589       | ≥ 0.60 ❌ |
+| 3y      | 45       | 0.635   | 0.625       | ≥ 0.62 ✅ |
+| 3y (Optuna-tuned) | 45 | **0.6644** | — | calibrated ensemble 0.6773 |
+| 5y      | 41       | —       | 0.620       | ≥ 0.62 ✅ |
+
+**Regression model (3y magnitude):** LightGBM Huber regressor predicting `excess_return_local_3y`; WF Spearman IC = 0.34 (9 folds). Used as Stage 3 ranker in leverage strategy screener.
 
 - Target: beat local market index over horizon
-- Feature selection: top features by |ICIR| (IC/StdIC), deduplicated at |Spearman| > 0.90
-- Walk-forward retraining used in backtester (not static models) to avoid look-ahead bias
+- Feature selection: BH FDR gate + top features by |ICIR|, deduplicated at |Spearman| > 0.90
+- PIT-safe splits: `filed_date` + `fiscal_year` cutoff to eliminate look-ahead from late SEC filings
+- OOF scores (`ml_{h}_oof`): `generate_oof_scores.py` produces true out-of-sample scores
 
 ---
 

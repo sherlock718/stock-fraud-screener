@@ -89,15 +89,15 @@ def align_and_concat(frames: dict[str, pd.DataFrame]) -> pd.DataFrame:
     if 'fiscal_year' in combined.columns:
         combined['fiscal_year'] = pd.to_numeric(combined['fiscal_year'], errors='coerce').astype('Int64')
 
-    # Deduplicate: keep last (most recently added market wins on overlap)
-    key_cols = ['cik', 'filed_date', 'period_type']
+    # Deduplicate: include market to prevent cross-market CIK collisions
+    key_cols = ['cik', 'market', 'filed_date', 'period_type']
     key_cols = [c for c in key_cols if c in combined.columns]
     if key_cols:
         before = len(combined)
         combined = combined.drop_duplicates(subset=key_cols, keep='last')
         dupes = before - len(combined)
         if dupes:
-            print(f'  Removed {dupes:,} duplicate rows (same cik+filed_date+period_type)')
+            print(f'  Removed {dupes:,} duplicate rows (same cik+market+filed_date+period_type)')
 
     return combined
 

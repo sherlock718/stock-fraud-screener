@@ -4,12 +4,17 @@ __pycache__/
 .env
 .claude/
 
+# Secrets / credentials
+HF_TOKEN.md
+*.token
+
 # Large data files (stored in HuggingFace Hub)
 data/*.parquet
 data/*.db
 data/*_checkpoint.json
 data/*_checkpoint.json.bak*
 data/*.bak
+data/*.bak_*
 data/simfin_cache/
 
 # Generated data (not source)
@@ -18,6 +23,20 @@ data/companies_filtered.json
 data/fetch_checkpoint.json
 data/last_update.json
 data/pipeline_status.json
+data/backtest_results.json
+data/aaer_labels.csv
+data/aaer_cache.json
+data/fraud_signals.json
+data/watchlist.json
+data/fraud_labels.parquet
+data/*_positions_*.csv
+data/short_book_*.csv
+data/strategy_*.csv
+data/feature_routing_by_horizon.csv
+data/pit_report.csv
+data/auditor_checkpoint.json
+data/market_signals_checkpoint.json
+data/mcap_checkpoint.json
 
 # Trained models (stored in HuggingFace Hub)
 models/*.joblib

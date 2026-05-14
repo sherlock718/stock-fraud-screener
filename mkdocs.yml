@@ -1,5 +1,5 @@
-site_name: Stock Fraud Screener
-site_description: Multi-market accounting fraud detection using ML — US, EU, Korea, Japan, Canada, Brazil
+site_name: Multi-Factor Stock Screener
+site_description: Industry-grade quantitative alpha lab — ML-driven factor research, alpha signal generation, and portfolio construction across 6 markets
 site_author: Mhoque
 repo_url: https://github.com/sherlock718/stock-fraud-screener
 repo_name: stock-fraud-screener
@@ -73,18 +73,21 @@ nav:
     - methodology/index.md
     - Data Pipeline: methodology/pipeline.md
     - Feature Engineering: methodology/features.md
+    - Feature Selection: methodology/feature-selection.md
+    - Factor Groups: methodology/factor-library.md
     - ML Models: methodology/models.md
     - Backtesting: methodology/backtesting.md
-    - Factor Research: methodology/factor-research.md
     - Bias & Validation: methodology/bias-validation.md
-    - Leverage Strategy: methodology/leverage.md
     - Case Studies: methodology/case-studies.md
     - Benchmarking: methodology/benchmarking.md
   - Developer Guide:
     - developer/index.md
     - Setup: developer/setup.md
-    - Deployment: developer/deployment.md
+    - Contributing: developer/contributing.md
+    - Data Update Guide: developer/data-update-guide.md
+    - Pipeline Modules: developer/pipeline-scripts.md
     - Scripts Reference: developer/scripts.md
+    - Deployment: developer/deployment.md
     - Monitoring: developer/monitoring.md
     - Tests: developer/tests.md
 

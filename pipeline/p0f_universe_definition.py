@@ -5,27 +5,27 @@ Defines and documents the investment universe for each market.
 Applies consistent inclusion/exclusion filters to historical_dataset_clean.parquet
 and writes a universe-tagged parquet + a universe summary CSV.
 
-Universe rules (applied per market):
+By default (no flags), only structural rules are applied to in_universe:
   1. period_type == 'annual'          (annual filings only for cross-sectional ML)
   2. fiscal_year >= 2009              (full XBRL coverage starts 2009)
   3. fiscal_year <= current_year - 1  (prior completed fiscal years only)
-  4. revenue >= $1M                   (already enforced in step6, double-check)
-  5. total_assets >= $100K            (already enforced in step6, double-check)
-  6. entry_price > 0                  (already enforced in step6, double-check)
-  7. Exclude pure financial sector     (SIC 6000–6999) by default — different accrual structure
-  8. Exclude pure utility sector       (SIC 4900–4999) by default — regulated earnings distort signals
-  9. Size: include micro, small, mid, large (exclude nano/shell)
-  10. No OTC penny stocks:             exclude if exchange == 'OTC' AND entry_price < 1.00
 
-Market-specific overrides:
-  - US:    all exchanges (NYSE, Nasdaq, OTC with price >= 1.00)
-  - CA:    TSX + TSXV; price >= 0.05 (penny stocks common on TSXV)
-  - BR:    B3; no price floor (regulatory environment differs)
-  - JP:    TSE; no OTC exclusion
-  - EU:    XETRA, Euronext, Borsa Italiana, BME, Nasdaq Stockholm/Helsinki/Copenhagen, Euronext Amsterdam/Lisbon
+Pass --apply-filters to also enforce investable-universe rules:
+  4. revenue >= $1M
+  5. total_assets >= $100K
+  6. entry_price > 0
+  7. Exclude pure financial sector     (SIC 6000–6999)
+  8. Exclude pure utility sector       (SIC 4900–4999)
+  9. Size: include micro, small, mid, large (exclude nano/shell)
+  10. No OTC penny stocks:             exclude if exchange == 'OTC' AND entry_price < market floor
+
+Market-specific price floors (--apply-filters only):
+  - US:    $1.00 (OTC penny filter)
+  - CA:    $0.05 (TSXV penny stocks common)
+  - BR/JP/KR/EU: no price floor
 
 Columns added:
-  in_universe     — 1 if row passes all universe filters for its market, else 0
+  in_universe     — 1 if row passes all applied filters for its market, else 0
   excl_reason     — pipe-separated string of exclusion reasons (empty if in_universe=1)
 
 Output:
@@ -33,8 +33,10 @@ Output:
   reports/universe_summary.csv           — per-market row counts and exclusion breakdown
 
 Usage:
-    python3 pipeline/p0f_universe_definition.py
-    python3 pipeline/p0f_universe_definition.py --dry-run
+    python3 pipeline/p0f_universe_definition.py               # structural rules only
+    python3 pipeline/p0f_universe_definition.py --dry-run     # report without saving
+    python3 pipeline/p0f_universe_definition.py --apply-filters          # full investable-universe rules
+    python3 pipeline/p0f_universe_definition.py --apply-filters --dry-run
 """
 from __future__ import annotations
 
@@ -88,10 +90,18 @@ def _get_current_year() -> int:
     return date.today().year
 
 
-def classify_universe(df: pd.DataFrame) -> pd.DataFrame:
+def classify_universe(df: pd.DataFrame, apply_filters: bool = False) -> pd.DataFrame:
     """
     Add in_universe (0/1) and excl_reason columns.
-    Processes all rows at once using vectorised logic.
+
+    Structural rules (always applied):
+      - period_type == 'annual'
+      - fiscal_year in [2009, current_year-1]
+
+    Investable-universe rules (apply_filters=True only):
+      - revenue >= $1M, total_assets >= $100K, entry_price > 0
+      - price >= market floor (US: $1, CA: $0.05)
+      - exclude SIC 6000-6999 (financials) and SIC 4900-4999 (utilities)
     """
     current_year = _get_current_year()
     max_fy = current_year - MAX_FISCAL_YEAR_LAG
@@ -122,25 +132,26 @@ def classify_universe(df: pd.DataFrame) -> pd.DataFrame:
     _flag(fy < MIN_FISCAL_YEAR, f'fy<{MIN_FISCAL_YEAR}')
     _flag(fy > max_fy, f'fy>{max_fy}(incomplete)')
 
-    # 3. Revenue floor (belt-and-suspenders)
-    _flag(rev.notna() & (rev < 1e6), 'revenue<1M')
+    if apply_filters:
+        # 3. Revenue floor
+        _flag(rev.notna() & (rev < 1e6), 'revenue<1M')
 
-    # 4. Total assets floor
-    _flag(ta.notna() & (ta < 1e5), 'assets<100K')
+        # 4. Total assets floor
+        _flag(ta.notna() & (ta < 1e5), 'assets<100K')
 
-    # 5. Price check
-    _flag(price.isna() | (price <= 0), 'no_price')
-    _flag(price.notna() & (price > 0) & (price < min_price), 'price_below_market_floor')
+        # 5. Price check
+        _flag(price.isna() | (price <= 0), 'no_price')
+        _flag(price.notna() & (price > 0) & (price < min_price), 'price_below_market_floor')
 
-    # 6. Financials exclusion
-    if EXCLUDE_FINANCIALS:
-        fin_mask = sic.notna() & (sic >= 6000) & (sic <= 6999)
-        _flag(fin_mask, 'financial_sector')
+        # 6. Financials exclusion
+        if EXCLUDE_FINANCIALS:
+            fin_mask = sic.notna() & (sic >= 6000) & (sic <= 6999)
+            _flag(fin_mask, 'financial_sector')
 
-    # 7. Utilities exclusion
-    if EXCLUDE_UTILITIES:
-        util_mask = sic.notna() & (sic >= 4900) & (sic <= 4999)
-        _flag(util_mask, 'utility_sector')
+        # 7. Utilities exclusion
+        if EXCLUDE_UTILITIES:
+            util_mask = sic.notna() & (sic >= 4900) & (sic <= 4999)
+            _flag(util_mask, 'utility_sector')
 
     # Clean up trailing pipes
     reasons = reasons.str.strip('|')
@@ -187,16 +198,20 @@ def build_summary(df: pd.DataFrame) -> pd.DataFrame:
 
 # ── Main ───────────────────────────────────────────────────────────────────────
 
-def run(dry_run: bool = False) -> None:
+def run(dry_run: bool = False, apply_filters: bool = False) -> None:
     if not IN_OUT.exists():
         print(f'ERROR: {IN_OUT} not found — run step6 + P0c/P0d first')
         sys.exit(1)
 
     print('P0f — Universe Definition Framework')
+    if apply_filters:
+        print('  Mode: full investable-universe filters (--apply-filters)')
+    else:
+        print('  Mode: structural rules only (pass --apply-filters for investable-universe subset)')
     df = pd.read_parquet(IN_OUT)
     print(f'  Loaded {len(df):,} rows × {len(df.columns)} columns')
 
-    df = classify_universe(df)
+    df = classify_universe(df, apply_filters=apply_filters)
 
     in_u = int(df['in_universe'].sum())
     total = len(df)
@@ -232,8 +247,10 @@ def run(dry_run: bool = False) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description='Universe definition framework (P0f)')
     parser.add_argument('--dry-run', action='store_true', help='Print stats without saving')
+    parser.add_argument('--apply-filters', action='store_true',
+                        help='Apply investable-universe rules (revenue/assets/price/sector)')
     args = parser.parse_args()
-    run(dry_run=args.dry_run)
+    run(dry_run=args.dry_run, apply_filters=args.apply_filters)
 
 
 if __name__ == '__main__':

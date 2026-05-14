@@ -24,7 +24,7 @@
 The unified dataset (`data/historical_dataset_clean.parquet`) spans all 14 markets:
 
 - **Total rows**: 155,696 (company × fiscal year × period type)
-- **Columns**: 313
+- **Columns**: 319
 - **Period coverage**: 2008–2027 (US back to 2000)
 - **Period types**: `annual` (primary for ML), `quarterly` (available for US)
 

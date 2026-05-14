@@ -54,15 +54,17 @@ except ImportError:
     CATBOOST_AVAILABLE = False
     print('catboost not installed — skipping CatBoost comparison (pip install catboost)')
 
+import sys
 BASE       = Path(__file__).parent.parent
+sys.path.insert(0, str(BASE))
 META_PATH  = BASE / 'models' / 'model_meta.json'
 MODELS_DIR = BASE / 'models'
 REPORTS    = BASE / 'reports'
 MODELS_DIR.mkdir(exist_ok=True)
 REPORTS.mkdir(exist_ok=True)
 
-HORIZONS = {'1y', '3y', '5y'}
-N_OPTUNA_TRIALS = 60
+HORIZONS = {'6m', '1y', '2y', '3y', '5y'}
+N_OPTUNA_TRIALS = 100
 
 
 def _load_meta() -> dict:
@@ -83,7 +85,12 @@ def _load_data_for_horizon(meta: dict, h: str) -> tuple:
     beat_col     = m['beat_col']
     train_medians = m['train_medians']
 
-    df_train = df[df['fiscal_year'] <= train_cutoff].copy()
+    filed = pd.to_datetime(df.get('filed_date', pd.NaT), errors='coerce')
+    cutoff_date = pd.Timestamp(f'{train_cutoff + 1}-01-01')
+    df_train = df[
+        (df['fiscal_year'] <= train_cutoff) &
+        (filed.isna() | (filed < cutoff_date))
+    ].copy()
     df_val   = df[(df['fiscal_year'] > train_cutoff) & (df['fiscal_year'] <= val_end)].copy()
     df_test  = df[df['fiscal_year'] > val_end].copy()
     return df_train, df_val, df_test, features, beat_col, train_medians
@@ -202,21 +209,22 @@ class EnsembleClassifier:
     def classes_(self): return np.array([0, 1])
 
 
+class _CalModel:
+    """Isotonic-calibrated wrapper. Defined at module level to be picklable."""
+    def __init__(self, base, iso): self._base = base; self._iso = iso
+    def predict_proba(self, X):
+        p = self._base.predict_proba(X)[:, 1]
+        cal = self._iso.predict(p)
+        return np.column_stack([1 - cal, cal])
+    @property
+    def classes_(self): return np.array([0, 1])
+
+
 def calibrate_model(model, X_val: pd.DataFrame, y_val: pd.Series):
     """Isotonic calibration on val split."""
     raw_proba = model.predict_proba(X_val)[:, 1]
     iso = IsotonicRegression(out_of_bounds='clip')
     iso.fit(raw_proba, y_val.values)
-
-    class _CalModel:
-        def __init__(self, base, iso): self._base = base; self._iso = iso
-        def predict_proba(self, X):
-            p = self._base.predict_proba(X)[:, 1]
-            cal = self._iso.predict(p)
-            return np.column_stack([1 - cal, cal])
-        @property
-        def classes_(self): return np.array([0, 1])
-
     return _CalModel(model, iso)
 
 
@@ -224,7 +232,7 @@ def calibrate_model(model, X_val: pd.DataFrame, y_val: pd.Series):
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument('--horizon', default=None, choices=['1y', '3y', '5y'],
+    parser.add_argument('--horizon', default=None, choices=['6m', '1y', '2y', '3y', '5y'],
                         help='Single horizon to tune (default: all)')
     parser.add_argument('--trials', type=int, default=N_OPTUNA_TRIALS,
                         help=f'Optuna trials per horizon (default: {N_OPTUNA_TRIALS})')
