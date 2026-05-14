@@ -8,6 +8,13 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Section 6 Decision Tree Screener — executed cells with outputs (2026-05-15)
+
+#### `notebooks/08_experiment_hub.ipynb` — executed all three Section 6 cells
+- Cell `690181fe`: DT trained (1y, depth=5, 37 features, train AUC 0.5987), rules printed
+- Cell `79ad780b`: 7,625 stocks scored, filters applied, top-100 displayed with market breakdown
+- Cell `1248e80a`: per-rule leaf stats table + year-by-year backtest charts rendered
+
 ### Section 6 Decision Tree Screener — filters + CAGR performance (2026-05-14)
 
 #### `notebooks/08_experiment_hub.ipynb` — added filters and historical CAGR to Section 6
