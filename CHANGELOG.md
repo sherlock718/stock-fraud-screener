@@ -8,7 +8,16 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
-### Optuna tuning for 6m and 1y horizon models (2026-05-14)
+### Retrain with tuned params + expanded FORCE_INCLUDE features for 6m/1y (2026-05-14)
+
+#### Fix best_params propagation and add WF CV with Optuna hyperparameters (fix/perf)
+- **`scripts/tune_models.py`**: `tune_lgbm()` now returns all 9 best hyperparameters (was returning only the model + CSV of 3 params). Full dict saved to `model_meta.json` as `best_params`. 6m best: lr=0.0196, n_est=230, num_leaves=21. 1y best: lr=0.0201, n_est=394, num_leaves=59.
+- **`scripts/train_models.py`**: Added `override_params` arg to `train_model()` and `override_params_per_horizon` arg to `walk_forward_cv()` — allows injecting Optuna-tuned params into WF folds without re-running Optuna.
+- **`scripts/train_models.py`**: Added `--use-tuned-params` CLI flag — when passed with `--walk-forward`, loads `best_params` from `model_meta.json` and uses them in every WF fold.
+- **`scripts/train_models.py`**: `_old_meta` loaded before training loop to carry forward `best_params` (and other tune fields) from prior `tune_models.py` run into the freshly-built `model_meta` dict.
+- **`scripts/train_models.py`**: `FORCE_INCLUDE_6M` and `FORCE_INCLUDE_1Y` expanded with 4 high-ICIR features bypassed by ICIR ranking: `sales_to_price` (ICIR~2.0), `ohlson_roe` (ICIR~1.4), `value_x_quality` (ICIR~1.3), `piotroski_f_score` (ICIR~1.25). These fundamental quality/value signals had 14 years of IC data but were crowded out by momentum features in the top-N selection.
+- **`docs/developer/scripts.md`**: Added `--use-tuned-params` flag to `train_models.py` flags table.
+
 
 #### Tune 6m and 1y LightGBM models with Optuna (perf)
 - **`models/model_6m.joblib`**: Optuna 60-trial TPE tuning — tuned val AUC 0.617 (+1.0pp vs 0.607 baseline), tuned test AUC 0.517 (+1.2pp). WF Mean AUC 0.5626 (target ≥ 0.58 — not yet met; WF re-run with tuned params required for formal measurement).

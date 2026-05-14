@@ -80,8 +80,10 @@ HORIZONS = {
 # Force-includes bypass the ICIR ranking for these specific features.
 # Only features that actually exist in the dataset are force-included at runtime.
 # Note: 'price_to_52w_high' tested for 1y — hurt the 2019 fold (IC=−0.40 in COVID reversal year). Excluded.
-FORCE_INCLUDE_6M = ['vol_rank_12m', 'quality_x_momentum']
-FORCE_INCLUDE_1Y = ['vol_rank_12m', 'quality_x_momentum']
+FORCE_INCLUDE_6M = ['vol_rank_12m', 'quality_x_momentum',
+                    'sales_to_price', 'ohlson_roe', 'value_x_quality', 'piotroski_f_score']
+FORCE_INCLUDE_1Y = ['vol_rank_12m', 'quality_x_momentum',
+                    'sales_to_price', 'ohlson_roe', 'value_x_quality', 'piotroski_f_score']
 FORCE_INCLUDE_2Y = ['vol_rank_12m']
 
 EXCLUDE = {
@@ -273,7 +275,7 @@ def log_psi_report(df_train: pd.DataFrame, df_test: pd.DataFrame,
 
 
 def train_model(df_train: pd.DataFrame, features: list[str], beat_col: str,
-                ) -> tuple:
+                override_params: dict | None = None) -> tuple:
     sub = df_train[df_train[beat_col].notna()].copy()
     feats = [f for f in features if f in sub.columns]
     train_medians = sub[feats].median().to_dict()
@@ -282,7 +284,7 @@ def train_model(df_train: pd.DataFrame, features: list[str], beat_col: str,
 
     pos = int((y == 1).sum())
     neg = int((y == 0).sum())
-    clf = lgb.LGBMClassifier(
+    base = dict(
         n_estimators=600,
         max_depth=6,
         learning_rate=0.03,
@@ -290,9 +292,14 @@ def train_model(df_train: pd.DataFrame, features: list[str], beat_col: str,
         subsample=0.8,
         colsample_bytree=0.7,
         min_child_samples=20,
-        scale_pos_weight=neg / max(pos, 1),
         reg_alpha=0.1,
         reg_lambda=1.0,
+    )
+    if override_params:
+        base.update(override_params)
+    clf = lgb.LGBMClassifier(
+        **base,
+        scale_pos_weight=neg / max(pos, 1),
         random_state=42,
         n_jobs=-1,
         verbose=-1,
@@ -348,7 +355,8 @@ def train_baseline(df_train: pd.DataFrame, features: list[str], beat_col: str,
 
 
 def walk_forward_cv(df: pd.DataFrame, features_per_horizon: dict[str, list[str]],
-                    train_cutoff: int, min_train_years: int = 6) -> dict[str, float]:
+                    train_cutoff: int, min_train_years: int = 6,
+                    override_params_per_horizon: dict | None = None) -> dict[str, float]:
     """Expanding-window walk-forward validation.
 
     For each fold year t in [first_year + min_train_years, train_cutoff]:
@@ -394,7 +402,8 @@ def walk_forward_cv(df: pd.DataFrame, features_per_horizon: dict[str, list[str]]
             if len(tr[tr[beat_col].notna()]) < 100 or len(te) < 20 or te[beat_col].nunique() < 2:
                 continue
             try:
-                clf, fold_feats, _, medians = train_model(tr, feats, beat_col)
+                op = (override_params_per_horizon or {}).get(h)
+                clf, fold_feats, _, medians = train_model(tr, feats, beat_col, override_params=op)
                 fa = [f for f in fold_feats if f in te.columns]
                 X_te = te[fa].fillna(pd.Series(medians))
                 y_te = te[beat_col].astype(int)
@@ -503,6 +512,8 @@ def main() -> None:
                         help='Skip SHAP computation (faster run)')
     parser.add_argument('--walk-forward', action='store_true',
                         help='Run expanding-window walk-forward CV after main training')
+    parser.add_argument('--use-tuned-params', action='store_true',
+                        help='Load best_params from model_meta.json and use them for WF CV')
     parser.add_argument('--oot-eval', action='store_true',
                         help='OOT diagnostic: retrain 3y model with cutoff=2019, test on FY2022 '
                              '(3y returns fully elapsed as of 2025). Does NOT overwrite production '
@@ -609,6 +620,8 @@ def main() -> None:
         print(f'    Top 10: {", ".join(top_n[:10])}')
 
     print('\nTraining LightGBM models...')
+    _old_meta_path = MODELS_DIR / 'model_meta.json'
+    _old_meta = json.loads(_old_meta_path.read_text()) if _old_meta_path.exists() else {}
     model_meta = {}
     for h, (ret_col, beat_col) in HORIZONS.items():
         print(f'  {h}...', end=' ', flush=True)
@@ -672,6 +685,8 @@ def main() -> None:
             'train_medians':  train_medians,
             'shap_top_features': shap_top,
         }
+        if _old_meta.get(h, {}).get('best_params'):
+            model_meta[h]['best_params'] = _old_meta[h]['best_params']
         print(f'done ({len(feats)} features, {len(y_train):,} rows, '
               f'LGBM val={val_auc:.3f}/test={test_auc:.3f} | '
               f'LR val={lr_val_auc:.3f}/test={lr_test_auc:.3f})')
@@ -682,7 +697,19 @@ def main() -> None:
 
     if args.walk_forward:
         print('\nRunning walk-forward CV (expanding window)...')
-        wf_aucs = walk_forward_cv(df, selected_features, train_cutoff)
+        override_params_per_horizon = None
+        if args.use_tuned_params:
+            override_params_per_horizon = {
+                h: model_meta[h].get('best_params')
+                for h in model_meta
+                if model_meta[h].get('best_params')
+            }
+            if override_params_per_horizon:
+                print(f'  Using tuned params for: {list(override_params_per_horizon.keys())}')
+            else:
+                print('  WARNING: --use-tuned-params set but no best_params found in model_meta.json')
+        wf_aucs = walk_forward_cv(df, selected_features, train_cutoff,
+                                  override_params_per_horizon=override_params_per_horizon)
         if wf_aucs:
             for h, mean_auc in wf_aucs.items():
                 if h in model_meta:

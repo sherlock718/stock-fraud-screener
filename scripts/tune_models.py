@@ -155,7 +155,7 @@ def tune_lgbm(X_train, y_train, X_val, y_val, n_trials: int) -> tuple:
     trials_df = study.trials_dataframe()[['number', 'value', 'params_learning_rate',
                                           'params_n_estimators', 'params_num_leaves']]
     trials_df.columns = ['trial', 'val_auc', 'lr', 'n_est', 'num_leaves']
-    return clf, trials_df
+    return clf, trials_df, best
 
 
 # ── CatBoost ────────────────────────────────────────────────────────────────
@@ -267,7 +267,7 @@ def main() -> None:
 
         # ── 1. Optuna LGBM tuning ────────────────────────────────────────────
         print(f'  Optuna: {args.trials} trials...', end=' ', flush=True)
-        lgbm_tuned, trials_df = tune_lgbm(X_train, y_train, X_val, y_val, args.trials)
+        lgbm_tuned, trials_df, best_params = tune_lgbm(X_train, y_train, X_val, y_val, args.trials)
         if lgbm_tuned is not None:
             tuned_val  = _eval_model(lgbm_tuned, X_val, y_val)
             tuned_test = _eval_model(lgbm_tuned, X_test, y_test)
@@ -278,6 +278,7 @@ def main() -> None:
         else:
             lgbm_tuned = joblib.load(MODELS_DIR / f'model_{h}.joblib')
             tuned_val = tuned_test = float('nan')
+            best_params = None
             print('skipped (optuna not available)')
 
         # ── 2. CatBoost ──────────────────────────────────────────────────────
@@ -321,6 +322,7 @@ def main() -> None:
             'ensemble_val_auc': round(ens_val, 4),
             'ensemble_test_auc':round(ens_test, 4),
             'n_ensemble_models':len(base_models),
+            'best_params':      best_params,
         }
 
     META_PATH.write_text(json.dumps(updated_meta, indent=2))

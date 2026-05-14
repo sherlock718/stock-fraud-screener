@@ -63,12 +63,12 @@ tests/
 
 | Horizon | Features | Val AUC | WF Mean AUC | Target |
 |---------|----------|---------|-------------|--------|
-| 6m      | 42       | 0.607   | 0.563       | ≥ 0.58 ❌ |
-| 1y      | 45       | 0.599   | 0.563       | ≥ 0.62 ❌ |
-| 2y      | 43       | 0.585   | 0.589       | ≥ 0.60 ❌ |
-| 3y      | 45       | 0.635   | 0.625       | ≥ 0.62 ✅ |
-| 3y (Optuna-tuned) | 45 | **0.6644** | — | calibrated ensemble 0.6773 |
-| 5y      | 41       | —       | 0.620       | ≥ 0.62 ✅ |
+| 6m      | 31       | 0.607   | 0.572       | ≥ 0.58 ❌ |
+| 1y      | 31       | 0.599   | 0.568       | ≥ 0.62 ❌ |
+| 2y      | 28       | 0.585   | 0.589       | ≥ 0.60 ❌ |
+| 3y      | 30       | 0.635   | 0.625       | ≥ 0.62 ✅ |
+| 3y (Optuna-tuned) | 30 | **0.6644** | — | calibrated ensemble 0.6773 |
+| 5y      | 26       | —       | 0.620       | ≥ 0.62 ✅ |
 
 **Regression model (3y magnitude):** LightGBM Huber regressor predicting `excess_return_local_3y`; WF Spearman IC = 0.34 (9 folds). Used as Stage 3 ranker in leverage strategy screener.
 
