@@ -18,6 +18,10 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 - Assigns leverage (2× if β<0.5, 1.5× if β<0.8, 1.25× if β<1.0) and computes levered 3y CAGR using Section 11 coefficients
 - Exports `data/full_universe_low_beta_tier1_2026-05-15.csv`
 - Scatter + bar charts: beta vs levered CAGR, colour-coded by leverage tier
+- **Run results (2026-05-15)**: 4,653 US tickers → 40 Tier-1 → 21 with β < 1.0 → top 20 by levered 3y CAGR
+  - Top 5 (2× lever, β < 0.5): IMXI 53.2%, VLGEA 47.4%, TK 46.6%, CNC 44.8%, MOH 44.2%
+  - 1.5× lever (β 0.5–0.8): PZZA 31.2%, CON 30.0%, BBSI 29.7%, PFGC 29.0%, ICFI 28.0%
+  - 1.25× lever (β 0.8–1.0): IBEX 26.6%, LZB 23.4%, TGT 23.0%, PUMP 22.9%
 
 ### Section 11 — Multi-Horizon CAGR Calibration (6m · 2y · 3y) (2026-05-15)
 
