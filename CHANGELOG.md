@@ -8,6 +8,17 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Section 12 — Full-Universe Low-Beta Tier-1 Scan (2026-05-15)
+
+#### `notebooks/08_experiment_hub.ipynb` — 5 new cells (s12md000, s12cfg01, s12scn01, s12bet01, s12out01)
+- Loads full 58K-row parquet; keeps latest annual row per US ticker (fiscal_year ≥ 2022)
+- Recomputes composite score from up to 9 signals (same pool as Section 5) on the full universe
+- Applies all 4 safety gates (Piotroski ≥ 7, Altman Z > 1.81, FCF yield > 0, Beneish < −1.78) → Tier-1 filter
+- Fetches live beta via yfinance for all Tier-1 candidates; filters to β < 1.0
+- Assigns leverage (2× if β<0.5, 1.5× if β<0.8, 1.25× if β<1.0) and computes levered 3y CAGR using Section 11 coefficients
+- Exports `data/full_universe_low_beta_tier1_2026-05-15.csv`
+- Scatter + bar charts: beta vs levered CAGR, colour-coded by leverage tier
+
 ### Section 11 — Multi-Horizon CAGR Calibration (6m · 2y · 3y) (2026-05-15)
 
 #### `notebooks/08_experiment_hub.ipynb` — 4 new cells (s11md000, s11cfg01, s11cal01, s11apl01)
