@@ -8,6 +8,15 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Experiment notebook executed with full output (2026-05-14)
+
+#### `notebooks/08_experiment_hub.ipynb` — executed via nbconvert; all 5 sections rendered with output
+- Section 1: Feature selection summary and SHAP importance charts per horizon
+- Section 2: Walk-forward AUC charts and model performance tables
+- Section 3a/3b: Screener registry leaderboard and individual signal rankings with charts
+- Section 4a/4b: Deep dive composite and individual signal analysis with annual return bars
+- Section 5: Live picks (longs + shorts) exported to `reports/screener_longs_*.csv`
+
 ### Version 2 roadmap documented (2026-05-14)
 
 #### Documentation
