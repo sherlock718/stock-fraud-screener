@@ -8,6 +8,19 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Schema drift fix + LightGBM vs Decision Tree overfitting analysis (2026-05-14)
+
+#### `data/historical_dataset_clean.parquet` — patched 4 missing columns (361 → 367 cols)
+- Added `depreciation_to_assets`, `financing_cashflow_to_assets` (all 5 models referenced these)
+- Added `piotroski_shares_ok`, `piotroski_f_score_9` (2y/6m models referenced these)
+- Formulas sourced from `pipeline/feature_library.py` (`add_normalised_ratios`, `add_piotroski_ext`)
+
+#### `reports/overfitting_comparison.json` — new report; LightGBM vs Decision Tree train/test AUC per horizon
+- LightGBM train/test gap ≤ 0.004 across all horizons (no classical overfitting)
+- Decision Tree gaps 0.007–0.023 (mild overfitting, larger at longer horizons)
+- LightGBM outperforms DT by 1.5–5.1 AUC points at test time on every horizon
+- WF AUC gap (0.57–0.62) vs held-out AUC (0.61–0.69) is temporal non-stationarity, not overfitting
+
 ### Experiment notebook executed with full output (2026-05-14)
 
 #### `notebooks/08_experiment_hub.ipynb` — executed via nbconvert; all 5 sections rendered with output
