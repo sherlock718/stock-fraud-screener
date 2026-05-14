@@ -8,6 +8,14 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Section 6 DT Screener — Per-Leaf Walk-Forward CAGR (Part C) (2026-05-15)
+
+#### `notebooks/08_experiment_hub.ipynb` — cell `1248e80a` extended with Part C per-leaf WF CAGR
+- **Per-leaf walk-forward CAGR**: inside the existing WF loop, added `model_wf.apply(X_yr)` to assign `leaf_id_wf` to each scored stock; collected `{leaf_id, year, n, avg_ret, avg_prob, excess}` rows per year
+- **Aggregation**: after the WF loop, grouped by `leaf_id` across all years; computed annualized CAGR, excess CAGR vs bench, hit rate (% years positive), vol, and Sharpe per leaf
+- **Display**: styled heat-map table sorted by walk-forward CAGR, one table per horizon (6m/1y/2y/3y/5y)
+- Reuses same WF training pass as Part B — no duplicate training; leaf rows collected inside Part B loop
+
 ### Section 6 DT Backtest — walk-forward expanding window, no look-ahead bias (2026-05-15)
 
 #### `notebooks/08_experiment_hub.ipynb` — cell `1248e80a` Part B replaced with proper walk-forward backtest
