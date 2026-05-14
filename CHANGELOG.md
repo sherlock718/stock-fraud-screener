@@ -8,6 +8,16 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Section 10 — Beta, CAGR Calibration & Time Horizon Framework (2026-05-15)
+
+#### `notebooks/08_experiment_hub.ipynb` — 4 new cells (s10md000, s10cfg01, s10cal01, s10bet01)
+- **Issue 1 — Time horizon documented**: Confirmed 1-year rebalancing cycle driven by `ml_1y_oof` / `forward_return_1y` as primary backtest signal
+- **Issue 2 — Beta fix**: `beta_12m` absent from parquet → all Section 9 leverage was 1×; Section 10 fetches live betas via yfinance (`BETA_PERIOD='1y'`, benchmark=SPY); 13/20 picks resolved (7 TSX/TSX-V names delisted/not found); VLGEA β=0.10 (qualifies 2×), CVGI β=2.11, CRNT β=1.95, TEAD β=3.44, JELD β=2.92
+- **Issue 3 — CAGR calibration**: OLS on 31,916 US stock-years (2014–2024); equal-weight rank composite from 7 signals, winsorized at 5%; fitted: `return = -15.26% + composite × 44.23%` (R²=0.032, p=8.1e-229); replaces hardcoded `8 + composite × 27` (was ~10% too optimistic at composite=0.8)
+- **Quintile lift**: Q1 mean 1Y return −2.7%, Q5 +18.1%; confirms composite score has directional signal
+- **Liquidity flags (Section 10C)**: All 6 Tier-1 picks on US exchanges (🟢); 3 TSX Venture names (🔴 CAF.V, PVT.V, IRO.V) flagged as very illiquid
+- **Exports**: `data/leveraged_picks_calibrated_2026-05-15.csv`
+
 ### Section 6 DT Screener — Per-Leaf Walk-Forward CAGR (Part C) (2026-05-15)
 
 #### `notebooks/08_experiment_hub.ipynb` — cell `1248e80a` extended with Part C per-leaf WF CAGR
