@@ -8,6 +8,16 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Section 11 — Multi-Horizon CAGR Calibration (6m · 2y · 3y) (2026-05-15)
+
+#### `notebooks/08_experiment_hub.ipynb` — 4 new cells (s11md000, s11cfg01, s11cal01, s11apl01)
+- **6m calibration**: annualised return = −5.58% + 39.34%×composite (R²=0.011, n=32,218); at composite=0.80 → 25.9% ann. (inflated by short-horizon noise)
+- **2y calibration**: annualised return = −23.82% + 52.95%×composite (R²=0.092, n=27,854); at composite=0.80 → 18.5% ann.
+- **3y calibration**: annualised return = −24.65% + 52.43%×composite (R²=0.133, n=24,029); at composite=0.80 → 17.3% ann. — strongest model (WF AUC 0.6248 ✅)
+- **R² pattern**: R² rises monotonically 6m→3y (0.011→0.133) — longer horizons have much stronger signal; 6m is noisy
+- **Re-score cell (11B)**: applies all 4 horizon CAGRs to picks simultaneously; best_CAGR_% = 3y column; exports `data/multi_horizon_calibrated_2026-05-15.csv`
+- VLGEA (β=0.10, leverage 2×): levered 3y best = **39.0%** ann. — only pick qualifying for leverage
+
 ### Section 10 — Beta, CAGR Calibration & Time Horizon Framework (2026-05-15)
 
 #### `notebooks/08_experiment_hub.ipynb` — 4 new cells (s10md000, s10cfg01, s10cal01, s10bet01)
