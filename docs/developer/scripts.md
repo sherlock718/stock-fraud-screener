@@ -571,6 +571,46 @@ or selection thresholds are adjusted.
 
 ---
 
+### `build_screener_registry.py` — Named Screener Registry Builder
+
+Defines 7 named screener configs, each with a dedicated filter function and alpha blend.
+Runs all configs through `backtester.py`'s `run_backtest()` engine and writes results to
+`data/screener_registry.json` — the single source of truth consumed by the experiment notebook
+(`notebooks/08_experiment_hub.ipynb`) for leaderboard comparisons.
+
+Each screener config specifies: a filter function (market/size/quality pre-screens + percentile-rank
+alpha blend), `top_n`, `cost_bps`, `smallcap_cost_bps`, and a human-readable name/description.
+All filter functions use OOF ML scores (`ml_1y_oof`, `ml_3y_oof`) for historical alpha — not
+contaminated in-sample scores.
+
+```bash
+python3 scripts/build_screener_registry.py               # Run all 7 screeners
+python3 scripts/build_screener_registry.py --top 15      # Override top_n for all
+python3 scripts/build_screener_registry.py --ids COMPOSITE_US VALUE_QUALITY
+python3 scripts/build_screener_registry.py --dry-run     # List configs and exit
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--ids ID [ID ...]` | all | Run only specified screener IDs |
+| `--top N` | per-config | Override `top_n` for all screeners |
+| `--dry-run` | False | Print screener config table and exit without running |
+| `--out PATH` | `data/screener_registry.json` | Output JSON path |
+
+**Screener IDs**: `COMPOSITE_US`, `COMPOSITE_INTL`, `COMPOSITE_MICRO`, `VALUE_QUALITY`,
+`MOMENTUM_GROWTH`, `FRAUD_AVOID`, `WIDE_UNIVERSE`.
+
+**Output**: `data/screener_registry.json` — top-level keys: `generated_at`, `n_screeners`,
+`screeners` (dict keyed by screener ID). Per screener: all keys from `run_backtest()` output
+(`cagr_pct`, `sharpe`, `max_drawdown_pct`, `calmar`, `info_ratio`, `hit_rate_pct`,
+`excess_cagr_vs_spy`, `annual_returns`, etc.) plus a `config` block (id, name, description,
+market, top_n, cost_bps, smallcap_cost_bps).
+
+**Re-run when**: any screener filter logic changes, `backtester.py` is updated, or OOF scores
+are regenerated. Prints a Sharpe-sorted leaderboard to stdout after completion.
+
+---
+
 ### `build_portfolio.py` — IC-Weighted Kelly Portfolio Constructor
 
 ```bash

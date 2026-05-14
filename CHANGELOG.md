@@ -8,6 +8,12 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Screener registry: 7 named screener configs with walk-forward backtests (2026-05-14)
+
+#### `build_screener_registry.py` — single-command registry builder (feat/alpha)
+- **`scripts/build_screener_registry.py`**: New script — defines 7 named screener configs (COMPOSITE_US, COMPOSITE_INTL, COMPOSITE_MICRO, VALUE_QUALITY, MOMENTUM_GROWTH, FRAUD_AVOID, WIDE_UNIVERSE), each with a dedicated filter function and alpha blend. Runs all configs through `backtester.py`'s `run_backtest()` engine and writes results (CAGR, Sharpe, max drawdown, Calmar, hit rate, excess vs SPY) plus config metadata to `data/screener_registry.json`. CLI supports `--ids`, `--top N`, `--dry-run`, `--out` flags. Uses OOF ML scores (`ml_1y_oof`, `ml_3y_oof`) for historical alpha — not contaminated in-sample scores.
+- **`docs/developer/scripts.md`**: Added `build_screener_registry.py` section.
+
 ### Repo structure clean-up (2026-05-14)
 
 #### Removed dead files, archived EDA notebooks, merged requirements (chore/repo)
