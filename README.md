@@ -61,14 +61,13 @@ tests/
 
 5 discrete horizon models (6m/1y/2y/3y/5y) — user selects investment horizon → HorizonRouter maps to nearest trained model.
 
-| Horizon | Features | Val AUC | WF Mean AUC | Target |
-|---------|----------|---------|-------------|--------|
-| 6m      | 31       | 0.607   | 0.572       | ≥ 0.58 ❌ |
-| 1y      | 31       | 0.599   | 0.568       | ≥ 0.62 ❌ |
-| 2y      | 28       | 0.585   | 0.589       | ≥ 0.60 ❌ |
-| 3y      | 30       | 0.635   | 0.625       | ≥ 0.62 ✅ |
-| 3y (Optuna-tuned) | 30 | **0.6644** | — | calibrated ensemble 0.6773 |
-| 5y      | 26       | —       | 0.620       | ≥ 0.62 ✅ |
+| Horizon | Features | Val AUC | Tuned Val AUC | WF Mean AUC | Target |
+|---------|----------|---------|---------------|-------------|--------|
+| 6m      | 31       | 0.607   | **0.617**     | 0.5715      | ≥ 0.58 ❌ |
+| 1y      | 31       | 0.599   | **0.605**     | **0.5774**  | ≥ 0.62 ❌ |
+| 2y      | 28       | 0.585   | **0.606**     | 0.5880      | ≥ 0.60 ❌ |
+| 3y      | 30       | 0.635   | **0.6644**    | 0.6248      | ≥ 0.62 ✅ |
+| 5y      | 26       | —       | —             | 0.6200      | ≥ 0.62 ✅ |
 
 **Regression model (3y magnitude):** LightGBM Huber regressor predicting `excess_return_local_3y`; WF Spearman IC = 0.34 (9 folds). Used as Stage 3 ranker in leverage strategy screener.
 

@@ -11,8 +11,8 @@ The platform scores companies across five orthogonal factor groups — **Value, 
 | Model Horizon | Validation AUC | Tuned Val AUC | WF Mean AUC | Target |
 |---|---|---|---|---|
 | 6-month | 0.607 | **0.617** | 0.5715 | ≥ 0.58 ❌ |
-| 1-year | 0.599 | **0.603** | 0.5683 | ≥ 0.62 ❌ |
-| 2-year | 0.585 | — | 0.5887 | ≥ 0.60 ❌ |
+| 1-year | 0.599 | **0.605** | **0.5774** | ≥ 0.62 ❌ |
+| 2-year | 0.585 | **0.606** | 0.5880 | ≥ 0.60 ❌ |
 | 3-year | 0.635 | **0.664** | 0.6248 | ≥ 0.62 ✅ |
 | 5-year | — | — | 0.6200 | ≥ 0.62 ✅ |
 

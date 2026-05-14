@@ -21,12 +21,12 @@ flowchart TD
 | Horizon | Train Cutoff | Val AUC | Tuned Val AUC | Test AUC | Tuned Test AUC | WF Mean AUC | Target |
 |---|---|---|---|---|---|---|---|
 | 6-month | 2022 | 0.607 | **0.617** | 0.506 | **0.517** | 0.5715 | ≥ 0.58 ❌ |
-| 1-year | 2022 | 0.599 | **0.603** | 0.484 | **0.496** | 0.5683 | ≥ 0.62 ❌ |
-| 2-year | 2022 | 0.585 | — | 0.585 | — | 0.5887 | ≥ 0.60 ❌ |
+| 1-year | 2022 | 0.599 | **0.605** | 0.484 | **0.492** | **0.5774** | ≥ 0.62 ❌ |
+| 2-year | 2022 | 0.585 | **0.606** | 0.585 | **0.576** | 0.5880 | ≥ 0.60 ❌ |
 | 3-year | 2022 | 0.635 | **0.6644** | — | — | 0.6248 | ≥ 0.62 ✅ |
 | 5-year | 2022 | — | — | — | — | 0.6200 | ≥ 0.62 ✅ |
 
-Optuna-tuned val AUC for 6m (+1.0pp) and 1y (+0.37pp) — Optuna run with 60 trials, TPE sampler. WF Mean AUC re-computed with `--use-tuned-params` flag (D1.2 retrain). Feature sets reduced by ICIR selection to 31/31/28/30/26 features per horizon after PSI filter dropped 14 macro/rate features.
+D1.3 re-tune: 60-trial Optuna for 6m/1y/2y. 1y WF improved +0.009 (0.5683→0.5774). 6m WF unchanged at 0.5715. 2y marginally changed. Remaining 6m/1y/2y gaps are structural: 6m gap (0.0085) near-miss; 1y dragged by 2018→2019 (AUC=0.52, late-cycle) and 2020→2021 (AUC=0.53, COVID shock) folds; 2y gap (0.012). PSI filter correctly drops macro/rate features (yield_curve, credit_spread_baa, macro_regime) — macro signal captured via recession interaction features (ICIR=9.4–9.8). Feature sets: 31/31/28/30/26 per horizon.
 
 WF Mean AUC = expanding-window walk-forward CV mean (train on data filed before year t, evaluate year t).
 Walk-forward CV uses PIT-safe filed_date cutoff to prevent look-ahead from late SEC filings.

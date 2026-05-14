@@ -328,7 +328,9 @@ python3 scripts/run_feature_selection.py --psi-threshold 0.20 --ic-min 0.03
 Trains LightGBM models for all 5 horizons (6m/1y/2y/3y/5y) using ICIR feature selection with
 filed-date PIT-safe train/test splits. Model config: n_estimators=600, max_depth=6, num_leaves=63,
 lr=0.03. FORCE_INCLUDE lists bypass ICIR ranking for momentum features on short horizons (6m/1y/2y)
-where ICIR systematically under-selects momentum vs fundamentals.
+where ICIR systematically under-selects momentum vs fundamentals. D1.3: macro-context features
+(`macro_regime`, `yield_curve`, `credit_spread_baa`) added to FORCE_INCLUDE_6M/1Y/2Y to inject
+cycle-regime signal that the PSI filter would otherwise exclude.
 
 ```bash
 python3 scripts/train_models.py

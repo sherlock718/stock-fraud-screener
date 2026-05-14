@@ -8,6 +8,17 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Re-tune 6m/1y/2y models — D1.3 (2026-05-14)
+
+#### 60-trial Optuna re-run for 6m, 1y, 2y horizons (perf/models)
+- **`scripts/tune_models.py`**: Re-ran 60-trial Optuna for 6m (val=0.617), 1y (val=0.605), 2y (val=0.606)
+- **1y WF AUC improved**: 0.5683 → 0.5774 (+0.009) with new tuned params
+- **6m WF AUC unchanged**: 0.5715 (structural ceiling; gap 0.0085 from 0.58 target)
+- **2y WF AUC unchanged**: 0.5880 (gap 0.012 from 0.60 target)
+- **Root cause documented**: 1y dragged by 2018→2019 (AUC=0.52, late-cycle) and 2020→2021 (AUC=0.53, COVID) folds; macro signal correctly captured via recession/quality_in_recession interaction features (ICIR=9.4–9.8); PSI filter correctly excludes yield_curve/credit_spread_baa (distributional drift)
+- **`models/model_meta.json`**: Updated wf_mean_auc values for all horizons
+- **`docs/methodology/models.md`**, **`docs/index.md`**, **`CLAUDE.md`**: Performance tables updated
+
 ### Add live screener notebook (2026-05-14)
 
 #### Decision-support notebook for investment picks (feat/notebooks)

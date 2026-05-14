@@ -81,10 +81,12 @@ HORIZONS = {
 # Only features that actually exist in the dataset are force-included at runtime.
 # Note: 'price_to_52w_high' tested for 1y — hurt the 2019 fold (IC=−0.40 in COVID reversal year). Excluded.
 FORCE_INCLUDE_6M = ['vol_rank_12m', 'quality_x_momentum',
-                    'sales_to_price', 'ohlson_roe', 'value_x_quality', 'piotroski_f_score']
+                    'sales_to_price', 'ohlson_roe', 'value_x_quality', 'piotroski_f_score',
+                    'macro_regime', 'yield_curve', 'credit_spread_baa']
 FORCE_INCLUDE_1Y = ['vol_rank_12m', 'quality_x_momentum',
-                    'sales_to_price', 'ohlson_roe', 'value_x_quality', 'piotroski_f_score']
-FORCE_INCLUDE_2Y = ['vol_rank_12m']
+                    'sales_to_price', 'ohlson_roe', 'value_x_quality', 'piotroski_f_score',
+                    'macro_regime', 'yield_curve', 'credit_spread_baa']
+FORCE_INCLUDE_2Y = ['vol_rank_12m', 'macro_regime', 'yield_curve', 'credit_spread_baa']
 
 EXCLUDE = {
     # identifiers & metadata

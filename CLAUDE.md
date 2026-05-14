@@ -119,14 +119,14 @@ Work through this matrix for every change before staging files.
 | CI/CD | Weekly refresh + bias audit + drift monitor | `.github/workflows/` | ✅ |
 | Model/dataset hosting | HuggingFace Hub | `scripts/push_to_hf.py` | ✅ |
 
-### Current Performance (Phase D1 — post-D1.2 retrain with --use-tuned-params)
-| Horizon | WF Mean AUC | Target | Met? |
-|---|---|---|---|
-| 6m | 0.5715 | ≥ 0.58 | ❌ |
-| 1y | 0.5683 | ≥ 0.62 | ❌ |
-| 2y | 0.5887 | ≥ 0.60 | ❌ |
-| 3y | 0.6248 | ≥ 0.62 | ✅ |
-| 5y | 0.6200 | ≥ 0.62 | ✅ |
+### Current Performance (Phase D1 — post-D1.3 re-tune 6m/1y/2y with 60-trial Optuna)
+| Horizon | WF Mean AUC | Target | Met? | Notes |
+|---|---|---|---|---|
+| 6m | 0.5715 | ≥ 0.58 | ❌ | Gap 0.0085; near-miss, structural |
+| 1y | 0.5774 | ≥ 0.62 | ❌ | Gap 0.043; dragged by 2018→2019 (0.52) and 2020→2021 (COVID) folds |
+| 2y | 0.5880 | ≥ 0.60 | ❌ | Gap 0.012; Optuna-neutral |
+| 3y | 0.6248 | ≥ 0.62 | ✅ | |
+| 5y | 0.6200 | ≥ 0.62 | ✅ | |
 
 ---
 
