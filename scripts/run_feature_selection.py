@@ -45,7 +45,7 @@ PSI_THRESHOLD  = 0.25   # institutional standard: PSI > 0.25 indicates significa
 IC_MIN_ABS     = 0.02   # minimum |mean IC| to pass the IC screen
 N_YEARS_MIN    = 5      # minimum number of years with enough data for IC computation
 TOP_K_ICIR     = 60     # keep this many features after ICIR rank (before dedup)
-CORR_THRESHOLD = 0.90   # Spearman |r| threshold for near-duplicate removal
+CORR_THRESHOLD = 0.85   # Spearman |r| threshold for near-duplicate removal
 MIN_FILL       = 0.10   # minimum non-null fraction to be a candidate at all
 # ───────────────────────────────────────────────────────────────────────────────
 

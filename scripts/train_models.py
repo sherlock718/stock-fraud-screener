@@ -52,6 +52,12 @@ try:
 except ImportError:
     SHAP_AVAILABLE = False
 
+try:
+    import xgboost as _xgb
+    XGB_AVAILABLE = True
+except ImportError:
+    XGB_AVAILABLE = False
+
 BASE       = Path(__file__).parent.parent
 DATA_PATH  = BASE / 'data' / 'historical_dataset_clean.parquet'
 MODELS_DIR = BASE / 'models'
@@ -217,7 +223,7 @@ def compute_ic_table(df: pd.DataFrame, features: list[str], return_col: str,
               .sort_values('icir', key=abs, ascending=False))
 
 
-def deduplicate_features(df: pd.DataFrame, features: list[str], corr_threshold: float = 0.90) -> list[str]:
+def deduplicate_features(df: pd.DataFrame, features: list[str], corr_threshold: float = 0.85) -> list[str]:
     """Drop features that are near-duplicates (|Spearman corr| > threshold).
     Keeps the feature that appears earlier in `features` (i.e. higher ICIR rank).
     """
@@ -276,6 +282,32 @@ def log_psi_report(df_train: pd.DataFrame, df_test: pd.DataFrame,
 
 
 
+
+
+def sector_zscore_normalize(df: pd.DataFrame, features: list[str],
+                             sic_col: str = 'sic_code') -> pd.DataFrame:
+    """Within-sector z-score normalization per (fiscal_year, sector) group.
+
+    Removes cross-sector valuation level differences so IC measures
+    within-sector stock selection ability rather than between-sector tilts.
+    Groups with fewer than 5 members are left unnormalized to avoid
+    inflated z-scores from tiny groups.
+    """
+    df_out = df.copy()
+    if sic_col not in df.columns:
+        return df_out
+    for feat in features:
+        if feat not in df.columns:
+            continue
+        grouped = df_out.groupby(['fiscal_year', sic_col])[feat]
+        mu = grouped.transform('mean')
+        sigma = grouped.transform('std').clip(lower=1e-8)
+        group_sizes = grouped.transform('count')
+        normalized = (df_out[feat] - mu) / sigma
+        df_out[feat] = np.where(group_sizes >= 5, normalized, df_out[feat])
+    return df_out
+
+
 def train_model(df_train: pd.DataFrame, features: list[str], beat_col: str,
                 override_params: dict | None = None) -> tuple:
     sub = df_train[df_train[beat_col].notna()].copy()
@@ -306,6 +338,40 @@ def train_model(df_train: pd.DataFrame, features: list[str], beat_col: str,
         n_jobs=-1,
         verbose=-1,
     )
+    clf.fit(X, y)
+    return clf, feats, y, train_medians
+
+
+def train_xgb_model(df_train: pd.DataFrame, features: list[str], beat_col: str,
+                    override_params: dict | None = None) -> tuple:
+    """Train XGBoost classifier — used for ensemble blending with LightGBM."""
+    if not XGB_AVAILABLE:
+        raise RuntimeError('xgboost is not installed. Run: pip install xgboost>=2.0.0')
+    sub = df_train[df_train[beat_col].notna()].copy()
+    feats = [f for f in features if f in sub.columns]
+    train_medians = sub[feats].median().to_dict()
+    X = sub[feats].fillna(pd.Series(train_medians))
+    y = sub[beat_col].astype(int)
+    pos = int((y == 1).sum())
+    neg = int((y == 0).sum())
+    base = dict(
+        n_estimators=500,
+        max_depth=5,
+        learning_rate=0.05,
+        subsample=0.8,
+        colsample_bytree=0.7,
+        min_child_weight=20,
+        reg_alpha=0.1,
+        reg_lambda=1.0,
+        scale_pos_weight=neg / max(pos, 1),
+        random_state=42,
+        n_jobs=-1,
+        eval_metric='auc',
+        verbosity=0,
+    )
+    if override_params:
+        base.update(override_params)
+    clf = _xgb.XGBClassifier(**base)
     clf.fit(X, y)
     return clf, feats, y, train_medians
 
@@ -358,11 +424,14 @@ def train_baseline(df_train: pd.DataFrame, features: list[str], beat_col: str,
 
 def walk_forward_cv(df: pd.DataFrame, features_per_horizon: dict[str, list[str]],
                     train_cutoff: int, min_train_years: int = 6,
-                    override_params_per_horizon: dict | None = None) -> dict[str, float]:
+                    override_params_per_horizon: dict | None = None,
+                    embargo_years: int = 0,
+                    ensemble: bool = False) -> dict[str, float]:
     """Expanding-window walk-forward validation.
 
     For each fold year t in [first_year + min_train_years, train_cutoff]:
-      - Train on fiscal_year <= t  AND  filed_date <= Dec 31 of year t (PIT-safe)
+      - Train on fiscal_year <= (t - embargo_years) AND filed_date < Jan 1 of test_year (PIT-safe)
+        embargo_years=1 excludes the most recent training year, preventing adjacent-year leakage.
       - Evaluate on fiscal_year == t+1
     Folds where the forward-return horizon hasn't fully elapsed by the dataset
     end year are excluded to avoid survivorship bias in partially realised returns.
@@ -394,8 +463,9 @@ def walk_forward_cv(df: pd.DataFrame, features_per_horizon: dict[str, list[str]]
             if test_year > max_test_year:
                 continue
             cutoff_date = pd.Timestamp(f'{test_year}-01-01')
+            max_train_year = t - embargo_years  # purged embargo: exclude most recent years
             train_mask = (
-                (df['fiscal_year'] <= t) &
+                (df['fiscal_year'] <= max_train_year) &
                 (filed.isna() | (filed < cutoff_date))
             )
             tr = df[train_mask].copy()
@@ -409,7 +479,19 @@ def walk_forward_cv(df: pd.DataFrame, features_per_horizon: dict[str, list[str]]
                 fa = [f for f in fold_feats if f in te.columns]
                 X_te = te[fa].fillna(pd.Series(medians))
                 y_te = te[beat_col].astype(int)
-                auc = roc_auc_score(y_te, clf.predict_proba(X_te)[:, 1])
+                lgbm_proba = clf.predict_proba(X_te)[:, 1]
+                if ensemble and XGB_AVAILABLE:
+                    try:
+                        xclf, xfeats, _, xmedians = train_xgb_model(tr, feats, beat_col)
+                        xfa = [f for f in xfeats if f in te.columns]
+                        X_te_x = te[xfa].fillna(pd.Series(xmedians))
+                        xgb_proba = xclf.predict_proba(X_te_x)[:, 1]
+                        proba = 0.5 * lgbm_proba + 0.5 * xgb_proba
+                    except Exception:
+                        proba = lgbm_proba
+                else:
+                    proba = lgbm_proba
+                auc = roc_auc_score(y_te, proba)
                 records.append({'fold_year': t, 'test_year': test_year, 'auc': round(auc, 4),
                                  'n_train': len(tr), 'n_test': len(te)})
                 print('.', end='', flush=True)
@@ -529,6 +611,16 @@ def main() -> None:
                         help='Minimum number of years with valid IC data to keep a feature '
                              '(default: 1 = off). Set to e.g. 5 to prevent spurious ICIR inflation '
                              'from features with very few historical observations (e.g. fraud_label).')
+    parser.add_argument('--embargo-years', type=int, default=0, dest='embargo_years',
+                        help='Purged walk-forward embargo: exclude most recent N training years from '
+                             'each fold to prevent adjacent-year autocorrelation leakage (default: 0). '
+                             'Use 1 for standard purged CV.')
+    parser.add_argument('--ensemble', action='store_true',
+                        help='Blend LightGBM + XGBoost predictions in walk-forward CV '
+                             '(requires xgboost>=2.0.0). Default: LightGBM only.')
+    parser.add_argument('--sector-zscore', action='store_true', dest='sector_zscore',
+                        help='Apply within-sector z-score normalization to features before training '
+                             '(removes cross-sector valuation level differences).')
     args = parser.parse_args()
 
     train_cutoff = args.train_cutoff
@@ -615,7 +707,7 @@ def main() -> None:
                 print(f'    Force-include {forced} (ICIR={row["icir"]:.3f}, pct_pos={row["pct_positive_ic"]:.2f})')
 
         if not args.no_dedup:
-            top_n = deduplicate_features(df_train, top_n, corr_threshold=0.90)
+            top_n = deduplicate_features(df_train, top_n, corr_threshold=0.85)
 
         selected_features[h] = top_n
         print(f'    Final: {len(top_n)} features')
@@ -624,6 +716,12 @@ def main() -> None:
     print('\nTraining LightGBM models...')
     _old_meta_path = MODELS_DIR / 'model_meta.json'
     _old_meta = json.loads(_old_meta_path.read_text()) if _old_meta_path.exists() else {}
+
+    _all_selected = list({f for feats in selected_features.values() for f in feats})
+    if args.sector_zscore:
+        print('  Applying sector z-score normalization to training split...')
+        df_train = sector_zscore_normalize(df_train, _all_selected)
+
     model_meta = {}
     for h, (ret_col, beat_col) in HORIZONS.items():
         print(f'  {h}...', end=' ', flush=True)
@@ -711,7 +809,9 @@ def main() -> None:
             else:
                 print('  WARNING: --use-tuned-params set but no best_params found in model_meta.json')
         wf_aucs = walk_forward_cv(df, selected_features, train_cutoff,
-                                  override_params_per_horizon=override_params_per_horizon)
+                                  override_params_per_horizon=override_params_per_horizon,
+                                  embargo_years=args.embargo_years,
+                                  ensemble=args.ensemble)
         if wf_aucs:
             for h, mean_auc in wf_aucs.items():
                 if h in model_meta:

@@ -12,3 +12,4 @@ plotly==6.7.0
 scipy==1.13.1
 huggingface_hub==1.8.0
 shap==0.47.2
+xgboost>=2.0.0

@@ -36,6 +36,14 @@ AUC of 0.5 = random. Targets: 3y/5y ≥ 0.62; 1y/2y ≥ 0.60; 6m ≥ 0.58 (short
 > `generate_oof_scores.py` produces true OOS scores `ml_{h}_oof` for all 5 horizons.
 > C2 retraining on Phase B 45/45/41 features + new 6m/2y feature selection runs after this commit.
 
+> **D1 update (model tuning):** Four improvements added to `train_models.py`:
+> - `--embargo-years 1` — purged walk-forward CV: excludes most recent N training years per fold to prevent adjacent-year autocorrelation leakage
+> - `--ensemble` — 50/50 LightGBM + XGBoost blend in WF CV folds (requires `xgboost>=2.0.0`); production model stays LightGBM
+> - `--sector-zscore` — within-(fiscal_year, sic_code) z-score normalization removes cross-sector valuation level differences
+> - Dedup threshold tightened 0.90 → 0.85 in both `train_models.py` and `run_feature_selection.py`
+> 
+> Recommended WF retraining command to measure impact: `python3 scripts/train_models.py --walk-forward --embargo-years 1 --ensemble --sector-zscore --use-tuned-params`
+
 
 ## Target Variable
 

@@ -8,6 +8,18 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Model tuning: XGBoost ensemble, purged CV embargo, sector z-score, tighter dedup (2026-05-14)
+
+#### Four concrete improvements to reduce feature leakage and increase model diversity (perf/models)
+- **`scripts/train_models.py`**: Added `XGB_AVAILABLE` guard + `train_xgb_model()` (n_estimators=500, max_depth=5, lr=0.05, subsample=0.8, colsample_bytree=0.7, min_child_weight=20) — XGBoost ensemble blending available via `--ensemble` flag
+- **`scripts/train_models.py`**: Added `--ensemble` flag — 50/50 LightGBM + XGBoost blend in WF CV folds; production model stays LightGBM-only
+- **`scripts/train_models.py`**: Added `--embargo-years INT` (default 0) — purged walk-forward CV: excludes most recent N training years per fold to prevent adjacent-year autocorrelation leakage; use `--embargo-years 1` for standard purged CV
+- **`scripts/train_models.py`**: Added `sector_zscore_normalize()` function + `--sector-zscore` flag — within-(fiscal_year, sic_code) z-score normalization that removes cross-sector absolute valuation differences; groups with <5 members left unnormalized
+- **`scripts/train_models.py`**: Tightened `deduplicate_features` default threshold 0.90 → 0.85 (removes more near-duplicate features, reducing multicollinearity in selection)
+- **`scripts/run_feature_selection.py`**: `CORR_THRESHOLD` tightened 0.90 → 0.85 (aligned with train_models.py)
+- **`requirements.txt`**: Added `xgboost>=2.0.0`
+- **`docs/developer/scripts.md`**: Updated `train_models.py` flags table — added `--embargo-years`, `--ensemble`, `--sector-zscore`; updated dedup threshold note
+
 ### Raise investment target to ≥25% annualised ROI (2026-05-14)
 
 #### Update vision target across docs (docs)

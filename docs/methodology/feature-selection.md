@@ -11,7 +11,7 @@ flowchart LR
     A["357 raw columns"] --> PSI["1. PSI Filter<br/>drops drifted features<br/>PSI > 0.25 → removed<br/>~14 removed → ~207 left"]
     PSI --> IC["2. IC Screen<br/>|mean IC| ≥ 0.02<br/>IC stability ≥ 60% years<br/>min 5 years of data"]
     IC --> ICIR["3. ICIR Ranking<br/>ICIR = mean(IC) / std(IC)<br/>sort descending · keep top-N"]
-    ICIR --> DEDUP["4. Spearman Dedup<br/>|r| > 0.90 → drop weaker ICIR<br/>→ ~45 features per horizon"]
+    ICIR --> DEDUP["4. Spearman Dedup<br/>|r| > 0.85 → drop weaker ICIR<br/>→ ~45 features per horizon"]
     DEDUP --> MODEL["LightGBM<br/>1y / 3y / 5y"]
 ```
 
@@ -104,9 +104,9 @@ The current IC implementation treats each year's IC as an independent observatio
 After ICIR ranking, correlated features are deduplicated:
 
 1. Compute pairwise Spearman rank correlation matrix on the surviving feature set
-2. For any pair with |r| > 0.90: drop the feature with the lower |ICIR|
+2. For any pair with |r| > 0.85: drop the feature with the lower |ICIR|
 
-**Why**: highly correlated features add no independent information but increase model variance. Two features with r = 0.95 are measuring nearly the same thing — keeping both wastes a degree of freedom and inflates feature importance scores.
+**Why**: highly correlated features add no independent information but increase model variance. Two features with r = 0.85+ are measuring nearly the same thing — keeping both wastes a degree of freedom and inflates feature importance scores. Threshold tightened from 0.90 → 0.85 to remove more near-duplicate features and further reduce multicollinearity.
 
 **Result**: ~45 final features per horizon (from ~60 pre-dedup candidates, top-K ICIR).
 

@@ -97,7 +97,7 @@ graph LR
 
 - **Point-in-time features only** — each snapshot uses only information available at fiscal year-end; no look-ahead bias
 - **Five horizons** — 6m/1y/2y/3y/5y models capture different return manifestation timescales (HorizonRouter maps investment horizon to nearest trained model)
-- **ICIR-selected features** — ~35–45 features per horizon selected by information coefficient stability, then Spearman-deduped at r > 0.90
+- **ICIR-selected features** — ~35–45 features per horizon selected by information coefficient stability, then Spearman-deduped at r > 0.85
 - **Calibrated probabilities** — Platt scaling applied so alpha scores are interpretable as actual probabilities
 - **Survivorship bias corrected** — universe includes all companies that existed during the period; delisted rows imputed with −50% return
 - **AAER-based fraud labels** — 492 positive training rows from 118 confirmed SEC enforcement companies (2× baseline coverage)

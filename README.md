@@ -72,7 +72,7 @@ tests/
 **Regression model (3y magnitude):** LightGBM Huber regressor predicting `excess_return_local_3y`; WF Spearman IC = 0.34 (9 folds). Used as Stage 3 ranker in leverage strategy screener.
 
 - Target: beat local market index over horizon
-- Feature selection: BH FDR gate + top features by |ICIR|, deduplicated at |Spearman| > 0.90
+- Feature selection: BH FDR gate + top features by |ICIR|, deduplicated at |Spearman| > 0.85
 - PIT-safe splits: `filed_date` + `fiscal_year` cutoff to eliminate look-ahead from late SEC filings
 - OOF scores (`ml_{h}_oof`): `generate_oof_scores.py` produces true out-of-sample scores
 
