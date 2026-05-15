@@ -10,6 +10,9 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ### Section 12 — Full-Universe Low-Beta Tier-1 Scan (2026-05-15)
 
+#### **`notebooks/08_experiment_hub.ipynb`** — Section 12 cell outputs pre-baked (2026-05-15)
+- Injected stdout from standalone run as stream outputs into cells s12scn01, s12bet01, s12out01
+
 #### `notebooks/08_experiment_hub.ipynb` — 5 new cells (s12md000, s12cfg01, s12scn01, s12bet01, s12out01)
 - Loads full 58K-row parquet; keeps latest annual row per US ticker (fiscal_year ≥ 2022)
 - Recomputes composite score from up to 9 signals (same pool as Section 5) on the full universe
