@@ -1,0 +1,16 @@
+# Big generated artifacts
+data/
+reports/fraud_report.json
+
+# Avoid repacking previous Repomix outputs
+repomix-*.xml
+repomix-*.md
+repomix-*.json
+
+# Secrets
+.env
+.env.*
+secrets/
+credentials/
+*.key
+*.pem

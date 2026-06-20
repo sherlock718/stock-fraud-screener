@@ -1,0 +1,171 @@
+{
+  "generated_at": "2026-05-13T23:27:35.965813Z",
+  "fiscal_year": "2025",
+  "strategy": "long_short",
+  "horizon": "3y",
+  "market": "US",
+  "kelly_fraction": 0.25,
+  "n_holdings": 20,
+  "holdings": [
+    {
+      "ticker": "RET.V",
+      "market": "CA",
+      "composite_score": 0.9816,
+      "weight_pct": 5.07,
+      "market_cap_m": 135.6,
+      "sic_code": null
+    },
+    {
+      "ticker": "IMXI",
+      "market": "US",
+      "composite_score": 0.9793,
+      "weight_pct": 5.07,
+      "market_cap_m": 482.4,
+      "sic_code": "7389"
+    },
+    {
+      "ticker": "ZIP",
+      "market": "US",
+      "composite_score": 0.9778,
+      "weight_pct": 5.07,
+      "market_cap_m": 179.1,
+      "sic_code": "7370"
+    },
+    {
+      "ticker": "ATLCP",
+      "market": "US",
+      "composite_score": 0.9724,
+      "weight_pct": 5.07,
+      "market_cap_m": 362.9,
+      "sic_code": "6141"
+    },
+    {
+      "ticker": "JELD",
+      "market": "US",
+      "composite_score": 0.9718,
+      "weight_pct": 5.07,
+      "market_cap_m": 171.0,
+      "sic_code": "2430"
+    },
+    {
+      "ticker": "HRMS.TO",
+      "market": "CA",
+      "composite_score": 0.9704,
+      "weight_pct": 5.07,
+      "market_cap_m": 2528.4,
+      "sic_code": null
+    },
+    {
+      "ticker": "OEC",
+      "market": "US",
+      "composite_score": 0.9651,
+      "weight_pct": 5.07,
+      "market_cap_m": 327.1,
+      "sic_code": "2890"
+    },
+    {
+      "ticker": "AD.AS",
+      "market": "NL",
+      "composite_score": 0.9582,
+      "weight_pct": 5.07,
+      "market_cap_m": 31012.0,
+      "sic_code": null
+    },
+    {
+      "ticker": "MED",
+      "market": "US",
+      "composite_score": 0.9542,
+      "weight_pct": 5.05,
+      "market_cap_m": 118.1,
+      "sic_code": "2090"
+    },
+    {
+      "ticker": "BLMN",
+      "market": "US",
+      "composite_score": 0.9525,
+      "weight_pct": 5.03,
+      "market_cap_m": 484.5,
+      "sic_code": "5812"
+    },
+    {
+      "ticker": "LORL.TO",
+      "market": "CA",
+      "composite_score": 0.9513,
+      "weight_pct": 5.02,
+      "market_cap_m": 12762.2,
+      "sic_code": null
+    },
+    {
+      "ticker": "IAG.MC",
+      "market": "ES",
+      "composite_score": 0.9499,
+      "weight_pct": 5.0,
+      "market_cap_m": 23896.9,
+      "sic_code": null
+    },
+    {
+      "ticker": "HPK",
+      "market": "US",
+      "composite_score": 0.9469,
+      "weight_pct": 4.97,
+      "market_cap_m": 737.5,
+      "sic_code": "1381"
+    },
+    {
+      "ticker": "LVMH.TO",
+      "market": "CA",
+      "composite_score": 0.9462,
+      "weight_pct": 4.96,
+      "market_cap_m": 13579.5,
+      "sic_code": null
+    },
+    {
+      "ticker": "EGY",
+      "market": "US",
+      "composite_score": 0.9453,
+      "weight_pct": 4.95,
+      "market_cap_m": 574.7,
+      "sic_code": "1311"
+    },
+    {
+      "ticker": "XRX",
+      "market": "US",
+      "composite_score": 0.9447,
+      "weight_pct": 4.94,
+      "market_cap_m": 176.9,
+      "sic_code": "3577"
+    },
+    {
+      "ticker": "WNC",
+      "market": "US",
+      "composite_score": 0.9407,
+      "weight_pct": 4.9,
+      "market_cap_m": 492.8,
+      "sic_code": "3715"
+    },
+    {
+      "ticker": "CNC",
+      "market": "US",
+      "composite_score": 0.9393,
+      "weight_pct": 4.88,
+      "market_cap_m": 20446.2,
+      "sic_code": "6324"
+    },
+    {
+      "ticker": "SPM.MI",
+      "market": "IT",
+      "composite_score": 0.9388,
+      "weight_pct": 4.88,
+      "market_cap_m": 5580.1,
+      "sic_code": null
+    },
+    {
+      "ticker": "CGO.TO",
+      "market": "CA",
+      "composite_score": 0.9383,
+      "weight_pct": 4.87,
+      "market_cap_m": 556.3,
+      "sic_code": null
+    }
+  ]
+}
