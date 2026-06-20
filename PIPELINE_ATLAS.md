@@ -2,6 +2,11 @@
 
 Generated 2026-06-21. Read-only classification. No code changes.
 
+> **Living document.** The File Map, Call Graph, Test Matrix, Parquet Atlas, and Feature
+> Coverage Matrix are living snapshots. They reflect the repo at the latest completed
+> session. They are not automatically live. Future sessions must update them when they
+> change anything these docs describe.
+
 ---
 
 ## 1. File Map

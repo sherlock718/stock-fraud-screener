@@ -8,6 +8,7 @@ Checks:
 1. Warn if >5 files staged in one commit
 2. Warn if pipeline/step* changes without corresponding tests/pipeline/ change
 3. Block if data/*.parquet is staged
+4. Warn if code dirs changed without atlas/docs update staged
 """
 import subprocess
 import sys
@@ -49,6 +50,20 @@ def check_parquet_staged(files):
     return 0
 
 
+def check_docs_consistency(files):
+    code_dirs = ("pipeline/", "scripts/", "tests/", "notebooks/", ".github/workflows/")
+    doc_files = ("PIPELINE_ATLAS.md", "PARQUET_ATLAS.md", "AI_EDIT_LOG.md", "KNOWN_ISSUES.md")
+
+    has_code_change = any(f.startswith(d) for f in files for d in code_dirs)
+    has_doc_update = any(f in doc_files for f in files)
+
+    if has_code_change and not has_doc_update:
+        print("⚠️  Atlas/docs may need update. Confirm whether PIPELINE_ATLAS.md,")
+        print("   PARQUET_ATLAS.md, AI_EDIT_LOG.md, or KNOWN_ISSUES.md should be updated.")
+        return 1
+    return 0
+
+
 def main():
     files = get_staged_files()
     if not files:
@@ -57,6 +72,7 @@ def main():
     warnings = 0
     warnings += check_file_count(files)
     warnings += check_pipeline_without_tests(files)
+    warnings += check_docs_consistency(files)
 
     block = check_parquet_staged(files)
     if block:

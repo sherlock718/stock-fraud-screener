@@ -160,7 +160,10 @@ step6 (historical_dataset_clean.parquet)  ← FINAL, then mutated by:
 
 ---
 
-## Mutation Order (recommended execution sequence post-step6)
+## Mutation Order (observed / inferred execution sequence post-step6)
+
+> **Needs verification before use.** This order is inferred from code reading and
+> dependency analysis, not confirmed by running the full sequence end-to-end.
 
 1. `pipeline/p0f_universe_definition.py`
 2. `pipeline/p0g_confidence_score.py`
