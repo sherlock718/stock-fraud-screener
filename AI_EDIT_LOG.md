@@ -30,7 +30,7 @@ Record of all AI-assisted changes, session by session.
 ## Next Claude Session Handoff
 
 - Status: Session 0 complete
-- Branch: refactor/s0-guardrails (local commit `cf1dd58`, not pushed, not merged)
+- Branch: refactor/s0-guardrails (local commit exists, not pushed, not merged; use `git log -1 --oneline` as source of truth)
 - Files changed: `scripts/hooks/pre_commit_guard.py`, `KNOWN_ISSUES.md`, `AI_EDIT_LOG.md` (committed); `.claude/settings.json` (local only, gitignored)
 - Guardrails active: pre-commit hook (warn >5 files, warn step* without test, block parquet), read-only bash permissions in `.claude/settings.json`
 - Next goal: Session 1 — Map all pipeline files, build PIPELINE_ATLAS.md and PARQUET_ATLAS.md. No test files created. No production code changes.
