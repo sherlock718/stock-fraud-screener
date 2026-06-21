@@ -129,7 +129,7 @@ notebooks/08_experiment_hub.ipynb
 | `step1_fetch_tickers_{br,ca,eu,jp,kr}.py` | Multi-market tickers | Encoding, exchange mapping, missing identifiers | Schema + dedup per market | `tests/test_step1_markets.py` | P2 | None | missing |
 | `step2_build_snapshots.py` | EDGAR XBRL parse | Wrong units, duplicate rows, missing filed_date, quarterly leak | One-row-per-ticker-year, filed_date≥period_end | `tests/test_step2.py` | P0 | 16 tests (schema, dedup, temporal, YoY, coverage) | ✅ covered |
 | `step2_build_snapshots_{br,ca,eu,jp,kr}.py` | Multi-market snapshots | Schema drift, currency confusion, fiscal year boundaries | Schema match, currencies col, row counts | `tests/test_step2_markets.py` | P2 | None | missing |
-| `step3_enrich_prices.py` | Price + forward returns | Look-ahead bias (entry price before filed_date), survivorship | entry_date > filed_date, forward returns future-only, delisted handling | `tests/test_step3.py` | P0 | 29 tests (price lookup, forward return, momentum, vol, benchmark, temporal) | ✅ covered |
+| `step3_enrich_prices.py` | Price + forward returns | Look-ahead bias (entry price before filed_date), survivorship | entry_date > filed_date, forward returns future-only, delisted handling | `tests/test_step3.py` | P0 | 30 tests (temporal + 1 xfail for PRICE-UNADJUSTED-001) | ⚠️ covered, 1 known bug |
 | `step4_enrich_macro.py` | FRED macro merge | Recession look-ahead, macro_asof_date after filing | macro_asof_date ≤ filed_date, no NaN spike | `tests/test_step4.py` | P1 | None | missing |
 | `step5_compute_features.py` | Feature computation | Temporal leakage, label leakage, rank leakage, formula errors | No forward columns used, rank within fiscal_year, coverage checks | `tests/test_step5.py` | P0 | None | missing |
 | `step6_clean.py` | Data quality filter | Silent row drops, missing required cols, infinity propagation | Row count delta, no inf, required cols present | `tests/test_step6.py` | P1 | None | missing |
@@ -146,7 +146,7 @@ notebooks/08_experiment_hub.ipynb
 - **tests/test_pipeline.py** covers: temporal split logic, feature exclusion, train medians, IC table, filing lag audit, app_v2 scoring. All synthetic data (no disk/network).
 - **tests/test_step1.py** covers: schema contract (required columns, CIK format, ticker format), dedup logic, survivorship (OTC retained), identifier checks. 14 tests.
 - **tests/test_step2.py** covers: schema contract, primary key uniqueness, temporal integrity (filed_date > period_end), YoY computation functions, coverage gating (revenue+assets required). 16 tests.
-- **tests/test_step3.py** covers: price lookup (on_or_after), forward return (future-only), prior momentum (past-only), volatility (past-only), 52w high, benchmark selection, enrich_row temporal contracts, survivorship (None on missing). 29 tests.
+- **tests/test_step3.py** covers: price lookup (on_or_after), forward return (future-only), prior momentum (past-only), volatility (past-only), 52w high, benchmark selection, enrich_row temporal contracts, survivorship (None on missing). 29 pass + 1 xfail (PRICE-UNADJUSTED-001: fetch uses unadjusted Close).
 - **Zero coverage** for: step4 (macro), step5 (features), step6 (clean), feature_library, universe/confidence, fraud labels, multi-market logic.
 - **Duplicate risk**: `fraud_signals.py` logic is duplicated in `step5_compute_features.py` section D. Testing either covers the other's math.
 

@@ -342,3 +342,67 @@ class TestEnrichRowTemporal:
         assert result['entry_price'] is None
         assert result['forward_return_1y'] is None
         assert result['momentum_12m_prior'] is None
+
+
+class TestPriceUnadjustedBug:
+    """Tests for PRICE-UNADJUSTED-001: step3 must use split-adjusted prices.
+
+    fetch_price_series() uses auto_adjust=False and reads hist['Close'] (unadjusted).
+    It should read hist['Adj Close'] instead. This test mocks yfinance to verify
+    the function returns adjusted prices when Close and Adj Close differ (e.g. split).
+    """
+
+    @pytest.mark.xfail(
+        reason="PRICE-UNADJUSTED-001: fetch_price_series reads hist['Close'] "
+               "(unadjusted) instead of hist['Adj Close']. Fix pending approval.",
+        strict=True,
+    )
+    def test_fetch_uses_adj_close_not_close(self, monkeypatch):
+        """After a 2:1 split, Adj Close is halved for pre-split history.
+        fetch_price_series must return the Adj Close series so that returns
+        computed across the split date are correct."""
+        from unittest.mock import MagicMock
+        from step3_enrich_prices import fetch_price_series
+
+        # Simulate a stock with a 2:1 split on 2020-07-01:
+        #   Close: 100 pre-split, 50 post-split (raw market price)
+        #   Adj Close: 50 pre-split (retroactively halved), 50 post-split
+        dates = pd.bdate_range('2020-01-01', periods=250)
+        split_date = pd.Timestamp('2020-07-01')
+
+        close_prices = pd.Series(100.0, index=dates)
+        close_prices[dates >= split_date] = 50.0  # raw price halved at split
+
+        adj_close_prices = pd.Series(50.0, index=dates)  # adjusted: uniform 50
+
+        mock_hist = pd.DataFrame({
+            'Open': close_prices,
+            'High': close_prices,
+            'Low': close_prices,
+            'Close': close_prices,
+            'Adj Close': adj_close_prices,
+            'Volume': 1_000_000,
+        }, index=dates)
+
+        mock_ticker = MagicMock()
+        mock_ticker.history.return_value = mock_hist
+
+        monkeypatch.setattr('step3_enrich_prices.yf.Ticker', lambda t: mock_ticker)
+        # Bypass rate limiter
+        monkeypatch.setattr('step3_enrich_prices._limiter', MagicMock(wait=lambda: None))
+
+        result = fetch_price_series('SPLIT_TEST')
+        assert result is not None
+
+        # The key assertion: returned prices should be ADJUSTED (all ~50),
+        # NOT the unadjusted Close (100 pre-split, 50 post-split)
+        pre_split = result[result.index < split_date]
+        post_split = result[result.index >= split_date]
+
+        # If using Adj Close: pre_split ≈ 50, post_split ≈ 50 → ratio ≈ 1.0
+        # If using Close:     pre_split ≈ 100, post_split ≈ 50 → ratio ≈ 0.5 (WRONG)
+        ratio = post_split.iloc[0] / pre_split.iloc[-1]
+        assert ratio == pytest.approx(1.0, abs=0.01), (
+            f"Price ratio across split is {ratio:.2f} — expected ~1.0 (adjusted). "
+            f"Got ~0.5 means unadjusted Close is being used (PRICE-UNADJUSTED-001)."
+        )
