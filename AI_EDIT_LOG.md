@@ -204,37 +204,94 @@ FX issue logged: FX-MIXED-PORTFOLIO-001 (Medium) — multi-market backtest avera
 
 ```
 Start Session 4. Project: /Users/mhoque/Desktop/stock-fraud-screener-main
+...
+```
+
+---
+
+## Session 4 — Audit Step 5 (Compute Features) + Tests (2026-06-21)
+
+**Branch:** `refactor/s4-audit-step5`
+
+**Files created:**
+- `tests/pipeline/test_step5_compute_features.py` — 28 tests + 1 xfail: temporal leakage (static + runtime), label leakage (static), rank leakage (momentum/sector pass + composite xfail), formula correctness (8 key features), winsorization (4 tests), output shape (3 tests), rolling past-only, safe division (4 tests), full pipeline smoke (3 tests)
+
+**Files modified:**
+- `KNOWN_ISSUES.md` — added RANK-LEAKAGE-001 (Medium)
+- `PIPELINE_ATLAS.md` — updated Test Matrix status for step5, updated Coverage Summary
+- `AI_EDIT_LOG.md` — this session report + Session 5 handoff
+
+**Audit findings:**
+
+| # | Check | Verdict | Notes |
+|---|---|---|---|
+| 5.1 | Formula correctness | ✅ | PE, ROA, Sloan, Altman Z coefficients, Beneish M coefficients — all correct |
+| 5.2 | Temporal leakage | ✅ | forward_return_*, beat_local_market_* never used in feature functions (static + runtime verified) |
+| 5.3 | Label leakage | ✅ | No fraud_confirmed, ml_*, alpha_* referenced in feature code |
+| 5.4 | Rank leakage | ⚠️ | `momentum_ranks` and `sector_percentiles` correctly groupby fiscal_year. BUT `quality_composite` and `value_composite` rank across full dataset. Logged as RANK-LEAKAGE-001 |
+| 5.5 | Rolling past-only | ✅ | `roe_volatility_5yr` uses trailing `.rolling(5)` after sort by (ticker, fiscal_year). Past-only confirmed |
+| 5.6 | Coverage | ✅ | With valid inputs, all critical features are non-NaN |
+| 5.7 | Value sanity (winsorization) | ✅ | `ratio_cols` list comprehensive, includes all growth_yoy columns (Rule 6) |
+| 5.8 | Cross-market | ✅ | No hardcoded US assumptions. `market` column used for groupby. Altman X4 fallback uses book equity for non-US |
+| 5.9 | Dataset shape | ✅ | Row count preserved through all functions. 100+ features computed |
+| 5.10 | Step 5 sole authority | ✅ | All features computed here. No other pipeline script creates features that bypass step5 |
+
+**No production code changes. Tests only + documentation updates.**
+
+---
+
+## Next Claude Session Handoff
+
+- Status: Session 4 complete (step 5 audited, 28 tests + 1 xfail added)
+- Branch: `refactor/s4-audit-step5` (local commit, not pushed, not merged)
+- Files created: `tests/pipeline/test_step5_compute_features.py` (28 tests + 1 xfail)
+- Files modified: `KNOWN_ISSUES.md`, `PIPELINE_ATLAS.md`, `AI_EDIT_LOG.md`
+- Guardrails: pre-commit hook active
+- Issues found: RANK-LEAKAGE-001 (medium — quality/value composite rank without fiscal_year groupby)
+- Next goal: **Session 5 — Audit Step 6 (clean) and add minimal critical tests for Step 6. Optionally fix RANK-LEAKAGE-001 if approved.**
+- Branch flow: User merges `refactor/s4-audit-step5` into `main`, then Session 5 creates `refactor/s5-audit-step6` from updated `main`
+
+### Session-end checklist (Session 4)
+
+- Atlas update needed? Yes. Updated Test Matrix status for step5, updated Coverage Summary.
+- Parquet atlas update needed? No. Step 5 input/output files unchanged from Session 1 mapping.
+- KNOWN_ISSUES update needed? Yes. Added RANK-LEAKAGE-001 (Medium).
+- AI_EDIT_LOG handoff updated? Yes.
+
+### Session 5 prompt (copy-paste into a fresh Claude Code conversation):
+
+```
+Start Session 5. Project: /Users/mhoque/Desktop/stock-fraud-screener-main
 
 First, verify setup:
 1. Run git status — confirm clean working tree
 2. Confirm current branch is main
-3. Create and checkout branch: git checkout -b refactor/s4-audit-step5
+3. Create and checkout branch: git checkout -b refactor/s5-audit-step6
 
 Then read these files to understand the codebase state:
 - PIPELINE_ATLAS.md (file map, call graph, test matrix, step audit checklist)
 - PARQUET_ATLAS.md (parquet file registry, mutation order)
-- KNOWN_ISSUES.md (logged issues from Sessions 0–3)
+- KNOWN_ISSUES.md (logged issues from Sessions 0–4)
 - AI_EDIT_LOG.md (session history and handoff)
 
-Session 4 goal: Audit Step 5 (compute features), then add minimal critical tests for Step 5 only.
+Session 5 goal: Audit Step 6 (clean) and add minimal critical tests. Optionally fix RANK-LEAKAGE-001 if user approves.
 
 Scope:
-- Audit Step 5 (compute features): temporal leakage (no forward_return_* used as feature), label leakage (no fraud_confirmed/ml_* used), rank leakage (cross-sectional ranks must groupby fiscal_year), rolling features past-only, formula spot-checks, winsorization applied to ratio_cols
-- Inspect pipeline/step5_compute_features.py thoroughly (972 lines — focus on sections A-H)
-- Write minimal critical tests for Step 5 only (synthetic data, no network calls)
-- Tests must validate: no forward/label/rank leakage, formula correctness (spot-check 5-10 key features), winsorization bounds, output shape contract
+- Audit Step 6 (pipeline/step6_clean.py, 140 lines): row drop logic (what triggers removal), no-duplicate check, infinity handling, required columns, filing_lag_days, row count stability
+- Write minimal critical tests for Step 6 only (synthetic data, no network calls)
+- Tests must validate: row drop criteria, no duplicates in output, no infinities, required columns present, row count within 5% of input, filing_lag_days >= 0
+- If user approves: fix RANK-LEAKAGE-001 (add .groupby('fiscal_year') to quality_composite and value_composite ranking in step5 add_composite_scores)
 
 Rules:
 - No broad refactor
 - No feature engineering
 - No archive/move/delete of pipeline files
 - If a critical issue is found during audit, classify it, propose the smallest fix, and wait for approval before changing production code
-- Step 6 is NOT in scope — that belongs to Session 5
 
 At session end, update:
 - KNOWN_ISSUES.md — add any new issues found during audit
 - PIPELINE_ATLAS.md — update Test Matrix status column if tests are added
-- AI_EDIT_LOG.md — add Session 4 report + Session 5 handoff with full prompt
+- AI_EDIT_LOG.md — add Session 5 report + Session 6 handoff with full prompt
 
 Before ending the session, check whether PIPELINE_ATLAS.md, PARQUET_ATLAS.md, KNOWN_ISSUES.md, or AI_EDIT_LOG.md needs updating. If not, say why.
 

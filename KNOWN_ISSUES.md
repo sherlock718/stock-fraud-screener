@@ -94,6 +94,16 @@ Issues found during pipeline audit. Classified by type and severity.
 - **Severity upgrade:** If global backtest CAGR is used for real investment decisions, upgrade from Medium to High. Currently it is used only for research/comparison.
 - **Action:** Design decision deferred. Do not change backtester code now.
 
+### RANK-LEAKAGE-001: quality_composite and value_composite rank across full dataset without fiscal_year groupby
+
+- **Type:** cross-temporal rank leakage
+- **Found:** Session 4 (step 5 audit)
+- **Details:** `pipeline/step5_compute_features.py` lines 532 and 538 compute `quality_composite` and `value_composite` using `quality_vals.rank(pct=True).mean(axis=1)` over the **entire dataset** without grouping by `fiscal_year`. A company in 2010 is ranked against all companies from 2005–2024, introducing future-year information into its percentile rank.
+- **Affected columns:** `quality_composite`, `value_composite`, and all downstream interactions that use them: `value_x_quality`, `value_x_momentum`, `quality_x_momentum`, `small_x_quality`, `value_in_high_rate`, `value_in_recession`, `quality_in_recession`.
+- **Risk:** Medium. The contamination is distributed (not directional like target leakage), and percentile ranks are noisy signals. However, in a market regime shift (e.g., generally declining ROEs 2010→2024), earlier years get artificially lower quality ranks because they're compared against the later population.
+- **Smallest fix:** Add `.groupby('fiscal_year')` before `.rank(pct=True)` for both composites in `add_composite_scores()`.
+- **Action:** Fix pending approval. Test `test_quality_composite_grouped_by_fiscal_year` marks this as xfail.
+
 ## Low
 
 ### STEP1-TICKER-DEDUP-001: No dedup on ticker column
