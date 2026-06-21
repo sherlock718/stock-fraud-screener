@@ -422,22 +422,72 @@ Start Session 6. Project: /Users/mhoque/Desktop/stock-fraud-screener-main
 
 ---
 
+## Session 6.5 — Known Issues Triage (2026-06-21)
+
+**Branch:** `refactor/s6-5-known-issues-triage`
+
+**Purpose:** Triage all issues from Sessions 0–6. Reorganize KNOWN_ISSUES.md with clear classifications, fix priority queue, and accepted-design dispositions.
+
+**Files modified:**
+- `KNOWN_ISSUES.md` — full reorganization (see triage results below)
+- `AI_EDIT_LOG.md` — this session report + updated handoff
+
+**Triage results (12 unique issues + 3 accepted designs):**
+
+| ID | Status | Severity | Effort | Fix Before Continuing? |
+|---|---|---|---|---|
+| PRICE-UNADJUSTED-001 | ✅ Code fixed, data regen pending | Critical | Tiny (rerun) | Yes — before model train |
+| RANK-LEAKAGE-001 | ✅ Code fixed, data regen pending | Medium | Tiny (rerun) | Yes — before model train |
+| DOCS-PARQUET-ATLAS-001 | ✅ Fixed complete | Low | — | Done |
+| MUTATION-ORDER-001 | Open | Medium | Medium | No |
+| MACRO-USREC-VINTAGE-001 | Open | Medium | Medium | No |
+| MACRO-NO-ASOF-DATE-001 | Open | Medium | Small | No |
+| FX-MIXED-PORTFOLIO-001 | Open | Medium | Medium | No |
+| FEATURE-LIB-CONSOLIDATE-001 | Parking lot | Medium | Small | No |
+| LIQUIDITY-001 | Open | Medium (was High) | Large | No (design decision) |
+| BROKEN-IMPORT-001 | Open | Low (was High) | Tiny | No |
+| P0F-PRICE-FLOOR-001 | Open | Low | Tiny | No |
+| STEP2-NO-PERIOD-END-001 | Open | Low | Tiny | No |
+| TEST-COVERAGE-001 | Mostly resolved | Low | Ongoing | No |
+| PIOTROSKI-FIRST-YEAR-001 | Accepted design | — | — | Never |
+| STEP1-TICKER-DEDUP-001 | Accepted design | — | — | Never |
+| STEP3-NO-DELISTED-IMPUTE-001 | Accepted design | — | — | Never |
+| FEATURE-CONTRACT-001 | Parking lot | Low | Small | No |
+
+**Key decisions:**
+1. BROKEN-IMPORT-001 downgraded High→Low (legacy files, not on data path, zero runtime risk)
+2. LIQUIDITY-001 downgraded High→Medium (missing feature, not a bug — needs design decision)
+3. Three issues reclassified as "Accepted Design" (will not fix — intentional choices)
+4. TEST-COVERAGE-001 marked "Mostly Resolved" (Steps 1–6 + support modules covered, 235 tests)
+5. Added Fix Priority Queue section for quick-reference ordering
+
+**Top 3 recommended fixes before more audits:**
+1. Data regeneration: rerun step3→step5→step6 (fixes PRICE-UNADJUSTED-001 + RANK-LEAKAGE-001)
+2. P0F-PRICE-FLOOR-001: fix docstring to match code (5 lines, docs-only)
+3. MACRO-NO-ASOF-DATE-001: add audit column (~5 lines production code + test)
+
+**Top 3 deferred items (need design decisions):**
+1. LIQUIDITY-001: whether to add ADTV to pipeline, where, PIT safety approach
+2. FX-MIXED-PORTFOLIO-001: whether to add USD columns or restrict global backtest
+3. MUTATION-ORDER-001: whether to enforce order, use checksums, or restructure output
+
+**No production code changes. No tests. No parquet changes.**
+
+---
+
 ## Next Claude Session Handoff
 
-- Status: Session 6 complete (feature_library + p0f audited, 67 tests added, all 235 tests pass)
-- Branch: `refactor/s6-audit-support` (local commit, not pushed, not merged)
-- Files created: `tests/pipeline/test_feature_library.py` (19 tests), `tests/pipeline/test_p0f.py` (48 tests)
-- Files modified: `KNOWN_ISSUES.md`, `PIPELINE_ATLAS.md`, `AI_EDIT_LOG.md`
-- Guardrails: pre-commit hook active
-- Issues found: P0F-PRICE-FLOOR-001 (Low), PIOTROSKI-FIRST-YEAR-001 (Low), FEATURE-LIB-CONSOLIDATE-001 (Medium, parking lot)
-- Next goal: **Session 7 — Audit remaining CURRENT_SUPPORT modules: p0g_confidence_score.py + enrich_fraud_labels.py. Add tests for both.**
-- Branch flow: User merges `refactor/s6-audit-support` into `main`, then Session 7 creates `refactor/s7-audit-enrichment` from updated `main`
+- Status: Session 6.5 complete (triage done, KNOWN_ISSUES reorganized)
+- Branch: `refactor/s6-5-known-issues-triage` (local commit, not pushed, not merged)
+- Session 7 WIP: stashed on `refactor/s7-audit-enrichment` branch (2 test files: `test_p0g_confidence_score.py`, `test_enrich_fraud_labels.py`)
+- Next goal: **Session 7 — Resume audit of p0g + enrich_fraud_labels. Pop stash, run tests, update docs, commit.**
+- Branch flow: User merges `refactor/s6-5-known-issues-triage` into `main`, then resumes Session 7 on existing `refactor/s7-audit-enrichment` branch
 
-### Session-end checklist (Session 6)
+### Session-end checklist (Session 6.5)
 
-- Atlas update needed? Yes. Updated Test Matrix status for feature_library + p0f (missing → ✅ covered), added Coverage Summary entries.
-- Parquet atlas update needed? No. Neither module changes parquet schema/flow — p0f adds columns but that's already documented.
-- KNOWN_ISSUES update needed? Yes. Added P0F-PRICE-FLOOR-001 (Low) and PIOTROSKI-FIRST-YEAR-001 (Low).
+- Atlas update needed? No. No file roles, test status, or feature ownership changed.
+- Parquet atlas update needed? No. No schema, flow, or mutation order changes.
+- KNOWN_ISSUES update needed? Yes. Full reorganization with triage classifications.
 - AI_EDIT_LOG handoff updated? Yes.
 
 ### Session 7 prompt (copy-paste into a fresh Claude Code conversation):
@@ -446,37 +496,41 @@ Start Session 6. Project: /Users/mhoque/Desktop/stock-fraud-screener-main
 Start Session 7. Project: /Users/mhoque/Desktop/stock-fraud-screener-main
 
 First, verify setup:
-1. Run git status — confirm clean working tree
-2. Confirm current branch is main
-3. Create and checkout branch: git checkout -b refactor/s7-audit-enrichment
+1. Run git status — confirm clean working tree on main
+2. Checkout existing branch: git checkout refactor/s7-audit-enrichment
+3. Pop stash: git stash pop
+4. Confirm the two test files are restored:
+   - tests/pipeline/test_p0g_confidence_score.py
+   - tests/pipeline/test_enrich_fraud_labels.py
 
 Then read these files to understand the codebase state:
 - PIPELINE_ATLAS.md (file map, call graph, test matrix, step audit checklist)
 - PARQUET_ATLAS.md (parquet file registry, mutation order)
-- KNOWN_ISSUES.md (logged issues from Sessions 0–6)
+- KNOWN_ISSUES.md (logged issues from Sessions 0–6.5, freshly triaged)
 - AI_EDIT_LOG.md (session history and handoff)
 
-Session 7 goal: Audit remaining CURRENT_SUPPORT enrichment modules and add minimal critical tests.
+Session 7 goal: Complete audit of CURRENT_SUPPORT enrichment modules and finalize tests.
 
-Scope:
-- Audit pipeline/p0g_confidence_score.py (255 lines): scoring logic, range [0,1], NaN handling, coverage calculation
-- Audit pipeline/enrich_fraud_labels.py (383 lines): label alignment, date matching, AAER integration, column semantics
-- Write minimal critical tests for both (synthetic data, no network calls)
-- Tests for p0g: score range [0,1], NaN inputs, coverage metric correctness, column semantics
-- Tests for enrich_fraud_labels: label merge correctness, date window matching, no false positives, column semantics
+Context from prior partial work (Session 7 started, paused for triage):
+- Audits of both files are COMPLETE (findings below). Tests are WRITTEN but NOT YET RUN.
+- p0g_confidence_score.py: No critical issues. forward_return_1y in coverage group is debatable but data_confidence is not a training feature. Deterministic, idempotent. Only downstream consumer is DB schema.
+- enrich_fraud_labels.py: No critical issues. Labels clearly separated from features (in EXCLUDE set). CIK matching with enforcement window [e_year-5, e_year+2]. Deterministic with cache. Confirmed overrides suspect. fraud_suspect requires 2+ signals.
+
+Remaining work:
+1. Run tests: python3 -m pytest tests/pipeline/test_p0g_confidence_score.py tests/pipeline/test_enrich_fraud_labels.py -v
+2. Fix any test failures (adjust test expectations, not production code)
+3. Run full suite: python3 -m pytest tests/ -q
+4. Update PIPELINE_ATLAS.md — Test Matrix status for p0g + enrich_fraud_labels
+5. Update KNOWN_ISSUES.md — add any new issues found
+6. Update AI_EDIT_LOG.md — Session 7 report + Session 8 handoff
+7. Commit locally. Do not push. Do not merge.
 
 Rules:
 - No broad refactor
 - No feature engineering
 - No archive/move/delete of pipeline files
-- If a critical issue is found during audit, classify it, propose the smallest fix, and wait for approval before changing production code
-
-At session end, update:
-- KNOWN_ISSUES.md — add any new issues found during audit
-- PIPELINE_ATLAS.md — update Test Matrix status column if tests are added
-- AI_EDIT_LOG.md — add Session 7 report + Session 8 handoff with full prompt
-
-Before ending the session, check whether PIPELINE_ATLAS.md, PARQUET_ATLAS.md, KNOWN_ISSUES.md, or AI_EDIT_LOG.md needs updating. If not, say why.
+- No production code changes unless critical and approved
+- Do not push. Do not merge.
 
 Session-end checklist:
 - Atlas update needed? Yes/No. Reason:
