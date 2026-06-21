@@ -33,6 +33,19 @@ Issues found during pipeline audit. Classified by type and severity.
 
 ## Medium
 
+### MACRO-USREC-VINTAGE-001: USREC recession flag uses revised data, not real-time vintage
+
+- **Type:** look-ahead / PIT risk
+- **Found:** Session 3 (step 4 audit, corrected in docs pass)
+- **Details:** `pipeline/step4_enrich_macro.py` fetches FRED series `USREC` via `fred.get_series('USREC')` with no `realtime_start`/`realtime_end` parameters. This returns the **current revised** recession indicator, which reflects NBER committee decisions made months after recessions actually begin/end. For example, the 2020 recession was declared by NBER in June 2020 (start: Feb 2020) and the end was declared in July 2021 (end: April 2020). A filing in March 2020 would see `recession=1` in our data even though NBER hadn't announced it yet.
+- **Risk:** Medium. The `recession` column and `macro_regime` (which uses `recession` as an override to regime=3) may contain information that was not publicly known at filing time. This affects: (a) the `recession` feature itself, (b) `macro_regime` derived feature, (c) step5 interaction features like `value_in_recession`, `quality_in_recession`, `momentum_in_expansion`.
+- **Mitigation options (do not implement now):**
+  1. Use FRED vintage API (`realtime_start`/`realtime_end`) to get point-in-time USREC values
+  2. Lag the recession flag by 6+ months (NBER typical announcement delay)
+  3. Replace USREC with a real-time recession proxy (e.g., 2 consecutive quarters of negative GDP growth, or yield curve inversion with lag)
+  4. Exclude `recession` and `macro_regime` from model features (keep for analysis only)
+- **Action:** Decide mitigation approach in a later session. For now, document as known PIT risk. Impact is bounded: recession periods are rare (~10% of dataset rows), and the flag is one of 350+ features.
+
 ### MUTATION-ORDER-001: Uncontrolled in-place mutation of final parquet
 
 - **Type:** architecture / data-safety risk
@@ -72,9 +85,14 @@ Issues found during pipeline audit. Classified by type and severity.
 - **Type:** backtest presentation issue
 - **Found:** Session 3 (FX audit)
 - **Details:** `scripts/backtester.py` and `scripts/build_portfolio.py` use `forward_return_1y` (local currency) for all markets. When run without `--market` filter, a global portfolio averages JPY returns, BRL returns, and USD returns equally. The reported CAGR is not a real USD return — it's an unweighted mix of local-currency returns.
-- **Risk:** Medium. Backtest CAGR is misleading for multi-market runs. Does NOT affect model training (trains on `beat_local_market` which is market-relative). Does NOT affect single-market backtests.
+- **Risk:** Medium. Backtest CAGR is misleading for multi-market runs. Does NOT affect model training (trains on `beat_local_market` which is benchmark-relative and currency-neutral). Single-market backtests are less affected because all holdings share one local currency.
 - **Mitigation:** `--market US` flag exists for single-market runs. USD columns exist only when `bias_audit.py --fix` is run manually.
-- **Action:** Consider adding USD-adjusted return option to backtester for global portfolios. Not urgent — training is unaffected.
+- **Before trusting global portfolio CAGR, a design decision is needed:**
+  1. Add USD-adjusted return columns to the normal pipeline output (step3 or post-step6), or
+  2. Add a `--usd` / `--currency` option to backtester that converts at backtest time, or
+  3. Clearly restrict global CAGR reporting to local-relative analysis only (document limitation)
+- **Severity upgrade:** If global backtest CAGR is used for real investment decisions, upgrade from Medium to High. Currently it is used only for research/comparison.
+- **Action:** Design decision deferred. Do not change backtester code now.
 
 ## Low
 

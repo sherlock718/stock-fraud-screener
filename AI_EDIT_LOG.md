@@ -141,7 +141,7 @@ Before ending any session, check whether `PIPELINE_ATLAS.md`, `PARQUET_ATLAS.md`
 | 4.5 | Derived formulas | ✅ | real_rate, credit_tightening, macro_regime — all correct |
 | 4.6 | Fill rates | ✅ | Forward-fill from FRED_START=2007 ensures >95% coverage post-2009 |
 | 4.7 | Same-date consistency | ✅ | Single asof lookup per row → all macro cols share same temporal anchor |
-| 4.8 | Recession look-ahead | ✅ | USREC via FRED is real-time (changes when NBER announces). PIT-safe |
+| 4.8 | Recession look-ahead | ⚠️ | USREC uses current/revised FRED data, not vintage. Possible look-ahead risk. Tracked as MACRO-USREC-VINTAGE-001 |
 | 4.9 | US vs local macro | ⚠️ known limitation | All markets get US FRED. Non-US local rates would be more appropriate but not a bug |
 
 **PRICE-UNADJUSTED-001:** Already fixed in Session 2.5. No action needed.
@@ -160,6 +160,24 @@ Before ending any session, check whether `PIPELINE_ATLAS.md`, `PARQUET_ATLAS.md`
 FX issue logged: FX-MIXED-PORTFOLIO-001 (Medium) — multi-market backtest averages local-currency returns across JPY/BRL/USD without conversion.
 
 **No production code changes. Tests only + documentation updates/corrections.**
+
+---
+
+## Session 3 Docs Correction (2026-06-21)
+
+**Branch:** `docs/s3-macro-fx-audit-corrections`
+
+**Docs-only corrections applied before Session 4:**
+
+1. **USREC PIT risk:** Session 3 originally marked check 4.8 (recession look-ahead) as ✅ PIT-safe. This was too confident. FRED USREC uses revised NBER dates, not real-time vintage data. Corrected verdict to ⚠️. Added MACRO-USREC-VINTAGE-001 (Medium).
+
+2. **Step 4 schema clarification:** Updated PIPELINE_ATLAS checklist item 4.1 to show actual output columns. Clarified that missing `gdp_growth`/`unemployment` are optional future features (not bugs), `yield_curve` is the equivalent of the old `spread_10y2y`, and `macro_asof_date` absence is already tracked.
+
+3. **FX-MIXED-PORTFOLIO-001 clarification:** Expanded KNOWN_ISSUES entry with explicit design decision options, severity upgrade criteria, and confirmation that training is unaffected.
+
+**Files modified:** `PIPELINE_ATLAS.md`, `KNOWN_ISSUES.md`, `AI_EDIT_LOG.md`
+
+**No production code changes. No tests. No parquet changes.**
 
 ---
 

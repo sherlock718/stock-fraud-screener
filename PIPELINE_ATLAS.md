@@ -199,14 +199,14 @@ notebooks/08_experiment_hub.ipynb
 
 | # | Check | What to verify |
 |---|---|---|
-| 4.1 | Schema | Standard macro columns: `gdp_growth`, `unemployment`, `fed_funds_rate`, `cpi_yoy`, `spread_10y2y`, etc. |
+| 4.1 | Schema | Actual output columns: `treasury_10y`, `treasury_2y`, `yield_curve`, `fed_funds_rate`, `credit_spread_baa`, `hy_spread`, `cpi_yoy`, `recession`, `vix`, `real_rate_10y`, `credit_tightening`, `macro_regime`. Note: `gdp_growth` and `unemployment` are not currently fetched (optional future addition, not a bug). `yield_curve` (T10Y2Y direct from FRED) is the equivalent of the previously-documented `spread_10y2y`. |
 | 4.2 | Row count | Output row count == input row count (macro is a left-join enrichment) |
 | 4.3 | No future macro | Macro values are from BEFORE or AT `filed_date`, never after |
-| 4.4 | macro_asof_date | Column recording the as-of date for each macro value. Must be ≤ filed_date |
-| 4.5 | Derived formulas | `recession_flag`, `tightening_flag` derived from base macro, not hardcoded |
+| 4.4 | macro_asof_date | Column recording the as-of date for each macro value. Must be ≤ filed_date. **Currently missing** — tracked as MACRO-NO-ASOF-DATE-001. |
+| 4.5 | Derived formulas | `real_rate_10y`, `credit_tightening`, `macro_regime` derived from base macro, not hardcoded |
 | 4.6 | Fill rates | Macro cols should have >95% fill (FRED has good coverage post-2000) |
 | 4.7 | Same-date consistency | All macro cols for a row use the same as-of-date snapshot |
-| 4.8 | Recession look-ahead | NBER recession dates are announcement-lagged. Use real-time proxy, not revised |
+| 4.8 | Recession look-ahead | NBER recession dates are announcement-lagged. Current code uses revised FRED USREC (not vintage). **Possible look-ahead risk** — tracked as MACRO-USREC-VINTAGE-001. |
 | 4.9 | US vs local macro | US macro for US rows. Local rates/GDP for non-US (where available) |
 
 ### FX Audit
