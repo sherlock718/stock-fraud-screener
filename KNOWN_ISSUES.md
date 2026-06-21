@@ -130,16 +130,15 @@ Issues that should be resolved before next model train / backtest refresh:
 
 ## Open — Low Severity
 
-### BROKEN-IMPORT-001: Dead imports to `pipeline.score_and_report`
+### BROKEN-IMPORT-001: Dead imports to `pipeline.score_and_report` — RESOLVED
 
 - **Type:** code bug / legacy-file issue
-- **Severity:** Low (downgraded from High — files are LEGACY_ARCHIVE_CANDIDATE, not on data path)
-- **Effort:** Tiny (delete imports or archive files)
-- **Found:** Session 1
-- **Details:** Three legacy modules import non-existent `pipeline.score_and_report`. Only fails when run standalone.
-- **Risk if ignored:** Zero. Files not on main data path. Confusing but harmless.
-- **Fix before continuing audits?** No.
-- **Recommended session:** Legacy archive session.
+- **Severity:** Low (was High — files are ARCHIVED, not on data path)
+- **Effort:** Done
+- **Found:** Session 1 | **Resolved:** Session 8
+- **Details:** Three legacy modules imported non-existent `pipeline.score_and_report`. All three files (`enrich_insider_signals.py`, `enrich_market_cap.py`, `enrich_market_signals.py`) moved to `pipeline/archive/` in Session 8.
+- **Status:** ✅ Resolved. Files archived. No runtime risk.
+- **No remaining action.**
 
 ### P0F-PRICE-FLOOR-001: Price floor applied to all exchanges, not just OTC
 

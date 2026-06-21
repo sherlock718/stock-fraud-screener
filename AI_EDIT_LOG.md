@@ -525,14 +525,73 @@ Start Session 6. Project: /Users/mhoque/Desktop/stock-fraud-screener-main
 
 ## Next Claude Session Handoff
 
-- Status: Session 7 complete (p0g + fraud labels audited, 61 tests added, all 296 tests pass)
-- Branch: `refactor/s7-audit-enrichment` (local commit, not pushed, not merged)
-- Files created: `tests/pipeline/test_p0g_confidence_score.py` (27 tests), `tests/pipeline/test_enrich_fraud_labels.py` (34 tests)
-- Files modified: `PIPELINE_ATLAS.md`, `AI_EDIT_LOG.md`
-- Issues found: None new. Both modules are clean.
-- Stash: Dropped (tests passed, files committed).
-- Next goal: **Session 8 — Legacy Archive / Call-Graph Proof.** Prove LEGACY_ARCHIVE_CANDIDATE files are unused, archive them.
-- Branch flow: User merges `refactor/s7-audit-enrichment` into `main`, then Session 8 creates `refactor/s8-archive-legacy` from updated `main`
+- Status: Session 8 complete (10 legacy files archived, stranded logic documented, all 296 tests pass)
+- Branch: `refactor/s8-archive-legacy` (local commit, not pushed, not merged)
+- Files created: `pipeline/archive/STRANDED_LOGIC.md`
+- Files moved (git mv): 10 legacy files from `pipeline/` → `pipeline/archive/`
+- Files modified: `PIPELINE_ATLAS.md`, `KNOWN_ISSUES.md`, `AI_EDIT_LOG.md`
+- Issues resolved: BROKEN-IMPORT-001 (all 3 files archived)
+- Issues found: None new.
+- Next goal: **Session 9 — Docs Sync.** Update README.md, contributing.md, pipeline-scripts.md, and data-update-guide.md to reflect archived files. Fix stale references to `build_historical_dataset.py`, `fraud_signals.py`, etc.
+- Branch flow: User merges `refactor/s8-archive-legacy` into `main`, then Session 9 creates `docs/s9-archive-doc-sync` from updated `main`
+
+### Session-end checklist (Session 8)
+
+- Atlas update needed? Yes. Reclassified 10 files as ARCHIVED. Updated classification key. Updated call graph (dead edges annotated as archived).
+- Parquet atlas update needed? No. None of the archived files are listed as readers/writers/mutators of parquet files (they operated on `companies_financials.json`).
+- KNOWN_ISSUES update needed? Yes. Resolved BROKEN-IMPORT-001 (all 3 broken-import files archived).
+- AI_EDIT_LOG handoff updated? Yes.
+
+---
+
+## Session 8 — Legacy Archive / Call-Graph Proof (2026-06-22)
+
+**Branch:** `refactor/s8-archive-legacy`
+
+**Files created:**
+- `pipeline/archive/STRANDED_LOGIC.md` — Documents features unique to archived files for future migration (insider signals, ADTV/volume, governance/going_concern)
+
+**Files moved (git mv — history preserved):**
+1. `pipeline/fraud_signals.py` → `pipeline/archive/fraud_signals.py`
+2. `pipeline/fetch_companies.py` → `pipeline/archive/fetch_companies.py`
+3. `pipeline/market_cap_filter.py` → `pipeline/archive/market_cap_filter.py`
+4. `pipeline/value_metrics.py` → `pipeline/archive/value_metrics.py`
+5. `pipeline/auto_update.py` → `pipeline/archive/auto_update.py`
+6. `pipeline/enrich_governance.py` → `pipeline/archive/enrich_governance.py`
+7. `pipeline/enrich_insider_signals.py` → `pipeline/archive/enrich_insider_signals.py`
+8. `pipeline/enrich_market_cap.py` → `pipeline/archive/enrich_market_cap.py`
+9. `pipeline/enrich_market_signals.py` → `pipeline/archive/enrich_market_signals.py`
+10. `pipeline/build_historical_dataset.py` → `pipeline/archive/build_historical_dataset.py`
+
+**Files modified:**
+- `PIPELINE_ATLAS.md` — File Map (10 files reclassified ARCHIVED), Classification Key (added ARCHIVED, removed LEGACY_ARCHIVE_CANDIDATE), Call Graph (dead edges annotated)
+- `KNOWN_ISSUES.md` — BROKEN-IMPORT-001 resolved
+- `AI_EDIT_LOG.md` — this session report + Session 9 handoff
+
+**Call-graph proof (grep results summary):**
+
+| File | Imported By Active Code? | Imported By Other Legacy? | Classification |
+|------|--------------------------|---------------------------|----------------|
+| `fraud_signals.py` | NO | YES (build_hist, enrich_insider, enrich_mkt_cap, enrich_mkt_signals, auto_update) | Archive safe |
+| `fetch_companies.py` | NO | YES (auto_update only) | Archive safe |
+| `market_cap_filter.py` | NO | NO (self-contained) | Archive safe |
+| `value_metrics.py` | NO | YES (fraud_signals, build_hist) | Archive safe |
+| `auto_update.py` | NO | NO (string ref in run_phase_checks exclusion list only) | Archive safe |
+| `enrich_governance.py` | NO | NO (docs/roadmap only) | Archive safe |
+| `enrich_insider_signals.py` | NO | NO (comment in fraud_signals only) | Archive safe |
+| `enrich_market_cap.py` | NO | NO (docs only) | Archive safe |
+| `enrich_market_signals.py` | NO | NO (comment in fraud_signals + archived notebook) | Archive safe |
+| `build_historical_dataset.py` | NO | NO (docs/contributing.md ref only) | Archive safe |
+
+**Key observations:**
+- `p0g_confidence_score.py` line 67 has `'fraud_signals'` as a dict key string (column group name), NOT an import of the module. Safe.
+- `enrich_feature_dictionary.py` line 77 has `'step5_compute_features (fraud_signals.py)'` as a provenance string. NOT an import. Safe.
+- `run_phase_checks.py` line 184 has `"auto_update.py"` in an `operator_only` exclusion set (string literal). NOT an import. Safe.
+- `contributing.md` line 158 references `build_historical_dataset.py` in market integration docs — stale documentation to fix in Session 9.
+
+**Test results:** 296 passed, 0 failed. Archive caused zero breakage.
+
+**No production code changes to active pipeline files. No feature engineering. No parquet data changes.**
 
 ### Session-end checklist (Session 7)
 

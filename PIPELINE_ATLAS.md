@@ -37,23 +37,24 @@ Generated 2026-06-21. Read-only classification. No code changes.
 | `pipeline/enrich_fraud_labels.py` | 383 | CURRENT_SUPPORT | Fraud label enrichment → adds cols to `historical_dataset_clean.parquet` |
 | `pipeline/enrich_fraud_taxonomy.py` | 415 | CURRENT_SUPPORT | Fraud sub-type scores → adds 5 cols to `historical_dataset_clean.parquet` |
 | `pipeline/enrich_feature_dictionary.py` | 240 | OPTIONAL_REPORT_OR_QA | Feature metadata/documentation generator |
-| `pipeline/fraud_signals.py` | 422 | LEGACY_ARCHIVE_CANDIDATE | Dict-based fraud signals (JSON pipeline era). Still imported by `build_historical_dataset.py` and `enrich_*` modules |
-| `pipeline/value_metrics.py` | 217 | LEGACY_ARCHIVE_CANDIDATE | Dict-based value metrics (JSON pipeline era). Still imported by `build_historical_dataset.py` |
-| `pipeline/build_historical_dataset.py` | 667 | LEGACY_ARCHIVE_CANDIDATE | v3 monolithic builder (JSON → parquet). Superseded by step2→step6 pipeline |
-| `pipeline/fetch_companies.py` | 224 | LEGACY_ARCHIVE_CANDIDATE | Old step 1 (JSON-based). Superseded by `step1_fetch_tickers.py` |
-| `pipeline/market_cap_filter.py` | 84 | LEGACY_ARCHIVE_CANDIDATE | JSON-era market cap filter. Superseded by `p0f_universe_definition.py` |
-| `pipeline/auto_update.py` | 141 | LEGACY_ARCHIVE_CANDIDATE | Daily auto-update (JSON era). Imports missing `score_and_report` module |
-| `pipeline/enrich_market_cap.py` | 104 | LEGACY_ARCHIVE_CANDIDATE | JSON-era market cap enrichment. References `companies_financials.json` |
-| `pipeline/enrich_market_signals.py` | 182 | LEGACY_ARCHIVE_CANDIDATE | JSON-era market signal enrichment. References `companies_financials.json` |
-| `pipeline/enrich_insider_signals.py` | 227 | LEGACY_ARCHIVE_CANDIDATE | JSON-era insider enrichment. References `companies_financials.json` |
-| `pipeline/enrich_governance.py` | 117 | LEGACY_ARCHIVE_CANDIDATE | JSON-era governance enrichment. References `companies_financials.json` |
+| `pipeline/archive/fraud_signals.py` | 422 | ARCHIVED | Dict-based fraud signals (JSON pipeline era). Duplicated in step5 § C+D. Archived Session 8 |
+| `pipeline/archive/value_metrics.py` | 217 | ARCHIVED | Dict-based value metrics (JSON pipeline era). Duplicated in step5 § A+B. Archived Session 8 |
+| `pipeline/archive/build_historical_dataset.py` | 667 | ARCHIVED | v3 monolithic builder (JSON → parquet). Superseded by step2→step6. Archived Session 8 |
+| `pipeline/archive/fetch_companies.py` | 224 | ARCHIVED | Old step 1 (JSON-based). Superseded by `step1_fetch_tickers.py`. Archived Session 8 |
+| `pipeline/archive/market_cap_filter.py` | 84 | ARCHIVED | JSON-era market cap filter. Superseded by `p0f_universe_definition.py`. Archived Session 8 |
+| `pipeline/archive/auto_update.py` | 141 | ARCHIVED | Daily auto-update (JSON era). Broken imports. Archived Session 8 |
+| `pipeline/archive/enrich_market_cap.py` | 104 | ARCHIVED | JSON-era market cap enrichment. Archived Session 8 |
+| `pipeline/archive/enrich_market_signals.py` | 182 | ARCHIVED | JSON-era market signal enrichment. Stranded ADTV/pump-dump logic preserved. Archived Session 8 |
+| `pipeline/archive/enrich_insider_signals.py` | 227 | ARCHIVED | JSON-era insider enrichment. Stranded insider signals logic preserved. Archived Session 8 |
+| `pipeline/archive/enrich_governance.py` | 117 | ARCHIVED | JSON-era governance enrichment. Stranded going_concern logic preserved. Archived Session 8 |
+| `pipeline/archive/STRANDED_LOGIC.md` | — | ARCHIVED | Documents features unique to archived files for future migration |
 
 ### Classification Key
 
 - **CURRENT_CORE** — Actively invoked by `run_pipeline.py`. Part of the step1→step6 parquet chain.
 - **CURRENT_SUPPORT** — Called by scripts or used as post-pipeline enrichment on `historical_dataset_clean.parquet`.
 - **OPTIONAL_REPORT_OR_QA** — Documentation/metadata utility. Not on critical path.
-- **LEGACY_ARCHIVE_CANDIDATE** — Operates on `companies_financials.json` (old JSON pipeline). No longer on the main data path. Some are still imported for sub-functions but logic is duplicated in step5.
+- **ARCHIVED** — Moved to `pipeline/archive/` (Session 8). Operates on `companies_financials.json` (old JSON pipeline). No longer on the main data path. Logic either duplicated in step5 or documented in `pipeline/archive/STRANDED_LOGIC.md` for future migration.
 - **UNKNOWN_INVESTIGATE** — None found. All files classified.
 
 ---
@@ -84,25 +85,28 @@ scripts/build_monthly_price_cache.py → from pipeline.feature_library import ad
 scripts/patch_montier_c2.py     → from pipeline.step5_compute_features import add_montier_c_score
 ```
 
-### Internal pipeline cross-imports
+### Internal pipeline cross-imports (ARCHIVED — Session 8)
 
 ```
-pipeline/build_historical_dataset.py
+All internal cross-imports below are between archived files only.
+No active pipeline code depends on these edges.
+
+pipeline/archive/build_historical_dataset.py
   └─ from pipeline.fraud_signals import beneish_m_score, piotroski_f_score, ...
   └─ from pipeline.value_metrics import calculate_value_metrics
 
-pipeline/fraud_signals.py
+pipeline/archive/fraud_signals.py
   └─ from pipeline.value_metrics import calculate_value_metrics (at __main__)
 
-pipeline/enrich_insider_signals.py
+pipeline/archive/enrich_insider_signals.py
   └─ from pipeline.fraud_signals import calculate_all_signals
   └─ from pipeline.score_and_report import generate_report, print_report  ← BROKEN (module missing)
 
-pipeline/enrich_market_cap.py
+pipeline/archive/enrich_market_cap.py
   └─ from pipeline.fraud_signals import calculate_all_signals
   └─ from pipeline.score_and_report import generate_report, print_report  ← BROKEN (module missing)
 
-pipeline/enrich_market_signals.py
+pipeline/archive/enrich_market_signals.py
   └─ from pipeline.fraud_signals import calculate_all_signals
   └─ from pipeline.score_and_report import generate_report, print_report  ← BROKEN (module missing)
 ```
