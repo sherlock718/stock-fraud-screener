@@ -308,7 +308,7 @@ python3 pipeline/p0g_confidence_score.py
 
 ### `build_historical_dataset.py` — Merge All Markets into One Parquet
 
-> **⚠️ ARCHIVED (Session 8)** — Moved to `pipeline/archive/build_historical_dataset.py`. Superseded by the step2→step6 pipeline chain. Multi-market merging is now handled by `phase_a_integrate_*.py` scripts.
+> **⚠️ ARCHIVED (Session 8)** — Moved to `pipeline/archive/build_historical_dataset.py`. Superseded by the step2→step6 pipeline chain. Multi-market merging is now handled by `scripts/run_pipeline_{market}.py` scripts.
 
 Merges all market snapshot files into a single `historical_dataset_clean.parquet`. Called automatically by `scripts/run_pipeline.py` step 6. Run directly to re-merge without re-running the full pipeline.
 
@@ -317,6 +317,8 @@ python3 pipeline/build_historical_dataset.py  # ARCHIVED — use step6_clean.py 
 ```
 
 ---
+
+> **Note:** The `phase_a_integrate_*.py` scripts documented below were planned but never created on disk. The actual market integration workflow uses `scripts/run_pipeline_{market}.py build`. The documentation below preserves the intended design (column standardisation, enrichment steps) for future reference.
 
 ### `phase_a_integrate_kr.py` — Korea Market Integration
 

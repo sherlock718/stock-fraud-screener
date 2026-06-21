@@ -153,12 +153,11 @@ mkdocs.yml        Docs site config
 When integrating a new market (EU, KR, JP, CA, BR):
 
 1. Confirm `step1_fetch_tickers_{market}.py` and `step2_build_snapshots_{market}.py` exist.
-2. Run step3 price enrichment → step4 macro → step5 features → step6 clean.
+2. Run the full step-based pipeline: `scripts/run_pipeline_{market}.py build` (runs step1→step6 with market suffix).
 3. Apply universe definition (`pipeline/p0f_universe_definition.py`).
-4. Merge into `data/historical_dataset_clean.parquet` via the appropriate `pipeline/phase_a_integrate_{market}.py` script.
-5. Verify column schema alignment (319 columns, same dtype).
-6. Update `CONTEXT.md` Data Coverage table.
-7. Update `docs/architecture.md` Multi-Market section.
+4. Verify column schema alignment (361 columns, same dtype).
+5. Update `CONTEXT.md` Data Coverage table.
+6. Update `docs/architecture.md` Multi-Market section.
 
 ---
 
