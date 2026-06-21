@@ -444,7 +444,7 @@ Start Session 6. Project: /Users/mhoque/Desktop/stock-fraud-screener-main
 | MACRO-NO-ASOF-DATE-001 | Open | Medium | Small | No |
 | FX-MIXED-PORTFOLIO-001 | Open | Medium | Medium | No |
 | FEATURE-LIB-CONSOLIDATE-001 | Parking lot | Medium | Small | No |
-| LIQUIDITY-001 | Open | Medium (was High) | Large | No (design decision) |
+| LIQUIDITY-001 | Open | High (backtest realism) / Medium (pipeline correctness) | Large | No (design decision) |
 | BROKEN-IMPORT-001 | Open | Low (was High) | Tiny | No |
 | P0F-PRICE-FLOOR-001 | Open | Low | Tiny | No |
 | STEP2-NO-PERIOD-END-001 | Open | Low | Tiny | No |
@@ -456,17 +456,17 @@ Start Session 6. Project: /Users/mhoque/Desktop/stock-fraud-screener-main
 
 **Key decisions:**
 1. BROKEN-IMPORT-001 downgraded High→Low (legacy files, not on data path, zero runtime risk)
-2. LIQUIDITY-001 downgraded High→Medium (missing feature, not a bug — needs design decision)
+2. LIQUIDITY-001 reclassified: High for backtest/portfolio realism, Medium for pipeline correctness (missing feature, not a bug — needs design decision)
 3. Three issues reclassified as "Accepted Design" (will not fix — intentional choices)
 4. TEST-COVERAGE-001 marked "Mostly Resolved" (Steps 1–6 + support modules covered, 235 tests)
 5. Added Fix Priority Queue section for quick-reference ordering
 
-**Top 3 recommended fixes before more audits:**
+**Top fixes before next model train / real backtest refresh:**
 1. Data regeneration: rerun step3→step5→step6 (fixes PRICE-UNADJUSTED-001 + RANK-LEAKAGE-001)
 2. P0F-PRICE-FLOOR-001: fix docstring to match code (5 lines, docs-only)
 3. MACRO-NO-ASOF-DATE-001: add audit column (~5 lines production code + test)
 
-**Top 3 deferred items (need design decisions):**
+**Top 3 deferred items (need design decisions, not blocking audits):**
 1. LIQUIDITY-001: whether to add ADTV to pipeline, where, PIT safety approach
 2. FX-MIXED-PORTFOLIO-001: whether to add USD columns or restrict global backtest
 3. MUTATION-ORDER-001: whether to enforce order, use checksums, or restructure output

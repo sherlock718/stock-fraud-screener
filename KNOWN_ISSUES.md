@@ -118,7 +118,7 @@ Issues that should be resolved before next model train / backtest refresh:
 ### LIQUIDITY-001: No liquidity/volume feature in main dataset
 
 - **Type:** data issue / known limitation
-- **Severity:** High (downgraded to Medium for triage — not a bug, a missing feature)
+- **Severity:** High for backtest/portfolio realism; Medium for pipeline correctness
 - **Effort:** Large (design decision + migration from legacy + PIT safety)
 - **Found:** Session 0
 - **Details:** ADTV exists only in backtester path. Main dataset has no volume. Universe has no liquidity filter.
