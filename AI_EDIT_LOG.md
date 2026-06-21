@@ -264,6 +264,26 @@ Start Session 4. Project: /Users/mhoque/Desktop/stock-fraud-screener-main
 
 ---
 
+## Session 4.6 — Behavioral regression tests for RANK-LEAKAGE-001 fix (2026-06-21)
+
+**Branch:** `refactor/s4-audit-step5`
+
+**Test changes only:**
+- `tests/pipeline/test_step5_compute_features.py`: added 3 behavioral regression tests to `TestRankLeakage`:
+  - `test_composite_future_year_isolation` — proves adding extreme 2021 rows does NOT change 2020 composites
+  - `test_composite_market_isolation` — proves adding extreme JP rows does NOT change US composites in same year
+  - `test_composite_nan_preserved_for_all_nan_inputs` — proves all-NaN row produces NaN composite
+- Kept existing source-text assertion as belt-and-suspenders
+- Test count: 29 → 32
+
+**Docs updated:**
+- `PIPELINE_ATLAS.md` — test count 32, coverage summary updated
+- `AI_EDIT_LOG.md` — this entry
+
+**No production code changes. PARQUET_ATLAS unchanged (no schema/flow change).**
+
+---
+
 ## Next Claude Session Handoff
 
 - Status: Session 4 complete (step 5 audited, 28 tests + 1 xfail added)

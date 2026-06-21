@@ -237,6 +237,151 @@ class TestRankLeakage:
             "add_composite_scores must rank within fiscal_year groups"
         )
 
+    def test_composite_future_year_isolation(self):
+        """Adding extreme rows in a future year must NOT change composites for prior years."""
+        # Base: 5 rows in 2020, market US
+        df_base = pd.DataFrame({
+            'ticker': ['A', 'B', 'C', 'D', 'E'],
+            'fiscal_year': [2020] * 5,
+            'market': ['US'] * 5,
+            'revenue': [100, 200, 300, 400, 500],
+            'net_income': [10, 20, 30, 40, 50],
+            'total_assets': [500, 600, 700, 800, 900],
+            'total_equity': [200, 250, 300, 350, 400],
+            'operating_income': [15, 25, 35, 45, 55],
+            'operating_cash_flow': [12, 22, 32, 42, 52],
+            'current_assets': [100, 150, 200, 250, 300],
+            'current_liabilities': [50, 75, 100, 125, 150],
+            'long_term_debt': [100, 120, 140, 160, 180],
+            'cash': [20, 30, 40, 50, 60],
+            'market_cap_at_filing': [1000, 1500, 2000, 2500, 3000],
+            'entry_price': [50, 60, 70, 80, 90],
+            'gross_profit': [40, 80, 120, 160, 200],
+        })
+
+        df1 = df_base.copy()
+        df1 = add_valuation(df1)
+        df1 = add_profitability(df1)
+        df1 = add_composite_scores(df1)
+        q_2020_before = df1['quality_composite'].values.copy()
+        v_2020_before = df1['value_composite'].values.copy()
+
+        # Add extreme outlier rows in 2021
+        df_outliers = pd.DataFrame({
+            'ticker': ['X', 'Y', 'Z'],
+            'fiscal_year': [2021] * 3,
+            'market': ['US'] * 3,
+            'revenue': [999999, 999999, 999999],
+            'net_income': [999999, 999999, 999999],
+            'total_assets': [1, 1, 1],
+            'total_equity': [999999, 999999, 999999],
+            'operating_income': [999999, 999999, 999999],
+            'operating_cash_flow': [999999, 999999, 999999],
+            'current_assets': [999999, 999999, 999999],
+            'current_liabilities': [1, 1, 1],
+            'long_term_debt': [0, 0, 0],
+            'cash': [999999, 999999, 999999],
+            'market_cap_at_filing': [1, 1, 1],
+            'entry_price': [0.01, 0.01, 0.01],
+            'gross_profit': [999999, 999999, 999999],
+        })
+
+        df2 = pd.concat([df_base, df_outliers], ignore_index=True)
+        df2 = add_valuation(df2)
+        df2 = add_profitability(df2)
+        df2 = add_composite_scores(df2)
+        q_2020_after = df2.loc[df2['fiscal_year'] == 2020, 'quality_composite'].values
+        v_2020_after = df2.loc[df2['fiscal_year'] == 2020, 'value_composite'].values
+
+        np.testing.assert_array_almost_equal(q_2020_before, q_2020_after, decimal=10)
+        np.testing.assert_array_almost_equal(v_2020_before, v_2020_after, decimal=10)
+
+    def test_composite_market_isolation(self):
+        """Adding extreme rows in a different market must NOT change composites for the original market."""
+        # Base: 5 rows in 2020, market US
+        df_base = pd.DataFrame({
+            'ticker': ['A', 'B', 'C', 'D', 'E'],
+            'fiscal_year': [2020] * 5,
+            'market': ['US'] * 5,
+            'revenue': [100, 200, 300, 400, 500],
+            'net_income': [10, 20, 30, 40, 50],
+            'total_assets': [500, 600, 700, 800, 900],
+            'total_equity': [200, 250, 300, 350, 400],
+            'operating_income': [15, 25, 35, 45, 55],
+            'operating_cash_flow': [12, 22, 32, 42, 52],
+            'current_assets': [100, 150, 200, 250, 300],
+            'current_liabilities': [50, 75, 100, 125, 150],
+            'long_term_debt': [100, 120, 140, 160, 180],
+            'cash': [20, 30, 40, 50, 60],
+            'market_cap_at_filing': [1000, 1500, 2000, 2500, 3000],
+            'entry_price': [50, 60, 70, 80, 90],
+            'gross_profit': [40, 80, 120, 160, 200],
+        })
+
+        df1 = df_base.copy()
+        df1 = add_valuation(df1)
+        df1 = add_profitability(df1)
+        df1 = add_composite_scores(df1)
+        q_us_before = df1['quality_composite'].values.copy()
+        v_us_before = df1['value_composite'].values.copy()
+
+        # Add extreme outlier rows for JPN in same year
+        df_jpn = pd.DataFrame({
+            'ticker': ['JP1', 'JP2', 'JP3'],
+            'fiscal_year': [2020] * 3,
+            'market': ['JP'] * 3,
+            'revenue': [999999, 999999, 999999],
+            'net_income': [999999, 999999, 999999],
+            'total_assets': [1, 1, 1],
+            'total_equity': [999999, 999999, 999999],
+            'operating_income': [999999, 999999, 999999],
+            'operating_cash_flow': [999999, 999999, 999999],
+            'current_assets': [999999, 999999, 999999],
+            'current_liabilities': [1, 1, 1],
+            'long_term_debt': [0, 0, 0],
+            'cash': [999999, 999999, 999999],
+            'market_cap_at_filing': [1, 1, 1],
+            'entry_price': [0.01, 0.01, 0.01],
+            'gross_profit': [999999, 999999, 999999],
+        })
+
+        df2 = pd.concat([df_base, df_jpn], ignore_index=True)
+        df2 = add_valuation(df2)
+        df2 = add_profitability(df2)
+        df2 = add_composite_scores(df2)
+        q_us_after = df2.loc[df2['market'] == 'US', 'quality_composite'].values
+        v_us_after = df2.loc[df2['market'] == 'US', 'value_composite'].values
+
+        np.testing.assert_array_almost_equal(q_us_before, q_us_after, decimal=10)
+        np.testing.assert_array_almost_equal(v_us_before, v_us_after, decimal=10)
+
+    def test_composite_nan_preserved_for_all_nan_inputs(self):
+        """If all quality signals are NaN for a row, quality_composite should be NaN."""
+        df = pd.DataFrame({
+            'ticker': ['A', 'B'],
+            'fiscal_year': [2020, 2020],
+            'market': ['US', 'US'],
+            'revenue': [100, np.nan],
+            'net_income': [10, np.nan],
+            'total_assets': [500, np.nan],
+            'total_equity': [200, np.nan],
+            'operating_income': [15, np.nan],
+            'operating_cash_flow': [12, np.nan],
+            'current_assets': [100, np.nan],
+            'current_liabilities': [50, np.nan],
+            'long_term_debt': [100, np.nan],
+            'cash': [20, np.nan],
+            'market_cap_at_filing': [1000, np.nan],
+            'entry_price': [50, np.nan],
+            'gross_profit': [40, np.nan],
+        })
+        df = add_valuation(df)
+        df = add_profitability(df)
+        df = add_composite_scores(df)
+        # Row with all NaN inputs should produce NaN composite
+        assert pd.isna(df['quality_composite'].iloc[1])
+        assert pd.isna(df['value_composite'].iloc[1])
+
 
 # ─── 4. Formula Correctness Tests ────────────────────────────────────────────
 
