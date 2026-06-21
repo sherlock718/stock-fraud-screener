@@ -14,7 +14,7 @@ import pandas as pd
 import pytest
 
 # Add pipeline/ to path so we can import step2 functions directly
-sys.path.insert(0, str(Path(__file__).parent.parent / 'pipeline'))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'pipeline'))
 
 from step2_build_snapshots import (
     _yoy, _delta, _ratio, add_yoy_features, build_period_snapshots

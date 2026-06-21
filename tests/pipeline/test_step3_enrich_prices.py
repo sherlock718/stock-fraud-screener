@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent / 'pipeline'))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'pipeline'))
 
 from step3_enrich_prices import (
     price_on_or_after,

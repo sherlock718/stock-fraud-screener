@@ -125,28 +125,28 @@ notebooks/08_experiment_hub.ipynb
 
 | Source File | Role | Critical Risks | Required Tests | Planned Test File | Priority | Existing Coverage | Status |
 |---|---|---|---|---|---|---|---|
-| `step1_fetch_tickers.py` | Ticker ingestion (US) | Duplicates, missing CIK, inactive tickers included, suffix errors | Schema validation, dedup, inactive handling | `tests/test_step1.py` | P1 | 14 tests (schema, dedup, survivorship, identifiers) | ✅ covered |
-| `step1_fetch_tickers_{br,ca,eu,jp,kr}.py` | Multi-market tickers | Encoding, exchange mapping, missing identifiers | Schema + dedup per market | `tests/test_step1_markets.py` | P2 | None | missing |
-| `step2_build_snapshots.py` | EDGAR XBRL parse | Wrong units, duplicate rows, missing filed_date, quarterly leak | One-row-per-ticker-year, filed_date≥period_end | `tests/test_step2.py` | P0 | 16 tests (schema, dedup, temporal, YoY, coverage) | ✅ covered |
-| `step2_build_snapshots_{br,ca,eu,jp,kr}.py` | Multi-market snapshots | Schema drift, currency confusion, fiscal year boundaries | Schema match, currencies col, row counts | `tests/test_step2_markets.py` | P2 | None | missing |
-| `step3_enrich_prices.py` | Price + forward returns | Look-ahead bias (entry price before filed_date), survivorship | entry_date > filed_date, forward returns future-only, delisted handling | `tests/test_step3.py` | P0 | 30 tests (temporal + 1 xfail for PRICE-UNADJUSTED-001) | ⚠️ covered, 1 known bug |
-| `step4_enrich_macro.py` | FRED macro merge | Recession look-ahead, macro_asof_date after filing | macro_asof_date ≤ filed_date, no NaN spike | `tests/test_step4.py` | P1 | None | missing |
-| `step5_compute_features.py` | Feature computation | Temporal leakage, label leakage, rank leakage, formula errors | No forward columns used, rank within fiscal_year, coverage checks | `tests/test_step5.py` | P0 | None | missing |
-| `step6_clean.py` | Data quality filter | Silent row drops, missing required cols, infinity propagation | Row count delta, no inf, required cols present | `tests/test_step6.py` | P1 | None | missing |
-| `feature_library.py` | Shared ratios/Piotroski | Formula errors, NaN propagation | Unit tests on known inputs | `tests/test_feature_library.py` | P1 | None | missing |
-| `p0f_universe_definition.py` | Universe filter | Wrong exclusion logic, market-specific rules | Filter correctness per market, row preservation | `tests/test_p0f.py` | P2 | None | missing |
-| `p0g_confidence_score.py` | Data confidence | Score range [0,1], NaN handling | Bounds check, coverage calc | `tests/test_p0g.py` | P2 | None | missing |
-| `enrich_fraud_labels.py` | Fraud label merge | Label misalignment, date mismatch | Label matches known AAER set | `tests/test_fraud_labels.py` | P1 | None | missing |
-| `fraud_signals.py` | Legacy fraud calcs | Formula correctness | Unit tests per signal function | `tests/test_fraud_signals.py` | P3 | None | missing (legacy) |
+| `step1_fetch_tickers.py` | Ticker ingestion (US) | Duplicates, missing CIK, inactive tickers included, suffix errors | Schema validation, dedup, inactive handling | `tests/pipeline/test_step1_fetch_tickers.py` | P1 | 14 tests (schema, dedup, survivorship, identifiers) | ✅ covered |
+| `step1_fetch_tickers_{br,ca,eu,jp,kr}.py` | Multi-market tickers | Encoding, exchange mapping, missing identifiers | Schema + dedup per market | `tests/pipeline/test_step1_markets.py` | P2 | None | missing |
+| `step2_build_snapshots.py` | EDGAR XBRL parse | Wrong units, duplicate rows, missing filed_date, quarterly leak | One-row-per-ticker-year, filed_date≥period_end | `tests/pipeline/test_step2_build_snapshots.py` | P0 | 16 tests (schema, dedup, temporal, YoY, coverage) | ✅ covered |
+| `step2_build_snapshots_{br,ca,eu,jp,kr}.py` | Multi-market snapshots | Schema drift, currency confusion, fiscal year boundaries | `tests/pipeline/test_step2_markets.py` | Schema match, currencies col, row counts | P2 | None | missing |
+| `step3_enrich_prices.py` | Price + forward returns | Look-ahead bias (entry price before filed_date), survivorship | entry_date > filed_date, forward returns future-only, delisted handling | `tests/pipeline/test_step3_enrich_prices.py` | P0 | 30 tests (temporal + 1 xfail for PRICE-UNADJUSTED-001) | ⚠️ covered, 1 known bug |
+| `step4_enrich_macro.py` | FRED macro merge | Recession look-ahead, macro_asof_date after filing | macro_asof_date ≤ filed_date, no NaN spike | `tests/pipeline/test_step4_enrich_macro.py` | P1 | None | missing |
+| `step5_compute_features.py` | Feature computation | Temporal leakage, label leakage, rank leakage, formula errors | No forward columns used, rank within fiscal_year, coverage checks | `tests/pipeline/test_step5_compute_features.py` | P0 | None | missing |
+| `step6_clean.py` | Data quality filter | Silent row drops, missing required cols, infinity propagation | Row count delta, no inf, required cols present | `tests/pipeline/test_step6_clean.py` | P1 | None | missing |
+| `feature_library.py` | Shared ratios/Piotroski | Formula errors, NaN propagation | Unit tests on known inputs | `tests/pipeline/test_feature_library.py` | P1 | None | missing |
+| `p0f_universe_definition.py` | Universe filter | Wrong exclusion logic, market-specific rules | Filter correctness per market, row preservation | `tests/pipeline/test_p0f.py` | P2 | None | missing |
+| `p0g_confidence_score.py` | Data confidence | Score range [0,1], NaN handling | Bounds check, coverage calc | `tests/pipeline/test_p0g.py` | P2 | None | missing |
+| `enrich_fraud_labels.py` | Fraud label merge | Label misalignment, date mismatch | Label matches known AAER set | `tests/pipeline/test_fraud_labels.py` | P1 | None | missing |
+| `fraud_signals.py` | Legacy fraud calcs | Formula correctness | Unit tests per signal function | `tests/pipeline/test_fraud_signals.py` | P3 | None | missing (legacy) |
 | `train_models.py` (scripts/) | ML training | Leakage in features, temporal split | Temporal no-overlap, EXCLUDE set complete | `tests/test_pipeline.py` | P0 | Partial | partially covered |
 | `bias_audit.py` (scripts/) | Look-ahead audit | Missed leakage paths | Period end calc, filing lag | `tests/test_pipeline.py` | P1 | Partial | partially covered |
 | `app_v2.py` (root) | Streamlit scoring | Wrong median fill, missing model | Predict with NaN, missing horizon | `tests/test_pipeline.py` | P2 | Partial | partially covered |
 
 ### Coverage Summary
 - **tests/test_pipeline.py** covers: temporal split logic, feature exclusion, train medians, IC table, filing lag audit, app_v2 scoring. All synthetic data (no disk/network).
-- **tests/test_step1.py** covers: schema contract (required columns, CIK format, ticker format), dedup logic, survivorship (OTC retained), identifier checks. 14 tests.
-- **tests/test_step2.py** covers: schema contract, primary key uniqueness, temporal integrity (filed_date > period_end), YoY computation functions, coverage gating (revenue+assets required). 16 tests.
-- **tests/test_step3.py** covers: price lookup (on_or_after), forward return (future-only), prior momentum (past-only), volatility (past-only), 52w high, benchmark selection, enrich_row temporal contracts, survivorship (None on missing). 29 pass + 1 xfail (PRICE-UNADJUSTED-001: fetch uses unadjusted Close).
+- **tests/pipeline/test_step1_fetch_tickers.py** covers: schema contract (required columns, CIK format, ticker format), dedup logic, survivorship (OTC retained), identifier checks. 14 tests.
+- **tests/pipeline/test_step2_build_snapshots.py** covers: schema contract, primary key uniqueness, temporal integrity (filed_date > period_end), YoY computation functions, coverage gating (revenue+assets required). 16 tests.
+- **tests/pipeline/test_step3_enrich_prices.py** covers: price lookup (on_or_after), forward return (future-only), prior momentum (past-only), volatility (past-only), 52w high, benchmark selection, enrich_row temporal contracts, survivorship (None on missing). 29 pass + 1 xfail (PRICE-UNADJUSTED-001: fetch uses unadjusted Close).
 - **Zero coverage** for: step4 (macro), step5 (features), step6 (clean), feature_library, universe/confidence, fraud labels, multi-market logic.
 - **Duplicate risk**: `fraud_signals.py` logic is duplicated in `step5_compute_features.py` section D. Testing either covers the other's math.
 

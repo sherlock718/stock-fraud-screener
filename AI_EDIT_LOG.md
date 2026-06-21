@@ -66,9 +66,9 @@ Before ending any session, check whether `PIPELINE_ATLAS.md`, `PARQUET_ATLAS.md`
 **Branch:** `refactor/s2-audit-steps-1-3`
 
 **Files created:**
-- `tests/test_step1.py` — 14 tests: schema contract, dedup logic, survivorship, identifiers
-- `tests/test_step2.py` — 16 tests: schema, primary key uniqueness, temporal integrity, YoY computation, coverage gating
-- `tests/test_step3.py` — 29 tests: price lookup, forward return (future-only), momentum (past-only), volatility, 52w high, benchmark selection, enrich_row temporal contracts, survivorship handling
+- `tests/pipeline/test_step1_fetch_tickers.py` — 14 tests: schema contract, dedup logic, survivorship, identifiers
+- `tests/pipeline/test_step2_build_snapshots.py` — 16 tests: schema, primary key uniqueness, temporal integrity, YoY computation, coverage gating
+- `tests/pipeline/test_step3_enrich_prices.py` — 30 tests: price lookup, forward return (future-only), momentum (past-only), volatility, 52w high, benchmark selection, enrich_row temporal contracts, survivorship handling, 1 xfail for PRICE-UNADJUSTED-001
 
 **Files modified:**
 - `KNOWN_ISSUES.md` — added 4 new issues
@@ -99,7 +99,7 @@ Before ending any session, check whether `PIPELINE_ATLAS.md`, `PARQUET_ATLAS.md`
 
 - Status: Session 2 complete
 - Branch: `refactor/s2-audit-steps-1-3` (local commit, not pushed, not merged)
-- Files created: `tests/test_step1.py`, `tests/test_step2.py`, `tests/test_step3.py`
+- Files created: `tests/pipeline/test_step1_fetch_tickers.py`, `tests/pipeline/test_step2_build_snapshots.py`, `tests/pipeline/test_step3_enrich_prices.py`
 - Files modified: `KNOWN_ISSUES.md`, `PIPELINE_ATLAS.md`, `AI_EDIT_LOG.md`
 - Guardrails: pre-commit hook active
 - Critical issue found: PRICE-UNADJUSTED-001 — step3 uses `Close` instead of `Adj Close` (awaiting approval to fix)
@@ -108,7 +108,7 @@ Before ending any session, check whether `PIPELINE_ATLAS.md`, `PARQUET_ATLAS.md`
 
 ### Session-end checklist (Session 2)
 
-- Atlas update needed? Yes. Updated Test Matrix status for steps 1–3 and Coverage Summary.
+- Atlas update needed? Yes. Updated Test Matrix status for steps 1–3, corrected all test file paths to `tests/pipeline/` structure, updated Coverage Summary.
 - Parquet atlas update needed? No. No parquet files changed; no new creators/readers/mutators.
 - KNOWN_ISSUES update needed? Yes. Added PRICE-UNADJUSTED-001 (Critical), STEP1-TICKER-DEDUP-001 (Low), STEP2-NO-PERIOD-END-001 (Low), STEP3-NO-DELISTED-IMPUTE-001 (Low).
 - AI_EDIT_LOG handoff updated? Yes.
