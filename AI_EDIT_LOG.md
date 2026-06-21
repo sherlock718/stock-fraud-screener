@@ -117,60 +117,93 @@ Before ending any session, check whether `PIPELINE_ATLAS.md`, `PARQUET_ATLAS.md`
 
 ---
 
+## Session 3 — Audit Step 4 (Macro) + Tests (2026-06-21)
+
+**Branch:** `refactor/s3-audit-step4`
+
+**Files created:**
+- `tests/pipeline/test_step4_enrich_macro.py` — 31 tests: schema contract, row count preservation, PIT safety (backward merge_asof), NaN catastrophe prevention, derived formula correctness (CPI YoY, credit tightening, real rate, macro regime), panel structure, lookup function
+
+**Files modified:**
+- `KNOWN_ISSUES.md` — added MACRO-NO-ASOF-DATE-001 (Medium), DOCS-PARQUET-ATLAS-001 (Low)
+- `PIPELINE_ATLAS.md` — updated Test Matrix status for step4, updated Coverage Summary
+- `PARQUET_ATLAS.md` — corrected inaccurate key columns for `data/macro.parquet`
+- `AI_EDIT_LOG.md` — this session report + Session 4 handoff
+
+**Audit findings:**
+
+| # | Check | Verdict | Notes |
+|---|---|---|---|
+| 4.1 | Schema | ✅ | 6 key cols + 12 macro cols. No gdp_growth/unemployment (those were documentation errors) |
+| 4.2 | Row count | ✅ | `snap_out = snap[key_cols].copy()` — always exactly len(snap) rows |
+| 4.3 | No future macro | ✅ | `pd.merge_asof(direction='backward')` — provably no future data |
+| 4.4 | macro_asof_date | ⚠️ | Column does NOT exist. Logged as MACRO-NO-ASOF-DATE-001 |
+| 4.5 | Derived formulas | ✅ | real_rate, credit_tightening, macro_regime — all correct |
+| 4.6 | Fill rates | ✅ | Forward-fill from FRED_START=2007 ensures >95% coverage post-2009 |
+| 4.7 | Same-date consistency | ✅ | Single asof lookup per row → all macro cols share same temporal anchor |
+| 4.8 | Recession look-ahead | ✅ | USREC via FRED is real-time (changes when NBER announces). PIT-safe |
+| 4.9 | US vs local macro | ⚠️ known limitation | All markets get US FRED. Non-US local rates would be more appropriate but not a bug |
+
+**PRICE-UNADJUSTED-001:** Already fixed in Session 2.5. No action needed.
+
+**No production code changes. Tests only + documentation updates/corrections.**
+
+---
+
 ## Next Claude Session Handoff
 
-- Status: Session 2.5 complete (PRICE-UNADJUSTED-001 code fix applied)
-- Branch: `refactor/s2-audit-steps-1-3` (local commit, not pushed, not merged)
-- Files created: `tests/pipeline/test_step1_fetch_tickers.py`, `tests/pipeline/test_step2_build_snapshots.py`, `tests/pipeline/test_step3_enrich_prices.py`
-- Files modified: `KNOWN_ISSUES.md`, `PIPELINE_ATLAS.md`, `AI_EDIT_LOG.md`
+- Status: Session 3 complete (step 4 audited, 31 tests added)
+- Branch: `refactor/s3-audit-step4` (local commit, not pushed, not merged)
+- Files created: `tests/pipeline/test_step4_enrich_macro.py` (31 tests)
+- Files modified: `KNOWN_ISSUES.md`, `PIPELINE_ATLAS.md`, `PARQUET_ATLAS.md`, `AI_EDIT_LOG.md`
 - Guardrails: pre-commit hook active
-- Critical issue found: PRICE-UNADJUSTED-001 — step3 uses `Close` instead of `Adj Close` (awaiting approval to fix)
-- Next goal: **Session 3 — Audit Step 4 (macro) and add minimal critical tests for Step 4.**
-- Branch flow: User merges `refactor/s2-audit-steps-1-3` into `main`, then Session 3 creates `refactor/s3-audit-step4` from updated `main`
+- Issues found: MACRO-NO-ASOF-DATE-001 (medium, auditability gap), DOCS-PARQUET-ATLAS-001 (low, fixed)
+- PRICE-UNADJUSTED-001: Already fixed in Session 2.5. No action needed this session.
+- Next goal: **Session 4 — Audit Step 5 (compute features) and add minimal critical tests for Step 5.**
+- Branch flow: User merges `refactor/s3-audit-step4` into `main`, then Session 4 creates `refactor/s4-audit-step5` from updated `main`
 
-### Session-end checklist (Session 2)
+### Session-end checklist (Session 3)
 
-- Atlas update needed? Yes. Updated Test Matrix status for steps 1–3, corrected all test file paths to `tests/pipeline/` structure, updated Coverage Summary.
-- Parquet atlas update needed? No. No parquet files changed; no new creators/readers/mutators.
-- KNOWN_ISSUES update needed? Yes. Added PRICE-UNADJUSTED-001 (Critical), STEP1-TICKER-DEDUP-001 (Low), STEP2-NO-PERIOD-END-001 (Low), STEP3-NO-DELISTED-IMPUTE-001 (Low).
+- Atlas update needed? Yes. Updated Test Matrix status for step4, updated Coverage Summary.
+- Parquet atlas update needed? Yes. Fixed inaccurate key columns for `data/macro.parquet` (was listing non-existent gdp_growth/unemployment/spread_10y2y/macro_asof_date; now lists actual 12 macro columns).
+- KNOWN_ISSUES update needed? Yes. Added MACRO-NO-ASOF-DATE-001 (Medium), DOCS-PARQUET-ATLAS-001 (Low).
 - AI_EDIT_LOG handoff updated? Yes.
 
-### Session 3 prompt (copy-paste into a fresh Claude Code conversation):
+### Session 4 prompt (copy-paste into a fresh Claude Code conversation):
 
 ```
-Start Session 3. Project: /Users/mhoque/Desktop/stock-fraud-screener-main
+Start Session 4. Project: /Users/mhoque/Desktop/stock-fraud-screener-main
 
 First, verify setup:
 1. Run git status — confirm clean working tree
 2. Confirm current branch is main
-3. Create and checkout branch: git checkout -b refactor/s3-audit-step4
+3. Create and checkout branch: git checkout -b refactor/s4-audit-step5
 
 Then read these files to understand the codebase state:
 - PIPELINE_ATLAS.md (file map, call graph, test matrix, step audit checklist)
 - PARQUET_ATLAS.md (parquet file registry, mutation order)
-- KNOWN_ISSUES.md (logged issues from Sessions 0–2)
+- KNOWN_ISSUES.md (logged issues from Sessions 0–3)
 - AI_EDIT_LOG.md (session history and handoff)
 
-Session 3 goal: Audit Step 4 (macro enrichment), then add minimal critical tests for Step 4 only.
+Session 4 goal: Audit Step 5 (compute features), then add minimal critical tests for Step 5 only.
 
 Scope:
-- Audit Step 4 (macro): schema, row count preservation, no-future-macro (macro_asof_date ≤ filed_date), recession look-ahead, derived formulas, US vs local macro
-- Also: decide on PRICE-UNADJUSTED-001 fix — apply the one-line fix if approved, or defer
-- Inspect pipeline/step4_enrich_macro.py thoroughly
-- Write minimal critical tests for Step 4 only (synthetic data, no network calls)
-- Tests must validate: row count == input row count (left-join), macro_asof_date ≤ filed_date, no NaN catastrophe, schema contract
+- Audit Step 5 (compute features): temporal leakage (no forward_return_* used as feature), label leakage (no fraud_confirmed/ml_* used), rank leakage (cross-sectional ranks must groupby fiscal_year), rolling features past-only, formula spot-checks, winsorization applied to ratio_cols
+- Inspect pipeline/step5_compute_features.py thoroughly (972 lines — focus on sections A-H)
+- Write minimal critical tests for Step 5 only (synthetic data, no network calls)
+- Tests must validate: no forward/label/rank leakage, formula correctness (spot-check 5-10 key features), winsorization bounds, output shape contract
 
 Rules:
 - No broad refactor
 - No feature engineering
 - No archive/move/delete of pipeline files
 - If a critical issue is found during audit, classify it, propose the smallest fix, and wait for approval before changing production code
-- Step 5 is NOT in scope — that belongs to Session 4
+- Step 6 is NOT in scope — that belongs to Session 5
 
 At session end, update:
 - KNOWN_ISSUES.md — add any new issues found during audit
 - PIPELINE_ATLAS.md — update Test Matrix status column if tests are added
-- AI_EDIT_LOG.md — add Session 3 report + Session 4 handoff with full prompt
+- AI_EDIT_LOG.md — add Session 4 report + Session 5 handoff with full prompt
 
 Before ending the session, check whether PIPELINE_ATLAS.md, PARQUET_ATLAS.md, KNOWN_ISSUES.md, or AI_EDIT_LOG.md needs updating. If not, say why.
 

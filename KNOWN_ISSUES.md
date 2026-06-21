@@ -49,6 +49,24 @@ Issues found during pipeline audit. Classified by type and severity.
 - **Risk:** Temporal leakage, schema drift, or formula errors in core pipeline steps would go undetected.
 - **Action:** Sessions 2–5 create minimal critical step tests. Session 2 covers Steps 1–3.
 
+## Medium
+
+### MACRO-NO-ASOF-DATE-001: No macro_asof_date column in step4 output
+
+- **Type:** auditability gap
+- **Found:** Session 3 (step 4 audit)
+- **Details:** `pipeline/step4_enrich_macro.py` uses `pd.merge_asof(direction='backward')` which correctly prevents future data leakage. However, it does not record WHICH date's macro observation was matched to each filing row. Without a `macro_asof_date` column, post-hoc PIT validation is impossible — you must trust the merge logic rather than verify it from the data alone.
+- **Risk:** Medium. The merge logic is correct, but if the code were refactored or a bug introduced, there's no data-level audit trail to detect it.
+- **Action:** Add `macro_asof_date` column recording the panel date that was matched to each filing. Small enhancement (capture the matched index during merge), not urgent.
+
+### DOCS-PARQUET-ATLAS-001: PARQUET_ATLAS lists non-existent macro columns
+
+- **Type:** documentation inaccuracy
+- **Found:** Session 3 (step 4 audit)
+- **Details:** PARQUET_ATLAS.md lists `gdp_growth, unemployment, spread_10y2y, macro_asof_date` as key columns of `data/macro.parquet`. None of these exist in the actual code. The real macro columns are: `treasury_10y, treasury_2y, yield_curve, fed_funds_rate, credit_spread_baa, hy_spread, cpi_yoy, recession, vix, real_rate_10y, credit_tightening, macro_regime`.
+- **Risk:** Low. Documentation only — no runtime impact.
+- **Action:** Fix in PARQUET_ATLAS.md (done this session).
+
 ## Low
 
 ### STEP1-TICKER-DEDUP-001: No dedup on ticker column
