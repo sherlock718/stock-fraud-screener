@@ -284,47 +284,82 @@ Start Session 4. Project: /Users/mhoque/Desktop/stock-fraud-screener-main
 
 ---
 
+## Session 5 — Audit Step 6 (Clean) + Tests (2026-06-21)
+
+**Branch:** `refactor/s5-audit-step6`
+
+**Files created:**
+- `tests/pipeline/test_step6_clean.py` — 33 tests: row drop criteria (9), dedup logic (4), infinity handling (4), required columns (3), row count stability (3), filing_lag_days (3), as_of_date (2), sort order (1), no accidental filtering (3), multi-market dedup isolation (1)
+
+**Files modified:**
+- `PIPELINE_ATLAS.md` — updated Test Matrix status for step6, updated Coverage Summary
+- `AI_EDIT_LOG.md` — this session report + Session 6 handoff
+
+**Audit findings:**
+
+| # | Check | Verdict | Notes |
+|---|---|---|---|
+| 6.1 | Non-null required cols | ✅ | `dropna(subset=REQUIRED_COLS)` — 5 cols: cik, ticker, filed_date, fiscal_year, period_type |
+| 6.2 | No duplicates | ✅ | Dedup on `['cik', 'market', 'filed_date', 'period_type']`, keep='first' |
+| 6.3 | No infinities | ✅ | All numeric cols: `replace([np.inf, -np.inf], np.nan)` |
+| 6.4 | as_of_date == filed_date | ✅ | Line 80 explicitly sets this |
+| 6.5 | filing_lag_days | ✅ (with caveat) | Hardcodes Dec-31 FY end. Non-Dec-FY companies get negative lag. Documented in docstring |
+| 6.6 | No accidental filtering | ✅ | No revenue, market cap, sector, or price filters |
+| 6.7 | Row count stable | ✅ | Conservative filters. Reports pct kept. In practice <1% dropped from valid data |
+
+**Key observations (no issues to log):**
+1. `filing_lag_days` assumes Dec-31 FY end — intentional, documented in code (line 79: "negative = non-Dec FY"). Not a bug.
+2. Dedup key does not include `fiscal_year` — by design (two filings from same company on same date with different FYs is essentially impossible in practice).
+3. Step 6 is minimal and well-behaved: 4 filters, 2 derived columns, sort, save. No hidden complexity.
+
+**RANK-LEAKAGE-001:** Already fixed in Session 4.5 and merged to main. No action needed this session.
+
+**No production code changes. Tests only + documentation updates.**
+
+---
+
 ## Next Claude Session Handoff
 
-- Status: Session 4 complete (step 5 audited, 28 tests + 1 xfail added)
-- Branch: `refactor/s4-audit-step5` (local commit, not pushed, not merged)
-- Files created: `tests/pipeline/test_step5_compute_features.py` (28 tests + 1 xfail)
-- Files modified: `KNOWN_ISSUES.md`, `PIPELINE_ATLAS.md`, `AI_EDIT_LOG.md`
+- Status: Session 5 complete (step 6 audited, 33 tests added, all 168 tests pass)
+- Branch: `refactor/s5-audit-step6` (local commit, not pushed, not merged)
+- Files created: `tests/pipeline/test_step6_clean.py` (33 tests)
+- Files modified: `PIPELINE_ATLAS.md`, `AI_EDIT_LOG.md`
 - Guardrails: pre-commit hook active
-- Issues found: RANK-LEAKAGE-001 (medium — quality/value composite rank without fiscal_year groupby)
-- Next goal: **Session 5 — Audit Step 6 (clean) and add minimal critical tests for Step 6. Optionally fix RANK-LEAKAGE-001 if approved.**
-- Branch flow: User merges `refactor/s4-audit-step5` into `main`, then Session 5 creates `refactor/s5-audit-step6` from updated `main`
+- Issues found: None new. Step 6 is clean.
+- Next goal: **Session 6 — Audit feature_library.py + p0f_universe_definition.py. Add tests for both.**
+- Branch flow: User merges `refactor/s5-audit-step6` into `main`, then Session 6 creates `refactor/s6-audit-support` from updated `main`
 
-### Session-end checklist (Session 4)
+### Session-end checklist (Session 5)
 
-- Atlas update needed? Yes. Updated Test Matrix status for step5, updated Coverage Summary.
-- Parquet atlas update needed? No. Step 5 input/output files unchanged from Session 1 mapping.
-- KNOWN_ISSUES update needed? Yes. Added RANK-LEAKAGE-001 (Medium).
+- Atlas update needed? Yes. Updated Test Matrix status for step6 (missing → ✅ covered), updated Coverage Summary.
+- Parquet atlas update needed? No. Step 6 input/output files unchanged from Session 1 mapping.
+- KNOWN_ISSUES update needed? No. Audit found no new issues. filing_lag_days behavior is documented and intentional.
 - AI_EDIT_LOG handoff updated? Yes.
 
-### Session 5 prompt (copy-paste into a fresh Claude Code conversation):
+### Session 6 prompt (copy-paste into a fresh Claude Code conversation):
 
 ```
-Start Session 5. Project: /Users/mhoque/Desktop/stock-fraud-screener-main
+Start Session 6. Project: /Users/mhoque/Desktop/stock-fraud-screener-main
 
 First, verify setup:
 1. Run git status — confirm clean working tree
 2. Confirm current branch is main
-3. Create and checkout branch: git checkout -b refactor/s5-audit-step6
+3. Create and checkout branch: git checkout -b refactor/s6-audit-support
 
 Then read these files to understand the codebase state:
 - PIPELINE_ATLAS.md (file map, call graph, test matrix, step audit checklist)
 - PARQUET_ATLAS.md (parquet file registry, mutation order)
-- KNOWN_ISSUES.md (logged issues from Sessions 0–4)
+- KNOWN_ISSUES.md (logged issues from Sessions 0–5)
 - AI_EDIT_LOG.md (session history and handoff)
 
-Session 5 goal: Audit Step 6 (clean) and add minimal critical tests. Optionally fix RANK-LEAKAGE-001 if user approves.
+Session 6 goal: Audit CURRENT_SUPPORT modules and add minimal critical tests.
 
 Scope:
-- Audit Step 6 (pipeline/step6_clean.py, 140 lines): row drop logic (what triggers removal), no-duplicate check, infinity handling, required columns, filing_lag_days, row count stability
-- Write minimal critical tests for Step 6 only (synthetic data, no network calls)
-- Tests must validate: row drop criteria, no duplicates in output, no infinities, required columns present, row count within 5% of input, filing_lag_days >= 0
-- If user approves: fix RANK-LEAKAGE-001 (add .groupby('fiscal_year') to quality_composite and value_composite ranking in step5 add_composite_scores)
+- Audit pipeline/feature_library.py (49 lines): formula correctness for add_normalised_ratios and add_piotroski_ext
+- Audit pipeline/p0f_universe_definition.py (257 lines): filter logic, market-specific rules, in_universe semantics, fail-open behavior
+- Write minimal critical tests for both (synthetic data, no network calls)
+- Tests for feature_library: known-input → known-output for normalised ratios and Piotroski extension
+- Tests for p0f: quarterly excluded, fiscal year bounds, revenue/assets filters (--apply-filters), SIC exclusions, missing data fail-open, in_universe column semantics
 
 Rules:
 - No broad refactor
@@ -335,7 +370,7 @@ Rules:
 At session end, update:
 - KNOWN_ISSUES.md — add any new issues found during audit
 - PIPELINE_ATLAS.md — update Test Matrix status column if tests are added
-- AI_EDIT_LOG.md — add Session 5 report + Session 6 handoff with full prompt
+- AI_EDIT_LOG.md — add Session 6 report + Session 7 handoff with full prompt
 
 Before ending the session, check whether PIPELINE_ATLAS.md, PARQUET_ATLAS.md, KNOWN_ISSUES.md, or AI_EDIT_LOG.md needs updating. If not, say why.
 
