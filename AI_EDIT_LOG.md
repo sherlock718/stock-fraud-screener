@@ -525,13 +525,33 @@ Start Session 6. Project: /Users/mhoque/Desktop/stock-fraud-screener-main
 
 ## Next Claude Session Handoff
 
-- Status: Session 9 complete (docs sync — all stale references to 10 archived legacy files fixed, 296 tests pass)
-- Branch: `docs/s9-archive-doc-sync` (local commit, not pushed, not merged)
-- Files modified: `README.md`, `ROADMAP.md`, `CONTEXT.md`, `docs/developer/pipeline-scripts.md`, `docs/developer/contributing.md`, `docs/developer/data-update-guide.md`, `AI_EDIT_LOG.md`
+- Status: Session 9 complete + merged to main. Docs sync done. Phantom ref fix applied.
+- Branch: `main` at `0bf229a`
+- Latest commits: `0bf229a` (phantom ref fix) ← `741e17f` (Session 9 docs sync) ← `f21a748` (Session 8 archive)
+- Tests: 296 passed
 - Issues found: None new.
 - Issues resolved: None (docs-only session).
-- Next goal: **Session 10 — TBD.** Potential directions: data regeneration (PRICE-UNADJUSTED-001 + RANK-LEAKAGE-001), LIQUIDITY-001 design decision, or cross-sectional momentum feature gap.
-- Branch flow: User merges `docs/s9-archive-doc-sync` into `main`, then Session 10 creates new branch from updated `main`
+- Next goal: **Session 10 — Fraud Taxonomy / Feature Dictionary / Reporting-Only Audit**
+
+### Confirmed Refactor Phase Plan (Sessions 10–14)
+
+| Session | Goal | Scope |
+|---------|------|-------|
+| **10** | Audit `enrich_fraud_taxonomy.py`, `enrich_feature_dictionary.py`, and any remaining reporting-only logic. Classify active vs report-only vs legacy. Add focused tests. | Audit + tests only. No data regen. No model train. |
+| **11** | Small approved fixes only. Candidates: P0F-PRICE-FLOOR-001, MACRO-NO-ASOF-DATE-001, tiny gaps from Session 10. | Tiny fixes only. No architecture changes. |
+| **12** | Architecture cleanup/simplification. Candidates: MUTATION-ORDER-001, FEATURE-LIB-CONSOLIDATE-001 (if approved). | Small refactors. No new features. |
+| **13** | Data regeneration + dataset validation. Delete price_cache.db, rerun step3→step6 + enrichments. Mark PRICE-UNADJUSTED-001 + RANK-LEAKAGE-001 fully resolved. | Data regen only. No model retrain unless separately approved. |
+| **14** | Final hardening — tests, docs consistency, atlas sync, issue status cleanup. Prepare clean handoff for future model/product phase. | Docs + tests. No HuggingFace push. No new features. |
+
+### Out of Scope (entire refactor phase)
+
+- LightGBM retraining / OOF score regeneration
+- Backtest refresh
+- HuggingFace push
+- New features (momentum, liquidity, insider, governance migration)
+- Model performance documentation refresh
+
+These belong to a later phase after refactor/data validation is complete.
 
 ### Session-end checklist (Session 9)
 
