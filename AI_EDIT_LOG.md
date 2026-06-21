@@ -743,3 +743,104 @@ Session-end checklist:
 
 Commit locally at end. Do not push. Do not merge.
 ```
+
+---
+
+## Session 10 — Audit Fraud Taxonomy + Feature Dictionary (2026-06-22)
+
+**Branch:** `refactor/s10-audit-taxonomy`
+
+**Files created:**
+- `tests/pipeline/test_enrich_fraud_taxonomy.py` — 54 tests: sub-score formulas (accounting/dilution/quality/distress/governance), composite weighting, fraud_suspect flag, boundary cases, NaN handling, idempotency, leakage checks, cross-sectional rank behavior, missing-column degradation
+
+**Files modified:**
+- `PIPELINE_ATLAS.md` — corrected taxonomy column count (5→7 cols), added Test Matrix rows for taxonomy + feature dictionary, updated Coverage Summary, documented fraud_suspect collision
+- `PARQUET_ATLAS.md` — corrected enrich_fraud_taxonomy output columns (was stale: fraud_revenue_manip etc → actual: fraud_score_* + fraud_suspect)
+- `KNOWN_ISSUES.md` — added TAXONOMY-SUSPECT-OVERWRITE-001 (Medium severity)
+- `AI_EDIT_LOG.md` — this session report + Session 11 handoff
+
+**Audit findings:**
+
+### enrich_fraud_taxonomy.py (415 lines) — Classification: CURRENT_SUPPORT ✅
+
+| # | Check | Verdict | Notes |
+|---|---|---|---|
+| TAX.1 | Input columns | ✅ | Reads ~20 feature cols from parquet (beneish, sloan, altman, piotroski, ocf_*, fcf_*, shares_*, margin, leverage cols) |
+| TAX.2 | Output columns | ✅ | Creates 7: `fraud_score_{accounting,dilution,quality,distress,governance,composite}` + `fraud_suspect` |
+| TAX.3 | Score bounds [0,1] | ✅ | _pct_rank_clip ensures [0,1]; composite clipped; governance clipped |
+| TAX.4 | Sub-score direction | ✅ | High score = high risk for all five. Inversions (1-pct) correct where needed |
+| TAX.5 | NaN handling | ✅ | Missing cols → NaN score. All-NaN series → NaN. fillna(0) or fillna(0.5) for neutral where appropriate |
+| TAX.6 | Idempotency | ✅ | Deterministic functions of existing columns. Re-running gives same output |
+| TAX.7 | No temporal leakage | ✅ | No forward_return, no beat_local_market used |
+| TAX.8 | No label leakage | ✅ | Does not read fraud_confirmed in score builders (only reads it in run() to suppress suspect flag) |
+| TAX.9 | No ML score leakage | ✅ | Does not read ml_* columns |
+| TAX.10 | Rank scope | ⚠️ Info | _pct_rank_clip ranks GLOBALLY (not per fiscal_year). Intentional for fraud taxonomy — measures relative risk position across full dataset, not within-year. |
+| TAX.11 | fraud_suspect collision | ⚠️ Medium | BOTH enrich_fraud_labels.py AND this file write fraud_suspect. Taxonomy's narrower version (3 signals) overwrites labels' broader version (5 signals). Logged as TAXONOMY-SUSPECT-OVERWRITE-001 |
+| TAX.12 | Composite weights | ✅ | Sum to 1.0 (0.30+0.25+0.20+0.15+0.10). Literature-justified |
+| TAX.13 | Composite min-count | ✅ | Requires >100 non-null per sub-score to include it. Prevents noise from tiny samples |
+| TAX.14 | Governance proxy mode | ✅ | Falls back to Altman Z + Piotroski when small_auditor_flag/going_concern absent |
+
+**Downstream consumers:**
+- `scripts/train_models.py` — fraud_score_* available as features (NOT excluded)
+- `scripts/compute_alpha.py` — uses fraud_score_composite for alpha_fraud_risk factor
+- `pipeline/enrich_feature_dictionary.py` — documents taxonomy columns
+- `notebooks/08_experiment_hub.ipynb` — displays fraud taxonomy in research frontend
+
+**Leakage risk:** NONE. All inputs are base features computed by step5. No forward-looking or label columns used.
+
+**Idempotency:** YES. Pure functions of existing columns. No side effects outside the 7 output columns.
+
+---
+
+### enrich_feature_dictionary.py (240 lines) — Classification: OPTIONAL_REPORT_OR_QA ✅
+
+| # | Check | Verdict | Notes |
+|---|---|---|---|
+| FD.1 | Report-only | ✅ | Writes to `reports/feature_dictionary.csv`. Does NOT mutate parquet |
+| FD.2 | Pipeline dependency | ✅ NONE | No other script imports or reads its output |
+| FD.3 | Stale source mapping | ⚠️ Low | SOURCE_MAP references `fraud_signals.py` in provenance strings (informational, not an import). Cosmetically stale but harmless |
+| FD.4 | Category inference | ✅ | Correctly categorizes identifiers, labels, returns, fraud_taxonomy, features |
+| FD.5 | Description templates | ✅ | Templated descriptions for common patterns (_yoy, _sector_pct, forward_return_*) |
+| FD.6 | Numeric statistics | ✅ | Standard pandas describe on numeric cols |
+| FD.7 | No mutation risk | ✅ | Reads parquet read-only, writes CSV to reports/ |
+
+**Tests:** None added (report utility, not on critical path, no downstream consumers, no mutation risk). Low-effort/low-value.
+
+---
+
+### Gap-Check: pipeline/*.py vs PIPELINE_ATLAS
+
+All 23 active `pipeline/*.py` files are classified in PIPELINE_ATLAS. No unclassified files found. Zero gaps.
+
+---
+
+### Session-end checklist (Session 10)
+
+- Modules audited: `enrich_fraud_taxonomy.py`, `enrich_feature_dictionary.py`
+- Classification confirmed? Yes. Taxonomy=CURRENT_SUPPORT, Dictionary=OPTIONAL_REPORT_OR_QA
+- Tests added? Yes. Count: 54
+- New issues found? Yes. IDs: TAXONOMY-SUSPECT-OVERWRITE-001
+- PIPELINE_ATLAS update needed? Yes. Corrected column count, added Test Matrix rows, updated Coverage Summary, documented collision.
+- PARQUET_ATLAS update needed? Yes. Corrected taxonomy output columns (was stale placeholder names).
+- KNOWN_ISSUES update needed? Yes. Added TAXONOMY-SUSPECT-OVERWRITE-001 (Medium).
+- AI_EDIT_LOG handoff updated? Yes.
+
+**Test results:** 350 passed, 0 failed (baseline was 296; +54 from fraud taxonomy tests).
+
+**No production code changes. Tests + docs only. No parquet changes.**
+
+---
+
+### Session 11 Handoff
+
+Session 10 complete. All active pipeline modules are now classified and the critical ones tested (steps 1-6, feature_library, p0f, p0g, enrich_fraud_labels, enrich_fraud_taxonomy). Remaining untested modules are either ARCHIVED or OPTIONAL_REPORT_OR_QA.
+
+**Recommended Session 11 goals (pick one):**
+
+1. **Enrichment consolidation** — Resolve TAXONOMY-SUSPECT-OVERWRITE-001 by consolidating fraud_suspect ownership. Small fix, high clarity impact.
+
+2. **Multi-market integration tests** — Add tests for step1/step2 market variants (BR/CA/EU/JP/KR). Currently zero test coverage for non-US paths.
+
+3. **Data regeneration** — Resolve the two P0 issues (PRICE-UNADJUSTED-001, RANK-LEAKAGE-001) by running step3→step5→step6 pipeline refresh. Prereq for any meaningful backtest.
+
+4. **Scripts audit** — Begin auditing `scripts/` modules (train_models, backtester, bias_audit). These are Phase C items but their test coverage is only partial.

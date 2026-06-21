@@ -13,6 +13,7 @@ Issues that should be resolved before next model train / backtest refresh:
 | **P0** | PRICE-UNADJUSTED-001 | Tiny | Delete `price_cache.db`, rerun step3→step6 |
 | **P0** | RANK-LEAKAGE-001 | Tiny | Rerun step5→step6 |
 | **P1** | P0F-PRICE-FLOOR-001 | Tiny | Fix docstring (5-line docs-only change) |
+| **P2** | TAXONOMY-SUSPECT-OVERWRITE-001 | Small | Consolidate fraud_suspect ownership |
 | **P2** | MACRO-NO-ASOF-DATE-001 | Small | Add audit column to step4 |
 | **P2** | FEATURE-LIB-CONSOLIDATE-001 | Small | Refactor step5 imports |
 | **P3** | LIQUIDITY-001 | Large | Design decision + feature engineering |
@@ -57,6 +58,18 @@ Issues that should be resolved before next model train / backtest refresh:
 ---
 
 ## Open — Medium Severity
+
+### TAXONOMY-SUSPECT-OVERWRITE-001: enrich_fraud_taxonomy.py overwrites fraud_suspect with narrower logic
+
+- **Type:** data/semantic issue
+- **Severity:** Medium
+- **Effort:** Small (consolidate ownership to one module)
+- **Found:** Session 10
+- **Details:** Both `enrich_fraud_labels.py` and `enrich_fraud_taxonomy.py` write `fraud_suspect`. Labels uses 5 signals (Beneish, Piotroski, Altman, going_concern, small_auditor_flag+cap). Taxonomy uses only 3 signals (Beneish, Piotroski, Altman). Since taxonomy runs AFTER labels in the mutation order, it overwrites with the narrower definition. Some rows flagged by labels are silently un-flagged by taxonomy.
+- **Risk if ignored:** Medium. Rows with going_concern or small_auditor_flag signals lose their fraud_suspect flag. Training data may undercount suspects. Does NOT affect `fraud_confirmed` (which is AAER-based and unaffected).
+- **Fix before continuing audits?** No. Not blocking further sessions.
+- **Recommended fix:** (1) Remove `fraud_suspect` from taxonomy (let labels own it), OR (2) Merge the two definitions into one authoritative module, OR (3) Rename taxonomy's version to `fraud_suspect_narrow`.
+- **Recommended session:** Enrichment consolidation session.
 
 ### MUTATION-ORDER-001: Uncontrolled in-place mutation of final parquet
 
