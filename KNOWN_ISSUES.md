@@ -152,6 +152,16 @@ Issues found during pipeline audit. Classified by type and severity.
 
 Non-critical ideas and deferred items. Review during triage sessions.
 
+### FEATURE-LIB-CONSOLIDATE-001: step5 and feature_library both contain feature logic without shared ownership
+
+- **Type:** feature ownership / maintainability risk
+- **Severity:** Medium
+- **Found:** Session 6 (feature_library audit)
+- **Details:** `step5_compute_features.py` and `feature_library.py` both contain feature-generation logic. `feature_library.py` is called defensively by downstream scripts (`train_models.py`, `backtester.py`, `generate_oof_scores.py`, `leverage_strategy.py`, `build_monthly_price_cache.py`) after loading parquet, while Step 5 does not import from it. This creates risk of silent formula drift or hidden post-Step-5 feature patches.
+- **Current decision:** Do not fix now. Current behavior is tested and working. Both files have test coverage (step5: 32 tests, feature_library: 19 tests).
+- **Future preferred design:** Make `feature_library.py` the canonical home for reusable feature helper functions. Step 5 should call those functions during dataset build, and downstream scripts may call the same functions defensively. Avoid importing from `step5_compute_features.py` because it is a large CLI-style pipeline step (972 lines with argparse/main).
+- **Action:** Refactor in a future session. Small change: ~10 lines in step5 to import and call instead of inline compute.
+
 ### FEATURE-CONTRACT-001: No feature set/count validation between Step 5 and Step 6
 
 - **Type:** dataset contract / future guardrail

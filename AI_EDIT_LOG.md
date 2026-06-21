@@ -410,6 +410,18 @@ Start Session 6. Project: /Users/mhoque/Desktop/stock-fraud-screener-main
 
 ---
 
+## Session 6.1 — Log FEATURE-LIB-CONSOLIDATE-001 (2026-06-21)
+
+**Branch:** `refactor/s6-audit-support` (merged to `main`)
+
+**Docs updated:**
+- `KNOWN_ISSUES.md` — added FEATURE-LIB-CONSOLIDATE-001 to Parking Lot (feature ownership / maintainability risk, Medium severity)
+- `AI_EDIT_LOG.md` — this entry
+
+**No production code changes. No tests. No parquet changes.**
+
+---
+
 ## Next Claude Session Handoff
 
 - Status: Session 6 complete (feature_library + p0f audited, 67 tests added, all 235 tests pass)
@@ -417,7 +429,7 @@ Start Session 6. Project: /Users/mhoque/Desktop/stock-fraud-screener-main
 - Files created: `tests/pipeline/test_feature_library.py` (19 tests), `tests/pipeline/test_p0f.py` (48 tests)
 - Files modified: `KNOWN_ISSUES.md`, `PIPELINE_ATLAS.md`, `AI_EDIT_LOG.md`
 - Guardrails: pre-commit hook active
-- Issues found: P0F-PRICE-FLOOR-001 (Low), PIOTROSKI-FIRST-YEAR-001 (Low)
+- Issues found: P0F-PRICE-FLOOR-001 (Low), PIOTROSKI-FIRST-YEAR-001 (Low), FEATURE-LIB-CONSOLIDATE-001 (Medium, parking lot)
 - Next goal: **Session 7 — Audit remaining CURRENT_SUPPORT modules: p0g_confidence_score.py + enrich_fraud_labels.py. Add tests for both.**
 - Branch flow: User merges `refactor/s6-audit-support` into `main`, then Session 7 creates `refactor/s7-audit-enrichment` from updated `main`
 
