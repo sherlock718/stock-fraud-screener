@@ -61,47 +61,82 @@ Before ending any session, check whether `PIPELINE_ATLAS.md`, `PARQUET_ATLAS.md`
 
 ---
 
+## Session 2 — Audit Steps 1–3 + Tests (2026-06-21)
+
+**Branch:** `refactor/s2-audit-steps-1-3`
+
+**Files created:**
+- `tests/test_step1.py` — 14 tests: schema contract, dedup logic, survivorship, identifiers
+- `tests/test_step2.py` — 16 tests: schema, primary key uniqueness, temporal integrity, YoY computation, coverage gating
+- `tests/test_step3.py` — 29 tests: price lookup, forward return (future-only), momentum (past-only), volatility, 52w high, benchmark selection, enrich_row temporal contracts, survivorship handling
+
+**Files modified:**
+- `KNOWN_ISSUES.md` — added 4 new issues
+- `PIPELINE_ATLAS.md` — updated Test Matrix status + Coverage Summary
+- `AI_EDIT_LOG.md` — this session report + Session 3 handoff
+
+**Audit findings:**
+
+| Step | Finding | Severity | ID |
+|------|---------|----------|-----|
+| Step 3 | Uses `hist['Close']` (unadjusted) instead of `hist['Adj Close']` (split-adjusted) | Critical | PRICE-UNADJUSTED-001 |
+| Step 1 | Dedup on CIK only, no ticker-level dedup | Low | STEP1-TICKER-DEDUP-001 |
+| Step 2 | No explicit `period_end` column for filed_date validation | Low | STEP2-NO-PERIOD-END-001 |
+| Step 3 | No -50% delisted imputation (by design, handled downstream) | Low | STEP3-NO-DELISTED-IMPUTE-001 |
+
+**Temporal integrity validated (no look-ahead bias):**
+- Step 3 `forward_return()` uses only post-entry prices ✅
+- Step 3 `prior_return()` uses only pre-entry prices ✅
+- Step 3 `entry_date = filed_date` (PIT-safe) ✅
+- Step 2 `filed_date` from actual EDGAR filing timestamp ✅
+- Step 2 keeps most recently filed value per (fy, fp) key ✅
+
+**No production code changes. Tests only + documentation updates.**
+
+---
+
 ## Next Claude Session Handoff
 
-- Status: Session 1 complete (with handoff corrections applied)
-- Branch: `refactor/s1-atlas` (local commit, not pushed, not merged)
-- Files changed: `PIPELINE_ATLAS.md`, `PARQUET_ATLAS.md`, `AI_EDIT_LOG.md`, `KNOWN_ISSUES.md`, `scripts/hooks/pre_commit_guard.py`
-- Guardrails: pre-commit hook active (parquet block + pipeline-without-tests warning + docs-consistency warning)
-- Next goal: **Session 2 — Audit Steps 1–3, then add minimal critical tests for Step 1, Step 2, and Step 3 only.**
-- Branch flow: User merges `refactor/s1-atlas` into `main`, then Session 2 creates `refactor/s2-audit-steps-1-3` from updated `main`
+- Status: Session 2 complete
+- Branch: `refactor/s2-audit-steps-1-3` (local commit, not pushed, not merged)
+- Files created: `tests/test_step1.py`, `tests/test_step2.py`, `tests/test_step3.py`
+- Files modified: `KNOWN_ISSUES.md`, `PIPELINE_ATLAS.md`, `AI_EDIT_LOG.md`
+- Guardrails: pre-commit hook active
+- Critical issue found: PRICE-UNADJUSTED-001 — step3 uses `Close` instead of `Adj Close` (awaiting approval to fix)
+- Next goal: **Session 3 — Audit Step 4 (macro) and add minimal critical tests for Step 4.**
+- Branch flow: User merges `refactor/s2-audit-steps-1-3` into `main`, then Session 3 creates `refactor/s3-audit-step4` from updated `main`
 
-### Session-end checklist (template for all future sessions)
+### Session-end checklist (Session 2)
 
-- Atlas update needed? Yes/No. Reason:
-- Parquet atlas update needed? Yes/No. Reason:
-- KNOWN_ISSUES update needed? Yes/No. Reason:
-- AI_EDIT_LOG handoff updated? Yes/No.
+- Atlas update needed? Yes. Updated Test Matrix status for steps 1–3 and Coverage Summary.
+- Parquet atlas update needed? No. No parquet files changed; no new creators/readers/mutators.
+- KNOWN_ISSUES update needed? Yes. Added PRICE-UNADJUSTED-001 (Critical), STEP1-TICKER-DEDUP-001 (Low), STEP2-NO-PERIOD-END-001 (Low), STEP3-NO-DELISTED-IMPUTE-001 (Low).
+- AI_EDIT_LOG handoff updated? Yes.
 
-### Session 2 prompt (copy-paste into a fresh Claude Code conversation):
+### Session 3 prompt (copy-paste into a fresh Claude Code conversation):
 
 ```
-Start Session 2. Project: /Users/mhoque/Desktop/stock-fraud-screener-main
+Start Session 3. Project: /Users/mhoque/Desktop/stock-fraud-screener-main
 
 First, verify setup:
 1. Run git status — confirm clean working tree
 2. Confirm current branch is main
-3. Create and checkout branch: git checkout -b refactor/s2-audit-steps-1-3
+3. Create and checkout branch: git checkout -b refactor/s3-audit-step4
 
 Then read these files to understand the codebase state:
 - PIPELINE_ATLAS.md (file map, call graph, test matrix, step audit checklist)
 - PARQUET_ATLAS.md (parquet file registry, mutation order)
-- KNOWN_ISSUES.md (logged issues from Sessions 0–1)
+- KNOWN_ISSUES.md (logged issues from Sessions 0–2)
 - AI_EDIT_LOG.md (session history and handoff)
 
-Session 2 goal: Audit Steps 1–3, then add minimal critical tests for Step 1, Step 2, and Step 3 only.
+Session 3 goal: Audit Step 4 (macro enrichment), then add minimal critical tests for Step 4 only.
 
 Scope:
-- Audit Step 1 (ticker universe): schema, dedup, survivorship, identifiers
-- Audit Step 2 (snapshots): one-row-per-key, filed_date integrity, currencies, units
-- Audit Step 3 (prices): entry price after filed_date, forward returns future-only, momentum past-only, survivorship handling
-- Inspect existing tests/ folder first to understand current coverage
-- Write minimal critical tests for Steps 1–3 only (synthetic data, no network calls)
-- Tests must validate temporal integrity (no look-ahead bias) and schema contracts
+- Audit Step 4 (macro): schema, row count preservation, no-future-macro (macro_asof_date ≤ filed_date), recession look-ahead, derived formulas, US vs local macro
+- Also: decide on PRICE-UNADJUSTED-001 fix — apply the one-line fix if approved, or defer
+- Inspect pipeline/step4_enrich_macro.py thoroughly
+- Write minimal critical tests for Step 4 only (synthetic data, no network calls)
+- Tests must validate: row count == input row count (left-join), macro_asof_date ≤ filed_date, no NaN catastrophe, schema contract
 
 Rules:
 - No broad refactor
@@ -113,7 +148,7 @@ Rules:
 At session end, update:
 - KNOWN_ISSUES.md — add any new issues found during audit
 - PIPELINE_ATLAS.md — update Test Matrix status column if tests are added
-- AI_EDIT_LOG.md — add Session 2 report + Session 3 handoff with full prompt
+- AI_EDIT_LOG.md — add Session 3 report + Session 4 handoff with full prompt
 
 Before ending the session, check whether PIPELINE_ATLAS.md, PARQUET_ATLAS.md, KNOWN_ISSUES.md, or AI_EDIT_LOG.md needs updating. If not, say why.
 

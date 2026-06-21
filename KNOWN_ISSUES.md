@@ -4,7 +4,14 @@ Issues found during pipeline audit. Classified by type and severity.
 
 ## Critical
 
-_(none yet)_
+### PRICE-UNADJUSTED-001: step3 uses unadjusted Close instead of Adj Close
+
+- **Type:** data bug
+- **Found:** Session 2 (step 3 audit)
+- **Details:** `pipeline/step3_enrich_prices.py` line 212 uses `auto_adjust=False` and line 215 reads `hist['Close']`. With yfinance 1.2.0, this returns the **unadjusted** close price. The docstring (line 207) claims "adjusted close" but the code contradicts this. Forward returns and momentum computed on unadjusted prices are WRONG for any stock that split during the measurement window.
+- **Impact:** Any stock with a split between entry_date and exit_date has an incorrect forward return (e.g., a 2:1 split would halve the apparent return). Momentum similarly affected for splits in the lookback window.
+- **Proposed fix:** Change line 215 from `close = hist['Close'].copy()` to `close = hist['Adj Close'].copy()`. Then invalidate the SQLite price cache (`data/price_cache.db`) and re-run step 3. This is the smallest possible fix.
+- **Action:** Awaiting approval. Do not apply without re-running step 3 and verifying downstream impact.
 
 ## High
 
@@ -44,7 +51,29 @@ _(none yet)_
 
 ## Low
 
-_(none yet)_
+### STEP1-TICKER-DEDUP-001: No dedup on ticker column
+
+- **Type:** data quality gap
+- **Found:** Session 2 (step 1 audit)
+- **Details:** `step1_fetch_tickers.py` deduplicates on `cik` only. Two different CIKs could theoretically share the same ticker (after corporate actions like spin-offs or ticker reuse). This is rare but unguarded.
+- **Risk:** Very low — SEC EDGAR assigns unique CIKs and ticker reuse across live companies is uncommon. No immediate fix needed.
+- **Action:** Monitor. If duplicate tickers cause issues downstream, add a secondary dedup.
+
+### STEP2-NO-PERIOD-END-001: No explicit period_end column
+
+- **Type:** missing defensive check
+- **Found:** Session 2 (step 2 audit)
+- **Details:** `step2_build_snapshots.py` produces `fiscal_year` and `filed_date` but does NOT compute an explicit `period_end` column. The audit checklist specifies validating `filed_date >= period_end`, but there's no `period_end` to compare against. EDGAR data naturally has filing dates after period-end, so this is not a bug — just a missing assertion.
+- **Risk:** Low. If a corrupt XBRL entry had `filed` before the fiscal year end, it would pass undetected.
+- **Action:** Consider adding `period_end = f"{fiscal_year}-12-31"` column and assertion in a future session.
+
+### STEP3-NO-DELISTED-IMPUTE-001: Missing -50% delisted imputation in step 3
+
+- **Type:** known limitation
+- **Found:** Session 2 (step 3 audit)
+- **Details:** When no exit price is found (stock delisted), `forward_return()` returns `None`. The -50% survivorship imputation happens later in `scripts/mark_survivorship.py`. This is by design (separation of concerns) but means step 3 output alone underestimates negative returns.
+- **Risk:** Low — downstream script handles it. But if step 3 output is used directly without `mark_survivorship.py`, survivorship bias is present.
+- **Action:** None needed. Document in PARQUET_ATLAS that `prices.parquet` requires `mark_survivorship.py` post-processing.
 
 ---
 
