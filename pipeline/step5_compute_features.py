@@ -525,17 +525,31 @@ def add_composite_scores(df: pd.DataFrame) -> pd.DataFrame:
         c.fillna(0) for c in piotroski_components
     )
 
-    # Quality composite (high = good, Z-score normalised internally)
+    # Quality composite (high = good, ranked within fiscal_year × market cohort)
     quality_signals = ['roa', 'roe', 'gross_margin', 'ocf_to_ni', 'ocf_margin']
     quality_vals = pd.DataFrame({s: df.get(s, pd.Series(np.nan, index=df.index))
                                   for s in quality_signals})
-    df['quality_composite'] = quality_vals.rank(pct=True).mean(axis=1)
+    rank_keys = [k for k in ['fiscal_year', 'market'] if k in df.columns]
+    if rank_keys:
+        quality_ranked = quality_vals.copy()
+        grp = df[rank_keys].apply(tuple, axis=1) if len(rank_keys) > 1 else df[rank_keys[0]]
+        for col in quality_ranked.columns:
+            quality_ranked[col] = quality_ranked[col].groupby(grp).rank(pct=True, na_option='keep')
+        df['quality_composite'] = quality_ranked.mean(axis=1)
+    else:
+        df['quality_composite'] = quality_vals.rank(pct=True).mean(axis=1)
 
-    # Value composite (high = cheap)
+    # Value composite (high = cheap, ranked within fiscal_year × market cohort)
     value_signals = ['book_to_market', 'earnings_yield', 'sales_to_price', 'fcf_yield']
     value_vals = pd.DataFrame({s: df.get(s, pd.Series(np.nan, index=df.index))
                                  for s in value_signals})
-    df['value_composite'] = value_vals.rank(pct=True).mean(axis=1)
+    if rank_keys:
+        value_ranked = value_vals.copy()
+        for col in value_ranked.columns:
+            value_ranked[col] = value_ranked[col].groupby(grp).rank(pct=True, na_option='keep')
+        df['value_composite'] = value_ranked.mean(axis=1)
+    else:
+        df['value_composite'] = value_vals.rank(pct=True).mean(axis=1)
 
     return df
 

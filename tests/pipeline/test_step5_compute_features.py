@@ -225,24 +225,14 @@ class TestRankLeakage:
                     assert subset.min() >= 0.0
                     assert subset.max() <= 1.0
 
-    @pytest.mark.xfail(
-        reason="RANK-LEAKAGE-001: quality_composite and value_composite rank across full dataset "
-               "without fiscal_year groupby. Known issue — fix pending approval.",
-        strict=True,
-    )
     def test_quality_composite_grouped_by_fiscal_year(self, base_df):
-        """quality_composite rank should be within fiscal_year (currently NOT — RANK-LEAKAGE-001)."""
+        """quality_composite rank is within fiscal_year×market cohort (RANK-LEAKAGE-001 fixed)."""
         df = base_df.copy()
         df = add_valuation(df)
         df = add_profitability(df)
         df = add_composite_scores(df)
 
-        # If ranks are within fiscal_year, each year's ranks should span [0,1] independently.
-        # With 2 tickers per year, ranks should be approx {0.5, 1.0} or similar.
-        # If they're global, early years would show systematic bias vs later years.
-        # Test: ranks within each year should use only that year's data.
         src = inspect.getsource(add_composite_scores)
-        # The function must contain groupby('fiscal_year') for proper ranking
         assert 'groupby' in src and 'fiscal_year' in src, (
             "add_composite_scores must rank within fiscal_year groups"
         )
