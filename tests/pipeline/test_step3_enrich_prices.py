@@ -344,19 +344,14 @@ class TestEnrichRowTemporal:
         assert result['momentum_12m_prior'] is None
 
 
-class TestPriceUnadjustedBug:
-    """Tests for PRICE-UNADJUSTED-001: step3 must use split-adjusted prices.
+class TestPriceAdjustedClose:
+    """Tests for PRICE-UNADJUSTED-001 (fixed): step3 must use split-adjusted prices.
 
-    fetch_price_series() uses auto_adjust=False and reads hist['Close'] (unadjusted).
-    It should read hist['Adj Close'] instead. This test mocks yfinance to verify
-    the function returns adjusted prices when Close and Adj Close differ (e.g. split).
+    fetch_price_series() uses auto_adjust=False and reads hist['Adj Close'].
+    This test mocks yfinance to verify the function returns adjusted prices
+    when Close and Adj Close differ (e.g. stock split).
     """
 
-    @pytest.mark.xfail(
-        reason="PRICE-UNADJUSTED-001: fetch_price_series reads hist['Close'] "
-               "(unadjusted) instead of hist['Adj Close']. Fix pending approval.",
-        strict=True,
-    )
     def test_fetch_uses_adj_close_not_close(self, monkeypatch):
         """After a 2:1 split, Adj Close is halved for pre-split history.
         fetch_price_series must return the Adj Close series so that returns

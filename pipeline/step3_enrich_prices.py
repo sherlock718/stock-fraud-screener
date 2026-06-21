@@ -212,7 +212,7 @@ def fetch_price_series(ticker: str) -> pd.Series | None:
         hist = tk.history(period='max', auto_adjust=False, actions=False)
         if hist.empty:
             return None
-        close = hist['Close'].copy()
+        close = hist['Adj Close'].copy()
         close.index = pd.to_datetime(close.index).tz_localize(None)
         close = close[close > 0].dropna()
         return close

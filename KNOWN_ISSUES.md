@@ -4,14 +4,14 @@ Issues found during pipeline audit. Classified by type and severity.
 
 ## Critical
 
-### PRICE-UNADJUSTED-001: step3 uses unadjusted Close instead of Adj Close
+### PRICE-UNADJUSTED-001: step3 uses unadjusted Close instead of Adj Close — FIXED
 
 - **Type:** data bug
 - **Found:** Session 2 (step 3 audit)
-- **Details:** `pipeline/step3_enrich_prices.py` line 212 uses `auto_adjust=False` and line 215 reads `hist['Close']`. With yfinance 1.2.0, this returns the **unadjusted** close price. The docstring (line 207) claims "adjusted close" but the code contradicts this. Forward returns and momentum computed on unadjusted prices are WRONG for any stock that split during the measurement window.
-- **Impact:** Any stock with a split between entry_date and exit_date has an incorrect forward return (e.g., a 2:1 split would halve the apparent return). Momentum similarly affected for splits in the lookback window.
-- **Proposed fix:** Change line 215 from `close = hist['Close'].copy()` to `close = hist['Adj Close'].copy()`. Then invalidate the SQLite price cache (`data/price_cache.db`) and re-run step 3. This is the smallest possible fix.
-- **Action:** Awaiting approval. Do not apply without re-running step 3 and verifying downstream impact.
+- **Fixed:** Session 2.5 — changed `hist['Close']` → `hist['Adj Close']` in `fetch_price_series()` (line 215)
+- **Details:** `pipeline/step3_enrich_prices.py` line 212 uses `auto_adjust=False` and previously read `hist['Close']`. With yfinance 1.2.0, this returned the **unadjusted** close price. Now reads `hist['Adj Close']` (split/dividend-adjusted).
+- **Remaining action:** Delete `data/price_cache.db` and re-run step 3 (`python3 pipeline/step3_enrich_prices.py`) to regenerate `prices.parquet` with corrected adjusted prices. Until then, cached prices and existing `prices.parquet` still contain unadjusted data.
+- **Status:** Code fixed. Data regeneration pending.
 
 ## High
 

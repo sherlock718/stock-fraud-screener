@@ -95,9 +95,31 @@ Before ending any session, check whether `PIPELINE_ATLAS.md`, `PARQUET_ATLAS.md`
 
 ---
 
+## Session 2.5 — Fix PRICE-UNADJUSTED-001 (2026-06-21)
+
+**Branch:** `fix/s2-5-adjusted-close-step3`
+
+**Production code changed:**
+- `pipeline/step3_enrich_prices.py` line 215: `hist['Close'].copy()` → `hist['Adj Close'].copy()`
+
+**Test changed:**
+- `tests/pipeline/test_step3_enrich_prices.py`: removed `@pytest.mark.xfail` from `test_fetch_uses_adj_close_not_close`, renamed class `TestPriceUnadjustedBug` → `TestPriceAdjustedClose`
+
+**Docs updated:**
+- `KNOWN_ISSUES.md` — PRICE-UNADJUSTED-001 marked FIXED, remaining action noted (cache invalidation + step 3 rerun)
+- `PIPELINE_ATLAS.md` — step3 status → "✅ covered", test count → 32
+- `AI_EDIT_LOG.md` — this report
+
+**Remaining action for data regeneration:**
+1. Delete `data/price_cache.db`
+2. Re-run `python3 pipeline/step3_enrich_prices.py`
+3. Re-run step5 and step6 to propagate corrected prices through features
+
+---
+
 ## Next Claude Session Handoff
 
-- Status: Session 2 complete
+- Status: Session 2.5 complete (PRICE-UNADJUSTED-001 code fix applied)
 - Branch: `refactor/s2-audit-steps-1-3` (local commit, not pushed, not merged)
 - Files created: `tests/pipeline/test_step1_fetch_tickers.py`, `tests/pipeline/test_step2_build_snapshots.py`, `tests/pipeline/test_step3_enrich_prices.py`
 - Files modified: `KNOWN_ISSUES.md`, `PIPELINE_ATLAS.md`, `AI_EDIT_LOG.md`
