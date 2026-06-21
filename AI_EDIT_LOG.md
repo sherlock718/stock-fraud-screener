@@ -353,26 +353,105 @@ Start Session 4. Project: /Users/mhoque/Desktop/stock-fraud-screener-main
 
 ```
 Start Session 6. Project: /Users/mhoque/Desktop/stock-fraud-screener-main
+...
+```
+
+---
+
+## Session 6 — Audit CURRENT_SUPPORT Modules + Tests (2026-06-21)
+
+**Branch:** `refactor/s6-audit-support`
+
+**Files created:**
+- `tests/pipeline/test_feature_library.py` — 19 tests: normalised ratio formulas (5 exact values), effective tax rate, zero assets→NaN, missing cols, no overwrite, NaN propagation, Piotroski ext signals, f_score_9 sum, missing source skips, first-year behavior
+- `tests/pipeline/test_p0f.py` — 48 tests: structural rules (9), investable filters (23), in_universe semantics (8), market-specific (3), missing columns (4), fail-open/fail-closed verification
+
+**Files modified:**
+- `KNOWN_ISSUES.md` — added P0F-PRICE-FLOOR-001 (Low), PIOTROSKI-FIRST-YEAR-001 (Low)
+- `PIPELINE_ATLAS.md` — updated Test Matrix status for feature_library + p0f, updated Coverage Summary
+- `AI_EDIT_LOG.md` — this session report + Session 7 handoff
+
+**Audit findings:**
+
+### feature_library.py (49 lines)
+
+| # | Check | Verdict | Notes |
+|---|---|---|---|
+| FL.1 | `add_normalised_ratios` formulas | ✅ | 5 ratios = source/total_assets. Zero-guard correct. |
+| FL.2 | `effective_tax_rate` formula | ✅ | tax_expense/pretax_income, only for pti>0. Standard. |
+| FL.3 | Zero total_assets handling | ✅ | Replaced with NaN before division. Correct. |
+| FL.4 | Missing columns handling | ✅ | `df.get()` returns None, loop guards on `src in df.columns`. Safe. |
+| FL.5 | Overwrite protection | ✅ | `if dst not in df.columns` prevents clobber. |
+| FL.6 | `add_piotroski_ext` signals | ✅ | shares_ok (no dilution), delta_gm (improving), delta_at (improving). All standard. |
+| FL.7 | Sort before shift | ✅ | `sort_values(['ticker', 'fiscal_year'])` ensures correct temporal ordering. |
+| FL.8 | Cross-ticker isolation | ✅ | `groupby('ticker').transform()` — shift is per-ticker. |
+| FL.9 | f_score_9 summation | ✅ | `min_count=1` in `.sum()` — NaN-safe. |
+| FL.10 | First-year behavior | ⚠️ Low | Shift→NaN→comparison→False→0.0. Logs as PIOTROSKI-FIRST-YEAR-001 (design choice, not bug). |
+
+### p0f_universe_definition.py (257 lines)
+
+| # | Check | Verdict | Notes |
+|---|---|---|---|
+| P0F.1 | Quarterly excluded | ✅ | `ptype != 'annual'` flagged. |
+| P0F.2 | FY >= 2009 | ✅ | Correct lower bound. |
+| P0F.3 | FY <= current_year - 1 | ✅ | Incomplete year excluded. |
+| P0F.4 | Revenue/assets fail-open | ✅ | `notna() & (val < threshold)` — NaN passes through. |
+| P0F.5 | Price fail-closed | ✅ | `isna() | (price <= 0)` → excluded. Intentional (no investability without price). |
+| P0F.6 | SIC financials 6000–6999 | ✅ | Inclusive boundaries, NaN-safe. |
+| P0F.7 | SIC utilities 4900–4999 | ✅ | Same pattern. |
+| P0F.8 | Market-specific floors | ✅ | US=$1, CA=$0.05, others=0. Map with fillna(0). |
+| P0F.9 | EU market codes | ✅ | EU tickers use country codes (DE/FR/etc.), all map to 0.0. |
+| P0F.10 | Price floor vs OTC check | ⚠️ Low | Code applies floor to ALL exchanges, not just OTC. Logged as P0F-PRICE-FLOOR-001. |
+| P0F.11 | in_universe dtype | ✅ | int8. |
+| P0F.12 | excl_reason pipe format | ✅ | No leading/trailing pipes. Multiple reasons pipe-separated. |
+| P0F.13 | No mutation of input | ✅ | `df.copy()` before adding columns. |
+
+**No production code changes. Tests only + documentation updates.**
+
+---
+
+## Next Claude Session Handoff
+
+- Status: Session 6 complete (feature_library + p0f audited, 67 tests added, all 235 tests pass)
+- Branch: `refactor/s6-audit-support` (local commit, not pushed, not merged)
+- Files created: `tests/pipeline/test_feature_library.py` (19 tests), `tests/pipeline/test_p0f.py` (48 tests)
+- Files modified: `KNOWN_ISSUES.md`, `PIPELINE_ATLAS.md`, `AI_EDIT_LOG.md`
+- Guardrails: pre-commit hook active
+- Issues found: P0F-PRICE-FLOOR-001 (Low), PIOTROSKI-FIRST-YEAR-001 (Low)
+- Next goal: **Session 7 — Audit remaining CURRENT_SUPPORT modules: p0g_confidence_score.py + enrich_fraud_labels.py. Add tests for both.**
+- Branch flow: User merges `refactor/s6-audit-support` into `main`, then Session 7 creates `refactor/s7-audit-enrichment` from updated `main`
+
+### Session-end checklist (Session 6)
+
+- Atlas update needed? Yes. Updated Test Matrix status for feature_library + p0f (missing → ✅ covered), added Coverage Summary entries.
+- Parquet atlas update needed? No. Neither module changes parquet schema/flow — p0f adds columns but that's already documented.
+- KNOWN_ISSUES update needed? Yes. Added P0F-PRICE-FLOOR-001 (Low) and PIOTROSKI-FIRST-YEAR-001 (Low).
+- AI_EDIT_LOG handoff updated? Yes.
+
+### Session 7 prompt (copy-paste into a fresh Claude Code conversation):
+
+```
+Start Session 7. Project: /Users/mhoque/Desktop/stock-fraud-screener-main
 
 First, verify setup:
 1. Run git status — confirm clean working tree
 2. Confirm current branch is main
-3. Create and checkout branch: git checkout -b refactor/s6-audit-support
+3. Create and checkout branch: git checkout -b refactor/s7-audit-enrichment
 
 Then read these files to understand the codebase state:
 - PIPELINE_ATLAS.md (file map, call graph, test matrix, step audit checklist)
 - PARQUET_ATLAS.md (parquet file registry, mutation order)
-- KNOWN_ISSUES.md (logged issues from Sessions 0–5)
+- KNOWN_ISSUES.md (logged issues from Sessions 0–6)
 - AI_EDIT_LOG.md (session history and handoff)
 
-Session 6 goal: Audit CURRENT_SUPPORT modules and add minimal critical tests.
+Session 7 goal: Audit remaining CURRENT_SUPPORT enrichment modules and add minimal critical tests.
 
 Scope:
-- Audit pipeline/feature_library.py (49 lines): formula correctness for add_normalised_ratios and add_piotroski_ext
-- Audit pipeline/p0f_universe_definition.py (257 lines): filter logic, market-specific rules, in_universe semantics, fail-open behavior
+- Audit pipeline/p0g_confidence_score.py (255 lines): scoring logic, range [0,1], NaN handling, coverage calculation
+- Audit pipeline/enrich_fraud_labels.py (383 lines): label alignment, date matching, AAER integration, column semantics
 - Write minimal critical tests for both (synthetic data, no network calls)
-- Tests for feature_library: known-input → known-output for normalised ratios and Piotroski extension
-- Tests for p0f: quarterly excluded, fiscal year bounds, revenue/assets filters (--apply-filters), SIC exclusions, missing data fail-open, in_universe column semantics
+- Tests for p0g: score range [0,1], NaN inputs, coverage metric correctness, column semantics
+- Tests for enrich_fraud_labels: label merge correctness, date window matching, no false positives, column semantics
 
 Rules:
 - No broad refactor
@@ -383,7 +462,7 @@ Rules:
 At session end, update:
 - KNOWN_ISSUES.md — add any new issues found during audit
 - PIPELINE_ATLAS.md — update Test Matrix status column if tests are added
-- AI_EDIT_LOG.md — add Session 6 report + Session 7 handoff with full prompt
+- AI_EDIT_LOG.md — add Session 7 report + Session 8 handoff with full prompt
 
 Before ending the session, check whether PIPELINE_ATLAS.md, PARQUET_ATLAS.md, KNOWN_ISSUES.md, or AI_EDIT_LOG.md needs updating. If not, say why.
 

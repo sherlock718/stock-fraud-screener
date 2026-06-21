@@ -130,6 +130,22 @@ Issues found during pipeline audit. Classified by type and severity.
 - **Risk:** Low — downstream script handles it. But if step 3 output is used directly without `mark_survivorship.py`, survivorship bias is present.
 - **Action:** None needed. Document in PARQUET_ATLAS that `prices.parquet` requires `mark_survivorship.py` post-processing.
 
+### P0F-PRICE-FLOOR-001: Price floor applied to all exchanges, not just OTC
+
+- **Type:** doc/code mismatch
+- **Found:** Session 6 (p0f audit)
+- **Details:** `p0f_universe_definition.py` docstring says "No OTC penny stocks: exclude if exchange == 'OTC' AND entry_price < market floor" but the code (line 144) excludes ALL rows below the market floor regardless of exchange. The `OTC_EXCHANGES` constant is defined but never used in the filter logic.
+- **Risk:** Near-zero. NYSE/NASDAQ-listed stocks below $1 are exceptionally rare (they would be delisted). The effective behavior is correct for the purpose of filtering penny stocks.
+- **Action:** Either fix the docstring to match code (simpler) or add the exchange check to match docstring. Low priority — no data impact.
+
+### PIOTROSKI-FIRST-YEAR-001: Piotroski extension signals default to 0 (not NaN) for first observation per ticker
+
+- **Type:** design observation
+- **Found:** Session 6 (feature_library audit)
+- **Details:** `add_piotroski_ext()` uses `shift(1)` to compare YoY. The first year per ticker has NaN shift → boolean comparison with NaN yields False → `astype(float)` produces 0.0. This means every ticker's first appearance gets 0 for all three extension signals, implying "no improvement" rather than "unknown."
+- **Risk:** Very low. The 0 default is conservative (penalizes first observation). The `piotroski_f_score_9` for first years equals `piotroski_f_score + 0` which is semantically reasonable. Downstream training sees this consistently across all tickers.
+- **Action:** None needed. Document behavior in tests. If NaN is desired for first-year rows, a one-line fix (`where(shift notna)`) would suffice.
+
 ---
 
 ## Parking Lot
