@@ -92,7 +92,7 @@ Quarterly signals are enriched into annual rows via `scripts/enrich_quarterly_fe
 | CA/EU/JP: 4–5 yr only | All integrate scripts | Cannot compute reliable 5yr CAGR or ICIR |
 | KR DART ingestion ongoing | `scripts/run_pipeline_kr.py` | ETA ~29 May 2026 |
 | Multi-market GitHub Actions refresh | `.github/workflows/` | Currently US-only weekly cron |
-| `fraud_score_governance` all-NaN | `pipeline/enrich_governance.py` | Governance signal missing |
+| `fraud_score_governance` all-NaN | `pipeline/archive/enrich_governance.py` (ARCHIVED) | Governance signal missing; going_concern logic needs migration to step5 |
 
 **Exit criteria for Phase A**: All in `docs/developer/phase-done-criteria.md` → run `scripts/check_sync.py` before declaring done.
 

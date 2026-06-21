@@ -15,13 +15,18 @@ A research-grade quantitative alpha generation platform covering 14 markets — 
 ## Architecture
 
 ```
-pipeline/               Raw data ingestion ONLY — fetch, snapshot, enrich, merge
+pipeline/               Active step-based data pipeline + support utilities
 ├── step1_fetch_tickers*.py     Ticker discovery per market (US/EU/KR/JP/CA/BR)
 ├── step2_build_snapshots*.py   Build annual financial snapshots from raw filings
-├── step3_enrich_kpis.py        Compute derived KPIs and features (200+)
-├── feature_library.py          Shared feature engineering — single source of truth
-├── build_historical_dataset.py Merge all market snapshots into one parquet
-└── fraud_signals.py            Beneish/Ohlson/Altman/Piotroski scoring
+├── step3_enrich_prices.py      Price enrichment + forward returns
+├── step4_enrich_macro.py       Macro enrichment at filing date
+├── step5_compute_features.py   Core feature computation
+├── step6_clean.py              Data quality filter → final clean parquet
+├── p0f_universe_definition.py  Investable universe definition / filtering
+├── p0g_confidence_score.py     Data confidence scoring / quality reporting
+├── enrich_fraud_labels.py      Fraud label enrichment, excluded from model features
+├── feature_library.py          Shared feature helpers and reusable calculations
+└── archive/                    Legacy JSON-era scripts, preserved for reference
 
 scripts/                Analysis, ML, reporting — consumes output of pipeline/
 ├── train_models.py             Train LightGBM models (1y/3y/5y) with ICIR selection; alpha_* and ml_* excluded

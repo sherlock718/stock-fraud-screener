@@ -525,22 +525,65 @@ Start Session 6. Project: /Users/mhoque/Desktop/stock-fraud-screener-main
 
 ## Next Claude Session Handoff
 
-- Status: Session 8 complete (10 legacy files archived, stranded logic documented, all 296 tests pass)
-- Branch: `refactor/s8-archive-legacy` (local commit, not pushed, not merged)
-- Files created: `pipeline/archive/STRANDED_LOGIC.md`
-- Files moved (git mv): 10 legacy files from `pipeline/` → `pipeline/archive/`
-- Files modified: `PIPELINE_ATLAS.md`, `KNOWN_ISSUES.md`, `AI_EDIT_LOG.md`
-- Issues resolved: BROKEN-IMPORT-001 (all 3 files archived)
+- Status: Session 9 complete (docs sync — all stale references to 10 archived legacy files fixed, 296 tests pass)
+- Branch: `docs/s9-archive-doc-sync` (local commit, not pushed, not merged)
+- Files modified: `README.md`, `ROADMAP.md`, `CONTEXT.md`, `docs/developer/pipeline-scripts.md`, `docs/developer/contributing.md`, `docs/developer/data-update-guide.md`, `AI_EDIT_LOG.md`
 - Issues found: None new.
-- Next goal: **Session 9 — Docs Sync.** Update README.md, contributing.md, pipeline-scripts.md, and data-update-guide.md to reflect archived files. Fix stale references to `build_historical_dataset.py`, `fraud_signals.py`, etc.
-- Branch flow: User merges `refactor/s8-archive-legacy` into `main`, then Session 9 creates `docs/s9-archive-doc-sync` from updated `main`
+- Issues resolved: None (docs-only session).
+- Next goal: **Session 10 — TBD.** Potential directions: data regeneration (PRICE-UNADJUSTED-001 + RANK-LEAKAGE-001), LIQUIDITY-001 design decision, or cross-sectional momentum feature gap.
+- Branch flow: User merges `docs/s9-archive-doc-sync` into `main`, then Session 10 creates new branch from updated `main`
 
-### Session-end checklist (Session 8)
+### Session-end checklist (Session 9)
 
-- Atlas update needed? Yes. Reclassified 10 files as ARCHIVED. Updated classification key. Updated call graph (dead edges annotated as archived).
-- Parquet atlas update needed? No. None of the archived files are listed as readers/writers/mutators of parquet files (they operated on `companies_financials.json`).
-- KNOWN_ISSUES update needed? Yes. Resolved BROKEN-IMPORT-001 (all 3 broken-import files archived).
+- Docs updated? Yes. 6 files fixed for stale archived-file references.
+- PIPELINE_ATLAS update needed? No. Already updated in Session 8 (files reclassified as ARCHIVED).
+- PARQUET_ATLAS update needed? No. No schema/flow/mutation changes.
+- KNOWN_ISSUES update needed? No. No new issues found. Docs-only session.
 - AI_EDIT_LOG handoff updated? Yes.
+
+---
+
+## Session 9 — Docs Sync for Archived Legacy Files (2026-06-22)
+
+**Branch:** `docs/s9-archive-doc-sync`
+
+**Files modified:**
+- `README.md` — Updated pipeline directory tree: removed stale `build_historical_dataset.py` and `fraud_signals.py` entries; replaced with current step-based pipeline (step1–step6 + support modules + archive/)
+- `docs/developer/pipeline-scripts.md` — Added `⚠️ ARCHIVED (Session 8)` banners to 7 sections: value_metrics.py, fraud_signals.py, enrich_governance.py, enrich_insider_signals.py, enrich_market_signals.py, enrich_market_cap.py, build_historical_dataset.py, fetch_companies.py, market_cap_filter.py, auto_update.py. Content preserved for formula reference.
+- `docs/developer/contributing.md` — Line 158: replaced `pipeline/build_historical_dataset.py` reference with `pipeline/phase_a_integrate_{market}.py` (current workflow)
+- `docs/developer/data-update-guide.md` — Replaced `auto_update.py` reference with `scripts/refresh_data.py` + note about archive status
+- `ROADMAP.md` — Marked `auto_update.py` and `enrich_governance.py` references as archived/deferred (not ✅ Done — features not actively implemented in current pipeline)
+- `CONTEXT.md` — Updated `enrich_governance.py` path to `pipeline/archive/enrich_governance.py (ARCHIVED)` with migration note
+- `AI_EDIT_LOG.md` — This session report + Session 10 handoff
+
+**Grep coverage (files searched):**
+- Searched all `.md`, `.yml`, `.yaml` files for full paths (`pipeline/fraud_signals.py`, etc.) and bare names (`fraud_signals.py`, etc.)
+- Excluded: `pipeline/archive/` (archived files reference themselves), `PIPELINE_ATLAS.md` (already updated Session 8), `AI_EDIT_LOG.md` (historical records), `KNOWN_ISSUES.md` (already updated Session 8)
+- `CHANGELOG.md` references are historical records — intentionally NOT modified
+
+**Stale references found and fixed:**
+| File | Stale Reference | Fix |
+|---|---|---|
+| `README.md:23` | `build_historical_dataset.py` in tree | Replaced with step-based pipeline tree |
+| `README.md:24` | `fraud_signals.py` in tree | Replaced with step-based pipeline tree |
+| `docs/developer/pipeline-scripts.md` | 10 sections for archived scripts | Added ARCHIVED banners (content preserved) |
+| `docs/developer/contributing.md:158` | `pipeline/build_historical_dataset.py` | → `pipeline/phase_a_integrate_{market}.py` |
+| `docs/developer/data-update-guide.md:149` | `auto_update.py` | → `scripts/refresh_data.py` + archive note |
+| `ROADMAP.md:60` | `pipeline/enrich_governance.py` | Added (ARCHIVED) + migration note |
+| `ROADMAP.md:97` | `pipeline/auto_update.py` as ✅ Done | → ⚠️ Archived + replacement note |
+| `ROADMAP.md:116` | `pipeline/enrich_governance.py` as ✅ Done | → ⚠️ Archived + stranded logic note |
+| `CONTEXT.md:95` | `pipeline/enrich_governance.py` | → `pipeline/archive/enrich_governance.py (ARCHIVED)` |
+
+**NOT modified (intentional):**
+- `CHANGELOG.md` — historical entries are records, not active references
+- `PIPELINE_ATLAS.md` — already classified as ARCHIVED in Session 8
+- `KNOWN_ISSUES.md` — no stale refs (BROKEN-IMPORT-001 already resolved)
+- Python code — docs-only session
+- Test files — docs-only session
+
+**Test results:** 296 passed, 0 failed.
+
+**No production code changes. No test changes. No parquet changes.**
 
 ---
 

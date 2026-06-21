@@ -146,7 +146,9 @@ python3 pipeline/step5_compute_features.py --snapshots data/snapshots_kr.parquet
     --prices data/prices_kr.parquet --macro data/macro_kr.parquet --suffix _kr
 ```
 
-Then re-integrate and re-clean each market, or use `auto_update.py` for a full refresh.
+Then re-integrate and re-clean each market, or use `scripts/refresh_data.py` for a full refresh.
+
+> **Note:** The legacy `pipeline/auto_update.py` has been archived (Session 8). Use `scripts/refresh_data.py` + GitHub Actions for automated refreshes.
 
 ### Step 4 — Update documentation (required by CLAUDE.md)
 

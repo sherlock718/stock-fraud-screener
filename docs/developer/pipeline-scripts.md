@@ -164,6 +164,8 @@ See [Feature Engineering →](../methodology/features.md) for the complete annot
 
 ### `value_metrics.py` — Investment Ratio Library
 
+> **⚠️ ARCHIVED (Session 8)** — Moved to `pipeline/archive/value_metrics.py`. Logic fully duplicated in `step5_compute_features.py` § A+B. Kept here for formula reference only.
+
 Computes investment analysis ratios that are **not** used in the fraud score but are displayed in the UI and used as ML features in the 5-factor alpha score.
 
 Metrics: P/E, P/B, EV/EBITDA, FCF Yield, ROE, ROA, Gross Margin, Net Margin, Debt/Equity, Current Ratio, plus Greenblatt (ROIC, Earnings Yield), Carlisle (Acquirer's Multiple), Graham (NCAV), and Novy-Marx (Gross Profitability) extensions.
@@ -173,6 +175,8 @@ Metrics: P/E, P/B, EV/EBITDA, FCF Yield, ROE, ROA, Gross Margin, Net Margin, Deb
 ## Fraud Signal Modules
 
 ### `fraud_signals.py` — Fraud Score Computation
+
+> **⚠️ ARCHIVED (Session 8)** — Moved to `pipeline/archive/fraud_signals.py`. Logic fully duplicated in `step5_compute_features.py` § C+D. Kept here for formula reference only.
 
 Computes the forensic accounting fraud signals that feed into the Fraud Risk factor.
 
@@ -214,9 +218,13 @@ Adds five fraud-type sub-scores (0.0–1.0 each) plus the `fraud_suspect` signal
 
 ### `enrich_governance.py` — Governance Signals
 
+> **⚠️ ARCHIVED (Session 8)** — Moved to `pipeline/archive/enrich_governance.py`. Going concern logic preserved in `pipeline/archive/STRANDED_LOGIC.md` for future migration.
+
 Adds `going_concern` flag (True if SEC filing disclosed going concern doubt) via EDGAR EFTS full-text search. Replaces older `enrich_auditor_going_concern.py`.
 
 ### `enrich_insider_signals.py` — Insider Trading Signals
+
+> **⚠️ ARCHIVED (Session 8)** — Moved to `pipeline/archive/enrich_insider_signals.py`. Insider signal logic preserved in `pipeline/archive/STRANDED_LOGIC.md` for future migration.
 
 Fetches SEC Form 4 filings for the last 12 months and computes:
 - `insider_sale_count`, `insider_buy_count`
@@ -224,6 +232,8 @@ Fetches SEC Form 4 filings for the last 12 months and computes:
 - `insider_selling_flag` (net sold > 10K shares AND sales > buys)
 
 ### `enrich_market_signals.py` — Market-Based Signals
+
+> **⚠️ ARCHIVED (Session 8)** — Moved to `pipeline/archive/enrich_market_signals.py`. ADTV/volume/pump-dump logic preserved in `pipeline/archive/STRANDED_LOGIC.md` for future migration.
 
 Adds liquidity and momentum signals:
 - `avg_volume_90d`, `volume_spike_ratio` (30d/90d)
@@ -233,6 +243,8 @@ Adds liquidity and momentum signals:
 - `volatility_90d`, `beta`, `bid_ask_spread`
 
 ### `enrich_market_cap.py` — Market Cap Gap Fill
+
+> **⚠️ ARCHIVED (Session 8)** — Moved to `pipeline/archive/enrich_market_cap.py`. JSON-era market cap enrichment.
 
 Fills missing `market_cap` values for companies where step3 price enrichment didn't produce a market cap. Uses yfinance.
 
@@ -296,10 +308,12 @@ python3 pipeline/p0g_confidence_score.py
 
 ### `build_historical_dataset.py` — Merge All Markets into One Parquet
 
+> **⚠️ ARCHIVED (Session 8)** — Moved to `pipeline/archive/build_historical_dataset.py`. Superseded by the step2→step6 pipeline chain. Multi-market merging is now handled by `phase_a_integrate_*.py` scripts.
+
 Merges all market snapshot files into a single `historical_dataset_clean.parquet`. Called automatically by `scripts/run_pipeline.py` step 6. Run directly to re-merge without re-running the full pipeline.
 
 ```bash
-python3 pipeline/build_historical_dataset.py
+python3 pipeline/build_historical_dataset.py  # ARCHIVED — use step6_clean.py instead
 ```
 
 ---
@@ -406,12 +420,18 @@ Macro: `macro_ca.parquet` → `macro.parquet` fallback.
 
 ### `fetch_companies.py` — Company Metadata Fetcher
 
+> **⚠️ ARCHIVED (Session 8)** — Moved to `pipeline/archive/fetch_companies.py`. Superseded by `step1_fetch_tickers.py`.
+
 Fetches and caches company metadata (name, SIC code, exchange, CIK) from SEC EDGAR. Called internally by step1 and step2 modules.
 
 ### `market_cap_filter.py` — Market Cap Filter Utility
 
+> **⚠️ ARCHIVED (Session 8)** — Moved to `pipeline/archive/market_cap_filter.py`. Superseded by `p0f_universe_definition.py`.
+
 Shared utility used by backtester and screener to apply the minimum market cap floor. Default: $50M.
 
 ### `auto_update.py` — Auto-Update Orchestrator
+
+> **⚠️ ARCHIVED (Session 8)** — Moved to `pipeline/archive/auto_update.py`. Broken imports (JSON-era). Refresh is now handled by `scripts/refresh_data.py` + GitHub Actions.
 
 Orchestrates an incremental refresh of the dataset: downloads the existing parquet from HuggingFace, identifies new fiscal years available, runs only the new rows through the pipeline, and re-merges. Used by the GitHub Actions weekly refresh workflow.

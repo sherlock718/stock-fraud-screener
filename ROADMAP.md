@@ -57,7 +57,7 @@
 - KR: DART API has daily rate limits — ingestion running, estimated completion ~29 May 2026
 - All non-US: missing `phase_a_integrate_*.py` scripts to merge into `historical_dataset_clean.parquet`
 - Cross-sectional momentum ranks missing: raw columns present (`momentum_12m_prior`, `momentum_6m_prior`, etc.) but rank transforms not computed
-- `fraud_score_governance` all-NaN bug — `pipeline/enrich_governance.py` returns all NaN
+- `fraud_score_governance` all-NaN bug — `pipeline/enrich_governance.py` (ARCHIVED) returns all NaN; feature deferred pending migration of going_concern logic to step5
 - `fraud_suspect` missing globally — column all-zero; EDGAR full-text search logic broken
 
 **V1 priority**: All 6 markets in clean dataset with max available free history. No universe filters applied (all tickers included).
@@ -94,7 +94,7 @@
 | Task | Status | File |
 |---|---|---|
 | Incremental US refresh | ✅ Done | `scripts/refresh_data.py` |
-| Monthly pipeline orchestrator | ✅ Done | `pipeline/auto_update.py` |
+| Monthly pipeline orchestrator | ⚠️ Archived | `pipeline/archive/auto_update.py` (broken imports; replaced by `scripts/refresh_data.py` + GitHub Actions) |
 | GitHub Actions weekly job | ✅ Done | `.github/workflows/` |
 | HuggingFace push after refresh | ✅ Done | `scripts/push_to_hf.py` |
 | Multi-market incremental refresh | ❌ Todo (after Step 1 integration per market) | — |
@@ -113,7 +113,7 @@
 |---|---|---|
 | 314 base features | ✅ Done | `pipeline/feature_library.py` |
 | 5 quarterly dynamics (intra-year) | ✅ Done | `scripts/enrich_quarterly_features.py` |
-| Governance / going concern signals | ✅ Done | `pipeline/enrich_governance.py` |
+| Governance / going concern signals | ⚠️ Archived | `pipeline/archive/enrich_governance.py` (logic preserved in `STRANDED_LOGIC.md`; migration to step5 deferred) |
 | AAER fraud labels (492 rows / 118 companies) | ✅ Done | `scripts/fetch_aaer_labels.py` |
 | **Cross-sectional momentum (12m-1m rank)** | ❌ Blocker | Jegadeesh & Titman 1993 — biggest signal gap |
 | Sector-relative feature normalisation | ❌ Todo | Improves cross-sectional ranking |
