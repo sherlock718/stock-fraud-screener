@@ -475,62 +475,143 @@ Start Session 6. Project: /Users/mhoque/Desktop/stock-fraud-screener-main
 
 ---
 
+## Session 7 — Enrichment Audit + Tests (2026-06-21)
+
+**Branch:** `refactor/s7-audit-enrichment` (recreated from updated `main` after Session 6.5 merge)
+
+**Files created:**
+- `tests/pipeline/test_p0g_confidence_score.py` — 27 tests: score range, coverage, consistency, timeliness, composite, idempotency
+- `tests/pipeline/test_enrich_fraud_labels.py` — 31 tests: known CIKs, AAER window, suspect signals, label semantics, idempotency
+
+**Files modified:**
+- `PIPELINE_ATLAS.md` — updated Test Matrix status for p0g + enrich_fraud_labels, updated Coverage Summary
+- `AI_EDIT_LOG.md` — this session report + Session 8 handoff
+
+**Audit findings:**
+
+### p0g_confidence_score.py (255 lines)
+
+| # | Check | Verdict | Notes |
+|---|---|---|---|
+| P0G.1 | Columns read | ✅ | 19 core analytical cols + filing_lag_days + fiscal_year |
+| P0G.2 | Column created | ✅ | `data_confidence` float [0,1] |
+| P0G.3 | Downstream usage | ✅ | Only DB schema. NOT used in training/backtest/features |
+| P0G.4 | Deterministic | ✅ | Pure function of existing columns |
+| P0G.5 | Idempotent | ✅ | Overwrites same column with same result |
+| P0G.6 | Leakage check | ⚠️ Info | `forward_return_1y` in coverage group is a target col. Not a bug because `data_confidence` is never a model feature. Reporting/quality metric only. |
+| P0G.7 | Score range | ✅ | `clip(0.0, 1.0)` guarantees bounds |
+| P0G.8 | NaN handling | ✅ | Missing cols → 0.5 default. Missing values → lower coverage score |
+| P0G.9 | Mutator vs report | Info | Currently parquet mutator. Could be report-only. No consumer filters on it. Keep as-is. |
+
+### enrich_fraud_labels.py (383 lines)
+
+| # | Check | Verdict | Notes |
+|---|---|---|---|
+| FL.1 | Labels created | ✅ | `fraud_confirmed` (int8), `fraud_suspect` (int8) |
+| FL.2 | Confirmed vs suspicious | ✅ | `fraud_confirmed` = SEC enforcement only. `fraud_suspect` = quantitative red flags (2+ signals). |
+| FL.3 | Target leakage | ✅ | Both in EXCLUDE set in train_models.py. Never used as features. |
+| FL.4 | Mutates in-place | ✅ | Yes. Reads + writes `historical_dataset_clean.parquet`. |
+| FL.5 | Label/feature separation | ✅ | Clear. Labels here. Taxonomy scores in separate file. |
+| FL.6 | Deterministic | ✅ | With cache. Non-deterministic only on first AAER fetch. |
+| FL.7 | Idempotent | ✅ | Overwrites both columns fully each run. |
+| FL.8 | Missing/fallback | ✅ | Falls back to KNOWN_FRAUD_CIKS if AAER unavailable. |
+| FL.9 | Confirmed overrides suspect | ✅ | Line 327: `fraud_suspect=0` where `fraud_confirmed=1`. No double-count. |
+| FL.10 | Enforcement window | ✅ | [e_year-5, e_year+2]. Documented. Intentional. |
+| FL.11 | Separate from taxonomy | ✅ | Yes. Different concerns (is-fraud vs what-type). |
+
+**No critical issues found. No production code changes. Tests only + documentation updates.**
+
+---
+
 ## Next Claude Session Handoff
 
-- Status: Session 6.5 complete (triage done, KNOWN_ISSUES reorganized)
-- Branch: `refactor/s6-5-known-issues-triage` (local commit, not pushed, not merged)
-- Session 7 WIP: stashed on `refactor/s7-audit-enrichment` branch (2 test files: `test_p0g_confidence_score.py`, `test_enrich_fraud_labels.py`)
-- Next goal: **Session 7 — Resume audit of p0g + enrich_fraud_labels. Pop stash, run tests, update docs, commit.**
-- Branch flow: User merges `refactor/s6-5-known-issues-triage` into `main`, then resumes Session 7 on existing `refactor/s7-audit-enrichment` branch
+- Status: Session 7 complete (p0g + fraud labels audited, 61 tests added, all 296 tests pass)
+- Branch: `refactor/s7-audit-enrichment` (local commit, not pushed, not merged)
+- Files created: `tests/pipeline/test_p0g_confidence_score.py` (27 tests), `tests/pipeline/test_enrich_fraud_labels.py` (34 tests)
+- Files modified: `PIPELINE_ATLAS.md`, `AI_EDIT_LOG.md`
+- Issues found: None new. Both modules are clean.
+- Stash: Dropped (tests passed, files committed).
+- Next goal: **Session 8 — Legacy Archive / Call-Graph Proof.** Prove LEGACY_ARCHIVE_CANDIDATE files are unused, archive them.
+- Branch flow: User merges `refactor/s7-audit-enrichment` into `main`, then Session 8 creates `refactor/s8-archive-legacy` from updated `main`
 
-### Session-end checklist (Session 6.5)
+### Session-end checklist (Session 7)
 
-- Atlas update needed? No. No file roles, test status, or feature ownership changed.
-- Parquet atlas update needed? No. No schema, flow, or mutation order changes.
-- KNOWN_ISSUES update needed? Yes. Full reorganization with triage classifications.
+- Atlas update needed? Yes. Updated Test Matrix status for p0g + enrich_fraud_labels (missing → ✅ covered), updated Coverage Summary.
+- Parquet atlas update needed? No. No schema/flow/mutation changes. Both modules' mutations already documented.
+- KNOWN_ISSUES update needed? No. Audit found no new issues.
 - AI_EDIT_LOG handoff updated? Yes.
 
-### Session 7 prompt (copy-paste into a fresh Claude Code conversation):
+### Session 8 prompt (copy-paste into a fresh Claude Code conversation):
 
 ```
-Start Session 7. Project: /Users/mhoque/Desktop/stock-fraud-screener-main
+Start Session 8. Project: /Users/mhoque/Desktop/stock-fraud-screener-main
 
 First, verify setup:
 1. Run git status — confirm clean working tree on main
-2. Checkout existing branch: git checkout refactor/s7-audit-enrichment
-3. Pop stash: git stash pop
-4. Confirm the two test files are restored:
-   - tests/pipeline/test_p0g_confidence_score.py
-   - tests/pipeline/test_enrich_fraud_labels.py
+2. Confirm current branch is main
+3. Create and checkout branch: git checkout -b refactor/s8-archive-legacy
 
 Then read these files to understand the codebase state:
-- PIPELINE_ATLAS.md (file map, call graph, test matrix, step audit checklist)
+- PIPELINE_ATLAS.md (file map, call graph, test matrix)
 - PARQUET_ATLAS.md (parquet file registry, mutation order)
-- KNOWN_ISSUES.md (logged issues from Sessions 0–6.5, freshly triaged)
+- KNOWN_ISSUES.md (known issues, triaged)
 - AI_EDIT_LOG.md (session history and handoff)
 
-Session 7 goal: Complete audit of CURRENT_SUPPORT enrichment modules and finalize tests.
+Session 8 goal: Legacy Archive / Call-Graph Proof.
 
-Context from prior partial work (Session 7 started, paused for triage):
-- Audits of both files are COMPLETE (findings below). Tests are WRITTEN but NOT YET RUN.
-- p0g_confidence_score.py: No critical issues. forward_return_1y in coverage group is debatable but data_confidence is not a training feature. Deterministic, idempotent. Only downstream consumer is DB schema.
-- enrich_fraud_labels.py: No critical issues. Labels clearly separated from features (in EXCLUDE set). CIK matching with enforcement window [e_year-5, e_year+2]. Deterministic with cache. Confirmed overrides suspect. fraud_suspect requires 2+ signals.
+Prove LEGACY_ARCHIVE_CANDIDATE files are NOT used by:
+- current Step 1–7 pipeline (run_pipeline.py)
+- ML training (train_models.py)
+- OOF scoring (generate_oof_scores.py)
+- backtester (backtester.py)
+- portfolio builder (build_portfolio.py)
+- app/dashboard (app_v2.py, api/)
+- CI (.github/workflows/)
+- docs/handoff scripts
 
-Remaining work:
-1. Run tests: python3 -m pytest tests/pipeline/test_p0g_confidence_score.py tests/pipeline/test_enrich_fraud_labels.py -v
-2. Fix any test failures (adjust test expectations, not production code)
-3. Run full suite: python3 -m pytest tests/ -q
-4. Update PIPELINE_ATLAS.md — Test Matrix status for p0g + enrich_fraud_labels
-5. Update KNOWN_ISSUES.md — add any new issues found
-6. Update AI_EDIT_LOG.md — Session 7 report + Session 8 handoff
-7. Commit locally. Do not push. Do not merge.
+10 candidate legacy files:
+- pipeline/fraud_signals.py
+- pipeline/fetch_companies.py
+- pipeline/market_cap_filter.py
+- pipeline/value_metrics.py
+- pipeline/auto_update.py
+- pipeline/enrich_governance.py
+- pipeline/enrich_insider_signals.py
+- pipeline/enrich_market_cap.py
+- pipeline/enrich_market_signals.py
+- pipeline/build_historical_dataset.py
+
+For each file:
+1. grep -rn for all imports/references across the repo (exclude __pycache__, .git)
+2. Classify: truly unused / imported by another legacy file only / imported by active code
+3. If useful stranded logic exists (insider signals, governance, ADTV/liquidity, fraud formulas), note it in a STRANDED_LOGIC.md or comments before archiving
+4. If a file is imported by active code, do NOT archive it — flag for future refactor instead
+
+Archive process:
+- Create pipeline/archive/ folder
+- Use git mv (not plain mv) to preserve file history
+- Move confirmed-unused files there
+- Do NOT delete anything
+
+After archiving:
+- Run: python3 -m pytest tests/ -q
+- Confirm no tests broke from the move (import paths, test discovery)
+- If tests break, fix the import or do not archive that file
+
+Update:
+- PIPELINE_ATLAS.md — file map (reclassify as ARCHIVED), call graph (remove dead edges), classification key (add ARCHIVED)
+- PARQUET_ATLAS.md — only if a reader/mutator entry references an archived file
+- KNOWN_ISSUES.md — resolve BROKEN-IMPORT-001 if all three broken-import files are archived
+- AI_EDIT_LOG.md — Session 8 report + Session 9 handoff
 
 Rules:
-- No broad refactor
+- No production code changes to active pipeline files
 - No feature engineering
-- No archive/move/delete of pipeline files
-- No production code changes unless critical and approved
+- No parquet data changes
+- Use git mv for all moves
+- Run full test suite after archive to catch breakage
 - Do not push. Do not merge.
+- If a file IS used by active code (not just other legacy files), STOP and report — do not archive it.
 
 Session-end checklist:
 - Atlas update needed? Yes/No. Reason:
