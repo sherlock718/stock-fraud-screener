@@ -67,6 +67,15 @@ Issues found during pipeline audit. Classified by type and severity.
 - **Risk:** Low. Documentation only — no runtime impact.
 - **Action:** Fix in PARQUET_ATLAS.md (done this session).
 
+### FX-MIXED-PORTFOLIO-001: Multi-market backtest mixes local-currency returns
+
+- **Type:** backtest presentation issue
+- **Found:** Session 3 (FX audit)
+- **Details:** `scripts/backtester.py` and `scripts/build_portfolio.py` use `forward_return_1y` (local currency) for all markets. When run without `--market` filter, a global portfolio averages JPY returns, BRL returns, and USD returns equally. The reported CAGR is not a real USD return — it's an unweighted mix of local-currency returns.
+- **Risk:** Medium. Backtest CAGR is misleading for multi-market runs. Does NOT affect model training (trains on `beat_local_market` which is market-relative). Does NOT affect single-market backtests.
+- **Mitigation:** `--market US` flag exists for single-market runs. USD columns exist only when `bias_audit.py --fix` is run manually.
+- **Action:** Consider adding USD-adjusted return option to backtester for global portfolios. Not urgent — training is unaffected.
+
 ## Low
 
 ### STEP1-TICKER-DEDUP-001: No dedup on ticker column

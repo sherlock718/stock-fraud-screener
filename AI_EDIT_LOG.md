@@ -146,18 +146,31 @@ Before ending any session, check whether `PIPELINE_ATLAS.md`, `PARQUET_ATLAS.md`
 
 **PRICE-UNADJUSTED-001:** Already fixed in Session 2.5. No action needed.
 
+**FX Audit (completed same session):**
+
+| # | Check | Verdict |
+|---|---|---|
+| FX.1 | Local vs USD returns | ✅ step3 stores local. USD only via `bias_audit --fix` |
+| FX.2 | Entry/exit FX dates | ✅ `.asof(filed_date)` and `.asof(exit_date)` |
+| FX.3 | Historical FX not current | ✅ Full history from 2005, `.asof()` lookup |
+| FX.4 | Missing 6m/2y FX | ⚠️ Not computed (bias_audit only handles 1y/3y/5y) |
+| FX.5 | GitHub refresh FX | ⚠️ CI runs `--ci`, not `--fix`. No USD cols in CI |
+| FX.6 | Train/backtest mix | ⚠️ Train OK (local). Backtest mixes currencies in global runs |
+
+FX issue logged: FX-MIXED-PORTFOLIO-001 (Medium) — multi-market backtest averages local-currency returns across JPY/BRL/USD without conversion.
+
 **No production code changes. Tests only + documentation updates/corrections.**
 
 ---
 
 ## Next Claude Session Handoff
 
-- Status: Session 3 complete (step 4 audited, 31 tests added)
+- Status: Session 3 complete (step 4 audited + FX audited, 31 tests added)
 - Branch: `refactor/s3-audit-step4` (local commit, not pushed, not merged)
 - Files created: `tests/pipeline/test_step4_enrich_macro.py` (31 tests)
 - Files modified: `KNOWN_ISSUES.md`, `PIPELINE_ATLAS.md`, `PARQUET_ATLAS.md`, `AI_EDIT_LOG.md`
 - Guardrails: pre-commit hook active
-- Issues found: MACRO-NO-ASOF-DATE-001 (medium, auditability gap), DOCS-PARQUET-ATLAS-001 (low, fixed)
+- Issues found: MACRO-NO-ASOF-DATE-001 (medium), DOCS-PARQUET-ATLAS-001 (low, fixed), FX-MIXED-PORTFOLIO-001 (medium)
 - PRICE-UNADJUSTED-001: Already fixed in Session 2.5. No action needed this session.
 - Next goal: **Session 4 — Audit Step 5 (compute features) and add minimal critical tests for Step 5.**
 - Branch flow: User merges `refactor/s3-audit-step4` into `main`, then Session 4 creates `refactor/s4-audit-step5` from updated `main`

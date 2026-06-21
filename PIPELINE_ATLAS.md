@@ -211,14 +211,14 @@ notebooks/08_experiment_hub.ipynb
 
 ### FX Audit
 
-| # | Check | What to verify |
-|---|---|---|
-| FX.1 | Local vs USD returns | Forward returns stored in local currency. USD conversion only if explicitly needed |
-| FX.2 | Entry/exit FX dates | If USD returns computed: FX rate at entry_date for entry, exit_date for exit |
-| FX.3 | Historical FX not current | Never use today's FX rate for historical return calculation |
-| FX.4 | Missing 6m/2y FX | If FX data gaps: NaN the USD return, don't use stale rate |
-| FX.5 | GitHub refresh FX | CI pipeline uses historical FX data source, not live API only |
-| FX.6 | Train/backtest mix | Model trains on local returns. Backtest can report USD-equivalent separately |
+| # | Check | What to verify | Verdict |
+|---|---|---|---|
+| FX.1 | Local vs USD returns | Forward returns stored in local currency. USD conversion only if explicitly needed | ✅ step3 stores local. USD only via `bias_audit --fix` |
+| FX.2 | Entry/exit FX dates | If USD returns computed: FX rate at entry_date for entry, exit_date for exit | ✅ `.asof(filed_date)` and `.asof(filed_date + horizon)` |
+| FX.3 | Historical FX not current | Never use today's FX rate for historical return calculation | ✅ Downloads full history from 2005, uses `.asof()` |
+| FX.4 | Missing 6m/2y FX | If FX data gaps: NaN the USD return, don't use stale rate | ⚠️ 6m/2y not computed at all (bias_audit only does 1y/3y/5y) |
+| FX.5 | GitHub refresh FX | CI pipeline uses historical FX data source, not live API only | ⚠️ CI runs `--ci` (check-only), not `--fix`. No USD cols in CI output |
+| FX.6 | Train/backtest mix | Model trains on local returns. Backtest can report USD-equivalent separately | ⚠️ Train: local ✅. Backtest: local only, no USD option. Multi-market CAGR misleading |
 
 ### Step 5 — Compute Features
 
