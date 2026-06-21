@@ -4,7 +4,7 @@ Tests for pipeline/enrich_fraud_taxonomy.py (P0d — Fraud Taxonomy Sub-Scores).
 Covers:
   - Each sub-score formula (accounting, dilution, quality, distress, governance)
   - Composite weighting and bounds
-  - fraud_suspect flag behavior (including collision with enrich_fraud_labels.py)
+  - Taxonomy does NOT write fraud_suspect (owned by enrich_fraud_labels.py)
   - NaN handling
   - Missing-column graceful degradation
   - Idempotency
@@ -22,7 +22,6 @@ from pipeline.enrich_fraud_taxonomy import (
     build_composite_fraud_score,
     build_dilution_score,
     build_distress_score,
-    build_fraud_suspect,
     build_governance_score,
     build_quality_score,
     _pct_rank_clip,
@@ -306,109 +305,52 @@ class TestGovernanceScore:
         assert score.isna().all()
 
 
-# ── Fraud Suspect Flag ───────────────────────────────────────────────────────
+# ── Fraud Suspect Ownership ──────────────────────────────────────────────────
 
-class TestFraudSuspect:
-    def test_dtype_int8(self, base_df):
-        result = build_fraud_suspect(base_df)
-        assert result.dtype == np.dtype('int8')
+class TestFraudSuspectOwnership:
+    def test_taxonomy_does_not_export_build_fraud_suspect(self):
+        """build_fraud_suspect must NOT exist in taxonomy module after consolidation."""
+        import pipeline.enrich_fraud_taxonomy as mod
+        assert not hasattr(mod, 'build_fraud_suspect')
 
-    def test_binary_values_only(self, base_df):
-        result = build_fraud_suspect(base_df)
-        assert set(result.unique()).issubset({0, 1})
-
-    def test_threshold_exactly_2_signals(self):
-        """Requires 2+ signals to flag as suspect."""
-        # 1 signal only: should NOT flag
-        df1 = pd.DataFrame({
-            'beneish_m_score': [0.0],  # > -1.78 → fires
-            'piotroski_f_score': [5.0],  # > 2 → does NOT fire
-            'altman_z_score': [3.0],  # > 1.0 → does NOT fire
-        })
-        assert build_fraud_suspect(df1).iloc[0] == 0
-
-        # 2 signals: should flag
-        df2 = pd.DataFrame({
-            'beneish_m_score': [0.0],  # fires
-            'piotroski_f_score': [1.0],  # <= 2 → fires
-            'altman_z_score': [3.0],  # does NOT fire
-        })
-        assert build_fraud_suspect(df2).iloc[0] == 1
-
-        # 3 signals: should flag
-        df3 = pd.DataFrame({
-            'beneish_m_score': [0.0],
-            'piotroski_f_score': [1.0],
-            'altman_z_score': [0.5],
-        })
-        assert build_fraud_suspect(df3).iloc[0] == 1
-
-    def test_nan_signals_do_not_fire(self):
-        """NaN values should not count as triggering a signal."""
-        df = pd.DataFrame({
-            'beneish_m_score': [np.nan],
-            'piotroski_f_score': [np.nan],
-            'altman_z_score': [np.nan],
-        })
-        assert build_fraud_suspect(df).iloc[0] == 0
-
-    def test_boundary_beneish_exact(self):
-        """Beneish exactly at -1.78 should NOT fire (> not >=)."""
-        df = pd.DataFrame({
-            'beneish_m_score': [-1.78],
-            'piotroski_f_score': [1.0],  # fires
-            'altman_z_score': [0.5],  # fires
-        })
-        # Only 2 signals fire (piotroski + altman), beneish at boundary does NOT fire
-        result = build_fraud_suspect(df).iloc[0]
-        assert result == 1  # 2 signals from piotroski + altman
-
-    def test_boundary_piotroski_exact(self):
-        """Piotroski exactly at 2 should fire (<= 2)."""
-        df = pd.DataFrame({
-            'beneish_m_score': [-5.0],  # does NOT fire
-            'piotroski_f_score': [2.0],  # <= 2 → fires
-            'altman_z_score': [0.5],  # < 1.0 → fires
-        })
-        assert build_fraud_suspect(df).iloc[0] == 1
-
-    def test_boundary_altman_exact(self):
-        """Altman exactly at 1.0 should NOT fire (< not <=)."""
-        df = pd.DataFrame({
-            'beneish_m_score': [0.0],  # fires
-            'piotroski_f_score': [5.0],  # does NOT fire
-            'altman_z_score': [1.0],  # exactly 1.0 → does NOT fire (< not <=)
-        })
-        assert build_fraud_suspect(df).iloc[0] == 0
-
-    def test_missing_columns_returns_zero(self, empty_df):
-        """With no signal columns, nobody gets flagged."""
-        result = build_fraud_suspect(empty_df)
-        assert (result == 0).all()
-
-    def test_taxonomy_uses_3_signals_vs_labels_5(self):
+    def test_taxonomy_preserves_existing_fraud_suspect(self, base_df):
         """
-        IMPORTANT: enrich_fraud_taxonomy.build_fraud_suspect uses 3 signals:
-          Beneish, Piotroski, Altman
-        enrich_fraud_labels.build_fraud_suspect uses 5 signals:
-          Beneish, Piotroski, Altman, going_concern, small_auditor_flag+cap
-
-        Since taxonomy runs AFTER labels in mutation order, taxonomy's narrower
-        definition OVERWRITES labels' broader definition. This is a documented
-        design asymmetry (TAXONOMY-SUSPECT-OVERWRITE-001).
+        If fraud_suspect already exists (set by enrich_fraud_labels), taxonomy
+        must not overwrite it. Simulates running taxonomy after labels.
         """
-        df = pd.DataFrame({
-            'beneish_m_score': [-3.0],  # does NOT fire (< -1.78)
-            'piotroski_f_score': [5.0],  # does NOT fire (> 2)
-            'altman_z_score': [3.0],  # does NOT fire (> 1.0)
-            'going_concern': [1],  # would fire in labels version
-            'small_auditor_flag': [1],  # would fire in labels version (with cap)
-            'market_cap_at_filing': [5e8],
-        })
-        # Taxonomy version: 0 signals from its 3 → not flagged
-        result = build_fraud_suspect(df)
-        assert result.iloc[0] == 0
-        # Labels version would flag this (going_concern + small_auditor_flag = 2 signals)
+        # Pre-set fraud_suspect as labels would
+        base_df['fraud_suspect'] = np.random.choice([0, 1], len(base_df), p=[0.8, 0.2]).astype('int8')
+        original_suspect = base_df['fraud_suspect'].copy()
+
+        # Run taxonomy score builders (same as run() does, minus fraud_suspect)
+        base_df['fraud_score_accounting'] = build_accounting_score(base_df)
+        base_df['fraud_score_dilution'] = build_dilution_score(base_df)
+        base_df['fraud_score_quality'] = build_quality_score(base_df)
+        base_df['fraud_score_distress'] = build_distress_score(base_df)
+        base_df['fraud_score_governance'] = build_governance_score(base_df)
+        base_df['fraud_score_composite'] = build_composite_fraud_score(base_df)
+
+        # fraud_suspect must be unchanged
+        pd.testing.assert_series_equal(base_df['fraud_suspect'], original_suspect)
+
+    def test_taxonomy_output_columns_do_not_include_fraud_suspect(self, base_df):
+        """Taxonomy output list is exactly 6 columns (5 sub-scores + composite)."""
+        expected = {
+            'fraud_score_accounting',
+            'fraud_score_dilution',
+            'fraud_score_quality',
+            'fraud_score_distress',
+            'fraud_score_governance',
+            'fraud_score_composite',
+        }
+        base_df['fraud_score_accounting'] = build_accounting_score(base_df)
+        base_df['fraud_score_dilution'] = build_dilution_score(base_df)
+        base_df['fraud_score_quality'] = build_quality_score(base_df)
+        base_df['fraud_score_distress'] = build_distress_score(base_df)
+        base_df['fraud_score_governance'] = build_governance_score(base_df)
+        base_df['fraud_score_composite'] = build_composite_fraud_score(base_df)
+        taxonomy_cols = {c for c in base_df.columns if c.startswith('fraud_score_')}
+        assert taxonomy_cols == expected
 
 
 # ── Composite Score ──────────────────────────────────────────────────────────
@@ -482,11 +424,6 @@ class TestIdempotency:
         c2 = build_composite_fraud_score(base_df)
         pd.testing.assert_series_equal(c1, c2)
 
-    def test_fraud_suspect_stable(self, base_df):
-        s1 = build_fraud_suspect(base_df)
-        s2 = build_fraud_suspect(base_df)
-        pd.testing.assert_series_equal(s1, s2)
-
     def test_existing_scores_overwritten_cleanly(self, base_df):
         """If columns already exist, re-running produces same values."""
         base_df['fraud_score_accounting'] = build_accounting_score(base_df)
@@ -527,23 +464,24 @@ class TestLeakage:
         score_without = build_distress_score(df_no_ml)
         pd.testing.assert_series_equal(score_with, score_without)
 
-    def test_fraud_suspect_suppressed_for_confirmed(self):
+    def test_taxonomy_does_not_modify_fraud_suspect(self):
         """
-        In run(), fraud_suspect is set to 0 where fraud_confirmed==1.
-        This prevents double-counting in training.
+        Taxonomy must not touch fraud_suspect. If it pre-exists from labels,
+        it must remain unchanged after taxonomy score computation.
         """
         df = pd.DataFrame({
             'beneish_m_score': [0.0, 0.0, -5.0],
             'piotroski_f_score': [1.0, 1.0, 8.0],
             'altman_z_score': [0.5, 0.5, 5.0],
             'fraud_confirmed': [1, 0, 0],
+            'fraud_suspect': [0, 1, 0],  # pre-set by labels
         })
-        suspect = build_fraud_suspect(df)
-        # Raw: rows 0 and 1 both have 3 signals → flagged
-        assert suspect.iloc[0] == 1  # raw flag fires
-        assert suspect.iloc[1] == 1
-        assert suspect.iloc[2] == 0
-        # The suppression (setting to 0 where confirmed==1) happens in run(), not in build_fraud_suspect
+        original_suspect = df['fraud_suspect'].copy()
+        # Run taxonomy scores
+        df['fraud_score_accounting'] = build_accounting_score(df)
+        df['fraud_score_distress'] = build_distress_score(df)
+        # fraud_suspect unchanged
+        pd.testing.assert_series_equal(df['fraud_suspect'], original_suspect)
 
 
 # ── Cross-Sectional Rank Behavior ────────────────────────────────────────────
@@ -582,7 +520,6 @@ class TestRunFunction:
             'fraud_score_distress',
             'fraud_score_governance',
             'fraud_score_composite',
-            'fraud_suspect',
         ]
         base_df['fraud_score_accounting'] = build_accounting_score(base_df)
         base_df['fraud_score_dilution'] = build_dilution_score(base_df)
@@ -590,9 +527,10 @@ class TestRunFunction:
         base_df['fraud_score_distress'] = build_distress_score(base_df)
         base_df['fraud_score_governance'] = build_governance_score(base_df)
         base_df['fraud_score_composite'] = build_composite_fraud_score(base_df)
-        base_df['fraud_suspect'] = build_fraud_suspect(base_df)
         for col in expected_cols:
             assert col in base_df.columns
+        # fraud_suspect must NOT be in taxonomy output
+        assert 'fraud_suspect' not in expected_cols
 
     def test_no_row_count_change(self, base_df):
         """Taxonomy enrichment must not add or remove rows."""

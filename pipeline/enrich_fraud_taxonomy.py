@@ -1,8 +1,8 @@
 """
 P0d — Fraud Taxonomy: 5 Sub-Score System
 
-Adds five fraud-type sub-scores to historical_dataset_clean.parquet,
-each capturing a distinct fraud mechanism. Scores are 0.0–1.0 (higher = riskier).
+Adds six fraud-taxonomy columns to historical_dataset_clean.parquet:
+five fraud-type sub-scores (0.0–1.0, higher = riskier) plus a weighted composite.
 
 Sub-scores:
   fraud_score_accounting   — Accounting manipulation / earnings management
@@ -26,6 +26,9 @@ Sub-scores:
     Core mechanism: weak oversight enables fraud
 
   fraud_score_composite    — Weighted average of the five sub-scores
+
+Note: fraud_suspect is NOT owned by this module. It is owned by
+enrich_fraud_labels.py which uses a broader 5-signal definition.
 
 Usage:
     python3 pipeline/enrich_fraud_taxonomy.py
@@ -268,28 +271,6 @@ def build_governance_score(df: pd.DataFrame) -> pd.Series:
     return (score / weight_total).clip(0.0, 1.0)
 
 
-def build_fraud_suspect(df: pd.DataFrame) -> pd.Series:
-    """
-    Signal-based fraud suspect flag (no AAER required).
-    Set to 1 if 2+ of: Beneish > -1.78, Piotroski ≤ 2, Altman < 1.0.
-    """
-    signal_count = pd.Series(0, index=df.index, dtype='int8')
-
-    if 'beneish_m_score' in df.columns:
-        b = pd.to_numeric(df['beneish_m_score'], errors='coerce')
-        signal_count += (b > -1.78).fillna(False).astype('int8')
-
-    if 'piotroski_f_score' in df.columns:
-        pf = pd.to_numeric(df['piotroski_f_score'], errors='coerce')
-        signal_count += (pf <= 2).fillna(False).astype('int8')
-
-    if 'altman_z_score' in df.columns:
-        az = pd.to_numeric(df['altman_z_score'], errors='coerce')
-        signal_count += (az < 1.0).fillna(False).astype('int8')
-
-    return (signal_count >= 2).astype('int8')
-
-
 def build_composite_fraud_score(df: pd.DataFrame) -> pd.Series:
     """
     Weighted composite of the five sub-scores.
@@ -326,7 +307,7 @@ def run(dry_run: bool = False) -> None:
         print(f'ERROR: {OUT} not found — run step 6 first')
         sys.exit(1)
 
-    print('P0d — Fraud Taxonomy: 5 Sub-Score System')
+    print('P0d — Fraud Taxonomy: 5 Sub-Scores + Composite')
     df = pd.read_parquet(OUT)
     print(f'  Loaded {len(df):,} rows × {len(df.columns)} columns')
 
@@ -347,11 +328,6 @@ def run(dry_run: bool = False) -> None:
 
     print('  Building composite fraud score...')
     df['fraud_score_composite'] = build_composite_fraud_score(df)
-
-    print('  Building fraud_suspect flag...')
-    df['fraud_suspect'] = build_fraud_suspect(df)
-    if 'fraud_confirmed' in df.columns:
-        df.loc[df['fraud_confirmed'] == 1, 'fraud_suspect'] = 0
 
     # ── Report ────────────────────────────────────────────────────────────────
     score_cols = [
@@ -396,12 +372,9 @@ def run(dry_run: bool = False) -> None:
         print('\n  [DRY RUN] — file not modified')
         return
 
-    n_suspect = int(df['fraud_suspect'].sum()) if 'fraud_suspect' in df.columns else 0
-    print(f'\n  fraud_suspect: {n_suspect:,} rows flagged ({100*n_suspect/len(df):.2f}%)')
-
     df.to_parquet(OUT, index=False)
     print(f'\n  Saved: {OUT}')
-    print(f'  Columns added: {", ".join(score_cols)}, fraud_suspect')
+    print(f'  Columns added: {", ".join(score_cols)}')
 
 
 def main() -> None:

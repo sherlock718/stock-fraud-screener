@@ -843,4 +843,68 @@ Session 10 complete. All active pipeline modules are now classified and the crit
 
 3. **Data regeneration** — Resolve the two P0 issues (PRICE-UNADJUSTED-001, RANK-LEAKAGE-001) by running step3→step5→step6 pipeline refresh. Prereq for any meaningful backtest.
 
+---
+
+## Session 11 — Fix TAXONOMY-SUSPECT-OVERWRITE-001 (2026-06-22)
+
+**Branch:** `fix/s11-suspect-consolidation`
+
+**Goal:** Resolve TAXONOMY-SUSPECT-OVERWRITE-001 — consolidate `fraud_suspect` ownership to a single module.
+
+**Problem:** Both `enrich_fraud_labels.py` and `enrich_fraud_taxonomy.py` wrote `fraud_suspect`. Labels used 5 signals (Beneish, Piotroski, Altman, going_concern, small_auditor+cap). Taxonomy used only 3 signals (Beneish, Piotroski, Altman). Since taxonomy ran AFTER labels in mutation order, it silently overwrote the broader definition with its narrower one.
+
+**Fix applied:**
+- Removed `build_fraud_suspect()` function from `enrich_fraud_taxonomy.py`
+- Removed the `fraud_suspect` assignment and `fraud_confirmed` suppression from taxonomy `run()`
+- Taxonomy now outputs 6 columns only: 5 sub-scores + composite
+- `fraud_suspect` exclusively owned by `enrich_fraud_labels.py` (5-signal broad definition)
+- Updated docstring to explicitly document ownership boundary
+
+**Files modified:**
+| File | Change |
+|------|--------|
+| `pipeline/enrich_fraud_taxonomy.py` | Removed `build_fraud_suspect()` function, removed fraud_suspect assignment in `run()`, updated docstring and print statements |
+| `tests/pipeline/test_enrich_fraud_taxonomy.py` | Replaced 10 fraud_suspect tests with 3 ownership tests + 1 leakage test. Net -7 tests (54→47) |
+| `PIPELINE_ATLAS.md` | Taxonomy output 7→6, updated Test Matrix, replaced collision note with ownership-resolved note |
+| `PARQUET_ATLAS.md` | Removed fraud_suspect from taxonomy mutation list, added fraud_suspect to labels mutation list |
+| `KNOWN_ISSUES.md` | Moved TAXONOMY-SUSPECT-OVERWRITE-001 to "Fixed (Code Done, Data Regen Pending)" |
+| `AI_EDIT_LOG.md` | This session report |
+
+**Ownership verification (grep):**
+- `fraud_suspect` writes: ONLY `pipeline/enrich_fraud_labels.py` line 324
+- All other references are reads (EXCLUDE lists in train/OOF, reporting, API responses)
+
+**Test results:**
+- Targeted: 81 passed (47 taxonomy + 34 labels)
+- Full suite: 343 passed, 0 failed (baseline was 350; -7 from removed collision tests)
+
+**No data regeneration. No model training. No parquet changes.**
+
+---
+
+### Session-end checklist (Session 11)
+
+- `fraud_suspect` now owned by exactly one module? **Yes** (`enrich_fraud_labels.py`)
+- Taxonomy no longer writes `fraud_suspect`? **Yes**
+- Existing `fraud_suspect` preserved by taxonomy rerun? **Yes** (tested)
+- Tests pass? **Yes**. Count: 343
+- PIPELINE_ATLAS.md updated? **Yes**
+- PARQUET_ATLAS.md updated? **Yes**
+- KNOWN_ISSUES.md updated? **Yes**
+- AI_EDIT_LOG.md updated? **Yes**
+
+---
+
+### Session 12 Handoff
+
+Session 11 complete. TAXONOMY-SUSPECT-OVERWRITE-001 resolved at code level. The existing parquet still has taxonomy-written `fraud_suspect` values (narrower 3-signal version). Data regeneration needed to restore the correct 5-signal version.
+
+**Recommended Session 12 goals (pick one):**
+
+1. **Data regeneration** — Rerun `enrich_fraud_labels.py` then `enrich_fraud_taxonomy.py` on parquet to restore correct `fraud_suspect` values. Also resolves PRICE-UNADJUSTED-001 and RANK-LEAKAGE-001 if full step3→step6 is rerun first.
+
+2. **Multi-market integration tests** — Add tests for step1/step2 market variants (BR/CA/EU/JP/KR). Currently zero coverage.
+
+3. **MACRO-NO-ASOF-DATE-001** — Small fix: add `macro_asof_date` audit column to step4. Quick win.
+
 4. **Scripts audit** — Begin auditing `scripts/` modules (train_models, backtester, bias_audit). These are Phase C items but their test coverage is only partial.

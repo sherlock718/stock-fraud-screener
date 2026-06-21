@@ -55,8 +55,8 @@ Generated 2026-06-21. Every parquet file referenced in `pipeline/` and `scripts/
 |--------|----------------------|
 | `pipeline/p0f_universe_definition.py` | `in_universe`, `excl_reason` |
 | `pipeline/p0g_confidence_score.py` | `data_confidence` |
-| `pipeline/enrich_fraud_labels.py` | `fraud_confirmed`, `fraud_source` |
-| `pipeline/enrich_fraud_taxonomy.py` | `fraud_score_accounting`, `fraud_score_dilution`, `fraud_score_quality`, `fraud_score_distress`, `fraud_score_governance`, `fraud_score_composite`, `fraud_suspect` (overwrites) |
+| `pipeline/enrich_fraud_labels.py` | `fraud_confirmed`, `fraud_source`, `fraud_suspect` |
+| `pipeline/enrich_fraud_taxonomy.py` | `fraud_score_accounting`, `fraud_score_dilution`, `fraud_score_quality`, `fraud_score_distress`, `fraud_score_governance`, `fraud_score_composite` |
 | `scripts/generate_oof_scores.py` | `ml_1y_oof`, `ml_3y_oof`, `ml_5y_oof` |
 | `scripts/score_historical.py` | `ml_1y`, `ml_3y`, `ml_5y`, `ml_pred_excess_3y` |
 | `scripts/fetch_aaer_labels.py` | `fraud_confirmed` (update) |
