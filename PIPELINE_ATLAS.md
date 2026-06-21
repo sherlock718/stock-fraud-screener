@@ -248,6 +248,7 @@ notebooks/08_experiment_hub.ipynb
 | 6.5 | filing_lag_days | `filing_lag_days` = filed_date − period_end. Always ≥ 0 |
 | 6.6 | No accidental filtering | Step6 does NOT filter by market cap, revenue, or sector (that's p0f's job) |
 | 6.7 | Row count stable | Output within 5% of input (no catastrophic drops) |
+| 6.8 | Feature completeness | **Intentionally out of scope.** Step 6 does not validate feature set/count. See FEATURE-CONTRACT-001 |
 
 ### Step 7 — Universe Definition (p0f)
 

@@ -318,6 +318,19 @@ Start Session 4. Project: /Users/mhoque/Desktop/stock-fraud-screener-main
 
 ---
 
+## Session 5.1 — Log FEATURE-CONTRACT-001 (2026-06-21)
+
+**Branch:** `refactor/s5-audit-step6`
+
+**Docs updated:**
+- `KNOWN_ISSUES.md` — added FEATURE-CONTRACT-001 to Parking Lot (dataset contract / future guardrail, Low severity)
+- `PIPELINE_ATLAS.md` — added checklist item 6.8 noting feature completeness is intentionally out of Step 6 scope
+- `AI_EDIT_LOG.md` — this entry
+
+**No production code changes. No tests. No parquet changes.**
+
+---
+
 ## Next Claude Session Handoff
 
 - Status: Session 5 complete (step 6 audited, 33 tests added, all 168 tests pass)

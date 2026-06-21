@@ -136,4 +136,11 @@ Issues found during pipeline audit. Classified by type and severity.
 
 Non-critical ideas and deferred items. Review during triage sessions.
 
-_(empty)_
+### FEATURE-CONTRACT-001: No feature set/count validation between Step 5 and Step 6
+
+- **Type:** dataset contract / future guardrail
+- **Severity:** Low (Medium if downstream training/backtesting relies on an expected stable feature set)
+- **Found:** Session 5 (step 6 audit)
+- **Details:** Step 6 intentionally does not validate that the expected feature set/count exists. If Step 5 silently stops producing major feature groups (e.g., all growth YoY features vanish due to a code error), Step 6 will pass the dataset forward without warning. This is not a Step 6 bug — Step 6 is designed as a thin structural cleaner.
+- **Future fix:** A lightweight dataset contract test, preferably near Step 5 output or as a separate pipeline contract test, checking required feature groups / critical columns rather than hardcoding an exact 355-column count. Could assert: "growth_yoy group has ≥10 cols", "momentum group has ≥5 cols", etc.
+- **Action:** Implement when pipeline stability is prioritized. Not urgent while Step 5 is actively developed and tested.
