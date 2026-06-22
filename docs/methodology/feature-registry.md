@@ -26,8 +26,8 @@ This is the authoritative reference for column names, data types, and factor gro
 | `sic_2digit` | str | 2-digit SIC group |
 | `sic_description` | str | SIC description |
 | `fiscal_year` | int | Fiscal year end year |
-| `fiscal_quarter` | str | Always null — annual-only dataset |
-| `period_type` | str | Always `'annual'` |
+| `fiscal_quarter` | str | Null for annual rows; present for quarterly rows |
+| `period_type` | str | `'annual'` or `'quarterly'` |
 | `filed_date` | date | SEC/DART filing date |
 | `as_of_date` | date | Financial statement date |
 | `filing_lag_days` | int | Days between fiscal year-end and filing |

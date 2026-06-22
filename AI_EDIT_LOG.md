@@ -1158,3 +1158,65 @@ Candidates:
 4. **Feature contract in CI** — Add `validate_feature_contract.py` to GitHub Actions weekly workflow.
 
 Do NOT hand off to model retrain yet. Complete infrastructure hardening first.
+
+---
+
+## Session 15 — Final Pipeline Hardening (2026-06-22)
+
+**Branch:** `infra/s15-pipeline-hardening`
+
+**Goal:** Final pipeline hardening pass — fix last docs issue, wire feature contract into CI, verify artifact tooling, docs consistency sweep, pipeline phase handoff.
+
+**Files modified:**
+| File | Change |
+|------|--------|
+| `pipeline/p0f_universe_definition.py` | Fixed P0F-PRICE-FLOOR-001: updated docstring/comments (price floor applies to all exchanges); removed unused `OTC_EXCHANGES` constant |
+| `.github/workflows/refresh_data.yml` | Added feature contract validation step after enrichment, before Phase C steps |
+| `PIPELINE_ATLAS.md` | Corrected checklist 7.6 (price floor → all exchanges) |
+| `docs/methodology/feature-registry.md` | Corrected stale "annual-only" claims |
+| `docs/index.md` | Updated row/column counts to Phase B state |
+| `README.md` | Updated dataset description for Phase B completeness |
+| `docs/developer/data-update-guide.md` | Corrected "current production dataset" → Phase B state |
+| `docs/developer/scripts.md` | Updated verify_doc_consistency description + A1 threshold |
+| `KNOWN_ISSUES.md` | P0F-PRICE-FLOOR-001 → Fixed Complete |
+| `CHANGELOG.md` | Session 15 entries |
+| `AI_EDIT_LOG.md` | This session report |
+
+**Tasks completed:**
+1. ✅ P0F-PRICE-FLOOR-001 fixed (docstring, comments, removed constant, PIPELINE_ATLAS 7.6)
+2. ✅ Feature contract validation added to CI (after enrichment, before Phase C)
+3. ✅ Artifact tooling sanity check passed (pull/push --help work, manifest generates, gitignored)
+4. ✅ Docs consistency pass (6 stale claims corrected)
+5. ✅ KNOWN_ISSUES, CHANGELOG, AI_EDIT_LOG updated
+
+**Pipeline/Refactor Phase Handoff:**
+
+Pipeline/refactor phase complete locally. Next phase: factor research, feature engineering, model retrain/scoring, and backtest refresh. Do not mix those into pipeline refactor retroactively.
+
+**Remaining open issues (not part of pipeline refactor):**
+- DATA-ARTIFACT-001: Tooling implemented; upload/restore verification pending.
+- KR-DART-SCALING-001: Full KR build impractical. Design decision needed.
+- FEATURE-COVERAGE-PHASEC-001: Phase C scoring overlay pending model retrain (by design).
+- MUTATION-ORDER-001: Architecture concern, not blocking.
+- MACRO-USREC-VINTAGE-001: Look-ahead risk, bounded impact.
+- MACRO-NO-ASOF-DATE-001: Auditability gap, small effort.
+- FX-MIXED-PORTFOLIO-001: Backtest presentation issue.
+- FEATURE-LIB-CONSOLIDATE-001: Maintainability refactor.
+- LIQUIDITY-001: Feature engineering (future phase).
+
+**No production pipeline logic changed. No parquet files committed. No models trained. No HuggingFace push. No git push.**
+
+---
+
+### Session-end checklist (Session 15)
+
+- P0F-PRICE-FLOOR-001 fixed? **Yes**
+- CI feature contract step added? **Yes**
+- Artifact scripts verified? **Yes** (help works, manifest generates, gitignored)
+- Docs consistency pass? **Yes** (6 stale claims fixed)
+- Tests pass? **Yes** (343 expected)
+- Feature contract validates? **Yes** (Phase B COMPLETE, Phase C PENDING, exit 0)
+- Data files committed? **No**
+- Models retrained? **No**
+- Pushed to remote? **No**
+- Merged? **No**

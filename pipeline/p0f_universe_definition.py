@@ -17,10 +17,10 @@ Pass --apply-filters to also enforce investable-universe rules:
   7. Exclude pure financial sector     (SIC 6000–6999)
   8. Exclude pure utility sector       (SIC 4900–4999)
   9. Size: include micro, small, mid, large (exclude nano/shell)
-  10. No OTC penny stocks:             exclude if exchange == 'OTC' AND entry_price < market floor
+  10. Price floor:                      exclude if entry_price < market-specific floor (all exchanges)
 
 Market-specific price floors (--apply-filters only):
-  - US:    $1.00 (OTC penny filter)
+  - US:    $1.00 (penny stock filter)
   - CA:    $0.05 (TSXV penny stocks common)
   - BR/JP/KR/EU: no price floor
 
@@ -63,7 +63,7 @@ MAX_FISCAL_YEAR_LAG = 1   # exclude current year (filings may be incomplete)
 EXCLUDE_FINANCIALS = True   # SIC 6000–6999
 EXCLUDE_UTILITIES  = True   # SIC 4900–4999
 
-# Per-market minimum price (OTC/penny filter)
+# Per-market minimum price (penny stock filter — applied to all exchanges)
 MARKET_MIN_PRICE = {
     'US': 1.00,
     'CA': 0.05,
@@ -81,9 +81,6 @@ MARKET_MIN_PRICE = {
     'DK': 0.0,
 }
 
-# OTC exclusion only applies to these markets (by exchange substring)
-OTC_EXCHANGES = {'OTC'}
-
 
 def _get_current_year() -> int:
     from datetime import date
@@ -100,7 +97,7 @@ def classify_universe(df: pd.DataFrame, apply_filters: bool = False) -> pd.DataF
 
     Investable-universe rules (apply_filters=True only):
       - revenue >= $1M, total_assets >= $100K, entry_price > 0
-      - price >= market floor (US: $1, CA: $0.05)
+      - price >= market floor (US: $1, CA: $0.05, all exchanges)
       - exclude SIC 6000-6999 (financials) and SIC 4900-4999 (utilities)
     """
     current_year = _get_current_year()

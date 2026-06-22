@@ -270,7 +270,7 @@ notebooks/08_experiment_hub.ipynb
 | 7.3 | Incomplete year excluded | Most recent fiscal year excluded if < 80% of companies have filed |
 | 7.4 | Default vs --apply-filters | Without `--apply-filters`: structural rules only. With: full investable universe |
 | 7.5 | Revenue/assets/price filters | Only applied under `--apply-filters`: revenue≥$1M, assets≥$100K, price>0 |
-| 7.6 | OTC floor | US OTC penny stocks excluded only if exchange=='OTC' AND price < $1.00 |
+| 7.6 | Price floor | Market-specific price floor applied to all exchanges (US: $1, CA: $0.05, others: $0) |
 | 7.7 | SIC exclusions | Financials (6000–6999) and utilities (4900–4999) excluded under `--apply-filters` |
 | 7.8 | Missing data behavior | Rows with NULL revenue/assets → NOT excluded by default (fail-open) |
 | 7.9 | in_universe meaning | 1 = passes all applied filters. 0 = excluded. Column is additive (can re-run) |

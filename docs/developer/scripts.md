@@ -1247,7 +1247,7 @@ python3 scripts/verify_doc_consistency.py --warn    # print mismatches, exit 0
 |---|---|---|
 | `--warn` | False | Print failures but always exit 0 (used in CI as advisory) |
 
-**Checks**: column count (360) in index.md, README.md, architecture.md, models.md, CLAUDE.md, phase-done-criteria.md, data-update-guide.md; feature counts (all 5 horizons) in scripts.md, feature-selection.md; row count (58,190) in index.md; quality check count (98) in data-update-guide.md; Phase C: model_meta.json horizons, spy_returns.csv, horizon_router.py.
+**Checks**: column count consistency across index.md, README.md, architecture.md, models.md, CLAUDE.md, phase-done-criteria.md, data-update-guide.md; feature counts (all 5 horizons) in scripts.md, feature-selection.md; row count in index.md; quality check count (98) in data-update-guide.md; Phase C: model_meta.json horizons, spy_returns.csv, horizon_router.py. Note: exact thresholds will need updating after Phase C model retrain restores full column count.
 
 **In CI**: runs weekly after `run_feature_selection.py` as a non-blocking advisory step. Output appears in the GitHub Actions log.
 
@@ -1285,7 +1285,7 @@ SUMMARY: 14 PASS  0 FAIL  1 WARN  2 SKIP
 
 | Check | What it verifies |
 |---|---|
-| A1 — Dataset shape | ≥58,000 rows × 360 cols; no inf; forward returns winsorized; 5 markets present |
+| A1 — Dataset shape | ≥58,000 rows × 341 cols (Phase B); no inf; forward returns winsorized; 5 markets present |
 | A2 — EDA notebook | `notebooks/01_*.ipynb` has forward_return histogram, outlier stats, PIT lineage, null profile |
 | A3 — CI schedule | `refresh_data.yml` has all 6 required scripts |
 | A4 — Diagram vs CI | Core scripts appear in both `data-update-guide.md` and `refresh_data.yml` |

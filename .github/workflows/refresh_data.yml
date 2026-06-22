@@ -96,6 +96,10 @@ jobs:
         run: |
           python3 scripts/impute_features.py
 
+      - name: Validate feature contract (Phase B must be complete)
+        run: |
+          python3 scripts/validate_feature_contract.py
+
       - name: Post-process — survivorship correction
         run: |
           python3 scripts/mark_survivorship.py --fix

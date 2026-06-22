@@ -10,7 +10,7 @@ Issues that should be resolved before next model train / backtest refresh:
 
 | Priority | ID | Effort | What's Needed |
 |---|---|---|---|
-| **P1** | P0F-PRICE-FLOOR-001 | Tiny | Fix docstring (5-line docs-only change) |
+| **P1** | ~~P0F-PRICE-FLOOR-001~~ | ~~Tiny~~ | ✅ Fixed Session 15 |
 | **P2** | DATA-ARTIFACT-001 | Small | Add snapshots.parquet to HF push + create pull script |
 | **P2** | KR-DART-SCALING-001 | Medium | Design decision on KR fetch strategy |
 | **P2** | MACRO-NO-ASOF-DATE-001 | Small | Add audit column to step4 |
@@ -62,6 +62,13 @@ Issues that should be resolved before next model train / backtest refresh:
 - **Type:** documentation inaccuracy
 - **Found:** Session 3 | **Fixed:** Session 3
 - **Status:** ✅ Done. No remaining action.
+
+### P0F-PRICE-FLOOR-001: Price floor applied to all exchanges, not just OTC — FIXED
+
+- **Type:** doc/code mismatch
+- **Found:** Session 6 | **Fixed:** Session 15
+- **Fix:** Updated docstring and module-level comments to state price floor applies to all exchanges (matching actual code behavior). Removed unused `OTC_EXCHANGES` constant. Updated PIPELINE_ATLAS checklist 7.6.
+- **Status:** ✅ Fixed complete. No data impact (code behavior was already correct).
 
 ---
 
@@ -204,17 +211,6 @@ Issues that should be resolved before next model train / backtest refresh:
 - **Details:** Three legacy modules imported non-existent `pipeline.score_and_report`. All three files (`enrich_insider_signals.py`, `enrich_market_cap.py`, `enrich_market_signals.py`) moved to `pipeline/archive/` in Session 8.
 - **Status:** ✅ Resolved. Files archived. No runtime risk.
 - **No remaining action.**
-
-### P0F-PRICE-FLOOR-001: Price floor applied to all exchanges, not just OTC
-
-- **Type:** doc/code mismatch
-- **Severity:** Low
-- **Effort:** Tiny (fix docstring, 5 lines)
-- **Found:** Session 6
-- **Details:** Code excludes ALL stocks below market floor regardless of exchange. Docstring says "only OTC." Code behavior is correct (stricter is better).
-- **Risk if ignored:** Zero data impact. Documentation confusion only.
-- **Fix before continuing audits?** No, but easy to include in any session.
-- **Recommended fix:** Change docstring + PIPELINE_ATLAS checklist 7.6 to match code. Remove unused `OTC_EXCHANGES` constant.
 
 ### STEP2-NO-PERIOD-END-001: No explicit period_end column
 

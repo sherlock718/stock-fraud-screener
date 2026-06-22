@@ -8,6 +8,24 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Session 15 — Final Pipeline Hardening (2026-06-22)
+
+#### **`pipeline/p0f_universe_definition.py`** — fix
+- Fixed P0F-PRICE-FLOOR-001: updated docstring/comments to match code behavior (price floor applies to all exchanges, not just OTC)
+- Removed unused `OTC_EXCHANGES` constant
+
+#### **`.github/workflows/refresh_data.yml`** — enhanced
+- Added feature contract validation step after enrichment, before Phase C scoring
+- `validate_feature_contract.py` runs as mandatory gate (Phase B must be complete)
+
+#### Documentation consistency fixes
+- **`docs/methodology/feature-registry.md`** — corrected stale "annual-only" claims
+- **`docs/index.md`** — updated row/column counts to reflect Phase B pipeline state
+- **`README.md`** — updated dataset description for Phase B completeness
+- **`docs/developer/data-update-guide.md`** — corrected "current production dataset" to Phase B state
+- **`docs/developer/scripts.md`** — updated verify_doc_consistency description and A1 check threshold
+- **`PIPELINE_ATLAS.md`** — corrected checklist 7.6 (price floor applies to all exchanges)
+
 ### Session 14 — Feature Contract / Feature Coverage (2026-06-22)
 
 #### **`scripts/validate_feature_contract.py`** — new
