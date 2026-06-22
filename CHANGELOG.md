@@ -8,6 +8,24 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Session 13 — Data Artifact Infrastructure (2026-06-22)
+
+#### **`scripts/pull_from_hf.py`** — new
+- Download artifacts from HuggingFace Hub (final dataset, snapshots, manifest)
+- Supports `--all`, `--final`, `--snapshots`, `--manifest` flags
+- Checksum verification via ARTIFACT_MANIFEST.json
+
+#### **`scripts/generate_manifest.py`** — new
+- Generate `data/ARTIFACT_MANIFEST.json` with rows, columns, checksums, commit hash
+- Tracks all pipeline artifacts for integrity verification
+
+#### **`scripts/push_to_hf.py`** — updated
+- Added `--snapshots-only`, `--all-data-artifacts`, `--manifest-only` flags
+- Uploads snapshots.parquet + prices.parquet + per-market snapshots
+- Auto-uploads manifest with data pushes
+
+### Session 12 — Data Regeneration (2026-06-22)
+
 ### Section 12 — Full-Universe Low-Beta Tier-1 Scan (2026-05-15)
 
 #### **`notebooks/08_experiment_hub.ipynb`** — Section 12 cell outputs pre-baked (2026-05-15)

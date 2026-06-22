@@ -274,3 +274,50 @@ Korean companies sometimes file multiple fiscal years in a single batch submissi
 Current production dataset: **58,190 rows × 360 columns** (355 base features + 5 OOF ML score columns)
 
 > **Montier C2 note (2026-05-13)**: `add_montier_c_score()` in `step5_compute_features.py` uses `ppe_net` for the C2 depreciation rate signal (19.4% null). Do not revert to `property_plant_equipment` (95.7% null) — that makes `montier_c2` 100% null.
+
+---
+
+## 9. Restoring Data from HuggingFace
+
+Instead of rebuilding from scratch (Steps 1–6, several hours), you can restore pre-built artifacts from HuggingFace:
+
+```bash
+# Restore everything (final dataset + snapshots + manifest)
+python3 scripts/pull_from_hf.py --all
+
+# Restore only the final dataset
+python3 scripts/pull_from_hf.py --final
+
+# Restore snapshots (enables resuming from Step 4+ without Step 1-2 rebuild)
+python3 scripts/pull_from_hf.py --snapshots
+```
+
+### When to pull vs rebuild
+
+| Situation | Action |
+|-----------|--------|
+| Fresh checkout, need to run feature experiments | `pull_from_hf.py --all` |
+| Only need final dataset for analysis/backtesting | `pull_from_hf.py --final` |
+| Need to rerun Step 3+ (new price data needed) | `pull_from_hf.py --snapshots` then `run_pipeline.py build --step 3` |
+| Need new tickers or filings from SEC/DART | Full rebuild: `run_pipeline.py build --step 1` |
+| Suspect data corruption or want clean slate | Full rebuild |
+
+### What gets stored on HuggingFace
+
+| Artifact | Purpose | Required? |
+|----------|---------|-----------|
+| `historical_dataset_clean.parquet` | Final production dataset | Yes |
+| `snapshots.parquet` | Combined multi-market snapshots (Step 3+ input) | Yes |
+| `prices.parquet` | Price enrichment (saves ~45 min rebuild) | Optional |
+| `snapshots_{market}.parquet` | Per-market snapshots | Optional |
+| `ARTIFACT_MANIFEST.json` | Checksums + metadata for verification | Yes |
+
+### What is NOT stored
+
+- `price_cache.db` — disposable yfinance cache. Rebuild from scratch every time. The original PRICE-UNADJUSTED-001 bug was caused by a stale cache.
+- `macro.parquet` — fast to rebuild from FRED (~1 min).
+- `historical_dataset.parquet` — intermediate, fast to rebuild from snapshots + prices (~5 sec).
+
+### Manifest verification
+
+`pull_from_hf.py` automatically verifies sha256 checksums when a manifest is available. If a local file matches the manifest checksum, it skips the download. Use `--no-verify` to force re-download.

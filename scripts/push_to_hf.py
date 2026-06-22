@@ -1,8 +1,12 @@
 """
-Push dataset and models to HuggingFace Hub.
+Push dataset, snapshots, and models to HuggingFace Hub.
 
 Files uploaded:
   data/historical_dataset_clean.parquet  →  datasets/{HF_REPO}/historical_dataset_clean.parquet
+  data/snapshots.parquet                 →  datasets/{HF_REPO}/snapshots.parquet
+  data/prices.parquet                    →  datasets/{HF_REPO}/prices.parquet
+  data/snapshots_{market}.parquet        →  datasets/{HF_REPO}/snapshots_{market}.parquet
+  data/ARTIFACT_MANIFEST.json            →  datasets/{HF_REPO}/ARTIFACT_MANIFEST.json
   models/model_meta.json                 →  datasets/{HF_REPO}/models/model_meta.json
   models/model_{h}.joblib                →  datasets/{HF_REPO}/models/model_{h}.joblib  (h in 6m/1y/2y/3y/5y)
   models/baseline_lr_{h}.joblib          →  datasets/{HF_REPO}/models/baseline_lr_{h}.joblib
@@ -17,6 +21,9 @@ Usage:
     python3 scripts/push_to_hf.py --repo your-username/stock-screener-data
     python3 scripts/push_to_hf.py --repo your-username/stock-screener-data --data-only
     python3 scripts/push_to_hf.py --repo your-username/stock-screener-data --models-only
+    python3 scripts/push_to_hf.py --repo your-username/stock-screener-data --snapshots-only
+    python3 scripts/push_to_hf.py --repo your-username/stock-screener-data --all-data-artifacts
+    python3 scripts/push_to_hf.py --repo your-username/stock-screener-data --manifest-only
 """
 from __future__ import annotations
 
@@ -28,7 +35,20 @@ from pathlib import Path
 BASE       = Path(__file__).parent.parent
 DATA_PATH  = BASE / 'data' / 'historical_dataset_clean.parquet'
 MODELS_DIR = BASE / 'models'
+DATA_DIR   = BASE / 'data'
 HORIZONS   = ['6m', '1y', '2y', '3y', '5y']
+
+SNAPSHOT_FILES = [
+    'snapshots.parquet',
+    'prices.parquet',
+    'snapshots_kr.parquet',
+    'snapshots_ca.parquet',
+    'snapshots_eu.parquet',
+    'snapshots_jp.parquet',
+    'snapshots_br.parquet',
+]
+
+MANIFEST_FILE = 'ARTIFACT_MANIFEST.json'
 
 
 def _get_token() -> str | None:
@@ -42,6 +62,7 @@ def _get_token() -> str | None:
 
 
 def push(repo_id: str, push_data: bool, push_models: bool,
+         push_snapshots: bool, push_manifest: bool,
          private: bool, commit_message: str) -> None:
     try:
         from huggingface_hub import HfApi, create_repo
@@ -73,6 +94,22 @@ def push(repo_id: str, push_data: bool, push_models: bool,
             print(f'  + dataset ({size_mb:.1f} MB)')
         else:
             print(f'  WARNING: {DATA_PATH} not found — skipping dataset')
+
+    if push_snapshots:
+        for name in SNAPSHOT_FILES:
+            p = DATA_DIR / name
+            if p.exists():
+                files_to_upload.append((p, name))
+                size_mb = p.stat().st_size / 1_048_576
+                print(f'  + {name} ({size_mb:.1f} MB)')
+
+    if push_manifest:
+        manifest_path = DATA_DIR / MANIFEST_FILE
+        if manifest_path.exists():
+            files_to_upload.append((manifest_path, MANIFEST_FILE))
+            print(f'  + {MANIFEST_FILE}')
+        else:
+            print(f'  WARNING: {manifest_path} not found — run generate_manifest.py first')
 
     if push_models:
         meta = MODELS_DIR / 'model_meta.json'
@@ -125,9 +162,15 @@ def main() -> None:
     parser.add_argument('--repo', required=True,
                         help='HuggingFace repo ID, e.g. your-username/stock-screener-data')
     parser.add_argument('--data-only', action='store_true',
-                        help='Only upload the parquet dataset')
+                        help='Only upload the final parquet dataset')
     parser.add_argument('--models-only', action='store_true',
                         help='Only upload models')
+    parser.add_argument('--snapshots-only', action='store_true',
+                        help='Only upload snapshots.parquet + prices.parquet + per-market')
+    parser.add_argument('--all-data-artifacts', action='store_true',
+                        help='Upload final dataset + snapshots + manifest (no models)')
+    parser.add_argument('--manifest-only', action='store_true',
+                        help='Only upload ARTIFACT_MANIFEST.json')
     parser.add_argument('--private', action='store_true', default=True,
                         help='Create as private repo (default: True)')
     parser.add_argument('--public', action='store_true',
@@ -136,13 +179,27 @@ def main() -> None:
                         help='Commit message')
     args = parser.parse_args()
 
-    push_data   = not args.models_only
-    push_models = not args.data_only
-    private     = not args.public
+    # Determine what to push
+    if args.snapshots_only:
+        push_data, push_models, push_snapshots, push_manifest = False, False, True, False
+    elif args.manifest_only:
+        push_data, push_models, push_snapshots, push_manifest = False, False, False, True
+    elif args.all_data_artifacts:
+        push_data, push_models, push_snapshots, push_manifest = True, False, True, True
+    elif args.data_only:
+        push_data, push_models, push_snapshots, push_manifest = True, False, False, False
+    elif args.models_only:
+        push_data, push_models, push_snapshots, push_manifest = False, True, False, False
+    else:
+        push_data, push_models, push_snapshots, push_manifest = True, True, False, True
+
+    private = not args.public
 
     print(f'HuggingFace push → {args.repo}')
-    print(f'  private={private}  push_data={push_data}  push_models={push_models}')
-    push(args.repo, push_data, push_models, private, args.message)
+    print(f'  private={private}  data={push_data}  models={push_models}'
+          f'  snapshots={push_snapshots}  manifest={push_manifest}')
+    push(args.repo, push_data, push_models, push_snapshots, push_manifest,
+         private, args.message)
 
 
 if __name__ == '__main__':

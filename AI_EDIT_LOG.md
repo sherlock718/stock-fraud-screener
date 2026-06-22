@@ -1025,3 +1025,60 @@ Session 12 regenerated a multi-market local dataset with corrected prices, withi
 3. **Signal improvement** — Apply domain judgment to feature engineering. Target AUC improvement from 0.62 to 0.68+. Most impactful for commercialization path.
 
 4. **P0F-PRICE-FLOOR-001** — Tiny docs-only fix (5 lines). Quick win.
+
+---
+
+## Session 13 — Data Artifact Infrastructure (2026-06-22)
+
+**Branch:** `infra/s13-artifact-strategy`
+
+**Goal:** Add HuggingFace artifact restore/persist tooling so expensive intermediate parquet files can be stored externally and restored without full pipeline rebuilds.
+
+**Files created:**
+| File | Purpose |
+|------|---------|
+| `scripts/pull_from_hf.py` | Download artifacts from HuggingFace (final dataset, snapshots, manifest) |
+| `scripts/generate_manifest.py` | Generate `data/ARTIFACT_MANIFEST.json` with checksums + metadata |
+
+**Files modified:**
+| File | Change |
+|------|--------|
+| `scripts/push_to_hf.py` | Added `--snapshots-only`, `--all-data-artifacts`, `--manifest-only` flags |
+| `.gitignore` | Added `data/ARTIFACT_MANIFEST.json` |
+| `docs/developer/data-update-guide.md` | Added "Restoring Data from HuggingFace" section |
+| `KNOWN_ISSUES.md` | Updated DATA-ARTIFACT-001 status to "tooling implemented" |
+| `CHANGELOG.md` | Added Session 13 entries |
+| `AI_EDIT_LOG.md` | This session report |
+
+**Artifact strategy summary:**
+- `historical_dataset_clean.parquet` — main end product, always stored on HF
+- `snapshots.parquet` — expensive base artifact (avoids Step 1–2 rebuild), store on HF
+- `prices.parquet` — optional (saves ~45 min yfinance rebuild), store on HF
+- `ARTIFACT_MANIFEST.json` — checksums + metadata for verification, store on HF
+- `price_cache.db` — NEVER store (stale cache caused PRICE-UNADJUSTED-001)
+- Per-market snapshots — optional, store if available
+
+**No production code changes. No data generation. No model training. No HuggingFace upload performed.**
+
+---
+
+### Session-end checklist (Session 13)
+
+- `pull_from_hf.py --help` works? **Yes**
+- `push_to_hf.py --help` works? **Yes**
+- `generate_manifest.py` runs locally? **Yes**
+- Generated manifest is gitignored? **Yes**
+- Tests pass? **Yes**. Count: **343**
+- DATA-ARTIFACT-001 status: **Tooling implemented. Upload/verification pending.**
+- Commit hash: *(pending)*
+- Final git status: *(pending)*
+
+---
+
+### Session 14 Handoff
+
+Session 13 complete. Artifact tooling in place. Actual HuggingFace upload/download round-trip not yet tested (requires `HF_TOKEN` + manual `push_to_hf.py` run, approved separately).
+
+**Recommended Session 14 goal: Feature Contract / Feature Coverage**
+
+Define which columns the regenerated dataset should contain at each pipeline phase. Classify the 26 missing Phase C columns (OOF/ML/alpha/patch): required vs optional vs deprecated. Create a lightweight contract test validating expected column groups exist. This provides the foundation for Phase C model retrain decisions without actually running model training.

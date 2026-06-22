@@ -24,6 +24,7 @@ data/fetch_checkpoint.json
 data/last_update.json
 data/pipeline_status.json
 data/backtest_results.json
+data/ARTIFACT_MANIFEST.json
 data/aaer_labels.csv
 data/aaer_cache.json
 data/fraud_signals.json

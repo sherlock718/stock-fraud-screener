@@ -72,11 +72,12 @@ Issues that should be resolved before next model train / backtest refresh:
 - **Type:** infrastructure / developer experience
 - **Severity:** Medium
 - **Effort:** Small
-- **Found:** Session 12
+- **Found:** Session 12 | **Tooling added:** Session 13
 - **Details:** `data/snapshots.parquet`, `data/prices.parquet`, `data/macro.parquet` are gitignored ephemeral build artifacts. They are not stored on HuggingFace or any external storage. Only `historical_dataset_clean.parquet` is pushed to HF. This means any fresh checkout requires a full Step 1–2 rebuild (1–4 hours, network-dependent) before Step 3–6 can run.
 - **Risk if ignored:** Developer friction. Any contributor must run multi-hour EDGAR fetch before they can iterate on features or scoring.
-- **Recommended fix:** (1) Add `snapshots.parquet` to HuggingFace push. (2) Create `scripts/pull_from_hf.py` download script. (3) Optionally add `ARTIFACT_MANIFEST.json` with checksums.
-- **Fix before continuing audits?** No. Working around it by running full pipeline locally.
+- **Session 13 progress:** `scripts/pull_from_hf.py`, `scripts/push_to_hf.py` (updated), and `scripts/generate_manifest.py` created. Tooling ready. Actual HuggingFace upload + restore verification pending.
+- **Remaining action:** Run `push_to_hf.py --all-data-artifacts` to upload snapshots + manifest to HuggingFace. Then verify round-trip with `pull_from_hf.py --all` on a fresh checkout.
+- **Status:** Tooling implemented. Upload/verification pending.
 
 ### KR-DART-SCALING-001: Full KR DART build is impractical with current API strategy
 
