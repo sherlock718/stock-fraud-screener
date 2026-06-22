@@ -36,9 +36,9 @@ Added by scoring scripts that depend on trained model artifacts.
 
 ---
 
-## 26 Missing Phase C Columns (classified)
+## 26 Phase C Overlay Columns (not part of base pipeline)
 
-These columns are absent from the current regenerated dataset. This is expected — they require Phase C model training first.
+These columns belong to the Phase C scoring overlay. They are absent from the base Phase B dataset by design — their absence does NOT indicate a pipeline failure. They require trained model artifacts or Phase C scripts to produce.
 
 | Category | Columns | Producer | Required for |
 |---|---|---|---|
@@ -49,7 +49,7 @@ These columns are absent from the current regenerated dataset. This is expected 
 | Survivorship (1) | delisted_flag | mark_survivorship.py | Survivorship bias correction |
 | Quarterly (3) | revenue_qoq_std, earnings_momentum, filing_lag_trend | enrich_quarterly_features.py | Intra-year dynamics |
 
-**Status:** All 26 are pending by design. Not a bug. Run Phase C scripts after model retrain.
+**Status:** All 26 are Phase C overlay columns, pending by design. The Phase B base dataset is complete without them. They become available after running the Phase C scoring pipeline (train → OOF → score → alpha → patches).
 
 ---
 
@@ -128,3 +128,15 @@ Phase C groups require trained model artifacts. Run in order:
 - **Min thresholds allow slack**: Each group has a `min_present` lower than `total`. This prevents false failures when optional columns within a group are legitimately absent.
 - **Two-phase split**: Phase B and Phase C are independently assessed. Phase C pending is normal state between data regeneration and model retrain.
 - **No schema lock**: The contract does NOT enforce exact column counts or names. It validates structural completeness of pipeline stages.
+
+---
+
+## Architecture Boundary
+
+**Phase B is the base pipeline dataset.** It is complete when the validator reports 8/8 groups passing. The absence of ML/OOF/alpha columns does NOT mean Phase B is incomplete or that the pipeline is broken.
+
+**Phase C is a scoring overlay.** It adds model-derived columns on top of a complete Phase B dataset. Phase C columns are pending by design until model retrain is executed. This is not a bug, not a gap, and not a pipeline failure.
+
+**Factor research and feature engineering are a separate future phase.** New signal ideas (liquidity, paid data, domain-judgment improvements) are not part of the current pipeline refactor. They belong after the pipeline is stable and Phase C is restored.
+
+**Session 14 did not perform feature engineering.** It added validation tooling and documentation only. No new features were computed, no models were trained, no pipeline logic was modified.

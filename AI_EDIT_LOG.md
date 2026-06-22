@@ -1111,11 +1111,11 @@ Define which columns the regenerated dataset should contain at each pipeline pha
 | OOF scores | 5 | ml_6m_oof, ml_1y_oof, ml_2y_oof, ml_3y_oof, ml_5y_oof | generate_oof_scores.py | Required for alpha; pending model retrain |
 | ML scores | 6 | ml_6m, ml_1y, ml_2y, ml_3y, ml_5y, ml_pred_excess_3y | score_historical.py | Required for backtest; pending model retrain |
 | Alpha factors | 6 | alpha_value/quality/momentum/growth/fraud_risk/composite | compute_alpha.py | Required for screener; pending ML scores |
-| Vol patches | 5 | equity_vol_6m/12m/36m/60m, roa_vol_5y | patch_equity_vol_features.py | Required for feature completeness; pending prices |
-| Survivorship | 1 | delisted_flag | mark_survivorship.py | Required for bias correction |
-| Quarterly enriched | 3 | revenue_qoq_std, earnings_momentum, filing_lag_trend | enrich_quarterly_features.py | Required for model features |
+| Vol patches | 5 | equity_vol_6m/12m/36m/60m, roa_vol_5y | patch_equity_vol_features.py | Phase C; pending prices data |
+| Survivorship | 1 | delisted_flag | mark_survivorship.py | Phase C; pending prices data |
+| Quarterly enriched | 3 | revenue_qoq_std, earnings_momentum, filing_lag_trend | enrich_quarterly_features.py | Phase C; pending pre-clean parquet |
 
-All 26 are **required** for production scoring. None deprecated. All pending Phase C model retrain.
+All 26 belong to the **Phase C model/scoring overlay**, not to the Phase B base dataset. The Phase B pipeline dataset is complete without them. They are required only for the scoring/backtest/alpha production layer. None deprecated. All pending Phase C execution.
 
 **Validation result:**
 ```
