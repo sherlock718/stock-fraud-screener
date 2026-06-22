@@ -1268,3 +1268,51 @@ Factor research / feature engineering / model retrain/scoring / backtest refresh
 - Feature contract validates? **Yes** (Phase B COMPLETE, Phase C PENDING)
 - Data files committed? **No**
 - Pushed to remote? **Pending review**
+
+---
+
+## Session 16A — Pipeline Orchestration Cleanup (2026-06-22)
+
+**Branch:** `refactor/s16a-pipeline-orchestration-cleanup`
+
+### Tasks completed
+
+1. **Fixed ghost KR step3 reference (KR-GHOST-STEP3-001)**
+   - `scripts/run_pipeline_kr.py` line 75: `step3_enrich_prices_kr.py` → `step3_enrich_prices.py`
+   - Step 3 remains unreachable (runner caps at step 2 for KR-DART-SCALING-001)
+
+2. **Created post-Step6 enrichment orchestrator**
+   - New file: `scripts/run_dataset_enrichments.py`
+   - Runs 9 steps in canonical order: fix_quality → p0f → p0g → survivorship → quarterly → impute → fraud_labels → fraud_taxonomy → validate_contract
+   - Partially mitigates MUTATION-ORDER-001
+   - Flags: `--dry-run`, `--apply-universe-filters`, `--skip-survivorship`, `--skip-quarterly`
+
+3. **CI alignment (Option B)**
+   - Added comment block in `.github/workflows/refresh_data.yml` referencing local orchestrator
+   - Did not change CI execution order (safest: HF base already has those columns)
+
+4. **Docs updated**
+   - PIPELINE_ATLAS.md: orchestrator in Call Graph
+   - PARQUET_ATLAS.md: mutation order now references orchestrator
+   - KNOWN_ISSUES.md: KR-GHOST-STEP3-001 fixed, MUTATION-ORDER-001 partially mitigated
+   - CHANGELOG.md: Session 16A entry
+   - docs/developer/scripts.md: full orchestrator documentation
+
+### Files changed
+
+| Action | File |
+|--------|------|
+| CREATE | `scripts/run_dataset_enrichments.py` |
+| MODIFY | `scripts/run_pipeline_kr.py` (1 line) |
+| MODIFY | `.github/workflows/refresh_data.yml` (comment block) |
+| MODIFY | `PIPELINE_ATLAS.md` |
+| MODIFY | `PARQUET_ATLAS.md` |
+| MODIFY | `KNOWN_ISSUES.md` |
+| MODIFY | `CHANGELOG.md` |
+| MODIFY | `AI_EDIT_LOG.md` |
+| MODIFY | `docs/developer/scripts.md` |
+
+**Next phase handoff:**
+Pipeline maintenance cleanup complete. Next phase: factor research / feature engineering / model retrain-scoring / backtest refresh.
+
+**No parquet files committed. No models trained. No pipeline executed.**

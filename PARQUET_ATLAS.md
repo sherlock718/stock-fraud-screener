@@ -162,9 +162,10 @@ step6 (historical_dataset_clean.parquet)  ← FINAL, then mutated by:
 
 ## Mutation Order (observed / inferred execution sequence post-step6)
 
-> **Needs verification before use.** This order is inferred from code reading and
-> dependency analysis, not confirmed by running the full sequence end-to-end.
+> **Canonical local order is now enforced by `scripts/run_dataset_enrichments.py`.**
+> Steps 1–8 below are Phase B (base enrichment). Steps 9–12 are Phase C (ML overlay).
 
+0. `scripts/fix_dataset_quality.py` (data hygiene prerequisite)
 1. `pipeline/p0f_universe_definition.py`
 2. `pipeline/p0g_confidence_score.py`
 3. `scripts/mark_survivorship.py --fix`
@@ -172,11 +173,11 @@ step6 (historical_dataset_clean.parquet)  ← FINAL, then mutated by:
 5. `scripts/impute_features.py`
 6. `pipeline/enrich_fraud_labels.py`
 7. `pipeline/enrich_fraud_taxonomy.py`
-8. `scripts/fetch_aaer_labels.py`
-9. `scripts/generate_oof_scores.py`
-10. `scripts/score_historical.py`
-11. `scripts/compute_alpha.py`
-12. `scripts/patch_*` (as needed)
+8. `scripts/validate_feature_contract.py` (Phase B gate)
+9. `scripts/generate_oof_scores.py` (Phase C)
+10. `scripts/score_historical.py` (Phase C)
+11. `scripts/compute_alpha.py` (Phase C)
+12. `scripts/patch_*` (as needed, Phase C)
 
 ---
 

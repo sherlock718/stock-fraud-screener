@@ -70,6 +70,13 @@ Issues that should be resolved before next model train / backtest refresh:
 - **Fix:** Updated docstring and module-level comments to state price floor applies to all exchanges (matching actual code behavior). Removed unused `OTC_EXCHANGES` constant. Updated PIPELINE_ATLAS checklist 7.6.
 - **Status:** ✅ Fixed complete. No data impact (code behavior was already correct).
 
+### KR-GHOST-STEP3-001: run_pipeline_kr.py references non-existent step3_enrich_prices_kr.py — FIXED
+
+- **Type:** dead code / ghost reference
+- **Found:** Session 16 (audit) | **Fixed:** Session 16A
+- **Fix:** Changed `KR_STEPS[3]` from `pipeline/step3_enrich_prices_kr.py` to the shared `pipeline/step3_enrich_prices.py`. Step 3 is still unreachable (runner caps at step 2 for KR-DART-SCALING-001), but the reference is now valid.
+- **Status:** ✅ Fixed. No runtime impact (step was already unreachable).
+
 ### DATA-ARTIFACT-001: Intermediate parquet files not persisted externally — FIXED
 
 - **Type:** infrastructure / developer experience
@@ -103,13 +110,13 @@ Issues that should be resolved before next model train / backtest refresh:
 ### MUTATION-ORDER-001: Uncontrolled in-place mutation of final parquet
 
 - **Type:** architecture / data-safety risk
-- **Severity:** Medium
+- **Severity:** Medium → Low (partially mitigated)
 - **Effort:** Medium
-- **Found:** Session 1
+- **Found:** Session 1 | **Partially mitigated:** Session 16A
 - **Details:** `historical_dataset_clean.parquet` is mutated in-place by 16+ scripts post-step6. No enforced execution order, no idempotency checks, no versioning.
-- **Risk if ignored:** Silent data corruption if mutation order changes or a script is re-run. Mitigated by documented order in PARQUET_ATLAS.
-- **Fix before continuing audits?** No. Documented order works. Not blocking.
-- **Recommended session:** Architecture redesign (append-only columns, checksums, or separate output files).
+- **Mitigation (Session 16A):** `scripts/run_dataset_enrichments.py` now enforces canonical Phase B enrichment order (9 steps). Stops on first failure. CI order documented separately.
+- **Remaining risk:** Direct manual script execution can still bypass the orchestrator. Phase C scripts (OOF, scoring, alpha, patches) not covered.
+- **Recommended session:** Full architecture redesign (append-only columns, checksums, or separate output files) if scale demands it.
 
 ### MACRO-USREC-VINTAGE-001: USREC recession flag uses revised data
 

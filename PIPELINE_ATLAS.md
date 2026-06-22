@@ -85,6 +85,21 @@ scripts/build_monthly_price_cache.py → from pipeline.feature_library import ad
 scripts/patch_montier_c2.py     → from pipeline.step5_compute_features import add_montier_c_score
 ```
 
+### Post-Step6 enrichment orchestrator
+
+```
+scripts/run_dataset_enrichments.py (Phase B enrichment — canonical local order)
+  └─ subprocess → scripts/fix_dataset_quality.py
+  └─ subprocess → pipeline/p0f_universe_definition.py [--apply-filters]
+  └─ subprocess → pipeline/p0g_confidence_score.py
+  └─ subprocess → scripts/mark_survivorship.py --fix
+  └─ subprocess → scripts/enrich_quarterly_features.py --fix
+  └─ subprocess → scripts/impute_features.py
+  └─ subprocess → pipeline/enrich_fraud_labels.py
+  └─ subprocess → pipeline/enrich_fraud_taxonomy.py
+  └─ subprocess → scripts/validate_feature_contract.py
+```
+
 ### Internal pipeline cross-imports (ARCHIVED — Session 8)
 
 ```

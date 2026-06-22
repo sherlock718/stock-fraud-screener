@@ -8,6 +8,19 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Session 16A — Pipeline Orchestration Cleanup (2026-06-22)
+
+#### **`scripts/run_dataset_enrichments.py`** — new
+- Post-Step6 enrichment orchestrator: runs 9 steps in canonical order (fix_dataset_quality → p0f → p0g → survivorship → quarterly → impute → fraud_labels → fraud_taxonomy → validate_contract)
+- Partially mitigates MUTATION-ORDER-001
+- Flags: `--dry-run`, `--apply-universe-filters`, `--skip-survivorship`, `--skip-quarterly`
+
+#### **`scripts/run_pipeline_kr.py`** — fix
+- Fixed ghost reference KR-GHOST-STEP3-001: `step3_enrich_prices_kr.py` → `step3_enrich_prices.py`
+
+#### **`.github/workflows/refresh_data.yml`** — docs
+- Added comment block referencing local orchestrator equivalent
+
 ### Session 15B — HuggingFace Artifact Verification (2026-06-22)
 
 #### **DATA-ARTIFACT-001** — closed

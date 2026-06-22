@@ -84,6 +84,11 @@ jobs:
             esac
           done
 
+      # ── Post-pipeline enrichment ──────────────────────────────────────
+      # For local runs, use: python3 scripts/run_dataset_enrichments.py
+      # CI runs a subset (skips p0f/p0g/fraud enrichment because the HF
+      # base dataset already has those columns populated from local builds).
+
       - name: Fix dataset quality
         run: |
           python3 scripts/fix_dataset_quality.py

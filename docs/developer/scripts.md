@@ -33,6 +33,41 @@ Pipeline steps:
 
 ---
 
+### `run_dataset_enrichments.py` — Post-Step6 Enrichment Orchestrator
+
+Runs the canonical Phase B enrichment sequence on `historical_dataset_clean.parquet`.
+Stops immediately if any step fails.
+
+```bash
+python3 scripts/run_dataset_enrichments.py                          # run all 9 steps
+python3 scripts/run_dataset_enrichments.py --dry-run                # print commands only
+python3 scripts/run_dataset_enrichments.py --apply-universe-filters # full investable universe
+python3 scripts/run_dataset_enrichments.py --skip-survivorship      # skip mark_survivorship
+python3 scripts/run_dataset_enrichments.py --skip-quarterly         # skip enrich_quarterly
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--dry-run` | off | Print commands without executing |
+| `--apply-universe-filters` | off | Pass `--apply-filters` to p0f (full investable universe) |
+| `--skip-survivorship` | off | Skip `mark_survivorship.py` step |
+| `--skip-quarterly` | off | Skip `enrich_quarterly_features.py` step |
+
+Execution order:
+0. `fix_dataset_quality.py` — data hygiene
+1. `p0f_universe_definition.py` — universe filter
+2. `p0g_confidence_score.py` — data confidence
+3. `mark_survivorship.py --fix` — delisted correction
+4. `enrich_quarterly_features.py --fix` — quarterly-derived features
+5. `impute_features.py` — imputation + size_category
+6. `enrich_fraud_labels.py` — fraud labels
+7. `enrich_fraud_taxonomy.py` — fraud sub-scores
+8. `validate_feature_contract.py` — Phase B gate (exit 1 = fail)
+
+Does NOT include Phase C scripts (OOF scoring, ML scoring, alpha, patches).
+
+---
+
 ### `score_historical.py` — Apply trained models to full dataset
 
 Loads `model_{1y,3y,5y}.joblib` and `model_meta.json`, scores all 58K rows, and writes

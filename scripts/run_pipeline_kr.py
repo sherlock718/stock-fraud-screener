@@ -72,7 +72,7 @@ def run_step(script: str, extra: list[str], log_prefix: str):
 KR_STEPS = {
     1: ('pipeline/step1_fetch_tickers_kr.py',   'KR company list'),
     2: ('pipeline/step2_build_snapshots_kr.py', 'DART financial snapshots'),
-    3: ('pipeline/step3_enrich_prices_kr.py',   'Price enrichment (KR)'),
+    3: ('pipeline/step3_enrich_prices.py',       'Price enrichment (KR)'),
     4: ('pipeline/step4_enrich_macro.py',        'Macro enrichment'),
     5: ('pipeline/step5_compute_features.py',    'Feature computation'),
     6: ('pipeline/step6_clean.py',               'Clean and validate'),
