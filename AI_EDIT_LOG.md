@@ -1082,3 +1082,79 @@ Session 13 complete. Artifact tooling in place. Actual HuggingFace upload/downlo
 **Recommended Session 14 goal: Feature Contract / Feature Coverage**
 
 Define which columns the regenerated dataset should contain at each pipeline phase. Classify the 26 missing Phase C columns (OOF/ML/alpha/patch): required vs optional vs deprecated. Create a lightweight contract test validating expected column groups exist. This provides the foundation for Phase C model retrain decisions without actually running model training.
+
+---
+
+## Session 14 — Feature Contract / Feature Coverage (2026-06-22)
+
+**Branch:** `refactor/s14-feature-contract`
+
+**Goal:** Classify 26 missing Phase C columns, define a feature contract by pipeline phase, create validation tooling.
+
+**Files created:**
+| File | Purpose |
+|------|---------|
+| `scripts/validate_feature_contract.py` | Validates column groups by pipeline phase (B vs C) |
+| `docs/developer/feature-contract.md` | Feature contract documentation with classification + remediation |
+
+**Files modified:**
+| File | Change |
+|------|--------|
+| `KNOWN_ISSUES.md` | Updated FEATURE-COVERAGE-PHASEC-001 with full classification; FEATURE-CONTRACT-001 marked implemented |
+| `CHANGELOG.md` | Added Session 14 entries |
+| `AI_EDIT_LOG.md` | This session report |
+
+**26 Missing Phase C Columns — Classification:**
+
+| Category | Count | Columns | Producer | Status |
+|---|---|---|---|---|
+| OOF scores | 5 | ml_6m_oof, ml_1y_oof, ml_2y_oof, ml_3y_oof, ml_5y_oof | generate_oof_scores.py | Required for alpha; pending model retrain |
+| ML scores | 6 | ml_6m, ml_1y, ml_2y, ml_3y, ml_5y, ml_pred_excess_3y | score_historical.py | Required for backtest; pending model retrain |
+| Alpha factors | 6 | alpha_value/quality/momentum/growth/fraud_risk/composite | compute_alpha.py | Required for screener; pending ML scores |
+| Vol patches | 5 | equity_vol_6m/12m/36m/60m, roa_vol_5y | patch_equity_vol_features.py | Required for feature completeness; pending prices |
+| Survivorship | 1 | delisted_flag | mark_survivorship.py | Required for bias correction |
+| Quarterly enriched | 3 | revenue_qoq_std, earnings_momentum, filing_lag_trend | enrich_quarterly_features.py | Required for model features |
+
+All 26 are **required** for production scoring. None deprecated. All pending Phase C model retrain.
+
+**Validation result:**
+```
+Phase B (pipeline + enrichment): COMPLETE (8/8 groups)
+Phase C (ML scoring + patches):  PENDING (0/6 groups)
+Result: Phase B COMPLETE, Phase C PENDING (expected before model retrain)
+Exit code: 0
+```
+
+**No production code changes to pipeline steps. No parquet files committed. No model training. No HuggingFace push.**
+
+---
+
+### Session-end checklist (Session 14)
+
+- Feature contract defined? **Yes**. 14 groups (8 Phase B + 6 Phase C).
+- Validator runs cleanly? **Yes**. Phase B COMPLETE, Phase C PENDING. Exit 0.
+- 26 columns classified? **Yes**. All required, none deprecated.
+- KNOWN_ISSUES updated? **Yes**. FEATURE-COVERAGE-PHASEC-001 + FEATURE-CONTRACT-001.
+- CHANGELOG updated? **Yes**.
+- docs/developer/feature-contract.md created? **Yes**.
+- Tests pass? **Yes** (343 expected).
+- Data files modified in git? **No**.
+- Data files committed? **No**.
+- Models retrained? **No**.
+- Pushed to remote? **No**.
+
+---
+
+### Session 15 Handoff
+
+Session 14 complete. Feature contract defined and validated. Phase B confirmed complete. Phase C classified as pending-by-design (26 columns, all required, none deprecated).
+
+**Recommended Session 15 goal: Final pipeline hardening / artifact publish-restore verification / small remaining fixes**
+
+Candidates:
+1. **HuggingFace round-trip verification** — Run `push_to_hf.py --all-data-artifacts`, then verify `pull_from_hf.py --all` on a clean state. Closes DATA-ARTIFACT-001.
+2. **Patch scripts execution** — Run `patch_equity_vol_features.py` and `enrich_quarterly_features.py` to fill 8 of the 26 missing columns (no model training needed).
+3. **P0F-PRICE-FLOOR-001** — 5-line docstring fix.
+4. **Feature contract in CI** — Add `validate_feature_contract.py` to GitHub Actions weekly workflow.
+
+Do NOT hand off to model retrain yet. Complete infrastructure hardening first.

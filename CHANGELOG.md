@@ -8,6 +8,19 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Session 14 — Feature Contract / Feature Coverage (2026-06-22)
+
+#### **`scripts/validate_feature_contract.py`** — new
+- Validates dataset column groups by pipeline phase (Phase B vs Phase C)
+- Reports group presence/absence with min-threshold checks
+- Exits 0 if Phase B complete (even if Phase C pending)
+- Supports `--strict`, `--json`, `--parquet` flags
+
+#### **`docs/developer/feature-contract.md`** — new
+- Defines column group contract per pipeline phase
+- Classifies all 26 missing Phase C columns with producers and dependencies
+- Documents validation usage and remediation steps
+
 ### Session 13 — Data Artifact Infrastructure (2026-06-22)
 
 #### **`scripts/pull_from_hf.py`** — new

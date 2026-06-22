@@ -173,15 +173,19 @@ Issues that should be resolved before next model train / backtest refresh:
 
 - **Type:** informational / Phase C pending
 - **Severity:** Low (expected gap, not a bug)
-- **Found:** Session 12
-- **Details:** Current regenerated dataset has 341 columns. Previous documented dataset had 367 columns. The 26 missing columns are Phase C outputs that require model retrain/scoring:
-  - OOF scores: `ml_1y_oof`, `ml_3y_oof`, `ml_5y_oof` (3)
-  - ML scores: `ml_1y`, `ml_3y`, `ml_5y`, `ml_pred_excess_3y` (4)
-  - Alpha scores: `alpha_value`, `alpha_quality`, `alpha_momentum`, `alpha_growth`, `alpha_fraud_risk`, `alpha_composite` (6)
-  - Patch/derived columns from `patch_equity_vol_features.py`, `patch_montier_c2.py`, `compute_alpha.py`, etc. (~13)
-- **Risk if ignored:** Feature coverage is not complete until Phase C scoring and patch columns are regenerated or classified.
-- **Fix:** Run Phase C model training pipeline (`train_models.py`, `generate_oof_scores.py`, `score_historical.py`, `compute_alpha.py`, patch scripts). Not a data regeneration bug — expected ordering dependency.
-- **Status:** Informational. Phase C pending.
+- **Found:** Session 12 | **Contract defined:** Session 14
+- **Details:** Current regenerated dataset has 341 columns. The 26 missing columns are Phase C outputs that require model retrain/scoring. All 26 classified by category, producer script, and dependency in `docs/developer/feature-contract.md`.
+- **Classification (Session 14):**
+  - OOF scores (5): `ml_6m_oof`, `ml_1y_oof`, `ml_2y_oof`, `ml_3y_oof`, `ml_5y_oof` — `generate_oof_scores.py`
+  - ML scores (6): `ml_6m`, `ml_1y`, `ml_2y`, `ml_3y`, `ml_5y`, `ml_pred_excess_3y` — `score_historical.py`
+  - Alpha scores (6): `alpha_value`, `alpha_quality`, `alpha_momentum`, `alpha_growth`, `alpha_fraud_risk`, `alpha_composite` — `compute_alpha.py`
+  - Vol patches (5): `equity_vol_6m`, `equity_vol_12m`, `equity_vol_36m`, `equity_vol_60m`, `roa_vol_5y` — `patch_equity_vol_features.py`
+  - Survivorship (1): `delisted_flag` — `mark_survivorship.py`
+  - Quarterly enriched (3): `revenue_qoq_std`, `earnings_momentum`, `filing_lag_trend` — `enrich_quarterly_features.py`
+- **Validation:** `python3 scripts/validate_feature_contract.py` reports Phase B COMPLETE, Phase C PENDING.
+- **Risk if ignored:** None. Expected ordering dependency. Not a data regeneration bug.
+- **Fix:** Run Phase C pipeline (train → OOF → score → alpha → patches).
+- **Status:** Tracked by feature contract. Phase C pending by design.
 
 ### DOCS-ANNUAL-ONLY-001: data-update-guide.md incorrectly claims parquet is annual-only
 
@@ -266,11 +270,11 @@ These are intentional design choices documented for transparency. No action need
 
 Non-critical ideas deferred to future sessions.
 
-### FEATURE-CONTRACT-001: No feature set/count validation between Step 5 and Step 6
+### FEATURE-CONTRACT-001: No feature set/count validation between Step 5 and Step 6 — IMPLEMENTED
 
-- **Type:** dataset contract / future guardrail
+- **Type:** dataset contract / guardrail
 - **Severity:** Low
-- **Found:** Session 5
-- **Details:** Step 6 doesn't validate feature count/groups. If step5 silently drops a feature group, step6 passes it through.
-- **Future fix:** Lightweight contract test asserting required feature groups exist.
-- **Action:** Implement when pipeline stability is prioritized.
+- **Found:** Session 5 | **Implemented:** Session 14
+- **Details:** `scripts/validate_feature_contract.py` validates column group presence by pipeline phase. Checks 8 Phase B groups + 6 Phase C groups. Group-level (not brittle column-level).
+- **Documentation:** `docs/developer/feature-contract.md`
+- **Status:** ✅ Done.

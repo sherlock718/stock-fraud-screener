@@ -1141,6 +1141,31 @@ Sections:
 
 ---
 
+### `validate_feature_contract.py` — Pipeline Phase Validation
+
+Validates that the dataset contains expected column groups for each pipeline phase. Reports Phase B (feature pipeline) and Phase C (ML scoring layer) completeness independently. Use after pipeline builds or before model training to confirm prerequisites.
+
+```bash
+python3 scripts/validate_feature_contract.py                    # human-readable report
+python3 scripts/validate_feature_contract.py --strict           # exit 1 if Phase C incomplete
+python3 scripts/validate_feature_contract.py --json             # machine-readable output
+python3 scripts/validate_feature_contract.py --parquet PATH     # custom parquet file
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--parquet PATH` | `data/historical_dataset_clean.parquet` | Path to dataset |
+| `--strict` | False | Fail (exit 1) if Phase C groups are incomplete |
+| `--json` | False | Output JSON instead of human-readable table |
+
+Exit codes:
+- 0 = Phase B complete (Phase C may be pending)
+- 1 = Phase B incomplete, or `--strict` with Phase C incomplete
+
+See also: `docs/developer/feature-contract.md`
+
+---
+
 ### `build_fraud_labels.py` — Multi-Source Fraud Label System
 
 Builds `data/fraud_labels.parquet` from three free public sources: SEC AAER releases, SEC EDGAR bankruptcy filings (Form 15/BK), and Stanford Securities Class Action Clearinghouse (SCAC). Use this to bootstrap or extend the fraud label set beyond what `fetch_aaer_labels.py` covers.
