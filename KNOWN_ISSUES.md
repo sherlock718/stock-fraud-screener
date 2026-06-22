@@ -11,7 +11,7 @@ Issues that should be resolved before next model train / backtest refresh:
 | Priority | ID | Effort | What's Needed |
 |---|---|---|---|
 | **P1** | ~~P0F-PRICE-FLOOR-001~~ | ~~Tiny~~ | ✅ Fixed Session 15 |
-| **P2** | DATA-ARTIFACT-001 | Small | Add snapshots.parquet to HF push + create pull script |
+| **P2** | ~~DATA-ARTIFACT-001~~ | ~~Small~~ | ✅ Fixed Session 15B |
 | **P2** | KR-DART-SCALING-001 | Medium | Design decision on KR fetch strategy |
 | **P2** | MACRO-NO-ASOF-DATE-001 | Small | Add audit column to step4 |
 | **P2** | FEATURE-LIB-CONSOLIDATE-001 | Small | Refactor step5 imports |
@@ -70,21 +70,17 @@ Issues that should be resolved before next model train / backtest refresh:
 - **Fix:** Updated docstring and module-level comments to state price floor applies to all exchanges (matching actual code behavior). Removed unused `OTC_EXCHANGES` constant. Updated PIPELINE_ATLAS checklist 7.6.
 - **Status:** ✅ Fixed complete. No data impact (code behavior was already correct).
 
+### DATA-ARTIFACT-001: Intermediate parquet files not persisted externally — FIXED
+
+- **Type:** infrastructure / developer experience
+- **Found:** Session 12 | **Tooling added:** Session 13 | **Verified:** Session 15B
+- **Fix:** `push_to_hf.py --all-data-artifacts` uploads dataset + 7 snapshot/price artifacts + manifest to HuggingFace. `pull_from_hf.py --all` restores with checksum verification. Round-trip verified 2026-06-22: upload 9 files, restore 1 missing file, SHA256 match confirmed.
+- **Artifacts on HF:** historical_dataset_clean.parquet (84.4 MB), snapshots.parquet (31.8 MB), prices.parquet (38.1 MB), 5 per-market snapshots, ARTIFACT_MANIFEST.json.
+- **Status:** ✅ Fixed complete. Upload + restore verified.
+
 ---
 
 ## Open — Medium Severity
-
-### DATA-ARTIFACT-001: Intermediate parquet files not persisted externally
-
-- **Type:** infrastructure / developer experience
-- **Severity:** Medium
-- **Effort:** Small
-- **Found:** Session 12 | **Tooling added:** Session 13
-- **Details:** `data/snapshots.parquet`, `data/prices.parquet`, `data/macro.parquet` are gitignored ephemeral build artifacts. They are not stored on HuggingFace or any external storage. Only `historical_dataset_clean.parquet` is pushed to HF. This means any fresh checkout requires a full Step 1–2 rebuild (1–4 hours, network-dependent) before Step 3–6 can run.
-- **Risk if ignored:** Developer friction. Any contributor must run multi-hour EDGAR fetch before they can iterate on features or scoring.
-- **Session 13 progress:** `scripts/pull_from_hf.py`, `scripts/push_to_hf.py` (updated), and `scripts/generate_manifest.py` created. Tooling ready. Actual HuggingFace upload + restore verification pending.
-- **Remaining action:** Run `push_to_hf.py --all-data-artifacts` to upload snapshots + manifest to HuggingFace. Then verify round-trip with `pull_from_hf.py --all` on a fresh checkout.
-- **Status:** Tooling implemented. Upload/verification pending.
 
 ### KR-DART-SCALING-001: Full KR DART build is impractical with current API strategy
 

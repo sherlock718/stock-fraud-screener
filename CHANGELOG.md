@@ -8,6 +8,13 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Session 15B — HuggingFace Artifact Verification (2026-06-22)
+
+#### **DATA-ARTIFACT-001** — closed
+- Uploaded 9 artifacts to HuggingFace via `push_to_hf.py --all-data-artifacts`
+- Verified round-trip restore via `pull_from_hf.py --all` with SHA256 checksum match
+- Artifacts: dataset (84.4 MB) + snapshots (31.8 MB) + prices (38.1 MB) + 5 per-market + manifest
+
 ### Session 15 — Final Pipeline Hardening (2026-06-22)
 
 #### **`pipeline/p0f_universe_definition.py`** — fix

@@ -1220,3 +1220,51 @@ Pipeline/refactor phase complete locally. Next phase: factor research, feature e
 - Models retrained? **No**
 - Pushed to remote? **No**
 - Merged? **No**
+
+---
+
+## Session 15B — HuggingFace Artifact Verification (2026-06-22)
+
+**Branch:** `main` (direct commit, artifact ops only)
+
+**Goal:** Close DATA-ARTIFACT-001 by performing actual HuggingFace upload + restore round-trip verification.
+
+**Upload result:**
+- 9 files uploaded to `ekrash718/stock-screener-data`
+- historical_dataset_clean.parquet (84.4 MB, 58,190 rows × 367 cols)
+- snapshots.parquet (31.8 MB, 191,579 rows × 95 cols)
+- prices.parquet (38.1 MB, 189,853 rows × 62 cols)
+- snapshots_kr.parquet (0.2 MB), snapshots_ca.parquet (2.3 MB), snapshots_eu.parquet (0.4 MB), snapshots_jp.parquet (0.2 MB), snapshots_br.parquet (3.3 MB)
+- ARTIFACT_MANIFEST.json (checksums + metadata)
+
+**Restore verification:**
+- Renamed `snapshots_kr.parquet` locally to simulate missing artifact
+- Ran `pull_from_hf.py --all` — downloaded missing file, skipped 7 others (checksum match)
+- SHA256 of restored file matches original exactly
+- Checksum verification working correctly
+
+**Files modified:**
+| File | Change |
+|------|--------|
+| `KNOWN_ISSUES.md` | DATA-ARTIFACT-001 → Fixed Complete (moved to Fixed section) |
+| `CHANGELOG.md` | Session 15B entry |
+| `AI_EDIT_LOG.md` | This session report |
+
+**Issues closed:** DATA-ARTIFACT-001
+
+**Next phase handoff:**
+Factor research / feature engineering / model retrain/scoring / backtest refresh. Do not mix those into pipeline refactor retroactively.
+
+**No pipeline code changes. No parquet files committed. No models trained.**
+
+---
+
+### Session-end checklist (Session 15B)
+
+- HF upload succeeded? **Yes** (9 files)
+- Restore verified? **Yes** (SHA256 match)
+- DATA-ARTIFACT-001 closed? **Yes**
+- Tests pass? **Yes** (343 expected)
+- Feature contract validates? **Yes** (Phase B COMPLETE, Phase C PENDING)
+- Data files committed? **No**
+- Pushed to remote? **Pending review**
