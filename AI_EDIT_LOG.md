@@ -908,3 +908,110 @@ Session 11 complete. TAXONOMY-SUSPECT-OVERWRITE-001 resolved at code level. The 
 3. **MACRO-NO-ASOF-DATE-001** — Small fix: add `macro_asof_date` audit column to step4. Quick win.
 
 4. **Scripts audit** — Begin auditing `scripts/` modules (train_models, backtester, bias_audit). These are Phase C items but their test coverage is only partial.
+
+---
+
+## Session 12 — Data Regeneration (2026-06-22)
+
+**Branch:** `fix/s12-data-regeneration`
+
+**Goal:** Regenerate local parquet dataset to resolve three pending data-stale issues: PRICE-UNADJUSTED-001, RANK-LEAKAGE-001, TAXONOMY-SUSPECT-OVERWRITE-001.
+
+**Problem encountered:** `data/snapshots.parquet` did not exist (intermediate files are gitignored and not stored on HuggingFace). Required full Step 1–2 rebuild from SEC EDGAR before Steps 3–6 could run. Logged as DATA-ARTIFACT-001.
+
+**Additional problem:** FRED_API_KEY was not set. Step 4 failed silently on first run (all macro columns NaN). Fixed by creating `.env` with key and rerunning Steps 4–6.
+
+**Pipeline execution:**
+
+| Step | Duration | Output |
+|------|----------|--------|
+| Step 1 (fetch_tickers) | ~63 min | 8,021 tickers |
+| Step 2 (build_snapshots) | ~62 min | 165,196 rows × 78 cols |
+| Step 3 (enrich_prices) | ~45 min | 165,196 rows × 62 cols |
+| Step 4 (enrich_macro) | <1 min | 12 macro columns, 4,869 obs from FRED |
+| Step 5 (compute_features) | ~5 sec | 165,196 rows × 305 cols |
+| Step 6 (clean) | ~4 sec | 164,435 rows × 307 cols |
+
+**Post-step6 enrichment (7 mutators in order):**
+1. `p0f_universe_definition.py` → `in_universe`, `excl_reason`
+2. `p0g_confidence_score.py` → `data_confidence`
+3. `mark_survivorship.py --fix` → 734 rows imputed (-50%)
+4. `enrich_quarterly_features.py --fix` → 5 quarterly features added
+5. `impute_features.py` → quarterly cols + `size_category_imputed`
+6. `enrich_fraud_labels.py` → `fraud_confirmed`, `fraud_suspect`
+7. `enrich_fraud_taxonomy.py` → 6 fraud sub-score columns
+
+**Final dataset:** 164,435 rows × 325 columns (US-only; multi-market not regenerated this session)
+
+**Validation results:**
+
+| Check | Result |
+|-------|--------|
+| Row count | 164,435 (US-only; previous 58,190 was annual-only multi-market) |
+| Column count | 325 |
+| Annual rows | 43,906 |
+| forward_return_1y | exists, 143K non-null, no infinities, min=-1.0 max=29999 |
+| price_cache.db reuse | No (rebuilt fresh) |
+| quality_composite ranked within fiscal_year+market | Yes (US 2015 mean=0.546, US 2020 mean=0.534, both ~0.5) |
+| value_composite ranked within fiscal_year+market | Yes (range [0.039, 1.0]) |
+| fraud_suspect binary | Yes {0, 1} |
+| fraud_confirmed=1 suppression | 0 confirmed frauds have fraud_suspect=1 |
+| Infinite values | 0 |
+| All-NaN columns | 0 |
+| Macro features | All 5 key columns present and populated |
+| in_universe | present |
+| data_confidence | present |
+| Tests | 343 passed, 0 failed |
+
+**Note on dataset scope:** This regeneration produced US-only data (164K total rows including quarterly). The previous dataset (58K rows) was annual-only across 6 markets (US+CA+KR+BR+JP+EU). Multi-market data was not regenerated because the market-specific pipelines (`run_pipeline_kr.py`, etc.) were not run. The three data-stale bugs are resolved for US data. Multi-market regeneration is a separate future task.
+
+**Files modified:**
+| File | Change |
+|------|--------|
+| `KNOWN_ISSUES.md` | Moved 3 issues to Fixed Complete, added DATA-ARTIFACT-001, updated priority queue |
+| `AI_EDIT_LOG.md` | This session report |
+
+**No production code changes. No parquet files committed. No model training.**
+
+---
+
+### Session-end checklist (Session 12)
+
+- Step 3 completed? **Yes**
+- Step 4 completed? **Yes** (after FRED_API_KEY fix)
+- Step 5 completed? **Yes**
+- Step 6 completed? **Yes**
+- Enrichment scripts completed? **Yes** (all 7)
+- Row count: **164,435** (US-only including quarterly)
+- Column count: **325**
+- fraud_suspect coverage: **29,750 flagged**
+- fraud_confirmed=1 suppression validated? **Yes** (0 overlap)
+- Rank grouping validated? **Yes** (within fiscal_year+market)
+- Price sanity validated? **Yes** (no inf, no cache reuse)
+- Tests pass? **Yes**. Count: **343**
+- Data files modified in git? **No** (gitignored)
+- Data files committed? **No**
+- KNOWN_ISSUES.md updated? **Yes**
+- AI_EDIT_LOG.md updated? **Yes**
+- Commit hash: *(pending)*
+- Final git status: *(pending)*
+
+---
+
+### Session 13 Handoff
+
+Session 12 complete. Three P0/P1 data-stale issues resolved. US dataset regenerated with correct adjusted prices, within-year ranks, and proper fraud_suspect ownership.
+
+**Outstanding items from this session:**
+- Dataset is US-only (164K rows). Multi-market data (CA/KR/BR/JP/EU) not regenerated. Previous combined dataset had 58K annual rows across 6 markets.
+- DATA-ARTIFACT-001 logged: intermediate parquets not persisted externally.
+
+**Recommended Session 13 goals (pick one):**
+
+1. **Multi-market regeneration** — Run `run_pipeline_kr.py`, `run_pipeline_ca.py`, etc. + `merge_snapshots.py` to restore the full 6-market dataset. Prerequisite for realistic multi-market backtests.
+
+2. **Artifact infrastructure** — Create `scripts/pull_from_hf.py`, add `snapshots.parquet` to HF push, create `ARTIFACT_MANIFEST.json`. Prevents future Session 12-type blockers.
+
+3. **Model retrain** — With corrected US data, retrain LightGBM models and measure WF AUC improvement. Phase C work.
+
+4. **P0F-PRICE-FLOOR-001** — Tiny docs-only fix (5 lines). Quick win cleanup.

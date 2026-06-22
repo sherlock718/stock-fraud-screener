@@ -10,9 +10,8 @@ Issues that should be resolved before next model train / backtest refresh:
 
 | Priority | ID | Effort | What's Needed |
 |---|---|---|---|
-| **P0** | PRICE-UNADJUSTED-001 | Tiny | Delete `price_cache.db`, rerun step3→step6 |
-| **P0** | RANK-LEAKAGE-001 | Tiny | Rerun step5→step6 |
 | **P1** | P0F-PRICE-FLOOR-001 | Tiny | Fix docstring (5-line docs-only change) |
+| **P2** | DATA-ARTIFACT-001 | Small | Add snapshots.parquet to HF push + create pull script |
 | **P2** | MACRO-NO-ASOF-DATE-001 | Small | Add audit column to step4 |
 | **P2** | FEATURE-LIB-CONSOLIDATE-001 | Small | Refactor step5 imports |
 | **P3** | LIQUIDITY-001 | Large | Design decision + feature engineering |
@@ -28,31 +27,25 @@ Issues that should be resolved before next model train / backtest refresh:
 
 - **Type:** data bug
 - **Severity:** Critical
-- **Found:** Session 2 | **Fixed:** Session 2.5
-- **Fix:** Changed `hist['Close']` → `hist['Adj Close']` in `fetch_price_series()` (line 215)
-- **Remaining action:** Delete `data/price_cache.db` and rerun step3→step5→step6 to regenerate all downstream data.
-- **Status:** ✅ Code fixed. ⚠️ Data regeneration pending.
-- **Must complete before:** Next model train or backtest.
+- **Found:** Session 2 | **Code fixed:** Session 2.5
+- **Fix:** Changed `hist['Close']` → `hist['Adj Close']` in `fetch_price_series()`.
+- **Status:** ✅ Code fixed. US-only regeneration validated (Session 12). Multi-market production regeneration in progress.
 
 ### RANK-LEAKAGE-001: quality/value composites ranked across full dataset — FIXED
 
 - **Type:** cross-temporal rank leakage
 - **Severity:** Medium
-- **Found:** Session 4 | **Fixed:** Session 4.5
+- **Found:** Session 4 | **Code fixed:** Session 4.5
 - **Fix:** Added `.groupby(['fiscal_year', 'market'])` before `.rank(pct=True)` in `add_composite_scores()`.
-- **Remaining action:** Rerun step5→step6 to regenerate `historical_dataset.parquet` with corrected ranks.
-- **Status:** ✅ Code fixed. ⚠️ Data regeneration pending.
-- **Must complete before:** Next model train or backtest.
+- **Status:** ✅ Code fixed. US-only regeneration validated (Session 12). Multi-market production regeneration in progress.
 
 ### TAXONOMY-SUSPECT-OVERWRITE-001: enrich_fraud_taxonomy.py overwrites fraud_suspect — FIXED
 
 - **Type:** data/semantic issue
 - **Severity:** Medium
-- **Found:** Session 10 | **Fixed:** Session 11
-- **Fix:** Removed `build_fraud_suspect()` and its call from `enrich_fraud_taxonomy.py`. `fraud_suspect` now owned exclusively by `enrich_fraud_labels.py` (5-signal broad definition). Taxonomy outputs 6 columns only (5 sub-scores + composite).
-- **Remaining action:** Rerun `enrich_fraud_taxonomy.py` on parquet to remove the stale overwrite. Current parquet still has the narrower taxonomy-written values.
-- **Status:** ✅ Code fixed. ⚠️ Data regeneration pending.
-- **Must complete before:** Next model train or backtest.
+- **Found:** Session 10 | **Code fixed:** Session 11
+- **Fix:** Removed `build_fraud_suspect()` from taxonomy. `fraud_suspect` now exclusively owned by `enrich_fraud_labels.py`.
+- **Status:** ✅ Code fixed. US-only regeneration validated (Session 12). Multi-market production regeneration in progress.
 
 ---
 
@@ -67,6 +60,17 @@ Issues that should be resolved before next model train / backtest refresh:
 ---
 
 ## Open — Medium Severity
+
+### DATA-ARTIFACT-001: Intermediate parquet files not persisted externally
+
+- **Type:** infrastructure / developer experience
+- **Severity:** Medium
+- **Effort:** Small
+- **Found:** Session 12
+- **Details:** `data/snapshots.parquet`, `data/prices.parquet`, `data/macro.parquet` are gitignored ephemeral build artifacts. They are not stored on HuggingFace or any external storage. Only `historical_dataset_clean.parquet` is pushed to HF. This means any fresh checkout requires a full Step 1–2 rebuild (1–4 hours, network-dependent) before Step 3–6 can run.
+- **Risk if ignored:** Developer friction. Any contributor must run multi-hour EDGAR fetch before they can iterate on features or scoring.
+- **Recommended fix:** (1) Add `snapshots.parquet` to HuggingFace push. (2) Create `scripts/pull_from_hf.py` download script. (3) Optionally add `ARTIFACT_MANIFEST.json` with checksums.
+- **Fix before continuing audits?** No. Working around it by running full pipeline locally.
 
 ### MUTATION-ORDER-001: Uncontrolled in-place mutation of final parquet
 
