@@ -114,7 +114,7 @@ Tickers are discovered automatically by the step 1 fetcher for each market. To a
 
 **Important constraints:**
 - `ticker` must not be blank — BR CVM companies without a B3 match are excluded by design
-- `period_type` must be `'annual'` — no quarterly rows in the clean dataset
+- `period_type` must be `'annual'` for modeling/backtesting — downstream consumers filter to annual. The clean parquet retains quarterly rows for enrichment logic; `p0f_universe_definition.py` marks them as not investable.
 - `fiscal_year` must be 2008–2030
 
 ---
@@ -243,7 +243,7 @@ The dataset schema is enforced by `scripts/test_dataset_quality.py`. The followi
 
 | Constraint | Rule |
 |---|---|
-| Annual-only | `period_type == 'annual'` for all rows |
+| Modeling subset is annual | Downstream consumers filter `period_type == 'annual'`. Quarterly rows are retained in the parquet for enrichment use but marked `in_universe=0` by p0f. |
 | No blank tickers | `ticker != ''` and `ticker.notna()` |
 | No duplicate primary keys | `(cik, market, fiscal_year, period_type)` is unique |
 | No inf values | All numeric columns |
@@ -265,7 +265,7 @@ Korean companies sometimes file multiple fiscal years in a single batch submissi
 | Dataset state | Rows | Columns |
 |---|---|---|
 | After step5 (`historical_dataset.parquet`) | varies | ~320 |
-| After step6 clean | annual-only | 326 |
+| After step6 clean | annual + quarterly (downstream filters to annual) | 326 |
 | After quarterly enrichment + imputation + patch | 58,307 | 341 |
 | After equity/vol patch + alpha scores + ML scores | 58,307 | 346 |
 | After BR null-ticker drop + growth winsorization | 58,190 | 346 |

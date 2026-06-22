@@ -12,6 +12,7 @@ Issues that should be resolved before next model train / backtest refresh:
 |---|---|---|---|
 | **P1** | P0F-PRICE-FLOOR-001 | Tiny | Fix docstring (5-line docs-only change) |
 | **P2** | DATA-ARTIFACT-001 | Small | Add snapshots.parquet to HF push + create pull script |
+| **P2** | KR-DART-SCALING-001 | Medium | Design decision on KR fetch strategy |
 | **P2** | MACRO-NO-ASOF-DATE-001 | Small | Add audit column to step4 |
 | **P2** | FEATURE-LIB-CONSOLIDATE-001 | Small | Refactor step5 imports |
 | **P3** | LIQUIDITY-001 | Large | Design decision + feature engineering |
@@ -23,7 +24,7 @@ Issues that should be resolved before next model train / backtest refresh:
 
 ## Fixed (Code Done, Data Regen Pending)
 
-*(Empty — all pending regenerations completed in Session 12.)*
+*(Empty — all code fixes validated against locally regenerated multi-market dataset.)*
 
 ---
 
@@ -33,28 +34,28 @@ Issues that should be resolved before next model train / backtest refresh:
 
 - **Type:** data bug
 - **Severity:** Critical
-- **Found:** Session 2 | **Code fixed:** Session 2.5 | **Data regenerated:** Session 12
+- **Found:** Session 2 | **Code fixed:** Session 2.5 | **Local data regenerated:** Session 12
 - **Fix:** Changed `hist['Close']` → `hist['Adj Close']` in `fetch_price_series()`.
 - **Validation:** Full multi-market pipeline rebuild. Fresh yfinance prices with no stale cache. `forward_return_1y` verified: no infinities, min=-1.0, 155K labeled rows.
-- **Status:** ✅ Complete. No remaining action.
+- **Status:** ✅ Code fixed and local regenerated dataset validated. HuggingFace production artifact not yet updated. KR full coverage is partial and tracked separately under KR-DART-SCALING-001.
 
 ### RANK-LEAKAGE-001: quality/value composites ranked across full dataset — FIXED
 
 - **Type:** cross-temporal rank leakage
 - **Severity:** Medium
-- **Found:** Session 4 | **Code fixed:** Session 4.5 | **Data regenerated:** Session 12
+- **Found:** Session 4 | **Code fixed:** Session 4.5 | **Local data regenerated:** Session 12
 - **Fix:** Added `.groupby(['fiscal_year', 'market'])` before `.rank(pct=True)` in `add_composite_scores()`.
 - **Validation:** US 2015 mean=0.545, US 2020 mean=0.534, CA mean=0.484, JP mean=0.507, DE mean=0.507 (all ~0.5, confirming independent within-group ranking).
-- **Status:** ✅ Complete. No remaining action.
+- **Status:** ✅ Code fixed and local regenerated dataset validated. HuggingFace production artifact not yet updated. KR full coverage is partial and tracked separately under KR-DART-SCALING-001.
 
 ### TAXONOMY-SUSPECT-OVERWRITE-001: enrich_fraud_taxonomy.py overwrites fraud_suspect — FIXED
 
 - **Type:** data/semantic issue
 - **Severity:** Medium
-- **Found:** Session 10 | **Code fixed:** Session 11 | **Data regenerated:** Session 12
+- **Found:** Session 10 | **Code fixed:** Session 11 | **Local data regenerated:** Session 12
 - **Fix:** Removed `build_fraud_suspect()` from taxonomy. `fraud_suspect` exclusively owned by `enrich_fraud_labels.py`.
 - **Validation:** After running labels then taxonomy: `fraud_suspect` binary {0,1}, 47,966 suspects flagged, 643 confirmed frauds all have `fraud_suspect=0`. Taxonomy did not overwrite.
-- **Status:** ✅ Complete. No remaining action.
+- **Status:** ✅ Code fixed and local regenerated dataset validated. HuggingFace production artifact not yet updated. KR full coverage is partial and tracked separately under KR-DART-SCALING-001.
 
 ### DOCS-PARQUET-ATLAS-001: PARQUET_ATLAS listed non-existent macro columns — FIXED
 
@@ -73,10 +74,27 @@ Issues that should be resolved before next model train / backtest refresh:
 - **Effort:** Small
 - **Found:** Session 12
 - **Details:** `data/snapshots.parquet`, `data/prices.parquet`, `data/macro.parquet` are gitignored ephemeral build artifacts. They are not stored on HuggingFace or any external storage. Only `historical_dataset_clean.parquet` is pushed to HF. This means any fresh checkout requires a full Step 1–2 rebuild (1–4 hours, network-dependent) before Step 3–6 can run.
-- **KR-specific sub-issue:** DART API takes ~5 hours for full KR build (2,762 tickers × 76 calls × 4.4s). CI has 120-min timeout and does not persist `dart_cache.db` or `snapshots_kr_checkpoint.json` between runs, so KR never completes in CI. Need to add GitHub Actions cache for KR checkpoint files, or upload partial KR snapshots to HuggingFace.
-- **Risk if ignored:** Developer friction. KR market permanently incomplete in CI builds.
-- **Recommended fix:** (1) Add `snapshots.parquet` to HuggingFace push. (2) Create `scripts/pull_from_hf.py` download script. (3) Add `dart_cache.db` + KR checkpoint to GitHub Actions cache in `refresh_data.yml`. (4) Optionally add `ARTIFACT_MANIFEST.json` with checksums.
+- **Risk if ignored:** Developer friction. Any contributor must run multi-hour EDGAR fetch before they can iterate on features or scoring.
+- **Recommended fix:** (1) Add `snapshots.parquet` to HuggingFace push. (2) Create `scripts/pull_from_hf.py` download script. (3) Optionally add `ARTIFACT_MANIFEST.json` with checksums.
 - **Fix before continuing audits?** No. Working around it by running full pipeline locally.
+
+### KR-DART-SCALING-001: Full KR DART build is impractical with current API strategy
+
+- **Type:** infrastructure / scaling
+- **Severity:** Medium
+- **Effort:** Medium (design decision needed)
+- **Found:** Session 12
+- **Details:** Full KR build requires ~208,282 API calls (2,762 tickers × 19 years × 4 report types). DART API responds at ~4.4s/call. Observed throughput: ~816 calls/hour. Total time for full build: ~255 hours (~10.6 days). Session 12 completed only 47/2,762 tickers (7,541 calls cached) before killing the process.
+- **CI incompatibility:** GitHub Actions has 120-min timeout. A 2-hour CI run processes ~1,632 calls. With ~200,741 remaining, full CI completion would take ~123 weekly runs (~2.4 years). CI does not persist `dart_cache.db` or checkpoint files between runs.
+- **Weekly refresh estimate (corrected):** Even after full build, refreshing 1 new year for all tickers requires ~11,048 calls (2,762 × 4 report types). At 816 calls/hour, that's ~13.5 hours — exceeds CI timeout.
+- **Risk if ignored:** KR market permanently incomplete or stale. Current dataset has only 453 KR annual rows vs ~2,538 in previous production build.
+- **Possible solutions:**
+  1. Reduce KR universe (top 500 by market cap instead of all 2,762)
+  2. One-time cloud VM completion ($5 DigitalOcean droplet, run 10 days)
+  3. Store completed `snapshots_kr.parquet` on HuggingFace (skip re-fetching)
+  4. Improve DART fetch strategy (parallel connections, batch endpoint if available)
+  5. Mark KR as partial/optional until solved
+- **Fix before continuing audits?** No. KR is 4% of dataset. Other markets fully regenerated.
 
 ### MUTATION-ORDER-001: Uncontrolled in-place mutation of final parquet
 
@@ -149,6 +167,28 @@ Issues that should be resolved before next model train / backtest refresh:
 ---
 
 ## Open — Low Severity
+
+### FEATURE-COVERAGE-PHASEC-001: Regenerated dataset missing Phase C columns
+
+- **Type:** informational / Phase C pending
+- **Severity:** Low (expected gap, not a bug)
+- **Found:** Session 12
+- **Details:** Current regenerated dataset has 341 columns. Previous documented dataset had 367 columns. The 26 missing columns are Phase C outputs that require model retrain/scoring:
+  - OOF scores: `ml_1y_oof`, `ml_3y_oof`, `ml_5y_oof` (3)
+  - ML scores: `ml_1y`, `ml_3y`, `ml_5y`, `ml_pred_excess_3y` (4)
+  - Alpha scores: `alpha_value`, `alpha_quality`, `alpha_momentum`, `alpha_growth`, `alpha_fraud_risk`, `alpha_composite` (6)
+  - Patch/derived columns from `patch_equity_vol_features.py`, `patch_montier_c2.py`, `compute_alpha.py`, etc. (~13)
+- **Risk if ignored:** Feature coverage is not complete until Phase C scoring and patch columns are regenerated or classified.
+- **Fix:** Run Phase C model training pipeline (`train_models.py`, `generate_oof_scores.py`, `score_historical.py`, `compute_alpha.py`, patch scripts). Not a data regeneration bug — expected ordering dependency.
+- **Status:** Informational. Phase C pending.
+
+### DOCS-ANNUAL-ONLY-001: data-update-guide.md incorrectly claims parquet is annual-only
+
+- **Type:** documentation inaccuracy
+- **Severity:** Low
+- **Found:** Session 12
+- **Details:** `docs/developer/data-update-guide.md` states "After step6 clean: annual-only" and Schema Constraints says "Annual-only: period_type == 'annual' for all rows". In reality, `historical_dataset_clean.parquet` contains both annual and quarterly rows. Downstream consumers filter `period_type == 'annual'` at read time. Quarterly rows are retained because enrichment logic uses them.
+- **Status:** ✅ Fixed in Session 12 (docs corrected in data-update-guide.md).
 
 ### BROKEN-IMPORT-001: Dead imports to `pipeline.score_and_report` — RESOLVED
 

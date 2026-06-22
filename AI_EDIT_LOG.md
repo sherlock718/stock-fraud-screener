@@ -917,10 +917,12 @@ Session 11 complete. TAXONOMY-SUSPECT-OVERWRITE-001 resolved at code level. The 
 
 **Goal:** Regenerate local parquet dataset to resolve three pending data-stale issues: PRICE-UNADJUSTED-001, RANK-LEAKAGE-001, TAXONOMY-SUSPECT-OVERWRITE-001.
 
+**Scope:** Multi-market regeneration completed for available markets. KR coverage is partial. Generated parquet files are local and gitignored — not committed, not published to HuggingFace. Feature coverage is Phase B only (Phase C ML/alpha columns not regenerated).
+
 **Problems encountered:**
 1. `data/snapshots.parquet` missing — required full Step 1–2 rebuild. Logged as DATA-ARTIFACT-001.
 2. `FRED_API_KEY` not set — Step 4 failed silently. Fixed by creating `.env` with key.
-3. KR DART API extremely slow (~5 hours for full build, 4.4s per API call × 208K calls needed). Only 47/2,762 tickers completed. Killed and skipped; 47 tickers (453 annual rows) included via merge. Full KR build deferred to CI infrastructure fix.
+3. KR DART API impractical at current rate (~208K API calls needed, 4.4s each = ~255 hours total). Only 47/2,762 tickers completed in ~8.5 hours. Killed. Logged as KR-DART-SCALING-001.
 
 **Pipeline execution:**
 
@@ -930,26 +932,26 @@ Session 11 complete. TAXONOMY-SUSPECT-OVERWRITE-001 resolved at code level. The 
 | CA | ~45 min | 9,207 | Done |
 | EU | ~12 min | 1,424 total (364 DE, 192 FR, etc.) | Done |
 | JP (free tier) | ~12 min | 555 | Done |
-| KR (DART) | Partial (47/2,762 tickers) | 453 | Partial — deferred |
+| KR (DART) | ~8.5 hrs (killed) | 453 (47/2,762 tickers) | Partial — tracked as KR-DART-SCALING-001 |
 | BR | ~15 min | 3,833 | Done |
 | Merge + Steps 4–6 | ~2 min | — | Done |
 | Enrichment (7 mutators) | ~3 min | — | Done |
 
-**Final dataset:** 191,579 total rows (59,378 annual) × 341 columns, 14 markets.
+**Final dataset (local only, gitignored):** 191,579 total rows (59,378 annual) × 341 columns, 14 markets.
 
 **Comparison with previous production dataset:**
 
 | Metric | Previous | Regenerated | Notes |
 |--------|----------|-------------|-------|
-| Annual rows | 58,190 | 59,378 | +1,188 (new filings since last build, minus ~2,085 KR shortfall) |
+| Annual rows | 58,190 | 59,378 | +1,188 (new filings minus ~2,085 KR shortfall) |
 | Markets | 14 | 14 | KR partial (453 vs ~2,538 before) |
-| Columns | 367 | 341 | Missing: OOF scores, ML scores, alpha scores (not run this session — Phase C) |
+| Columns | 367 | 341 | Missing 26: Phase C (OOF/ML/alpha/patch). See FEATURE-COVERAGE-PHASEC-001 |
 
 **Validation results:**
 
 | Check | Result |
 |-------|--------|
-| Annual row count | 59,378 (matches production scope) |
+| Annual row count | 59,378 (close to production scope; KR short ~2,085) |
 | Column count | 341 (Phase B complete; Phase C columns not generated) |
 | forward_return_1y | exists, 155K non-null, no infinities, no cache reuse |
 | quality_composite ranked within fiscal_year+market | US/CA/JP/DE all mean ~0.5 |
@@ -961,34 +963,44 @@ Session 11 complete. TAXONOMY-SUSPECT-OVERWRITE-001 resolved at code level. The 
 | Macro features | All 5 present and populated |
 | Tests | 343 passed, 0 failed |
 
+**Caveats:**
+- Generated parquet is local/gitignored. HuggingFace production artifact NOT updated.
+- KR coverage partial (453/~2,538 annual rows). Full KR requires design decision (KR-DART-SCALING-001).
+- 26 missing columns are Phase C outputs (require model retrain). Tracked as FEATURE-COVERAGE-PHASEC-001.
+- `docs/developer/data-update-guide.md` corrected: parquet contains annual+quarterly (not "annual-only"). Tracked as DOCS-ANNUAL-ONLY-001.
+
 **Files modified:**
 | File | Change |
 |------|--------|
-| `KNOWN_ISSUES.md` | Moved 3 issues to Fixed Complete, updated DATA-ARTIFACT-001 with KR CI sub-issue |
+| `KNOWN_ISSUES.md` | Fixed 3 issue wordings with caveats; added KR-DART-SCALING-001, FEATURE-COVERAGE-PHASEC-001, DOCS-ANNUAL-ONLY-001; updated DATA-ARTIFACT-001 |
 | `AI_EDIT_LOG.md` | This session report |
+| `docs/developer/data-update-guide.md` | Corrected annual-only claims to reflect actual behavior |
 
-**No production code changes. No parquet files committed. No model training.**
+**No production code changes. No parquet files committed. No model training. No HuggingFace publish.**
 
 ---
 
 ### Session-end checklist (Session 12)
 
-- Step 3 completed? **Yes** (all markets)
+- Step 3 completed? **Yes** (all available markets)
 - Step 4 completed? **Yes** (after FRED key fix)
 - Step 5 completed? **Yes**
 - Step 6 completed? **Yes**
 - Enrichment scripts completed? **Yes** (all 7)
-- Row count: **59,378 annual** (191,579 total)
-- Column count: **341**
+- Row count: **59,378 annual** (191,579 total incl. quarterly)
+- Column count: **341** (Phase B; missing 26 Phase C columns)
 - fraud_suspect coverage: **47,966 flagged**
 - fraud_confirmed=1 suppression validated? **Yes** (0 overlap)
 - Rank grouping validated? **Yes** (US/CA/JP/DE all ~0.5 mean)
-- Price sanity validated? **Yes** (no inf, no cache reuse)
+- Price sanity validated? **Yes** (no inf, no cache reuse, fresh yfinance)
 - Tests pass? **Yes**. Count: **343**
-- Data files modified in git? **No** (gitignored)
+- Data files modified in git? **No** (all gitignored)
 - Data files committed? **No**
+- HuggingFace updated? **No**
+- KR fully built? **No** (47/2,762 tickers; KR-DART-SCALING-001)
 - KNOWN_ISSUES.md updated? **Yes**
 - AI_EDIT_LOG.md updated? **Yes**
+- docs/developer/data-update-guide.md updated? **Yes**
 - Commit hash: *(pending)*
 - Final git status: *(pending)*
 
@@ -996,17 +1008,19 @@ Session 11 complete. TAXONOMY-SUSPECT-OVERWRITE-001 resolved at code level. The 
 
 ### Session 13 Handoff
 
-Session 12 complete. Three data-stale issues resolved. Multi-market dataset regenerated with corrected adjusted prices, within-year ranks, and proper fraud_suspect ownership.
+Session 12 regenerated a multi-market local dataset with corrected prices, within-year ranks, and proper fraud_suspect ownership. Generated data is local/gitignored. Production publishing and full KR coverage are separate future tasks.
 
-**Outstanding:**
-- KR market partial (453/~2,538 annual rows). Full KR build requires ~5 hours of DART API time. Deferred to CI infrastructure fix (DATA-ARTIFACT-001).
-- Columns: 341 vs old 367. Missing 26 columns are Phase C outputs (OOF scores: ml_1y_oof/3y_oof/5y_oof, ML scores: ml_1y/3y/5y/ml_pred_excess_3y, alpha scores: alpha_value/quality/momentum/growth/fraud_risk/composite, plus various patches). These require model retrain.
+**Open issues from this session:**
+- KR-DART-SCALING-001: Full KR build impractical (~255 hours). Design decision needed.
+- DATA-ARTIFACT-001: Intermediate parquets not persisted externally.
+- FEATURE-COVERAGE-PHASEC-001: 26 Phase C columns not yet regenerated.
+- DOCS-ANNUAL-ONLY-001: Fixed (data-update-guide.md corrected).
 
 **Recommended Session 13 goals (pick one):**
 
-1. **CI infrastructure fix (DATA-ARTIFACT-001)** — Add KR checkpoint caching to `refresh_data.yml`, add `snapshots.parquet` to HF push, create `scripts/pull_from_hf.py`. Unblocks KR in CI and prevents future regeneration blockers.
+1. **Data artifact infrastructure** — Store `snapshots.parquet` on HuggingFace, create `scripts/pull_from_hf.py`, decide KR strategy (reduce universe or cloud VM). Prevents future regeneration blockers.
 
-2. **Model retrain (Phase C)** — Retrain LightGBM models on corrected data, generate OOF scores and ML scores, restore the missing 26 columns. Prerequisite for alpha computation and backtest.
+2. **Model retrain (Phase C)** — Retrain LightGBM models on corrected data, generate OOF/ML/alpha scores, restore the missing 26 columns. Prerequisite for backtest.
 
 3. **Signal improvement** — Apply domain judgment to feature engineering. Target AUC improvement from 0.62 to 0.68+. Most impactful for commercialization path.
 
