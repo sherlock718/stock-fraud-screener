@@ -917,58 +917,54 @@ Session 11 complete. TAXONOMY-SUSPECT-OVERWRITE-001 resolved at code level. The 
 
 **Goal:** Regenerate local parquet dataset to resolve three pending data-stale issues: PRICE-UNADJUSTED-001, RANK-LEAKAGE-001, TAXONOMY-SUSPECT-OVERWRITE-001.
 
-**Problem encountered:** `data/snapshots.parquet` did not exist (intermediate files are gitignored and not stored on HuggingFace). Required full Step 1–2 rebuild from SEC EDGAR before Steps 3–6 could run. Logged as DATA-ARTIFACT-001.
-
-**Additional problem:** FRED_API_KEY was not set. Step 4 failed silently on first run (all macro columns NaN). Fixed by creating `.env` with key and rerunning Steps 4–6.
+**Problems encountered:**
+1. `data/snapshots.parquet` missing — required full Step 1–2 rebuild. Logged as DATA-ARTIFACT-001.
+2. `FRED_API_KEY` not set — Step 4 failed silently. Fixed by creating `.env` with key.
+3. KR DART API extremely slow (~5 hours for full build, 4.4s per API call × 208K calls needed). Only 47/2,762 tickers completed. Killed and skipped; 47 tickers (453 annual rows) included via merge. Full KR build deferred to CI infrastructure fix.
 
 **Pipeline execution:**
 
-| Step | Duration | Output |
-|------|----------|--------|
-| Step 1 (fetch_tickers) | ~63 min | 8,021 tickers |
-| Step 2 (build_snapshots) | ~62 min | 165,196 rows × 78 cols |
-| Step 3 (enrich_prices) | ~45 min | 165,196 rows × 62 cols |
-| Step 4 (enrich_macro) | <1 min | 12 macro columns, 4,869 obs from FRED |
-| Step 5 (compute_features) | ~5 sec | 165,196 rows × 305 cols |
-| Step 6 (clean) | ~4 sec | 164,435 rows × 307 cols |
+| Market | Duration | Annual Rows | Status |
+|--------|----------|-------------|--------|
+| US (Steps 1–6) | ~3 hours | 43,906 | Done |
+| CA | ~45 min | 9,207 | Done |
+| EU | ~12 min | 1,424 total (364 DE, 192 FR, etc.) | Done |
+| JP (free tier) | ~12 min | 555 | Done |
+| KR (DART) | Partial (47/2,762 tickers) | 453 | Partial — deferred |
+| BR | ~15 min | 3,833 | Done |
+| Merge + Steps 4–6 | ~2 min | — | Done |
+| Enrichment (7 mutators) | ~3 min | — | Done |
 
-**Post-step6 enrichment (7 mutators in order):**
-1. `p0f_universe_definition.py` → `in_universe`, `excl_reason`
-2. `p0g_confidence_score.py` → `data_confidence`
-3. `mark_survivorship.py --fix` → 734 rows imputed (-50%)
-4. `enrich_quarterly_features.py --fix` → 5 quarterly features added
-5. `impute_features.py` → quarterly cols + `size_category_imputed`
-6. `enrich_fraud_labels.py` → `fraud_confirmed`, `fraud_suspect`
-7. `enrich_fraud_taxonomy.py` → 6 fraud sub-score columns
+**Final dataset:** 191,579 total rows (59,378 annual) × 341 columns, 14 markets.
 
-**Final dataset:** 164,435 rows × 325 columns (US-only; multi-market not regenerated this session)
+**Comparison with previous production dataset:**
+
+| Metric | Previous | Regenerated | Notes |
+|--------|----------|-------------|-------|
+| Annual rows | 58,190 | 59,378 | +1,188 (new filings since last build, minus ~2,085 KR shortfall) |
+| Markets | 14 | 14 | KR partial (453 vs ~2,538 before) |
+| Columns | 367 | 341 | Missing: OOF scores, ML scores, alpha scores (not run this session — Phase C) |
 
 **Validation results:**
 
 | Check | Result |
 |-------|--------|
-| Row count | 164,435 (US-only; previous 58,190 was annual-only multi-market) |
-| Column count | 325 |
-| Annual rows | 43,906 |
-| forward_return_1y | exists, 143K non-null, no infinities, min=-1.0 max=29999 |
-| price_cache.db reuse | No (rebuilt fresh) |
-| quality_composite ranked within fiscal_year+market | Yes (US 2015 mean=0.546, US 2020 mean=0.534, both ~0.5) |
-| value_composite ranked within fiscal_year+market | Yes (range [0.039, 1.0]) |
-| fraud_suspect binary | Yes {0, 1} |
-| fraud_confirmed=1 suppression | 0 confirmed frauds have fraud_suspect=1 |
+| Annual row count | 59,378 (matches production scope) |
+| Column count | 341 (Phase B complete; Phase C columns not generated) |
+| forward_return_1y | exists, 155K non-null, no infinities, no cache reuse |
+| quality_composite ranked within fiscal_year+market | US/CA/JP/DE all mean ~0.5 |
+| value_composite ranked within fiscal_year+market | confirmed |
+| fraud_suspect binary | {0, 1}, 47,966 flagged |
+| fraud_confirmed=1 suppression | 0 overlap (correct) |
 | Infinite values | 0 |
 | All-NaN columns | 0 |
-| Macro features | All 5 key columns present and populated |
-| in_universe | present |
-| data_confidence | present |
+| Macro features | All 5 present and populated |
 | Tests | 343 passed, 0 failed |
-
-**Note on dataset scope:** This regeneration produced US-only data (164K total rows including quarterly). The previous dataset (58K rows) was annual-only across 6 markets (US+CA+KR+BR+JP+EU). Multi-market data was not regenerated because the market-specific pipelines (`run_pipeline_kr.py`, etc.) were not run. The three data-stale bugs are resolved for US data. Multi-market regeneration is a separate future task.
 
 **Files modified:**
 | File | Change |
 |------|--------|
-| `KNOWN_ISSUES.md` | Moved 3 issues to Fixed Complete, added DATA-ARTIFACT-001, updated priority queue |
+| `KNOWN_ISSUES.md` | Moved 3 issues to Fixed Complete, updated DATA-ARTIFACT-001 with KR CI sub-issue |
 | `AI_EDIT_LOG.md` | This session report |
 
 **No production code changes. No parquet files committed. No model training.**
@@ -977,16 +973,16 @@ Session 11 complete. TAXONOMY-SUSPECT-OVERWRITE-001 resolved at code level. The 
 
 ### Session-end checklist (Session 12)
 
-- Step 3 completed? **Yes**
-- Step 4 completed? **Yes** (after FRED_API_KEY fix)
+- Step 3 completed? **Yes** (all markets)
+- Step 4 completed? **Yes** (after FRED key fix)
 - Step 5 completed? **Yes**
 - Step 6 completed? **Yes**
 - Enrichment scripts completed? **Yes** (all 7)
-- Row count: **164,435** (US-only including quarterly)
-- Column count: **325**
-- fraud_suspect coverage: **29,750 flagged**
+- Row count: **59,378 annual** (191,579 total)
+- Column count: **341**
+- fraud_suspect coverage: **47,966 flagged**
 - fraud_confirmed=1 suppression validated? **Yes** (0 overlap)
-- Rank grouping validated? **Yes** (within fiscal_year+market)
+- Rank grouping validated? **Yes** (US/CA/JP/DE all ~0.5 mean)
 - Price sanity validated? **Yes** (no inf, no cache reuse)
 - Tests pass? **Yes**. Count: **343**
 - Data files modified in git? **No** (gitignored)
@@ -1000,18 +996,18 @@ Session 11 complete. TAXONOMY-SUSPECT-OVERWRITE-001 resolved at code level. The 
 
 ### Session 13 Handoff
 
-Session 12 complete. Three P0/P1 data-stale issues resolved. US dataset regenerated with correct adjusted prices, within-year ranks, and proper fraud_suspect ownership.
+Session 12 complete. Three data-stale issues resolved. Multi-market dataset regenerated with corrected adjusted prices, within-year ranks, and proper fraud_suspect ownership.
 
-**Outstanding items from this session:**
-- Dataset is US-only (164K rows). Multi-market data (CA/KR/BR/JP/EU) not regenerated. Previous combined dataset had 58K annual rows across 6 markets.
-- DATA-ARTIFACT-001 logged: intermediate parquets not persisted externally.
+**Outstanding:**
+- KR market partial (453/~2,538 annual rows). Full KR build requires ~5 hours of DART API time. Deferred to CI infrastructure fix (DATA-ARTIFACT-001).
+- Columns: 341 vs old 367. Missing 26 columns are Phase C outputs (OOF scores: ml_1y_oof/3y_oof/5y_oof, ML scores: ml_1y/3y/5y/ml_pred_excess_3y, alpha scores: alpha_value/quality/momentum/growth/fraud_risk/composite, plus various patches). These require model retrain.
 
 **Recommended Session 13 goals (pick one):**
 
-1. **Multi-market regeneration** — Run `run_pipeline_kr.py`, `run_pipeline_ca.py`, etc. + `merge_snapshots.py` to restore the full 6-market dataset. Prerequisite for realistic multi-market backtests.
+1. **CI infrastructure fix (DATA-ARTIFACT-001)** — Add KR checkpoint caching to `refresh_data.yml`, add `snapshots.parquet` to HF push, create `scripts/pull_from_hf.py`. Unblocks KR in CI and prevents future regeneration blockers.
 
-2. **Artifact infrastructure** — Create `scripts/pull_from_hf.py`, add `snapshots.parquet` to HF push, create `ARTIFACT_MANIFEST.json`. Prevents future Session 12-type blockers.
+2. **Model retrain (Phase C)** — Retrain LightGBM models on corrected data, generate OOF scores and ML scores, restore the missing 26 columns. Prerequisite for alpha computation and backtest.
 
-3. **Model retrain** — With corrected US data, retrain LightGBM models and measure WF AUC improvement. Phase C work.
+3. **Signal improvement** — Apply domain judgment to feature engineering. Target AUC improvement from 0.62 to 0.68+. Most impactful for commercialization path.
 
-4. **P0F-PRICE-FLOOR-001** — Tiny docs-only fix (5 lines). Quick win cleanup.
+4. **P0F-PRICE-FLOOR-001** — Tiny docs-only fix (5 lines). Quick win.

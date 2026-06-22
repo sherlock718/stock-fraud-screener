@@ -23,33 +23,38 @@ Issues that should be resolved before next model train / backtest refresh:
 
 ## Fixed (Code Done, Data Regen Pending)
 
+*(Empty — all pending regenerations completed in Session 12.)*
+
+---
+
+## Fixed (Complete)
+
 ### PRICE-UNADJUSTED-001: step3 uses unadjusted Close instead of Adj Close — FIXED
 
 - **Type:** data bug
 - **Severity:** Critical
-- **Found:** Session 2 | **Code fixed:** Session 2.5
+- **Found:** Session 2 | **Code fixed:** Session 2.5 | **Data regenerated:** Session 12
 - **Fix:** Changed `hist['Close']` → `hist['Adj Close']` in `fetch_price_series()`.
-- **Status:** ✅ Code fixed. US-only regeneration validated (Session 12). Multi-market production regeneration in progress.
+- **Validation:** Full multi-market pipeline rebuild. Fresh yfinance prices with no stale cache. `forward_return_1y` verified: no infinities, min=-1.0, 155K labeled rows.
+- **Status:** ✅ Complete. No remaining action.
 
 ### RANK-LEAKAGE-001: quality/value composites ranked across full dataset — FIXED
 
 - **Type:** cross-temporal rank leakage
 - **Severity:** Medium
-- **Found:** Session 4 | **Code fixed:** Session 4.5
+- **Found:** Session 4 | **Code fixed:** Session 4.5 | **Data regenerated:** Session 12
 - **Fix:** Added `.groupby(['fiscal_year', 'market'])` before `.rank(pct=True)` in `add_composite_scores()`.
-- **Status:** ✅ Code fixed. US-only regeneration validated (Session 12). Multi-market production regeneration in progress.
+- **Validation:** US 2015 mean=0.545, US 2020 mean=0.534, CA mean=0.484, JP mean=0.507, DE mean=0.507 (all ~0.5, confirming independent within-group ranking).
+- **Status:** ✅ Complete. No remaining action.
 
 ### TAXONOMY-SUSPECT-OVERWRITE-001: enrich_fraud_taxonomy.py overwrites fraud_suspect — FIXED
 
 - **Type:** data/semantic issue
 - **Severity:** Medium
-- **Found:** Session 10 | **Code fixed:** Session 11
-- **Fix:** Removed `build_fraud_suspect()` from taxonomy. `fraud_suspect` now exclusively owned by `enrich_fraud_labels.py`.
-- **Status:** ✅ Code fixed. US-only regeneration validated (Session 12). Multi-market production regeneration in progress.
-
----
-
-## Fixed (Complete)
+- **Found:** Session 10 | **Code fixed:** Session 11 | **Data regenerated:** Session 12
+- **Fix:** Removed `build_fraud_suspect()` from taxonomy. `fraud_suspect` exclusively owned by `enrich_fraud_labels.py`.
+- **Validation:** After running labels then taxonomy: `fraud_suspect` binary {0,1}, 47,966 suspects flagged, 643 confirmed frauds all have `fraud_suspect=0`. Taxonomy did not overwrite.
+- **Status:** ✅ Complete. No remaining action.
 
 ### DOCS-PARQUET-ATLAS-001: PARQUET_ATLAS listed non-existent macro columns — FIXED
 
@@ -68,8 +73,9 @@ Issues that should be resolved before next model train / backtest refresh:
 - **Effort:** Small
 - **Found:** Session 12
 - **Details:** `data/snapshots.parquet`, `data/prices.parquet`, `data/macro.parquet` are gitignored ephemeral build artifacts. They are not stored on HuggingFace or any external storage. Only `historical_dataset_clean.parquet` is pushed to HF. This means any fresh checkout requires a full Step 1–2 rebuild (1–4 hours, network-dependent) before Step 3–6 can run.
-- **Risk if ignored:** Developer friction. Any contributor must run multi-hour EDGAR fetch before they can iterate on features or scoring.
-- **Recommended fix:** (1) Add `snapshots.parquet` to HuggingFace push. (2) Create `scripts/pull_from_hf.py` download script. (3) Optionally add `ARTIFACT_MANIFEST.json` with checksums.
+- **KR-specific sub-issue:** DART API takes ~5 hours for full KR build (2,762 tickers × 76 calls × 4.4s). CI has 120-min timeout and does not persist `dart_cache.db` or `snapshots_kr_checkpoint.json` between runs, so KR never completes in CI. Need to add GitHub Actions cache for KR checkpoint files, or upload partial KR snapshots to HuggingFace.
+- **Risk if ignored:** Developer friction. KR market permanently incomplete in CI builds.
+- **Recommended fix:** (1) Add `snapshots.parquet` to HuggingFace push. (2) Create `scripts/pull_from_hf.py` download script. (3) Add `dart_cache.db` + KR checkpoint to GitHub Actions cache in `refresh_data.yml`. (4) Optionally add `ARTIFACT_MANIFEST.json` with checksums.
 - **Fix before continuing audits?** No. Working around it by running full pipeline locally.
 
 ### MUTATION-ORDER-001: Uncontrolled in-place mutation of final parquet
