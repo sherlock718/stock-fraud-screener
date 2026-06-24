@@ -15,7 +15,7 @@ graph TB
         A6[B3/CVM<br/>Brazil]
     end
 
-    subgraph Pipeline["Data Pipeline — pipeline/ + scripts/"]
+    subgraph Pipeline["Data Pipeline — pipeline/ (production spine)"]
         B1[Step 1<br/>Fetch Tickers]
         B2[Step 2<br/>Build Snapshots]
         B3[Step 3<br/>Enrich Prices<br/>vol_prior 6m/12m/36m/60m<br/>auto_adjust=False]
@@ -26,7 +26,7 @@ graph TB
         B8[Survivorship Correction<br/>mark_survivorship.py<br/>impute −50% for delisted]
         B9[Feature Imputation<br/>impute_features.py<br/>+5 quarterly cols + size_category]
         B10[Alpha Scores<br/>compute_alpha.py<br/>5-factor alpha scores]
-        B11[ML Scores<br/>score_historical.py<br/>ml_1y/3y/5y + ml_pred_excess_3y → 361 total cols]
+        B11[ML Scores<br/>score_historical.py<br/>ml_1y/3y/5y + ml_pred_excess_3y → 367 total cols]
         B1 --> B2 --> B3 --> B4 --> B5 --> B6 --> B7 --> B8 --> B9 --> B10 --> B11
     end
 
@@ -65,13 +65,12 @@ graph TB
     end
 
     subgraph Storage["Storage"]
-        S1[Parquet<br/>data/historical_dataset_clean.parquet<br/>58K rows · 361 columns]
-        S2[TimescaleDB<br/>hypertable — infra/db/init.sql<br/>Phase C — deferred]
+        S1[Parquet<br/>data/historical_dataset_clean.parquet<br/>58K rows · 367 columns]
+        S2[TimescaleDB<br/>hypertable — Phase C — deferred]
     end
 
     subgraph Outputs["Outputs & Serving"]
         E1[Experiment Notebook<br/>notebooks/08_experiment_hub.ipynb<br/>manual execution · 5 sections]
-        E2[FastAPI<br/>api/ · screener router<br/>filters + pagination]
         E3[Reports<br/>PDF tearsheet · CSV picks]
         E4[HuggingFace Hub<br/>Dataset + Models]
     end
@@ -93,11 +92,11 @@ graph TB
 |---|---|---|---|
 | US pipeline | `scripts/workflows/run_pipeline.py` | Fetch + clean US fundamentals | ✅ |
 | Multi-market pipeline | `pipeline/step1_*.py` – `step6_*.py` | 14-market unified pipeline | ✅ |
-| KR integration | `pipeline/phase_a_integrate_kr.py` | DART KR data integration | ⚠️ running |
-| Feature library | `pipeline/feature_library.py` | 326 feature definitions | ✅ |
+| KR integration | `pipeline/step1_fetch_tickers_kr.py` – `step2_build_snapshots_kr.py` | DART KR data integration | ✅ |
+| Feature library | `pipeline/feature_library.py` | Feature definitions | ✅ |
 | Quarterly enrichment | `scripts/enrichments/enrich_quarterly_features.py` | 5 intra-year dynamics | ✅ |
-| Feature imputation | `scripts/enrichments/impute_features.py` | Quarterly cols + size_category recovery → 341 cols | ✅ |
-| Equity + vol patch | `scripts/enrichments/patch_equity_vol_features.py` | Fix equity coalesce bug + add 5 vol/roa cols → 346 cols | ✅ (one-time; logic now in step3/step5) |
+| Feature imputation | `scripts/enrichments/impute_features.py` | Quarterly cols + size_category recovery | ✅ |
+| Equity + vol patch | `scripts/enrichments/patch_equity_vol_features.py` | Fix equity coalesce bug + add 5 vol/roa cols (one-time; logic now in step3/step5) | ✅ |
 | Beneish/Altman/Piotroski | `pipeline/step5_compute_features.py` | Fixed DEPI (was 1.0), Altman X4 book-equity fallback for non-US, Piotroski F6 Δ(current_ratio); growth features winsorized at p1/p99 | ✅ |
 | Montier C-Score + Richardson accruals | `pipeline/step5_compute_features.py` | Montier C-Score (6-binary, Montier 2008) + `sloan_wc_accruals` + `sloan_lt_accruals` (Richardson 2005). C2 uses `ppe_net` — do not change to `property_plant_equipment` (95.7% null) | ✅ |
 | Survivorship correction | `scripts/enrichments/mark_survivorship.py` | Impute −50% return for likely-delisted | ✅ |
@@ -117,7 +116,7 @@ graph TB
 | Generate reports | `scripts/analysis/generate_reports.py` | PDF tearsheet + weekly picks | ✅ |
 | DB migration | `scripts/data_io/migrate_to_db.py` | Load parquet → TimescaleDB hypertable | Phase C — deferred |
 | Experiment Notebook | `notebooks/08_experiment_hub.ipynb` | Master research frontend — Feature Selection · Model Perf · Screener Rankings · Deep Dive · Live Picks | ✅ |
-| FastAPI | `api/` | REST screener with filters + pagination | ✅ |
+| FastAPI | `_archive/api/` | REST screener with filters + pagination | ❌ Archived (Session 2) |
 
 ## Data Flow Detail
 
@@ -131,7 +130,7 @@ flowchart LR
     F -->|+5 quarterly dynamics| Q[Quarterly-Enriched<br/>historical_dataset_clean.parquet<br/>58K rows · 326 cols]
     Q -->|delisted imputation| SB[Survivorship-Corrected<br/>likely_delisted flag]
     SB -->|quarterly imputation<br/>+ size_category| IMP[Imputed Dataset<br/>58K rows · 341 cols]
-    IMP -->|Montier C-Score<br/>+ Sloan accruals| FEAT[Feature-Complete Dataset<br/>58K rows · 360 cols]
+    IMP -->|Montier C-Score<br/>+ Sloan accruals| FEAT[Feature-Complete Dataset<br/>58K rows · 367 cols]
     FEAT -->|PSI filter<br/>PSI > 0.25 removed| PSI[PSI-Filtered Candidates<br/>~185 features]
     PSI -->|ICIR filter| G[~45 features/horizon]
     G -->|LightGBM fit<br/>5 horizons: 6m 1y 2y 3y 5y| H[Base Models]
@@ -142,7 +141,6 @@ flowchart LR
     K -->|generate_oof_scores.py<br/>walk-forward OOF| OOF[ml_1y_oof / ml_3y_oof / ml_5y_oof<br/>NaN for training rows]
     OOF -->|horizon_router.py<br/>months → model key| HR[HorizonRouter<br/>6m · 1y · 2y · 3y · 5y]
     L -->|compute_alpha.py| FA[5-Factor<br/>Composite Alpha Score<br/>+6 alpha cols]
-    SB -->|bulk load| DB[TimescaleDB<br/>hypertable — Phase C — deferred]
 ```
 
 ## Deployment Architecture
@@ -159,7 +157,4 @@ graph LR
     D -->|drift report| G[Artifacts + warning]
     E -->|download locally| H[Experiment Notebook<br/>notebooks/08_experiment_hub.ipynb<br/>manual execution — local only]
     F -->|download locally| H
-    E -->|download at startup| I[FastAPI service<br/>api/main.py · screener router]
-    F -->|download at startup| I
-    E -->|migrate_to_db.py| J[TimescaleDB<br/>hypertable — Phase C — deferred]
 ```

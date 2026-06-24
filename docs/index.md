@@ -2,7 +2,7 @@
 
 **A research-grade quantitative alpha lab targeting ≥25% annualised ROI — covering 14 markets: US, Korea, Canada, Japan, Brazil, and 9 European markets.**
 
-The platform scores companies across five orthogonal factor groups — **Value, Quality, Momentum, Growth, and Fraud Risk** — and combines them into a composite alpha score. It trains LightGBM models on 6-month, 1-year, 2-year, 3-year, and 5-year return horizons using ~59K company-year observations and 341 base columns (Phase B pipeline) + 26 Phase C scoring overlay columns (pending model retrain). Feature selection uses PSI (threshold 0.25) → IC → ICIR (Newey-West HAC t-stats + BH FDR q<0.05) → Spearman deduplication. FORCE_INCLUDE momentum features injected for 6m/1y/2y horizons where ICIR under-selects momentum vs fundamentals. Sector-neutral IC (SIC-based demeaning) applied throughout.
+The platform scores companies across five orthogonal factor groups — **Value, Quality, Momentum, Growth, and Fraud Risk** — and combines them into a composite alpha score. It trains LightGBM models on 6-month, 1-year, 2-year, 3-year, and 5-year return horizons using ~59K company-year observations and 367 columns (Phase B pipeline + Phase C scoring overlay). Feature selection uses PSI (threshold 0.25) → IC → ICIR (Newey-West HAC t-stats + BH FDR q<0.05) → Spearman deduplication. FORCE_INCLUDE momentum features injected for 6m/1y/2y horizons where ICIR under-selects momentum vs fundamentals. Sector-neutral IC (SIC-based demeaning) applied throughout.
 
 ---
 
@@ -70,7 +70,7 @@ The platform scores companies across five orthogonal factor groups — **Value, 
 
 ```mermaid
 graph LR
-    A["Raw Filings<br/>SEC · SimFin · DART · TDNET · B3"] --> B["Pipeline<br/>6 steps · 341 columns"]
+    A["Raw Filings<br/>SEC · SimFin · DART · TDNET · B3"] --> B["Pipeline<br/>6 steps · 367 columns"]
     B --> C["ML Models<br/>LightGBM<br/>3 horizons"]
     B --> D["5-Factor Scores<br/>Value · Quality · Momentum<br/>Growth · Fraud Risk"]
     C --> E["Composite Alpha Score<br/>0–1 · SHAP attribution"]

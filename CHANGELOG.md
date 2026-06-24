@@ -8,6 +8,14 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Repo Cleanup — Session 7 (2026-06-24)
+
+#### Changed
+- **docs/architecture.md**: Rebuilt architecture diagrams to reflect current repo state — column count 361→367, removed FastAPI/API (archived Session 2), fixed KR pipeline reference, removed TimescaleDB from deployment diagram, updated Component Map.
+- **docs/developer/alpha-research-architecture.md**: New — explains current directory roles, data flow, pipeline inventory, and scripts subdirectory detail.
+- **docs/index.md**: Updated column count 341→367 in tagline and Mermaid diagram.
+- **docs/methodology/models.md**: Updated column count 361→367 in training pipeline flowchart.
+
 ### Repo Cleanup — Sessions 2–6 (2026-06-24)
 
 #### Changed

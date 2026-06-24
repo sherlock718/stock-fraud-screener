@@ -4,7 +4,7 @@
 
 ```mermaid
 flowchart TD
-    A["historical_dataset_clean.parquet<br/>~58K rows · 361 features"] --> PSI["PSI Feature Filter<br/>Population Stability Index per feature<br/>Drops macro-regime features (PSI > 0.25)<br/>~14 features removed (macro regime drifters)"]
+    A["historical_dataset_clean.parquet<br/>~58K rows · 367 features"] --> PSI["PSI Feature Filter<br/>Population Stability Index per feature<br/>Drops macro-regime features (PSI > 0.25)<br/>~14 features removed (macro regime drifters)"]
     PSI --> B["ICIR Feature Selection<br/>IC/ICIR ranking · Spearman dedup r>0.90<br/>→ ~35–45 features per horizon"]
     B --> C["PIT-Safe Temporal Split<br/>filed_date cutoff + fiscal_year cutoff<br/>train ≤ 2022 (filed < 2023-01-01)<br/>val 2023 · test 2024+"]
     C --> D["LightGBM Base Model<br/>n_estimators=600 · max_depth=6 · num_leaves=63<br/>lr=0.03 · reg_alpha=0.1<br/>→ val AUC baseline"]
