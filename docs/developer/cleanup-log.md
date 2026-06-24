@@ -22,3 +22,27 @@ Progress tracker for repo cleanup sessions.
 - No core MD files (`CLAUDE.md`, `CONTEXT.md`, `README.md`, `ROADMAP.md`) referenced the moved files
 
 **Next session:** Session 3 — Design scripts/ structure (doc only, no moves)
+
+---
+
+## Session 3 — Script Migration Map (2026-06-24)
+
+**What changed:**
+1. Created `docs/developer/script-migration-map.md` with:
+   - Target directory structure (11 subdirectories)
+   - Complete old → new path mapping (49 scripts)
+   - `__init__.py` plan (all empty markers)
+   - `scripts/_root.py` definition
+   - Cross-import resolution table (8 internal imports + 1 external from alpha/)
+   - Path assumption fix list (42 scripts using `Path(__file__).parent.parent`)
+   - CI workflow reference update table (3 workflow files, 19 line changes)
+   - Subprocess reference update table (2 references in wait_and_merge.py)
+   - Docstring/comment reference list (5 scripts with usage examples to update)
+
+**Tests:** No code changed — migration map is documentation only.
+
+**Risks/deferred:**
+- Actual moves happen in Session 4 as one atomic commit
+- Docstring updates are cosmetic but included for correctness
+
+**Next session:** Session 4 — Move scripts atomically
