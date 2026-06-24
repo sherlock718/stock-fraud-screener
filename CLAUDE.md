@@ -37,7 +37,7 @@ Work through this matrix for every change before staging files.
 | New script in `pipeline/` | `docs/developer/pipeline-scripts.md` — add section for that module |
 | New column added | `docs/developer/pipeline-integrity.md` Rule 1 check — is it in step3 or step5? |
 | New growth/YoY feature added | `pipeline/step5_compute_features.py` — add to `ratio_cols` winsorize list (Rule 6) |
-| New ML-derived score column added | `scripts/train_models.py` — add to `EXCLUDE` set before running feature selection (Rule 7) |
+| New ML-derived score column added | `scripts/modeling/train_models.py` — add to `EXCLUDE` set before running feature selection (Rule 7) |
 | New cross-sectional rank feature | `docs/developer/pipeline-integrity.md` Rule 2 check — does groupby include fiscal_year? |
 | New post-processing script | Add to `refresh_data.yml` AND update `docs/developer/data-update-guide.md` diagram |
 | Modified script CLI flags | `docs/developer/scripts.md` or `pipeline-scripts.md` — update flags table |
@@ -107,7 +107,7 @@ A task is done only when ALL of the following are complete:
 3. ✅ `CHANGELOG.md` entry added under `[Unreleased]`
 4. ✅ `git add` + `git commit` with conventional message
 5. ✅ `git push` to remote
-6. ✅ HuggingFace push (`scripts/push_to_hf.py`) **if** `data/` or `models/` changed
+6. ✅ HuggingFace push (`scripts/data_io/push_to_hf.py`) **if** `data/` or `models/` changed
 
 ---
 

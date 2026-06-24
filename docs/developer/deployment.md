@@ -8,8 +8,8 @@ The primary research frontend is `notebooks/08_experiment_hub.ipynb` — a local
 # Run the full experiment notebook
 jupyter notebook notebooks/08_experiment_hub.ipynb
 # Or rebuild screener registries first:
-python3 scripts/build_screener_registry.py
-python3 scripts/build_alpha_registry.py
+python3 scripts/portfolio/build_screener_registry.py
+python3 scripts/portfolio/build_alpha_registry.py
 ```
 
 ## GitHub Actions
@@ -46,7 +46,7 @@ gh workflow run refresh_data.yml -f markets="all"
 **What it does:**
 
 1. Downloads latest dataset and models from HuggingFace
-2. Runs `scripts/monitor_drift.py` — computes PSI and rolling AUC
+2. Runs `scripts/quality/monitor_drift.py` — computes PSI and rolling AUC
 3. Uploads drift report as artifact
 4. If drift is detected (PSI > threshold), emits a GitHub Actions warning
 

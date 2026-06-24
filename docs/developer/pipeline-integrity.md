@@ -144,11 +144,11 @@ column to `feature_library.py` or `step5_compute_features.py`, immediately add i
 ## Rule 7 — ML-derived scores are not feature selection candidates
 
 **Rule**: `ml_1y`, `ml_3y`, `ml_5y` (and any future ML-derived columns) must appear in
-the `EXCLUDE` set in `scripts/train_models.py` and must never appear in any
+the `EXCLUDE` set in `scripts/modeling/train_models.py` and must never appear in any
 `models/feature_sets_*.json` output.
 
 ```python
-# In scripts/train_models.py:
+# In scripts/modeling/train_models.py:
 EXCLUDE = {
     ...
     # ML-derived scores — in-sample contamination: score_historical.py scores ALL rows

@@ -21,7 +21,7 @@ The dataset does **not** carry a formal version number in the filename. Instead,
 | 1 | Add the formula to `pipeline/feature_library.py` (point-in-time safe, no look-ahead) |
 | 2 | Wire into `pipeline/step5_compute_features.py` in the appropriate `add_*` function |
 | 3 | Re-run step5 for all markets; re-integrate via `pipeline/phase_a_integrate_{mkt}.py` |
-| 4 | Add a fill-rate threshold for the new column in `FILL_THRESHOLDS` in `scripts/test_dataset_quality.py` |
+| 4 | Add a fill-rate threshold for the new column in `FILL_THRESHOLDS` in `scripts/quality/test_dataset_quality.py` |
 | 5 | Update `docs/methodology/features.md` — add to the correct category table |
 | 6 | Update `docs/architecture.md` — column count in all flowchart labels (4 places) |
 | 7 | Update `docs/index.md` tagline column count |
@@ -40,7 +40,7 @@ Checklist before renaming:
 
 - [ ] Search all `.py` files for the old name: `grep -r "old_name" --include="*.py"`
 - [ ] Search all `.ipynb` files: `grep -r "old_name" --include="*.ipynb"`
-- [ ] Check `scripts/test_dataset_quality.py` `FILL_THRESHOLDS` dict
+- [ ] Check `scripts/quality/test_dataset_quality.py` `FILL_THRESHOLDS` dict
 - [ ] Check `notebooks/08_experiment_hub.ipynb` display logic
 - [ ] Check `api/` screener filter logic
 - [ ] Check `models/model_meta.json` feature lists — if the column is an ML feature, the trained model references it by name; **you must retrain** after renaming

@@ -1,16 +1,16 @@
 # Bias & Validation
 
 The screener includes an explicit audit framework for four model biases in financial ML.
-`scripts/bias_audit.py` runs all four audits and is wired into the weekly CI pipeline.
+`scripts/quality/bias_audit.py` runs all four audits and is wired into the weekly CI pipeline.
 
 ## Running the Audit
 
 ```bash
 # Interactive — prints all four audit results to stdout
-python3 scripts/bias_audit.py
+python3 scripts/quality/bias_audit.py
 
 # CI mode — exits 1 on look-ahead violations (hard fail); survivorship/overfitting = warn-only
-python3 scripts/bias_audit.py --ci
+python3 scripts/quality/bias_audit.py --ci
 
 # Output: reports/bias_audit_report.json
 ```
@@ -47,7 +47,7 @@ from portfolio selection (`--max-filing-lag 18`).
 **What it is:** Training only on companies that survived. Excludes bankrupt/delisted firms, inflating model optimism.
 
 **Current mitigation:**
-- `scripts/mark_survivorship.py` imputes −50% return for companies flagged `likely_delisted=1`
+- `scripts/enrichments/mark_survivorship.py` imputes −50% return for companies flagged `likely_delisted=1`
 - `likely_delisted` column covers companies with missing price data + no sign of continued activity
 - `survivorship_pct` in `backtest_results.json` tracks the fraction of picks with missing forward returns
 
@@ -111,7 +111,7 @@ Results logged to `reports/bias_audit_report.json` as `multiple_testing_report` 
 ## Walk-Forward OOF Scoring
 
 The strongest defense against look-ahead bias is the OOF (Out-of-Fold) scoring structure used
-in `scripts/generate_oof_scores.py`:
+in `scripts/modeling/generate_oof_scores.py`:
 
 - For each fiscal year Y: train on `(fiscal_year < Y) AND (filed_date < Jan 1 of Y)`
 - Score only `fiscal_year == Y` rows

@@ -69,19 +69,19 @@ For short positions:
 
 ```bash
 # Default: top 20 long + top 10 short
-python3 scripts/leverage_strategy.py
+python3 scripts/portfolio/leverage_strategy.py
 
 # Custom universe size
-python3 scripts/leverage_strategy.py --top-long 15 --top-short 8
+python3 scripts/portfolio/leverage_strategy.py --top-long 15 --top-short 8
 
 # Long-only mode (no shorts)
-python3 scripts/leverage_strategy.py --long-only
+python3 scripts/portfolio/leverage_strategy.py --long-only
 
 # Custom thresholds
-python3 scripts/leverage_strategy.py --min-piotroski 7 --max-beneish -2.0
+python3 scripts/portfolio/leverage_strategy.py --min-piotroski 7 --max-beneish -2.0
 
 # Custom output path
-python3 scripts/leverage_strategy.py --output reports/leverage_picks.csv
+python3 scripts/portfolio/leverage_strategy.py --output reports/leverage_picks.csv
 ```
 
 ## Output Columns

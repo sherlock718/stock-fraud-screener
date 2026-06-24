@@ -9,12 +9,12 @@ All scripts live in `scripts/`. Run from the repo root.
 Main pipeline for fetching, enriching, and building the US dataset.
 
 ```bash
-python3 scripts/run_pipeline.py                      # Full build from step 1
-python3 scripts/run_pipeline.py --step 3             # Resume from step 3
-python3 scripts/run_pipeline.py --limit 100          # Test with 100 tickers
-python3 scripts/run_pipeline.py status               # Show last run status
-python3 scripts/run_pipeline.py features             # Re-run feature engineering only
-python3 scripts/run_pipeline.py enrich-prices        # Re-run price enrichment only
+python3 scripts/workflows/run_pipeline.py                      # Full build from step 1
+python3 scripts/workflows/run_pipeline.py --step 3             # Resume from step 3
+python3 scripts/workflows/run_pipeline.py --limit 100          # Test with 100 tickers
+python3 scripts/workflows/run_pipeline.py status               # Show last run status
+python3 scripts/workflows/run_pipeline.py features             # Re-run feature engineering only
+python3 scripts/workflows/run_pipeline.py enrich-prices        # Re-run price enrichment only
 ```
 
 | Flag | Default | Description |
@@ -39,11 +39,11 @@ Runs the canonical Phase B enrichment sequence on `historical_dataset_clean.parq
 Stops immediately if any step fails.
 
 ```bash
-python3 scripts/run_dataset_enrichments.py                          # run all 9 steps
-python3 scripts/run_dataset_enrichments.py --dry-run                # print commands only
-python3 scripts/run_dataset_enrichments.py --apply-universe-filters # full investable universe
-python3 scripts/run_dataset_enrichments.py --skip-survivorship      # skip mark_survivorship
-python3 scripts/run_dataset_enrichments.py --skip-quarterly         # skip enrich_quarterly
+python3 scripts/workflows/run_dataset_enrichments.py                          # run all 9 steps
+python3 scripts/workflows/run_dataset_enrichments.py --dry-run                # print commands only
+python3 scripts/workflows/run_dataset_enrichments.py --apply-universe-filters # full investable universe
+python3 scripts/workflows/run_dataset_enrichments.py --skip-survivorship      # skip mark_survivorship
+python3 scripts/workflows/run_dataset_enrichments.py --skip-quarterly         # skip enrich_quarterly
 ```
 
 | Flag | Default | Description |
@@ -78,10 +78,10 @@ Stage 3 magnitude ranker in `leverage_strategy.py`. Missing features are filled 
 per-horizon `train_medians` stored in model_meta.json.
 
 ```bash
-python3 scripts/score_historical.py                  # Score and write parquet
-python3 scripts/score_historical.py --dry-run        # Score only, print stats, no write
-python3 scripts/score_historical.py --parquet PATH   # Use alternate parquet path
-python3 scripts/score_historical.py --skip-regression  # Skip ml_pred_excess_3y scoring
+python3 scripts/modeling/score_historical.py                  # Score and write parquet
+python3 scripts/modeling/score_historical.py --dry-run        # Score only, print stats, no write
+python3 scripts/modeling/score_historical.py --parquet PATH   # Use alternate parquet path
+python3 scripts/modeling/score_historical.py --skip-regression  # Skip ml_pred_excess_3y scoring
 ```
 
 | Flag | Default | Description |
@@ -108,9 +108,9 @@ Scores are computed within `(fiscal_year, market)` peer groups so each company i
 against its contemporaries in the same market — not against the global universe.
 
 ```bash
-python3 scripts/compute_alpha.py                     # Score and write parquet
-python3 scripts/compute_alpha.py --dry-run           # Print score distributions, no write
-python3 scripts/compute_alpha.py --parquet PATH      # Use alternate parquet path
+python3 scripts/modeling/compute_alpha.py                     # Score and write parquet
+python3 scripts/modeling/compute_alpha.py --dry-run           # Print score distributions, no write
+python3 scripts/modeling/compute_alpha.py --parquet PATH      # Use alternate parquet path
 ```
 
 | Flag | Default | Description |
@@ -149,10 +149,10 @@ Fills two categories of missing data in `data/historical_dataset_clean.parquet`:
    `(fiscal_year, market)` peer group. A `size_category_imputed` boolean flag is added.
 
 ```bash
-python3 scripts/impute_features.py                           # Compute and write parquet
-python3 scripts/impute_features.py --dry-run                 # Coverage stats only, no write
-python3 scripts/impute_features.py --parquet PATH            # Alternate clean parquet path
-python3 scripts/impute_features.py --source PATH             # Alternate pre-clean parquet path
+python3 scripts/enrichments/impute_features.py                           # Compute and write parquet
+python3 scripts/enrichments/impute_features.py --dry-run                 # Coverage stats only, no write
+python3 scripts/enrichments/impute_features.py --parquet PATH            # Alternate clean parquet path
+python3 scripts/enrichments/impute_features.py --source PATH             # Alternate pre-clean parquet path
 ```
 
 | Flag | Default | Description |
@@ -178,8 +178,8 @@ One-time backfill script that fixes equity-derived features and adds multi-horiz
 2. **Volatility patch** — reads `data/price_cache.db` (7,753 tickers, daily prices as JSON), computes annualised daily-return volatility over 6m / 36m / 60m windows.
 
 ```bash
-python3 scripts/patch_equity_vol_features.py              # Apply both patches and save
-python3 scripts/patch_equity_vol_features.py --dry-run    # Report fill rates, no write
+python3 scripts/enrichments/patch_equity_vol_features.py              # Apply both patches and save
+python3 scripts/enrichments/patch_equity_vol_features.py --dry-run    # Report fill rates, no write
 ```
 
 | Flag | Default | Description |
@@ -200,8 +200,8 @@ Fixed columns (all were near-0% fill due to equity coalesce bug): `roe`, `roic`,
 One-shot patch that recomputes all 7 Montier C-score columns in `data/historical_dataset_clean.parquet` after fixing the root cause in `pipeline/step5_compute_features.py` (C2 used `property_plant_equipment` which is 95.7% null; changed to `ppe_net` which is 19.4% null).
 
 ```bash
-python3 scripts/patch_montier_c2.py            # Recompute and save
-python3 scripts/patch_montier_c2.py --dry-run  # Print null rates only, no write
+python3 scripts/enrichments/patch_montier_c2.py            # Recompute and save
+python3 scripts/enrichments/patch_montier_c2.py --dry-run  # Print null rates only, no write
 ```
 
 | Flag | Default | Description |
@@ -220,10 +220,10 @@ python3 scripts/patch_montier_c2.py --dry-run  # Print null rates only, no write
 Orchestrates the full 6-step EU pipeline using Wikipedia index scraping (step 1) and yfinance fundamentals (step 2). No API key required. Covers ~350+ major tickers across DE, FR, NL, BE, SE, NO, DK, FI, IT, ES, PT, AT, IE (~4–5 years of history).
 
 ```bash
-python3 scripts/run_pipeline_eu.py build              # full build (steps 1–6)
-python3 scripts/run_pipeline_eu.py build --step 2     # resume from step 2
-python3 scripts/run_pipeline_eu.py build --limit 50   # test run
-python3 scripts/run_pipeline_eu.py status             # check output file state
+python3 scripts/workflows/run_pipeline_eu.py build              # full build (steps 1–6)
+python3 scripts/workflows/run_pipeline_eu.py build --step 2     # resume from step 2
+python3 scripts/workflows/run_pipeline_eu.py build --limit 50   # test run
+python3 scripts/workflows/run_pipeline_eu.py status             # check output file state
 ```
 
 | Flag | Default | Description |
@@ -250,9 +250,9 @@ python3 pipeline/phase_a_integrate_eu.py
 
 ```bash
 export DART_API_KEY=your_key
-python3 scripts/run_pipeline_kr.py build
-python3 scripts/run_pipeline_kr.py build --step 3
-python3 scripts/run_pipeline_kr.py status
+python3 scripts/workflows/run_pipeline_kr.py build
+python3 scripts/workflows/run_pipeline_kr.py build --step 3
+python3 scripts/workflows/run_pipeline_kr.py status
 ```
 
 Requires a DART (FSS) API key. Outputs Korean company snapshots.
@@ -264,10 +264,10 @@ Requires a DART (FSS) API key. Outputs Korean company snapshots.
 Orchestrates the full 6-step Brazil pipeline: CVM ticker list → CVM financial snapshots → price enrichment → macro enrichment → 324 features → clean/validate.
 
 ```bash
-python3 scripts/run_pipeline_br.py build              # full build from step 1
-python3 scripts/run_pipeline_br.py build --step 2     # resume from step 2
-python3 scripts/run_pipeline_br.py build --limit 50   # test run (caps tickers in steps 1–3)
-python3 scripts/run_pipeline_br.py status             # inspect all 6 BR output files
+python3 scripts/workflows/run_pipeline_br.py build              # full build from step 1
+python3 scripts/workflows/run_pipeline_br.py build --step 2     # resume from step 2
+python3 scripts/workflows/run_pipeline_br.py build --limit 50   # test run (caps tickers in steps 1–3)
+python3 scripts/workflows/run_pipeline_br.py status             # inspect all 6 BR output files
 ```
 
 | Flag | Default | Description |
@@ -292,10 +292,10 @@ No API key required. Data sources: CVM public bulk CSV + brapi.dev free ticker l
 Orchestrates the full 6-step Japan pipeline using the free-data variants of steps 1–2 (yfinance-based, ~122–130 TSE tickers). No API key required.
 
 ```bash
-python3 scripts/run_pipeline_jp.py build              # full build from step 1
-python3 scripts/run_pipeline_jp.py build --step 2     # resume from step 2
-python3 scripts/run_pipeline_jp.py build --limit 50   # test run
-python3 scripts/run_pipeline_jp.py status             # inspect all 6 JP output files
+python3 scripts/workflows/run_pipeline_jp.py build              # full build from step 1
+python3 scripts/workflows/run_pipeline_jp.py build --step 2     # resume from step 2
+python3 scripts/workflows/run_pipeline_jp.py build --limit 50   # test run
+python3 scripts/workflows/run_pipeline_jp.py status             # inspect all 6 JP output files
 ```
 
 | Flag | Default | Description |
@@ -314,10 +314,10 @@ Output files: `tickers_jp.parquet`, `snapshots_jp.parquet`, `prices_jp.parquet`,
 Orchestrates the full 6-step Canada pipeline. No API key required. Data source: TMX public API.
 
 ```bash
-python3 scripts/run_pipeline_ca.py build              # full build from step 1
-python3 scripts/run_pipeline_ca.py build --step 2     # resume from step 2
-python3 scripts/run_pipeline_ca.py build --limit 50   # test run
-python3 scripts/run_pipeline_ca.py status             # inspect all 6 CA output files
+python3 scripts/workflows/run_pipeline_ca.py build              # full build from step 1
+python3 scripts/workflows/run_pipeline_ca.py build --step 2     # resume from step 2
+python3 scripts/workflows/run_pipeline_ca.py build --limit 50   # test run
+python3 scripts/workflows/run_pipeline_ca.py status             # inspect all 6 CA output files
 ```
 
 | Flag | Default | Description |
@@ -336,10 +336,10 @@ Output files: `tickers_ca.parquet`, `snapshots_ca.parquet`, `prices_ca.parquet`,
 Runs the full PSI → IC+FDR → ICIR → Spearman deduplication pipeline across all three horizons. IC stage uses Newey-West HAC t-statistics, Benjamini-Hochberg FDR correction (q<0.05, hard gate), and sector-neutral IC (SIC demeaning by default).
 
 ```bash
-python3 scripts/run_feature_selection.py               # Full run, sector-neutral IC (default)
-python3 scripts/run_feature_selection.py --no-sector-neutral  # Disable sector demeaning
-python3 scripts/run_feature_selection.py --dry-run     # Print stats only, no files written
-python3 scripts/run_feature_selection.py --psi-threshold 0.20 --ic-min 0.03
+python3 scripts/modeling/run_feature_selection.py               # Full run, sector-neutral IC (default)
+python3 scripts/modeling/run_feature_selection.py --no-sector-neutral  # Disable sector demeaning
+python3 scripts/modeling/run_feature_selection.py --dry-run     # Print stats only, no files written
+python3 scripts/modeling/run_feature_selection.py --psi-threshold 0.20 --ic-min 0.03
 ```
 
 | Flag | Default | Description |
@@ -368,11 +368,11 @@ where ICIR systematically under-selects momentum vs fundamentals. D1.3: macro-co
 cycle-regime signal that the PSI filter would otherwise exclude.
 
 ```bash
-python3 scripts/train_models.py
-python3 scripts/train_models.py --top-n 50
-python3 scripts/train_models.py --train-cutoff 2017 --val-end 2019
-python3 scripts/train_models.py --no-shap
-python3 scripts/train_models.py --walk-forward   # PIT-safe walk-forward CV
+python3 scripts/modeling/train_models.py
+python3 scripts/modeling/train_models.py --top-n 50
+python3 scripts/modeling/train_models.py --train-cutoff 2017 --val-end 2019
+python3 scripts/modeling/train_models.py --no-shap
+python3 scripts/modeling/train_models.py --walk-forward   # PIT-safe walk-forward CV
 ```
 
 | Flag | Default | Description |
@@ -414,11 +414,11 @@ Writes `ml_1y_oof`, `ml_3y_oof`, `ml_5y_oof` to the parquet. Training-window row
 Feature sets loaded from `models/feature_sets_{h}.json` (Phase B output).
 
 ```bash
-python3 scripts/generate_oof_scores.py
-python3 scripts/generate_oof_scores.py --horizons 1y 3y
-python3 scripts/generate_oof_scores.py --min-train-years 6
-python3 scripts/generate_oof_scores.py --n-estimators 600
-python3 scripts/generate_oof_scores.py --dry-run
+python3 scripts/modeling/generate_oof_scores.py
+python3 scripts/modeling/generate_oof_scores.py --horizons 1y 3y
+python3 scripts/modeling/generate_oof_scores.py --min-train-years 6
+python3 scripts/modeling/generate_oof_scores.py --n-estimators 600
+python3 scripts/modeling/generate_oof_scores.py --dry-run
 ```
 
 | Flag | Default | Description |
@@ -438,9 +438,9 @@ Outputs: Updates parquet with `ml_{h}_oof` columns; `reports/oof_auc_{h}.csv` pe
 Runs Optuna hyperparameter search and trains a CatBoost ensemble.
 
 ```bash
-python3 scripts/tune_models.py
-python3 scripts/tune_models.py --horizon 1y --trials 100
-python3 scripts/tune_models.py --no-catboost
+python3 scripts/modeling/tune_models.py
+python3 scripts/modeling/tune_models.py --horizon 1y --trials 100
+python3 scripts/modeling/tune_models.py --no-catboost
 ```
 
 | Flag | Default | Description |
@@ -466,10 +466,10 @@ new feature selection on the regression target — prevents overfitting). Primar
 (rank correlation of predicted vs actual excess return). IC > 0.05 useful; IC > 0.10 strong.
 
 ```bash
-python3 scripts/train_regression_model.py                       # All 5 horizons + walk-forward CV
-python3 scripts/train_regression_model.py --horizons 1y 3y 5y  # Subset of horizons
-python3 scripts/train_regression_model.py --horizons 3y --no-walk-forward
-python3 scripts/train_regression_model.py --train-cutoff 2020
+python3 scripts/modeling/train_regression_model.py                       # All 5 horizons + walk-forward CV
+python3 scripts/modeling/train_regression_model.py --horizons 1y 3y 5y  # Subset of horizons
+python3 scripts/modeling/train_regression_model.py --horizons 3y --no-walk-forward
+python3 scripts/modeling/train_regression_model.py --train-cutoff 2020
 ```
 
 | Flag | Default | Description |
@@ -505,11 +505,11 @@ When `data/monthly_prices.parquet` is present (built by `build_monthly_price_cac
 - **ADTV filter** removes picks whose $50K position would exceed 5% of 30d average daily dollar volume
 
 ```bash
-python3 scripts/backtester.py                            # All 4 strategies vs SPY
-python3 scripts/backtester.py --strategy composite       # One strategy
-python3 scripts/backtester.py --top 20 --cost 30 --tearsheet
-python3 scripts/backtester.py --market US --fill-missing -0.5
-python3 scripts/backtester.py --no-adtv                  # Disable ADTV filter
+python3 scripts/_shared/backtester.py                            # All 4 strategies vs SPY
+python3 scripts/_shared/backtester.py --strategy composite       # One strategy
+python3 scripts/_shared/backtester.py --top 20 --cost 30 --tearsheet
+python3 scripts/_shared/backtester.py --market US --fill-missing -0.5
+python3 scripts/_shared/backtester.py --no-adtv                  # Disable ADTV filter
 ```
 
 | Flag | Default | Description |
@@ -550,10 +550,10 @@ the set of unique tickers ever picked (avoids downloading all 4,800+ tickers).
 (`adj_close × volume / 21`), then writes the parquet.
 
 ```bash
-python3 scripts/build_monthly_price_cache.py            # Full build
-python3 scripts/build_monthly_price_cache.py --update   # Extend existing cache with new months
-python3 scripts/build_monthly_price_cache.py --tickers-only  # Print tickers and exit
-python3 scripts/build_monthly_price_cache.py --extra-tickers AAPL MSFT  # Add extra tickers
+python3 scripts/enrichments/build_monthly_price_cache.py            # Full build
+python3 scripts/enrichments/build_monthly_price_cache.py --update   # Extend existing cache with new months
+python3 scripts/enrichments/build_monthly_price_cache.py --tickers-only  # Print tickers and exit
+python3 scripts/enrichments/build_monthly_price_cache.py --extra-tickers AAPL MSFT  # Add extra tickers
 ```
 
 | Flag | Default | Description |
@@ -583,9 +583,9 @@ are computed on-the-fly using `alpha.factors.*`. ML OOF scores (`ml_1y_oof`, `ml
 `ml_5y_oof`) are read directly from the parquet (pre-computed by `generate_oof_scores.py`).
 
 ```bash
-python3 scripts/build_alpha_registry.py               # Default: top 20, 30 bps cost
-python3 scripts/build_alpha_registry.py --top 20 --cost 30
-python3 scripts/build_alpha_registry.py --market US   # US market only
+python3 scripts/portfolio/build_alpha_registry.py               # Default: top 20, 30 bps cost
+python3 scripts/portfolio/build_alpha_registry.py --top 20 --cost 30
+python3 scripts/portfolio/build_alpha_registry.py --market US   # US market only
 ```
 
 | Flag | Default | Description |
@@ -619,10 +619,10 @@ All filter functions use OOF ML scores (`ml_1y_oof`, `ml_3y_oof`) for historical
 contaminated in-sample scores.
 
 ```bash
-python3 scripts/build_screener_registry.py               # Run all 7 screeners
-python3 scripts/build_screener_registry.py --top 15      # Override top_n for all
-python3 scripts/build_screener_registry.py --ids COMPOSITE_US VALUE_QUALITY
-python3 scripts/build_screener_registry.py --dry-run     # List configs and exit
+python3 scripts/portfolio/build_screener_registry.py               # Run all 7 screeners
+python3 scripts/portfolio/build_screener_registry.py --top 15      # Override top_n for all
+python3 scripts/portfolio/build_screener_registry.py --ids COMPOSITE_US VALUE_QUALITY
+python3 scripts/portfolio/build_screener_registry.py --dry-run     # List configs and exit
 ```
 
 | Flag | Default | Description |
@@ -649,11 +649,11 @@ are regenerated. Prints a Sharpe-sorted leaderboard to stdout after completion.
 ### `build_portfolio.py` — IC-Weighted Kelly Portfolio Constructor
 
 ```bash
-python3 scripts/build_portfolio.py                                      # Default: long_only, horizon=1y, all markets
-python3 scripts/build_portfolio.py --strategy long_short --horizon 3y
-python3 scripts/build_portfolio.py --market US --top-n 20 --tearsheet
-python3 scripts/build_portfolio.py --horizon all --kelly-fraction 0.25 --tearsheet
-python3 scripts/build_portfolio.py --mos-min-score 0.55 --low-vol-only  # MoS gate + low-vol filter
+python3 scripts/portfolio/build_portfolio.py                                      # Default: long_only, horizon=1y, all markets
+python3 scripts/portfolio/build_portfolio.py --strategy long_short --horizon 3y
+python3 scripts/portfolio/build_portfolio.py --market US --top-n 20 --tearsheet
+python3 scripts/portfolio/build_portfolio.py --horizon all --kelly-fraction 0.25 --tearsheet
+python3 scripts/portfolio/build_portfolio.py --mos-min-score 0.55 --low-vol-only  # MoS gate + low-vol filter
 ```
 
 Reads `data/alpha_registry.json` to IC-weight selected signals into a composite score.
@@ -696,10 +696,10 @@ Note: `max_drawdown_pct` is computed from annual year-end snapshots and understa
 ### `factor_research.py` — IC / ICIR Analysis
 
 ```bash
-python3 scripts/factor_research.py
-python3 scripts/factor_research.py --features gross_margin roe accruals_to_assets
-python3 scripts/factor_research.py --all-horizons --ic-decay --decay-top 20
-python3 scripts/factor_research.py --decay-plot
+python3 scripts/analysis/factor_research.py
+python3 scripts/analysis/factor_research.py --features gross_margin roe accruals_to_assets
+python3 scripts/analysis/factor_research.py --all-horizons --ic-decay --decay-top 20
+python3 scripts/analysis/factor_research.py --decay-plot
 ```
 
 Computes IC, ICIR, and factor decay curves for all features. Used to select features for model training.
@@ -736,12 +736,12 @@ Implements a 3-stage screener on top of the composite score:
 Falls back to `composite_score` weighting when the regression model is unavailable.
 
 ```bash
-python3 scripts/leverage_strategy.py
-python3 scripts/leverage_strategy.py --market US --top-long 20
-python3 scripts/leverage_strategy.py --market KR --top-long 15 --capital 10000
-python3 scripts/leverage_strategy.py --long-only
-python3 scripts/leverage_strategy.py --min-piotroski 7 --max-beneish -2.0
-python3 scripts/leverage_strategy.py --output reports/leverage_picks.csv
+python3 scripts/portfolio/leverage_strategy.py
+python3 scripts/portfolio/leverage_strategy.py --market US --top-long 20
+python3 scripts/portfolio/leverage_strategy.py --market KR --top-long 15 --capital 10000
+python3 scripts/portfolio/leverage_strategy.py --long-only
+python3 scripts/portfolio/leverage_strategy.py --min-piotroski 7 --max-beneish -2.0
+python3 scripts/portfolio/leverage_strategy.py --output reports/leverage_picks.csv
 ```
 
 | Flag | Default | Description |
@@ -798,9 +798,9 @@ report = explain_many(positions_df, raw_df) # batch report
 ### `generate_reports.py` — PDF Tearsheet + CSV Picks + Kelly Portfolio Page
 
 ```bash
-python3 scripts/generate_reports.py
-python3 scripts/generate_reports.py --top 25
-python3 scripts/generate_reports.py --strategy composite --no-pdf
+python3 scripts/analysis/generate_reports.py
+python3 scripts/analysis/generate_reports.py --top 25
+python3 scripts/analysis/generate_reports.py --strategy composite --no-pdf
 ```
 
 | Flag | Default | Description |
@@ -823,13 +823,13 @@ Outputs: `reports/tearsheet.pdf`, `reports/weekly_picks.csv`, `reports/rolling_o
 ### `monitor_drift.py` — PSI + AUC Drift Monitoring + IC Decay + Drawdown Circuit Breaker
 
 ```bash
-python3 scripts/monitor_drift.py
-python3 scripts/monitor_drift.py --window 2024
-python3 scripts/monitor_drift.py --psi-alert 0.20
-python3 scripts/monitor_drift.py --auc-alert 0.05
-python3 scripts/monitor_drift.py --dd-gate 20        # circuit breaker at 20% drawdown
-python3 scripts/monitor_drift.py --skip-ic-decay     # skip IC decay step
-python3 scripts/monitor_drift.py --skip-dd           # skip drawdown check
+python3 scripts/quality/monitor_drift.py
+python3 scripts/quality/monitor_drift.py --window 2024
+python3 scripts/quality/monitor_drift.py --psi-alert 0.20
+python3 scripts/quality/monitor_drift.py --auc-alert 0.05
+python3 scripts/quality/monitor_drift.py --dd-gate 20        # circuit breaker at 20% drawdown
+python3 scripts/quality/monitor_drift.py --skip-ic-decay     # skip IC decay step
+python3 scripts/quality/monitor_drift.py --skip-dd           # skip drawdown check
 ```
 
 | Flag | Default | Description |
@@ -855,9 +855,9 @@ Exit code 1 if any alert fires (used by GitHub Actions to emit a warning).
 ### `analyze_distributions.py` — Dataset Distribution Analysis
 
 ```bash
-python3 scripts/analyze_distributions.py
-python3 scripts/analyze_distributions.py --parquet data/historical_dataset_clean.parquet --out-dir reports
-python3 scripts/analyze_distributions.py --corr
+python3 scripts/analysis/analyze_distributions.py
+python3 scripts/analysis/analyze_distributions.py --parquet data/historical_dataset_clean.parquet --out-dir reports
+python3 scripts/analysis/analyze_distributions.py --corr
 ```
 
 | Flag | Default | Description |
@@ -887,9 +887,9 @@ Runs five bias checks against the dataset and models:
    - Permutation test (50 shuffles): shuffles target labels, re-scores, checks IC degrades to ~0; genuine signal confirmed if permutation IC ≪ observed IC (z-score reported)
 
 ```bash
-python3 scripts/bias_audit.py              # full report, exit 0
-python3 scripts/bias_audit.py --ci         # exit 1 if look-ahead violations (CI mode)
-python3 scripts/bias_audit.py --fix        # also compute FX-adjusted return columns
+python3 scripts/quality/bias_audit.py              # full report, exit 0
+python3 scripts/quality/bias_audit.py --ci         # exit 1 if look-ahead violations (CI mode)
+python3 scripts/quality/bias_audit.py --fix        # also compute FX-adjusted return columns
 ```
 
 | Flag | Default | Description |
@@ -910,7 +910,7 @@ Downloads annual total-return data for SPY from yfinance and writes `data/spy_re
 Used by `backtester.py` for benchmark comparison and alpha-over-market calculations.
 
 ```bash
-python3 scripts/fetch_spy_returns.py
+python3 scripts/data_io/fetch_spy_returns.py
 ```
 
 **Output**: `data/spy_returns.csv` — columns: `year | spy_return`.
@@ -927,16 +927,16 @@ Uploads models for all 5 horizons: `6m`, `1y`, `2y`, `3y`, `5y`.
 
 ```bash
 # Upload both dataset and models
-python3 scripts/push_to_hf.py --repo your-username/stock-screener-data
+python3 scripts/data_io/push_to_hf.py --repo your-username/stock-screener-data
 
 # Dataset only
-python3 scripts/push_to_hf.py --repo your-username/stock-screener-data --data-only
+python3 scripts/data_io/push_to_hf.py --repo your-username/stock-screener-data --data-only
 
 # Models only
-python3 scripts/push_to_hf.py --repo your-username/stock-screener-data --models-only
+python3 scripts/data_io/push_to_hf.py --repo your-username/stock-screener-data --models-only
 
 # Make repository public
-python3 scripts/push_to_hf.py --repo your-username/stock-screener-data --public
+python3 scripts/data_io/push_to_hf.py --repo your-username/stock-screener-data --public
 ```
 
 | Flag | Default | Description |
@@ -963,10 +963,10 @@ Labeling window: `fraud_confirmed = 1` when the company has an AAER entry AND
 `fiscal_year ∈ [fraud_year_start − lookback, fraud_year_end]` (default lookback = 2).
 
 ```bash
-python3 scripts/fetch_aaer_labels.py                     # fetch + update parquet
-python3 scripts/fetch_aaer_labels.py --dry-run           # preview without writing
-python3 scripts/fetch_aaer_labels.py --no-update-parquet # CSV only
-python3 scripts/fetch_aaer_labels.py --lookback 3        # wider lookback window
+python3 scripts/data_io/fetch_aaer_labels.py                     # fetch + update parquet
+python3 scripts/data_io/fetch_aaer_labels.py --dry-run           # preview without writing
+python3 scripts/data_io/fetch_aaer_labels.py --no-update-parquet # CSV only
+python3 scripts/data_io/fetch_aaer_labels.py --lookback 3        # wider lookback window
 ```
 
 | Flag | Default | Description |
@@ -990,7 +990,7 @@ Coverage (default settings): ~490 annual positive rows from ~120 companies (2009
 ### `check_data.py` — Dataset Health Check
 
 ```bash
-python3 scripts/check_data.py
+python3 scripts/quality/check_data.py
 ```
 
 Prints row counts, null rates, feature coverage, and date ranges for the current parquet file.
@@ -1002,7 +1002,7 @@ Prints row counts, null rates, feature coverage, and date ranges for the current
 Used by the GitHub Actions workflow. Downloads existing dataset, runs pipeline for new data, uploads back to HuggingFace.
 
 ```bash
-python3 scripts/refresh_data.py --markets US
+python3 scripts/workflows/refresh_data.py --markets US
 ```
 
 ### `merge_snapshots.py` — Merge Raw Snapshots
@@ -1010,9 +1010,9 @@ python3 scripts/refresh_data.py --markets US
 Merges per-market snapshot parquet files (US, KR, EU, BR, JP, CA) into a single `snapshots_combined.parquet`. Deduplicates on `(cik, market, filed_date, period_type)` — the `market` key prevents cross-market CIK collisions. Usually called automatically by `wait_and_merge.py` after all market pipelines finish.
 
 ```bash
-python3 scripts/merge_snapshots.py                        # merge only
-python3 scripts/merge_snapshots.py --activate             # also overwrite snapshots.parquet
-python3 scripts/merge_snapshots.py --activate --backup    # activate with backup
+python3 scripts/data_io/merge_snapshots.py                        # merge only
+python3 scripts/data_io/merge_snapshots.py --activate             # also overwrite snapshots.parquet
+python3 scripts/data_io/merge_snapshots.py --activate --backup    # activate with backup
 ```
 
 | Flag | Default | Description |
@@ -1035,9 +1035,9 @@ Fetches sector classifications and dividend history. Called automatically by `ru
 Computes 5 quarterly-derived features from Q1/Q2/Q3 rows and left-joins them onto annual training rows. Corrects a data gap where intra-year dynamics are invisible in annual filings.
 
 ```bash
-python3 scripts/enrich_quarterly_features.py           # dry-run: prints coverage stats
-python3 scripts/enrich_quarterly_features.py --fix     # writes parquet in-place
-python3 scripts/enrich_quarterly_features.py --fix --out data/historical_dataset_enriched.parquet
+python3 scripts/enrichments/enrich_quarterly_features.py           # dry-run: prints coverage stats
+python3 scripts/enrichments/enrich_quarterly_features.py --fix     # writes parquet in-place
+python3 scripts/enrichments/enrich_quarterly_features.py --fix --out data/historical_dataset_enriched.parquet
 ```
 
 | Flag | Default | Description |
@@ -1064,10 +1064,10 @@ Coverage: 74.8% of annual rows enriched (requires at least 2 quarterly rows per 
 Identifies likely-delisted companies (no filing in the last N years) and imputes a pessimistic −50% forward return to correct survivorship bias in the training data.
 
 ```bash
-python3 scripts/mark_survivorship.py                   # report only (dry-run)
-python3 scripts/mark_survivorship.py --fix             # write corrected parquet
-python3 scripts/mark_survivorship.py --fix --lag 3     # custom lag threshold
-python3 scripts/mark_survivorship.py --fix --out data/historical_survivorship.parquet
+python3 scripts/enrichments/mark_survivorship.py                   # report only (dry-run)
+python3 scripts/enrichments/mark_survivorship.py --fix             # write corrected parquet
+python3 scripts/enrichments/mark_survivorship.py --fix --lag 3     # custom lag threshold
+python3 scripts/enrichments/mark_survivorship.py --fix --out data/historical_survivorship.parquet
 ```
 
 | Flag | Default | Description |
@@ -1085,9 +1085,9 @@ Adds a `likely_delisted` boolean column and imputes `forward_return_{1y,3y,5y} =
 Bulk-loads `historical_dataset_clean.parquet` into a TimescaleDB hypertable for time-series queries. Schema is defined in `infra/db/init.sql`.
 
 ```bash
-python3 scripts/migrate_to_db.py
-python3 scripts/migrate_to_db.py --parquet data/historical_dataset_clean.parquet
-python3 scripts/migrate_to_db.py --truncate   # wipe existing rows before loading
+python3 scripts/data_io/migrate_to_db.py
+python3 scripts/data_io/migrate_to_db.py --parquet data/historical_dataset_clean.parquet
+python3 scripts/data_io/migrate_to_db.py --truncate   # wipe existing rows before loading
 ```
 
 | Flag | Default | Description |
@@ -1104,9 +1104,9 @@ Requires `DATABASE_URL` environment variable pointing to a live TimescaleDB inst
 Validates that the historical dataset respects point-in-time data availability. Checks filing lag distributions, portfolio formation dates, sector percentile look-ahead exposure, and ML training look-ahead fractions. Run this after any full pipeline rebuild and before training.
 
 ```bash
-python3 scripts/pit_validate.py                           # full report to stdout
-python3 scripts/pit_validate.py --market US               # US only
-python3 scripts/pit_validate.py --output data/pit_report.csv
+python3 scripts/quality/pit_validate.py                           # full report to stdout
+python3 scripts/quality/pit_validate.py --market US               # US only
+python3 scripts/quality/pit_validate.py --output data/pit_report.csv
 ```
 
 | Flag | Default | Description |
@@ -1128,10 +1128,10 @@ Checks performed:
 Applies one-time quality fixes after a full pipeline rebuild, before training. Run once after `run_pipeline.py` completes.
 
 ```bash
-python3 scripts/fix_dataset_quality.py                     # in-place fix
-python3 scripts/fix_dataset_quality.py --dry-run           # report only, no write
-python3 scripts/fix_dataset_quality.py --src custom.parquet
-python3 scripts/fix_dataset_quality.py --out fixed.parquet
+python3 scripts/enrichments/fix_dataset_quality.py                     # in-place fix
+python3 scripts/enrichments/fix_dataset_quality.py --dry-run           # report only, no write
+python3 scripts/enrichments/fix_dataset_quality.py --src custom.parquet
+python3 scripts/enrichments/fix_dataset_quality.py --out fixed.parquet
 ```
 
 | Flag | Default | Description |
@@ -1153,9 +1153,9 @@ Fixes applied:
 98-check automated test suite for `data/historical_dataset_clean.parquet`. 10 sections: schema, structural, market coverage, fill rates, distributions, fraud labels, forward returns (winsorization), growth winsorization, ML score exclusion, point-in-time leakage. Run after any dataset modification.
 
 ```bash
-python3 scripts/test_dataset_quality.py              # show failures/warnings only
-python3 scripts/test_dataset_quality.py --verbose    # print all 98 checks
-python3 scripts/test_dataset_quality.py --parquet PATH  # custom file
+python3 scripts/quality/test_dataset_quality.py              # show failures/warnings only
+python3 scripts/quality/test_dataset_quality.py --verbose    # print all 98 checks
+python3 scripts/quality/test_dataset_quality.py --parquet PATH  # custom file
 ```
 
 | Flag | Default | Description |
@@ -1181,10 +1181,10 @@ Sections:
 Validates that the dataset contains expected column groups for each pipeline phase. Reports Phase B (feature pipeline) and Phase C (ML scoring layer) completeness independently. Use after pipeline builds or before model training to confirm prerequisites.
 
 ```bash
-python3 scripts/validate_feature_contract.py                    # human-readable report
-python3 scripts/validate_feature_contract.py --strict           # exit 1 if Phase C incomplete
-python3 scripts/validate_feature_contract.py --json             # machine-readable output
-python3 scripts/validate_feature_contract.py --parquet PATH     # custom parquet file
+python3 scripts/quality/validate_feature_contract.py                    # human-readable report
+python3 scripts/quality/validate_feature_contract.py --strict           # exit 1 if Phase C incomplete
+python3 scripts/quality/validate_feature_contract.py --json             # machine-readable output
+python3 scripts/quality/validate_feature_contract.py --parquet PATH     # custom parquet file
 ```
 
 | Flag | Default | Description |
@@ -1206,9 +1206,9 @@ See also: `docs/developer/feature-contract.md`
 Builds `data/fraud_labels.parquet` from three free public sources: SEC AAER releases, SEC EDGAR bankruptcy filings (Form 15/BK), and Stanford Securities Class Action Clearinghouse (SCAC). Use this to bootstrap or extend the fraud label set beyond what `fetch_aaer_labels.py` covers.
 
 ```bash
-python3 scripts/build_fraud_labels.py                      # all sources
-python3 scripts/build_fraud_labels.py --sources aaer scac  # specific sources only
-python3 scripts/build_fraud_labels.py --output data/fraud_labels_2024.parquet
+python3 scripts/enrichments/build_fraud_labels.py                      # all sources
+python3 scripts/enrichments/build_fraud_labels.py --sources aaer scac  # specific sources only
+python3 scripts/enrichments/build_fraud_labels.py --output data/fraud_labels_2024.parquet
 ```
 
 | Flag | Default | Description |
@@ -1228,14 +1228,14 @@ Output columns: `ticker, market, fraud_year, label_type, source, description, fr
 Polls until all market pipelines (KR, EU, CA) have completed and their snapshot files have stabilised, then automatically runs the merge and feature engineering steps. Leave this running in a terminal when running multi-market pipelines in parallel.
 
 ```bash
-python3 scripts/wait_and_merge.py
+python3 scripts/workflows/wait_and_merge.py
 ```
 
 No flags. Behaviour:
 1. Polls for `data/snapshots_kr.parquet`, `data/snapshots_eu.parquet`, `data/snapshots_ca.parquet`
 2. Waits for file sizes to stabilise (no change over two poll cycles)
-3. Runs `scripts/merge_snapshots.py --activate --backup`
-4. Runs `python3 scripts/run_pipeline.py build --step 4` (features + clean on full dataset)
+3. Runs `scripts/data_io/merge_snapshots.py --activate --backup`
+4. Runs `python3 scripts/workflows/run_pipeline.py build --step 4` (features + clean on full dataset)
 
 ---
 
@@ -1246,10 +1246,10 @@ No flags. Behaviour:
 Reads git-staged (or specified) files and checks them against the `CLAUDE.md` Change Checklist rules. Reports missing doc/diagram updates. Called automatically by the pre-commit hook.
 
 ```bash
-python3 scripts/check_sync.py                      # check staged files (same as pre-commit hook)
-python3 scripts/check_sync.py --all-changed        # check all uncommitted files
-python3 scripts/check_sync.py --warn-only          # report violations but don't block
-python3 scripts/check_sync.py --files a.py b.py    # check a specific list of files
+python3 scripts/quality/check_sync.py                      # check staged files (same as pre-commit hook)
+python3 scripts/quality/check_sync.py --all-changed        # check all uncommitted files
+python3 scripts/quality/check_sync.py --warn-only          # report violations but don't block
+python3 scripts/quality/check_sync.py --files a.py b.py    # check a specific list of files
 ```
 
 | Flag | Default | Description |
@@ -1274,8 +1274,8 @@ horizon coverage, spy_returns.csv, horizon_router.py presence). Run before Phase
 any dataset change.
 
 ```bash
-python3 scripts/verify_doc_consistency.py           # fail if any mismatch
-python3 scripts/verify_doc_consistency.py --warn    # print mismatches, exit 0
+python3 scripts/quality/verify_doc_consistency.py           # fail if any mismatch
+python3 scripts/quality/verify_doc_consistency.py --warn    # print mismatches, exit 0
 ```
 
 | Flag | Default | Description |
@@ -1295,12 +1295,12 @@ Single command to mechanically verify all exit criteria from `docs/developer/pha
 The A4 diagram-vs-CI check maintains an `operator_only` allowlist of scripts that appear in `data-update-guide.md` but are intentionally absent from `refresh_data.yml` (e.g. operator utilities, modules, or scripts that run in a separate workflow). Update this allowlist in `check_a4_diagram_vs_ci()` if a new operator-only script is added to the guide.
 
 ```bash
-python3 scripts/run_phase_checks.py          # run Phase A + B checks (default)
-python3 scripts/run_phase_checks.py --phase A   # Phase A only
-python3 scripts/run_phase_checks.py --phase B   # Phase B only
-python3 scripts/run_phase_checks.py --phase C   # Phase C only
-python3 scripts/run_phase_checks.py --phase AB  # Phase A + B (same as default)
-python3 scripts/run_phase_checks.py --strict    # exit 1 on WARN too (CI mode)
+python3 scripts/quality/run_phase_checks.py          # run Phase A + B checks (default)
+python3 scripts/quality/run_phase_checks.py --phase A   # Phase A only
+python3 scripts/quality/run_phase_checks.py --phase B   # Phase B only
+python3 scripts/quality/run_phase_checks.py --phase C   # Phase C only
+python3 scripts/quality/run_phase_checks.py --phase AB  # Phase A + B (same as default)
+python3 scripts/quality/run_phase_checks.py --strict    # exit 1 on WARN too (CI mode)
 ```
 
 | Flag | Default | Description |

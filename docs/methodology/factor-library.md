@@ -210,7 +210,7 @@ These 0.0–1.0 sub-scores aggregate signals within each fraud mechanism. They a
 
 ## Quarterly-Enriched Features (cross-factor, 5 columns)
 
-These features span multiple factor groups and are computed separately from annual data by `scripts/enrich_quarterly_features.py`.
+These features span multiple factor groups and are computed separately from annual data by `scripts/enrichments/enrich_quarterly_features.py`.
 
 | Feature | Factor group | Description |
 |---|---|---|
@@ -228,7 +228,7 @@ Coverage: 74.8% of training rows (companies with at least 2 available quarterly 
 
 This is not a scoring rubric for the ML models. There are no fixed weights governing what the LightGBM models learn. The ML combination of signals into alpha predictions is fully data-driven.
 
-**However**, a separate cross-sectional alpha scoring layer does exist in `alpha/factors/`. This layer produces interpretable 0–1 ranked scores per factor group and a composite, written to the parquet by `scripts/compute_alpha.py`. These scores are used by the Streamlit dashboard and FastAPI screener for display and filtering — not as ML features.
+**However**, a separate cross-sectional alpha scoring layer does exist in `alpha/factors/`. This layer produces interpretable 0–1 ranked scores per factor group and a composite, written to the parquet by `scripts/modeling/compute_alpha.py`. These scores are used by the Streamlit dashboard and FastAPI screener for display and filtering — not as ML features.
 
 ---
 
@@ -247,6 +247,6 @@ The `alpha/factors/` package computes cross-sectional rank composites within eac
 
 **Default composite weights**: equal 0.20 each. Override via `weights` argument to `alpha.factors.composite.compute()`.
 
-**Implementation**: `alpha/factors/` package. Entry point: `scripts/compute_alpha.py`.
+**Implementation**: `alpha/factors/` package. Entry point: `scripts/modeling/compute_alpha.py`.
 
 For the feature selection methodology that determines which features from these groups actually reach the ML models, see [Feature Selection →](feature-selection.md).

@@ -396,7 +396,7 @@ Income statement, balance sheet, and cash flow raw values. Used to compute featu
 
 ## Quarterly-Enriched Features (5 columns)
 
-Added by `scripts/enrich_quarterly_features.py`. 74.8% coverage.
+Added by `scripts/enrichments/enrich_quarterly_features.py`. 74.8% coverage.
 
 | Column | Description |
 |---|---|

@@ -28,7 +28,7 @@ Current gaps: 6m 0.5715 (target 0.58), 1y 0.5774 (target 0.62), 2y 0.5880 (targe
 python3 scripts/ic_analysis.py --horizons 6m 1y 3y --output reports/ic_decay.csv
 
 # Re-run Optuna with more trials on the failing horizons
-python3 scripts/tune_models.py --horizons 6m 1y 2y --n-trials 200
+python3 scripts/modeling/tune_models.py --horizons 6m 1y 2y --n-trials 200
 ```
 
 **Target**: 6m ≥ 0.58, 1y ≥ 0.60, 2y ≥ 0.60
@@ -49,7 +49,7 @@ Current system: annual filings only — signals are 12–18 months stale when ac
 
 1. Extend `pipeline/step5_compute_features.py` to handle `period_type = 'Q'`
 2. Build quarterly momentum features: sequential EPS surprise, revenue acceleration quarter-over-quarter
-3. Add `period_type` filter in `scripts/backtester.py` so annual and quarterly runs stay separate
+3. Add `period_type` filter in `scripts/_shared/backtester.py` so annual and quarterly runs stay separate
 
 **Expected impact**: ~3–6 month reduction in signal staleness; most beneficial for 6m/1y horizons.
 

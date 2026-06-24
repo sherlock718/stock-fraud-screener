@@ -1,6 +1,6 @@
 # Pipeline Modules Reference
 
-All modules live in `pipeline/`. These are low-level building blocks consumed by `scripts/run_pipeline.py` and the multi-market pipeline. Run them directly only when you need to re-run a specific step in isolation.
+All modules live in `pipeline/`. These are low-level building blocks consumed by `scripts/workflows/run_pipeline.py` and the multi-market pipeline. Run them directly only when you need to re-run a specific step in isolation.
 
 ---
 
@@ -146,7 +146,7 @@ Output: `data/historical_dataset_clean.parquet`
 
 ### `feature_library.py` — Shared Feature Engineering
 
-Single source of truth for all feature formulas. Consumed by both `step5_compute_features.py` (pipeline) and `scripts/train_models.py` (ML training). Modifying a formula here changes behaviour in both the data pipeline and the model.
+Single source of truth for all feature formulas. Consumed by both `step5_compute_features.py` (pipeline) and `scripts/modeling/train_models.py` (ML training). Modifying a formula here changes behaviour in both the data pipeline and the model.
 
 Contains 314 base feature formulas across 8 categories:
 1. Accruals and earnings quality
@@ -200,7 +200,7 @@ These modules add additional signal columns to `historical_dataset_clean.parquet
 
 ### `enrich_fraud_labels.py` — Fraud Confirmation Labels (P0c)
 
-Adds `fraud_confirmed` and `fraud_suspect` binary columns by matching against SEC AAER releases and Stanford SCAC data. See also `scripts/fetch_aaer_labels.py` for the standalone AAER-only updater.
+Adds `fraud_confirmed` and `fraud_suspect` binary columns by matching against SEC AAER releases and Stanford SCAC data. See also `scripts/data_io/fetch_aaer_labels.py` for the standalone AAER-only updater.
 
 ### `enrich_fraud_taxonomy.py` — Fraud Taxonomy Sub-Scores (P0d)
 
@@ -310,7 +310,7 @@ python3 pipeline/p0g_confidence_score.py
 
 > **⚠️ ARCHIVED (Session 8)** — Moved to `pipeline/archive/build_historical_dataset.py`. Superseded by the step2→step6 pipeline chain. Multi-market merging is now handled by `scripts/run_pipeline_{market}.py` scripts.
 
-Merges all market snapshot files into a single `historical_dataset_clean.parquet`. Called automatically by `scripts/run_pipeline.py` step 6. Run directly to re-merge without re-running the full pipeline.
+Merges all market snapshot files into a single `historical_dataset_clean.parquet`. Called automatically by `scripts/workflows/run_pipeline.py` step 6. Run directly to re-merge without re-running the full pipeline.
 
 ```bash
 python3 pipeline/build_historical_dataset.py  # ARCHIVED — use step6_clean.py instead
@@ -351,7 +351,7 @@ python3 pipeline/phase_a_integrate_br.py
 python3 pipeline/phase_a_integrate_br.py --dry-run
 ```
 
-**Prerequisite**: `data/snapshots_br.parquet` — built by `scripts/run_pipeline_br.py build --step 2`.
+**Prerequisite**: `data/snapshots_br.parquet` — built by `scripts/workflows/run_pipeline_br.py build --step 2`.
 
 Steps performed:
 1. Load + standardise `data/snapshots_br.parquet` — adds ~20 missing columns as NaN; estimates `total_liabilities = total_assets − equity`; proxies `total_debt = long_term_debt + short_term_debt`
@@ -376,7 +376,7 @@ python3 pipeline/phase_a_integrate_jp.py
 python3 pipeline/phase_a_integrate_jp.py --dry-run
 ```
 
-**Prerequisite**: `data/snapshots_jp.parquet` — built by `scripts/run_pipeline_jp.py build --step 2`.
+**Prerequisite**: `data/snapshots_jp.parquet` — built by `scripts/workflows/run_pipeline_jp.py build --step 2`.
 
 Column standardisation (`standardise_jp_snapshots`): adds `depreciation` alias from `depreciation_amortization`, `sga` from `sga_expense`, `accounts_receivable` from `receivables`, `total_equity` from `equity`; computes `total_debt = long_term_debt + short_term_debt`; stubs `sic_code` as NaN; adds NaN stubs for `ppe_gross`, `other_noncurrent_assets`, `non_operating_income`, `dividends_per_share`, `stock_code`, `currency`, `financing_cash_flow`, `total_liabilities`.
 
@@ -393,7 +393,7 @@ python3 pipeline/phase_a_integrate_eu.py
 python3 pipeline/phase_a_integrate_eu.py --dry-run
 ```
 
-**Prerequisite**: `data/snapshots_eu.parquet` — built by `scripts/run_pipeline_eu.py build --step 2`.
+**Prerequisite**: `data/snapshots_eu.parquet` — built by `scripts/workflows/run_pipeline_eu.py build --step 2`.
 
 Column standardisation (`standardise_eu_snapshots`): same yfinance-based aliases as JP/CA — adds `depreciation`, `sga`, `accounts_receivable`, `total_equity` aliases; computes `total_debt = long_term_debt + short_term_debt`; stubs `sic_code` as NaN; adds NaN stubs for `ppe_gross`, `other_noncurrent_assets`, `non_operating_income`, `dividends_per_share`, `stock_code`, `currency`, `financing_cash_flow`, `total_liabilities`. Estimates `total_liabilities = total_assets − equity` if missing.
 
@@ -412,7 +412,7 @@ python3 pipeline/phase_a_integrate_ca.py
 python3 pipeline/phase_a_integrate_ca.py --dry-run
 ```
 
-**Prerequisite**: `data/snapshots_ca.parquet` — built by `scripts/run_pipeline_ca.py build --step 2`.
+**Prerequisite**: `data/snapshots_ca.parquet` — built by `scripts/workflows/run_pipeline_ca.py build --step 2`.
 
 Column standardisation (`standardise_ca_snapshots`): identical column aliases to JP (both yfinance-based field mappings). Adds `depreciation`, `sga`, `accounts_receivable`, `total_equity` aliases; computes `total_debt`; stubs `sic_code` as NaN.
 
@@ -434,6 +434,6 @@ Shared utility used by backtester and screener to apply the minimum market cap f
 
 ### `auto_update.py` — Auto-Update Orchestrator
 
-> **⚠️ ARCHIVED (Session 8)** — Moved to `pipeline/archive/auto_update.py`. Broken imports (JSON-era). Refresh is now handled by `scripts/refresh_data.py` + GitHub Actions.
+> **⚠️ ARCHIVED (Session 8)** — Moved to `pipeline/archive/auto_update.py`. Broken imports (JSON-era). Refresh is now handled by `scripts/workflows/refresh_data.py` + GitHub Actions.
 
 Orchestrates an incremental refresh of the dataset: downloads the existing parquet from HuggingFace, identifies new fiscal years available, runs only the new rows through the pipeline, and re-merges. Used by the GitHub Actions weekly refresh workflow.

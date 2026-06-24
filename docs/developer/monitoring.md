@@ -58,7 +58,7 @@ The 5-pt threshold is set via `--auc-alert 0.05` in the workflow.
 1. Check out repo
 2. Install Python dependencies
 3. Download existing dataset from HuggingFace (incremental base)
-4. Run `scripts/refresh_data.py --markets US`
+4. Run `scripts/workflows/refresh_data.py --markets US`
 5. Write `data/refresh_status.json` with timestamp
 6. Run `generate_reports.py --top 25`
 7. Upload updated dataset + status to HuggingFace
@@ -85,7 +85,7 @@ gh workflow run refresh_data.yml -f markets="all"
 **Steps:**
 
 1. Download latest dataset and models from HuggingFace
-2. Run `scripts/monitor_drift.py --psi-alert 0.25 --auc-alert 0.05`
+2. Run `scripts/quality/monitor_drift.py --psi-alert 0.25 --auc-alert 0.05`
 3. Upload `reports/drift_report.json` and `reports/drift_report.csv` as artifacts
 4. If exit code 1 (drift detected): emit a GitHub Actions **warning** annotation
 
@@ -122,8 +122,8 @@ There is no automated retraining yet. When drift is detected:
 
 1. Check `drift_report.csv` for which features are drifting
 2. Decide if the drift represents genuine regime change or a data quality issue
-3. If genuine: run `python3 scripts/train_models.py` on updated data, then `python3 scripts/tune_models.py`
-4. Upload new models to HuggingFace: `python3 scripts/push_to_hf.py`
+3. If genuine: run `python3 scripts/modeling/train_models.py` on updated data, then `python3 scripts/modeling/tune_models.py`
+4. Upload new models to HuggingFace: `python3 scripts/data_io/push_to_hf.py`
 
 A roadmap item (Phase 1) will automate retraining when PSI or AUC thresholds are breached.
 
@@ -132,13 +132,13 @@ A roadmap item (Phase 1) will automate retraining when PSI or AUC thresholds are
 Run the drift monitor locally against the current dataset:
 
 ```bash
-python3 scripts/monitor_drift.py
+python3 scripts/quality/monitor_drift.py
 
 # More sensitive thresholds for exploratory analysis:
-python3 scripts/monitor_drift.py --psi-alert 0.10
+python3 scripts/quality/monitor_drift.py --psi-alert 0.10
 
 # Compare against a specific historical window:
-python3 scripts/monitor_drift.py --window 2022
+python3 scripts/quality/monitor_drift.py --window 2022
 
 # View output:
 cat reports/drift_report.json

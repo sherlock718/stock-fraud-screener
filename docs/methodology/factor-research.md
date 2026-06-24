@@ -1,6 +1,6 @@
 # Factor Research
 
-The factor research library (`scripts/factor_research.py`) provides IC/ICIR analysis tools for evaluating and selecting predictive features.
+The factor research library (`scripts/analysis/factor_research.py`) provides IC/ICIR analysis tools for evaluating and selecting predictive features.
 
 ## What is IC?
 
@@ -56,16 +56,16 @@ This prevents the model from learning essentially the same signal through multip
 
 ```bash
 # IC/ICIR analysis for all features
-python3 scripts/factor_research.py
+python3 scripts/analysis/factor_research.py
 
 # Single feature analysis
-python3 scripts/factor_research.py --feature accruals_to_assets
+python3 scripts/analysis/factor_research.py --feature accruals_to_assets
 
 # Decay analysis
-python3 scripts/factor_research.py --mode decay --horizons 1 3 6 12 24
+python3 scripts/analysis/factor_research.py --mode decay --horizons 1 3 6 12 24
 
 # Export results
-python3 scripts/factor_research.py --export reports/factor_ic.csv
+python3 scripts/analysis/factor_research.py --export reports/factor_ic.csv
 ```
 
 ## Research Notebooks

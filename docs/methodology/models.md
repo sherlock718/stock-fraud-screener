@@ -42,7 +42,7 @@ AUC of 0.5 = random. Targets: 3y/5y ≥ 0.62; 1y/2y ≥ 0.60; 6m ≥ 0.58 (short
 > - `--sector-zscore` — within-(fiscal_year, sic_code) z-score normalization removes cross-sector valuation level differences
 > - Dedup threshold tightened 0.90 → 0.85 in both `train_models.py` and `run_feature_selection.py`
 > 
-> Recommended WF retraining command to measure impact: `python3 scripts/train_models.py --walk-forward --embargo-years 1 --ensemble --sector-zscore --use-tuned-params`
+> Recommended WF retraining command to measure impact: `python3 scripts/modeling/train_models.py --walk-forward --embargo-years 1 --ensemble --sector-zscore --use-tuned-params`
 
 
 ## Target Variable
@@ -144,19 +144,19 @@ All model artifacts are saved to `models/`:
 
 ```bash
 # Base models
-python3 scripts/train_models.py
+python3 scripts/modeling/train_models.py
 
 # With Optuna tuning + CatBoost + calibration (slower)
-python3 scripts/tune_models.py
+python3 scripts/modeling/tune_models.py
 
 # Custom horizon only
-python3 scripts/train_models.py --horizon 3y
+python3 scripts/modeling/train_models.py --horizon 3y
 
 # With SHAP export
-python3 scripts/train_models.py --export-shap
+python3 scripts/modeling/train_models.py --export-shap
 
 # Walk-forward CV (expanding window, 9 folds)
-python3 scripts/train_models.py --walk-forward
+python3 scripts/modeling/train_models.py --walk-forward
 ```
 
 ### Feature Selection Flags

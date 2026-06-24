@@ -29,7 +29,7 @@ A task is done only when **all** of the following are complete:
 3. ✅ `CHANGELOG.md` entry added under `[Unreleased]`
 4. ✅ `git add` → `git commit` with conventional message
 5. ✅ `git push` to remote
-6. ✅ HuggingFace push (`scripts/push_to_hf.py`) **if** `data/` or `models/` changed
+6. ✅ HuggingFace push (`scripts/data_io/push_to_hf.py`) **if** `data/` or `models/` changed
 
 If you stop before step 6, the task is **in progress**, not done. Update `ROADMAP.md` accordingly.
 
@@ -120,7 +120,7 @@ These are fixed decisions. Do not reverse them without explicit user discussion.
 | ML-first | Factor groups are input categories. Fixed-weight composites are forbidden. |
 | Monolith research pipeline | Layers 1–13 share a parquet and run as batch processes. No microservices for research steps. |
 | FastAPI + React as separate services | Only the API and frontend are separate from the pipeline. |
-| HuggingFace for data | All parquet files and models pushed via `scripts/push_to_hf.py` after training. |
+| HuggingFace for data | All parquet files and models pushed via `scripts/data_io/push_to_hf.py` after training. |
 | Feature selection before modeling | PSI → IC → ICIR → Spearman dedup is always run before LightGBM. No shortcuts. |
 | Per-alpha backtesting | Every alpha signal must have an independent backtest before entering the portfolio. No unvalidated signals in production. |
 

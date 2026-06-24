@@ -72,11 +72,11 @@
 |---|---|---|
 | Universe definition (liquidity, size, exchange filters) | ✅ Done | `pipeline/p0f_universe_definition.py` |
 | Confidence score per filing | ✅ Done | `pipeline/p0g_confidence_score.py` |
-| Dataset health check (nulls, coverage, date ranges) | ✅ Done | `scripts/check_data.py` |
-| Quality fixes (null drop, winsorize, format corrections) | ✅ Done | `scripts/fix_dataset_quality.py` |
-| Point-in-time look-ahead audit | ✅ Done | `scripts/pit_validate.py` |
-| Survivorship bias correction (impute −50% for delisted) | ✅ Done | `scripts/mark_survivorship.py` |
-| Bias audit (temporal leakage, shuffle test, permutation) | ✅ Done | `scripts/bias_audit.py` |
+| Dataset health check (nulls, coverage, date ranges) | ✅ Done | `scripts/quality/check_data.py` |
+| Quality fixes (null drop, winsorize, format corrections) | ✅ Done | `scripts/enrichments/fix_dataset_quality.py` |
+| Point-in-time look-ahead audit | ✅ Done | `scripts/quality/pit_validate.py` |
+| Survivorship bias correction (impute −50% for delisted) | ✅ Done | `scripts/enrichments/mark_survivorship.py` |
+| Bias audit (temporal leakage, shuffle test, permutation) | ✅ Done | `scripts/quality/bias_audit.py` |
 | Null rate analysis per column × market | ❌ Todo (after Step 1) | `notebooks/00_data_quality.ipynb` |
 | Distribution analysis per feature (histograms, outlier check) | ❌ Todo | Same notebook |
 | Cross-market coverage heatmap (market × fiscal_year × feature) | ❌ Todo | Same notebook |
@@ -93,13 +93,13 @@
 
 | Task | Status | File |
 |---|---|---|
-| Incremental US refresh | ✅ Done | `scripts/refresh_data.py` |
-| Monthly pipeline orchestrator | ⚠️ Archived | `pipeline/archive/auto_update.py` (broken imports; replaced by `scripts/refresh_data.py` + GitHub Actions) |
+| Incremental US refresh | ✅ Done | `scripts/workflows/refresh_data.py` |
+| Monthly pipeline orchestrator | ⚠️ Archived | `pipeline/archive/auto_update.py` (broken imports; replaced by `scripts/workflows/refresh_data.py` + GitHub Actions) |
 | GitHub Actions weekly job | ✅ Done | `.github/workflows/` |
-| HuggingFace push after refresh | ✅ Done | `scripts/push_to_hf.py` |
+| HuggingFace push after refresh | ✅ Done | `scripts/data_io/push_to_hf.py` |
 | Multi-market incremental refresh | ❌ Todo (after Step 1 integration per market) | — |
 | Extend GitHub Actions cron to cover all 6 markets | ❌ Todo | `.github/workflows/` |
-| `wait_and_merge.py` extended to include EU/BR/JP/CA | ❌ Todo | `scripts/wait_and_merge.py` |
+| `wait_and_merge.py` extended to include EU/BR/JP/CA | ❌ Todo | `scripts/workflows/wait_and_merge.py` |
 | `monitor_drift.py` extended to run per market | ❌ Todo | Currently US-only |
 | Monthly schedule: 1st of each month → refresh all markets → merge → enrich → push | ❌ Todo | GH Actions cron |
 
@@ -112,9 +112,9 @@
 | Task | Status | File / Notes |
 |---|---|---|
 | 314 base features | ✅ Done | `pipeline/feature_library.py` |
-| 5 quarterly dynamics (intra-year) | ✅ Done | `scripts/enrich_quarterly_features.py` |
+| 5 quarterly dynamics (intra-year) | ✅ Done | `scripts/enrichments/enrich_quarterly_features.py` |
 | Governance / going concern signals | ⚠️ Archived | `pipeline/archive/enrich_governance.py` (logic preserved in `STRANDED_LOGIC.md`; migration to step5 deferred) |
-| AAER fraud labels (492 rows / 118 companies) | ✅ Done | `scripts/fetch_aaer_labels.py` |
+| AAER fraud labels (492 rows / 118 companies) | ✅ Done | `scripts/data_io/fetch_aaer_labels.py` |
 | **Cross-sectional momentum (12m-1m rank)** | ❌ Blocker | Jegadeesh & Titman 1993 — biggest signal gap |
 | Sector-relative feature normalisation | ❌ Todo | Improves cross-sectional ranking |
 | Build `scripts/add_ticker.py` — single-ticker fetch + enrich + append to parquet | ❌ Todo | New script |
@@ -135,14 +135,14 @@
 
 | Task | Status | File |
 |---|---|---|
-| PSI filter (regime stability) | ✅ Done | `scripts/run_feature_selection.py` |
-| IC / ICIR ranking | ✅ Done | `scripts/run_feature_selection.py` |
-| Spearman correlation deduplication | ✅ Done | `scripts/run_feature_selection.py` |
-| IC analysis per feature | ✅ Done | `scripts/factor_research.py` + `reports/factor_research_*.csv` |
+| PSI filter (regime stability) | ✅ Done | `scripts/modeling/run_feature_selection.py` |
+| IC / ICIR ranking | ✅ Done | `scripts/modeling/run_feature_selection.py` |
+| Spearman correlation deduplication | ✅ Done | `scripts/modeling/run_feature_selection.py` |
+| IC analysis per feature | ✅ Done | `scripts/analysis/factor_research.py` + `reports/factor_research_*.csv` |
 | Feature importance vs SHAP comparison | ⚠️ Partial | SHAP in `train_models.py`, not visualised |
-| **Newey-West HAC standard errors** | ✅ Done | `scripts/run_feature_selection.py` — `newey_west_tstat()` |
+| **Newey-West HAC standard errors** | ✅ Done | `scripts/modeling/run_feature_selection.py` — `newey_west_tstat()` |
 | **Fama-MacBeth cross-sectional standard errors** | ✅ Done | Integrated in `run_feature_selection.py` |
-| **FDR correction (Benjamini-Hochberg)** | ✅ Done | `scripts/run_feature_selection.py` — `bh_fdr_correction()` |
+| **FDR correction (Benjamini-Hochberg)** | ✅ Done | `scripts/modeling/run_feature_selection.py` — `bh_fdr_correction()` |
 
 **Exit criteria**: IC t-stats use HAC errors; FDR-corrected feature list stable across resamples; no features selected purely by chance.
 
@@ -152,7 +152,7 @@
 
 | Task | Status | File |
 |---|---|---|
-| IC/ICIR analysis (basic) | ✅ Done | `scripts/factor_research.py` + `reports/factor_research_*.csv` |
+| IC/ICIR analysis (basic) | ✅ Done | `scripts/analysis/factor_research.py` + `reports/factor_research_*.csv` |
 | IC decay curves (how long does each signal predict?) | ✅ Done | `notebooks/06_ic_decay.ipynb` — half-life, regime, autocorr |
 | Regime-conditional factor performance | ✅ Done | `notebooks/06_ic_decay.ipynb` Cell 9 + `notebooks/02_factor_research.ipynb` Section 10 |
 | Cross-market factor comparison | ✅ Done | `notebooks/02_factor_research.ipynb` + coverage depth audit |
@@ -172,10 +172,10 @@
 
 | Task | Status | File |
 |---|---|---|
-| LightGBM 5 horizons (6m/1y/2y/3y/5y) | ✅ Done | `scripts/train_models.py` |
-| Optuna hyperparameter search | ✅ Done | `scripts/tune_models.py` |
-| CatBoost ensemble (0.5 LGB + 0.5 CB) | ✅ Done | `scripts/tune_models.py` |
-| Calibration (Platt scaling) | ✅ Done | `scripts/tune_models.py` |
+| LightGBM 5 horizons (6m/1y/2y/3y/5y) | ✅ Done | `scripts/modeling/train_models.py` |
+| Optuna hyperparameter search | ✅ Done | `scripts/modeling/tune_models.py` |
+| CatBoost ensemble (0.5 LGB + 0.5 CB) | ✅ Done | `scripts/modeling/tune_models.py` |
+| Calibration (Platt scaling) | ✅ Done | `scripts/modeling/tune_models.py` |
 | Walk-forward CV per horizon | ✅ Done | `--walk-forward` flag in `train_models.py` |
 | **Momentum force-include for short horizons** | ✅ Done | `FORCE_INCLUDE_6M/1Y/2Y` in `train_models.py` — `vol_rank_12m`, `quality_x_momentum` injected into 6m/1y/2y |
 | **Sector-neutral IC (default on)** | ✅ Done | `--sector-neutral` default=True in `train_models.py` — removes sector rotation from IC |
@@ -204,15 +204,15 @@
 
 | Task | Status | File |
 |---|---|---|
-| Look-ahead (PIT) bias audit | ✅ Done | `scripts/bias_audit.py` |
-| Survivorship bias audit | ✅ Done | `scripts/bias_audit.py` |
-| Overfitting audit (overfit_gap threshold) | ✅ Done | `scripts/bias_audit.py` |
-| Multiple testing correction (Bonferroni) | ✅ Done | `scripts/bias_audit.py` |
-| OOF ML scoring (walk-forward, unbiased) | ✅ Done | `scripts/generate_oof_scores.py` — ml_1y_oof/ml_3y_oof/ml_5y_oof |
-| Historical ML scoring | ✅ Done | `scripts/score_historical.py` — ml_1y/3y/5y in parquet |
-| PSI drift monitoring | ✅ Done | `scripts/monitor_drift.py` |
+| Look-ahead (PIT) bias audit | ✅ Done | `scripts/quality/bias_audit.py` |
+| Survivorship bias audit | ✅ Done | `scripts/quality/bias_audit.py` |
+| Overfitting audit (overfit_gap threshold) | ✅ Done | `scripts/quality/bias_audit.py` |
+| Multiple testing correction (Bonferroni) | ✅ Done | `scripts/quality/bias_audit.py` |
+| OOF ML scoring (walk-forward, unbiased) | ✅ Done | `scripts/modeling/generate_oof_scores.py` — ml_1y_oof/ml_3y_oof/ml_5y_oof |
+| Historical ML scoring | ✅ Done | `scripts/modeling/score_historical.py` — ml_1y/3y/5y in parquet |
+| PSI drift monitoring | ✅ Done | `scripts/quality/monitor_drift.py` |
 | Rolling AUC plot | ✅ Done | `reports/rolling_oos_auc.png` |
-| **Backtest max_drawdown/sortino/calmar bug** | ✅ Fixed | `scripts/backtester.py` — sortino: 1.181, calmar: 0.641 now populated |
+| **Backtest max_drawdown/sortino/calmar bug** | ✅ Fixed | `scripts/_shared/backtester.py` — sortino: 1.181, calmar: 0.641 now populated |
 
 **Exit criteria**: ✅ All bias audit checks pass; OOF scores present in parquet; backtester tearsheet metrics non-null.
 
@@ -222,7 +222,7 @@
 
 | Task | Status | File |
 |---|---|---|
-| Walk-forward backtester (basic) | ✅ Done | `scripts/backtester.py` |
+| Walk-forward backtester (basic) | ✅ Done | `scripts/_shared/backtester.py` |
 | SPY benchmark | ✅ Done | `data/spy_returns.csv` present; wired into backtester |
 | Transaction cost tiers (30bps default, 60bps small-cap) | ✅ Done | In `backtester.py` |
 | Filing lag filter (max 6 months fiscal year-end → filing) | ✅ Done | `--max-filing-lag` flag |
@@ -245,11 +245,11 @@ The schema formalises each of these as a named alpha signal with its own backtes
 
 | Task | Status | File |
 |---|---|---|
-| Run backtester on each factor score independently (Value, Quality, Momentum, Growth, FraudRisk) | ✅ Done | `scripts/build_alpha_registry.py` |
-| Run backtester on each ml_* score (ml_1y, ml_3y, ml_5y) | ✅ Done | `scripts/build_alpha_registry.py` |
+| Run backtester on each factor score independently (Value, Quality, Momentum, Growth, FraudRisk) | ✅ Done | `scripts/portfolio/build_alpha_registry.py` |
+| Run backtester on each ml_* score (ml_1y, ml_3y, ml_5y) | ✅ Done | `scripts/portfolio/build_alpha_registry.py` |
 | Write per-signal JSON: `reports/alpha_backtests/{signal_id}.json` | ⚠️ Partial | Stats in `data/alpha_registry.json`; per-signal files in `reports/alpha_backtests/` not yet written |
-| Filter: Sharpe > 0.5, max drawdown < 30%, IC > 0.02 | ✅ Done | `scripts/build_alpha_registry.py` |
-| Deduplicate signals with |IC overlap| > 0.85 | ✅ Done | `scripts/build_alpha_registry.py` |
+| Filter: Sharpe > 0.5, max drawdown < 30%, IC > 0.02 | ✅ Done | `scripts/portfolio/build_alpha_registry.py` |
+| Deduplicate signals with |IC overlap| > 0.85 | ✅ Done | `scripts/portfolio/build_alpha_registry.py` |
 | Write `data/alpha_registry.json` — all signals + backtest stats + selected flag | ✅ Done | 8 evaluated, 6 selected |
 
 **Exit criteria**: ✅ Alpha registry populated with 8 signals (5 factor scores + 3 ML horizons); each signal has IC + backtest stats + selected flag. 6 of 8 signals pass selection criteria.
@@ -265,7 +265,7 @@ The schema formalises each of these as a named alpha signal with its own backtes
 
 | Task | Status | File |
 |---|---|---|
-| Evolve `leverage_strategy.py` → `scripts/build_portfolio.py` | ❌ Todo | — |
+| Evolve `leverage_strategy.py` → `scripts/portfolio/build_portfolio.py` | ❌ Todo | — |
 | Portfolio reads from `alpha_registry.json` (not hardcoded features) | ❌ Todo | Depends on Step 10 |
 | Kelly criterion position sizing | ❌ Todo | — |
 | Risk-parity alternative | ❌ Todo | — |
@@ -284,7 +284,7 @@ The schema formalises each of these as a named alpha signal with its own backtes
 
 | Task | Status | File |
 |---|---|---|
-| Long/short Kelly-sized portfolio (existing) | ✅ Done | `scripts/leverage_strategy.py` |
+| Long/short Kelly-sized portfolio (existing) | ✅ Done | `scripts/portfolio/leverage_strategy.py` |
 | Piotroski + Beneish quality gates | ✅ Done | Flags in `leverage_strategy.py` |
 | Small-cap cost tier (60bps) | ✅ Done | In `backtester.py` |
 | Integrate with alpha registry (replace hardcoded logic) | ❌ Todo | Depends on Step 10 |
@@ -300,7 +300,7 @@ The schema formalises each of these as a named alpha signal with its own backtes
 
 | Task | Status | File |
 |---|---|---|
-| PDF tearsheet + CSV picks | ✅ Done | `scripts/generate_reports.py` |
+| PDF tearsheet + CSV picks | ✅ Done | `scripts/analysis/generate_reports.py` |
 | Walk-forward AUC chart | ✅ Done | `reports/rolling_oos_auc.png` |
 | Per-alpha backtest report | ❌ Needs Step 9–10 | `reports/alpha_backtests/{signal_id}.json` |
 | Alpha registry summary report | ❌ Needs Step 10 | — |
@@ -334,7 +334,7 @@ The schema formalises each of these as a named alpha signal with its own backtes
 
 | Task | Status | File |
 |---|---|---|
-| PSI + rolling AUC drift monitor | ✅ Done | `scripts/monitor_drift.py` |
+| PSI + rolling AUC drift monitor | ✅ Done | `scripts/quality/monitor_drift.py` |
 | GitHub Actions alert (exit code 1 on drift) | ✅ Done | `.github/workflows/` |
 | Data staleness detection | ⚠️ Partial | In `monitor_drift.py` |
 | Model retrain trigger (AUC drop > 0.05) | ⚠️ Partial | Alert exists; auto-retrain not built |
@@ -356,9 +356,9 @@ The schema formalises each of these as a named alpha signal with its own backtes
 | Alpha signal browser (filter by market/horizon/Sharpe/factor) | ❌ Needs Step 10 | — |
 | Backtest visualiser (interactive equity curve, drawdown) | ❌ Todo | — |
 | FastAPI screener router | ✅ Done | `api/` |
-| HuggingFace model + dataset hosting | ✅ Done | `scripts/push_to_hf.py` |
+| HuggingFace model + dataset hosting | ✅ Done | `scripts/data_io/push_to_hf.py` |
 | Docker containerisation | ⚠️ Schema exists, not deployed | `infra/` |
-| TimescaleDB schema | ⚠️ Schema + migrate script exist, DB not running | `infra/db/init.sql`, `scripts/migrate_to_db.py` |
+| TimescaleDB schema | ⚠️ Schema + migrate script exist, DB not running | `infra/db/init.sql`, `scripts/data_io/migrate_to_db.py` |
 | Cloud deployment (AWS or GCP) | ❌ Todo | After React frontend confirmed |
 | Production CI/CD (auto-deploy on main push) | ⚠️ Partial | Data refresh CI exists; deploy CI not built |
 
@@ -398,7 +398,7 @@ The schema formalises each of these as a named alpha signal with its own backtes
 | After completing a task | Mark step task as done in this file + add `CHANGELOG.md` entry |
 | Before ending session | Update `CONTEXT.md` session log + remaining task list |
 | Every commit | `check_sync.py` enforces docs stay in sync with code |
-| Data or model changed | `scripts/push_to_hf.py` after commit |
+| Data or model changed | `scripts/data_io/push_to_hf.py` after commit |
 | Weekly | GitHub Actions: data refresh + drift monitor |
 | Phase complete | Walkthrough with user → explicit approval before next phase |
 

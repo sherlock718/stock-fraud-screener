@@ -44,7 +44,7 @@ flowchart TD
 
 ```bash
 # Run quality checks on the current dataset first
-python3 scripts/test_dataset_quality.py --verbose
+python3 scripts/quality/test_dataset_quality.py --verbose
 ```
 
 All 98 checks must pass before and after any dataset modification.
@@ -59,36 +59,36 @@ New fiscal year data arrives once a year per company after their annual filing.
 
 ```bash
 # Full rebuild — fetches tickers, snapshots, prices, macro, features, clean
-python3 scripts/run_pipeline.py --step 1
+python3 scripts/workflows/run_pipeline.py --step 1
 # Resume from a specific step (e.g. if step 1 already done)
-python3 scripts/run_pipeline.py --step 3
+python3 scripts/workflows/run_pipeline.py --step 3
 ```
 
 ### Korea (KR)
 
 ```bash
-python3 scripts/run_pipeline_kr.py build --step 1
+python3 scripts/workflows/run_pipeline_kr.py build --step 1
 python3 pipeline/phase_a_integrate_kr.py
 ```
 
 ### Canada (CA)
 
 ```bash
-python3 scripts/run_pipeline_ca.py build --step 1
+python3 scripts/workflows/run_pipeline_ca.py build --step 1
 python3 pipeline/phase_a_integrate_ca.py
 ```
 
 ### Japan (JP)
 
 ```bash
-python3 scripts/run_pipeline_jp.py build --step 1
+python3 scripts/workflows/run_pipeline_jp.py build --step 1
 python3 pipeline/phase_a_integrate_jp.py
 ```
 
 ### Brazil (BR)
 
 ```bash
-python3 scripts/run_pipeline_br.py build --step 1
+python3 scripts/workflows/run_pipeline_br.py build --step 1
 python3 pipeline/phase_a_integrate_br.py
 ```
 
@@ -98,7 +98,7 @@ Always re-run the enrichment stack and quality checks:
 
 ```bash
 python3 pipeline/enrich_fraud_taxonomy.py    # refresh fraud scores
-python3 scripts/test_dataset_quality.py      # verify all 98 checks pass
+python3 scripts/quality/test_dataset_quality.py      # verify all 98 checks pass
 ```
 
 ---
@@ -146,9 +146,9 @@ python3 pipeline/step5_compute_features.py --snapshots data/snapshots_kr.parquet
     --prices data/prices_kr.parquet --macro data/macro_kr.parquet --suffix _kr
 ```
 
-Then re-integrate and re-clean each market, or use `scripts/refresh_data.py` for a full refresh.
+Then re-integrate and re-clean each market, or use `scripts/workflows/refresh_data.py` for a full refresh.
 
-> **Note:** The legacy `pipeline/auto_update.py` has been archived (Session 8). Use `scripts/refresh_data.py` + GitHub Actions for automated refreshes.
+> **Note:** The legacy `pipeline/auto_update.py` has been archived (Session 8). Use `scripts/workflows/refresh_data.py` + GitHub Actions for automated refreshes.
 
 ### Step 4 — Update documentation (required by CLAUDE.md)
 
@@ -163,10 +163,10 @@ Then re-integrate and re-clean each market, or use `scripts/refresh_data.py` for
 ### Step 5 — Verify
 
 ```bash
-python3 scripts/test_dataset_quality.py --verbose
+python3 scripts/quality/test_dataset_quality.py --verbose
 ```
 
-Add a fill-rate threshold for the new column to `FILL_THRESHOLDS` in `scripts/test_dataset_quality.py` if the column is core to downstream use.
+Add a fill-rate threshold for the new column to `FILL_THRESHOLDS` in `scripts/quality/test_dataset_quality.py` if the column is core to downstream use.
 
 ---
 
@@ -176,7 +176,7 @@ Add a fill-rate threshold for the new column to `FILL_THRESHOLDS` in `scripts/te
 2. Write `pipeline/step2_build_snapshots_{mkt}.py` — outputs `data/snapshots_{mkt}.parquet`
 3. Write `scripts/run_pipeline_{mkt}.py` — orchestrates steps 1–6 with `--suffix _{mkt}`
 4. Write `pipeline/phase_a_integrate_{mkt}.py` — runs steps 3–9 and concatenates into the clean parquet
-5. Add market to `MIN_TICKERS` and `MIN_YEARS` in `scripts/test_dataset_quality.py`
+5. Add market to `MIN_TICKERS` and `MIN_YEARS` in `scripts/quality/test_dataset_quality.py`
 6. Document in `docs/developer/pipeline-scripts.md`
 
 ---
@@ -188,7 +188,7 @@ Add a fill-rate threshold for the new column to `FILL_THRESHOLDS` in `scripts/te
 | Workflow | Schedule | What it does |
 |---|---|---|
 | `refresh_data.yml` | Sunday 05:00 UTC | Refreshes all 6 markets (US CA JP KR EU BR), runs post-processing stack, pushes parquet + models to HuggingFace |
-| `monitor_drift.yml` | Monday 07:00 UTC | Runs `scripts/monitor_drift.py` — PSI + rolling AUC; uploads drift report as artifact |
+| `monitor_drift.yml` | Monday 07:00 UTC | Runs `scripts/quality/monitor_drift.py` — PSI + rolling AUC; uploads drift report as artifact |
 
 ### Per-market pipeline routing (weekly cron)
 
@@ -196,12 +196,12 @@ The cron default is `US CA JP KR EU BR`. Each market routes to its dedicated pip
 
 | Market | Pipeline script | API key required? |
 |---|---|---|
-| US | `scripts/run_pipeline.py --market US` | None |
-| CA | `scripts/run_pipeline.py --market CA` | None (SEDAR+) |
-| JP | `scripts/run_pipeline.py --market JP` | None (TDNET) |
-| KR | `scripts/run_pipeline_kr.py` | `DART_API_KEY` (GitHub secret) — skipped with warning if absent |
-| EU (DE/FR/IT/ES/SE/NL/PT/DK/FI) | `scripts/run_pipeline_eu.py --market <mkt>` | None (SimFin free tier) |
-| BR | `scripts/run_pipeline.py --market BR` | None (B3/CVM) |
+| US | `scripts/workflows/run_pipeline.py --market US` | None |
+| CA | `scripts/workflows/run_pipeline.py --market CA` | None (SEDAR+) |
+| JP | `scripts/workflows/run_pipeline.py --market JP` | None (TDNET) |
+| KR | `scripts/workflows/run_pipeline_kr.py` | `DART_API_KEY` (GitHub secret) — skipped with warning if absent |
+| EU (DE/FR/IT/ES/SE/NL/PT/DK/FI) | `scripts/workflows/run_pipeline_eu.py --market <mkt>` | None (SimFin free tier) |
+| BR | `scripts/workflows/run_pipeline.py --market BR` | None (B3/CVM) |
 
 **KR secret guard**: if `DART_API_KEY` is not set as a GitHub Actions secret, the KR step is skipped with a `[WARN]` message — the rest of the markets still run and the workflow does not fail.
 
@@ -220,7 +220,7 @@ print(df.groupby('market')['fiscal_year'].agg(['min','max','count']))
 "
 
 # 2. Run full quality suite
-python3 scripts/test_dataset_quality.py --verbose
+python3 scripts/quality/test_dataset_quality.py --verbose
 
 # 3. Refresh any markets with new filings available
 # (run the relevant run_pipeline_*.py + phase_a_integrate_*.py)
@@ -229,17 +229,17 @@ python3 scripts/test_dataset_quality.py --verbose
 python3 pipeline/enrich_fraud_taxonomy.py
 
 # 5. Run quality suite again
-python3 scripts/test_dataset_quality.py
+python3 scripts/quality/test_dataset_quality.py
 
 # 6. Push to HuggingFace if dataset changed
-python3 scripts/push_to_hf.py
+python3 scripts/data_io/push_to_hf.py
 ```
 
 ---
 
 ## 6. Schema Constraints
 
-The dataset schema is enforced by `scripts/test_dataset_quality.py`. The following must always hold:
+The dataset schema is enforced by `scripts/quality/test_dataset_quality.py`. The following must always hold:
 
 | Constraint | Rule |
 |---|---|
@@ -283,13 +283,13 @@ Instead of rebuilding from scratch (Steps 1–6, several hours), you can restore
 
 ```bash
 # Restore everything (final dataset + snapshots + manifest)
-python3 scripts/pull_from_hf.py --all
+python3 scripts/data_io/pull_from_hf.py --all
 
 # Restore only the final dataset
-python3 scripts/pull_from_hf.py --final
+python3 scripts/data_io/pull_from_hf.py --final
 
 # Restore snapshots (enables resuming from Step 4+ without Step 1-2 rebuild)
-python3 scripts/pull_from_hf.py --snapshots
+python3 scripts/data_io/pull_from_hf.py --snapshots
 ```
 
 ### When to pull vs rebuild

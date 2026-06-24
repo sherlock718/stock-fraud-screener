@@ -38,7 +38,7 @@ Remaining Phase C enhancements (beyond exit criteria): retrain 6m/1y/2y to meet 
 
 ### historical_dataset_clean.parquet — 58,190 rows × 360 cols (355 base + 5 OOF)
 
-Quarterly signals are enriched into annual rows via `scripts/enrich_quarterly_features.py`.
+Quarterly signals are enriched into annual rows via `scripts/enrichments/enrich_quarterly_features.py`.
 
 | Market | Rows | Tickers | Fiscal Year Range | Quarterly enriched? | Depth |
 |---|---|---|---|---|---|
@@ -88,13 +88,13 @@ Quarterly signals are enriched into annual rows via `scripts/enrich_quarterly_fe
 
 | Gap | File | Why it matters |
 |---|---|---|
-| BR tickers: only ~55 (need ~400+) | `scripts/step1_fetch_tickers_br.py` | Too thin for cross-sectional signal validation |
+| BR tickers: only ~55 (need ~400+) | `pipeline/step1_fetch_tickers_br.py` | Too thin for cross-sectional signal validation |
 | CA/EU/JP: 4–5 yr only | All integrate scripts | Cannot compute reliable 5yr CAGR or ICIR |
-| KR DART ingestion ongoing | `scripts/run_pipeline_kr.py` | ETA ~29 May 2026 |
+| KR DART ingestion ongoing | `scripts/workflows/run_pipeline_kr.py` | ETA ~29 May 2026 |
 | Multi-market GitHub Actions refresh | `.github/workflows/` | Currently US-only weekly cron |
 | `fraud_score_governance` all-NaN | `pipeline/archive/enrich_governance.py` (ARCHIVED) | Governance signal missing; going_concern logic needs migration to step5 |
 
-**Exit criteria for Phase A**: All in `docs/developer/phase-done-criteria.md` → run `scripts/check_sync.py` before declaring done.
+**Exit criteria for Phase A**: All in `docs/developer/phase-done-criteria.md` → run `scripts/quality/check_sync.py` before declaring done.
 
 ---
 
@@ -128,7 +128,7 @@ Previously listed gaps resolved:
 **Phase C enhancements queued (beyond exit criteria):**
 - Retrain 6m/1y/2y with FORCE_INCLUDE + sector-neutral IC + stability filter → improve AUC (currently 6m=0.549, 1y=0.549, 2y=0.578)
 - Ablation study (feature group contribution analysis)
-- Slippage modelling in `scripts/backtester.py`
+- Slippage modelling in `scripts/_shared/backtester.py`
 - Per-signal JSON files `reports/alpha_backtests/{signal_id}.json`
 
 ---
@@ -139,14 +139,14 @@ Previously listed gaps resolved:
 |---|---|---|
 | `pipeline/feature_library.py` | All 355 feature formulas | ✅ |
 | `pipeline/step5_compute_features.py` | Feature computation (montier_c2 bug FIXED) | ✅ |
-| `scripts/run_feature_selection.py` | PSI → IC (HAC) → ICIR (FDR) → Spearman dedup | ✅ |
-| `scripts/train_models.py` | Walk-forward LightGBM training (1y/3y/5y) | ✅ |
-| `scripts/score_historical.py` | Load models → score all rows → write ml_* to parquet | ✅ |
-| `scripts/generate_oof_scores.py` | OOF walk-forward scoring (ml_*_oof cols) | ✅ (not yet run) |
-| `scripts/factor_research.py` | IC/ICIR factor research reports | ✅ |
-| `scripts/bias_audit.py` | 4-audit look-ahead/survivorship/overfit/FDR | ✅ |
-| `scripts/backtester.py` | Walk-forward backtester + SPY benchmark | ⚠️ Partial |
-| `scripts/push_to_hf.py` | Push data/models to HuggingFace Hub | ✅ |
+| `scripts/modeling/run_feature_selection.py` | PSI → IC (HAC) → ICIR (FDR) → Spearman dedup | ✅ |
+| `scripts/modeling/train_models.py` | Walk-forward LightGBM training (1y/3y/5y) | ✅ |
+| `scripts/modeling/score_historical.py` | Load models → score all rows → write ml_* to parquet | ✅ |
+| `scripts/modeling/generate_oof_scores.py` | OOF walk-forward scoring (ml_*_oof cols) | ✅ (not yet run) |
+| `scripts/analysis/factor_research.py` | IC/ICIR factor research reports | ✅ |
+| `scripts/quality/bias_audit.py` | 4-audit look-ahead/survivorship/overfit/FDR | ✅ |
+| `scripts/_shared/backtester.py` | Walk-forward backtester + SPY benchmark | ⚠️ Partial |
+| `scripts/data_io/push_to_hf.py` | Push data/models to HuggingFace Hub | ✅ |
 
 ---
 
@@ -161,7 +161,7 @@ Previously listed gaps resolved:
 | `models/model_meta.json` | Selected features per horizon (1y/3y/5y) + training stats |
 | `reports/factor_research_*.csv` | IC/ICIR factor research per horizon |
 | `docs/developer/phase-done-criteria.md` | Machine-checkable exit criteria per phase |
-| `scripts/check_sync.py` | Pre-commit doc sync validator |
+| `scripts/quality/check_sync.py` | Pre-commit doc sync validator |
 
 ---
 

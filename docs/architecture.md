@@ -40,7 +40,7 @@ graph TB
         F1 & F2 & F3 & F4 & F5 --> FA
     end
 
-    subgraph ML["ML System — scripts/train_models.py ✅ Phase C"]
+    subgraph ML["ML System — scripts/modeling/train_models.py ✅ Phase C"]
         C0[PSI Filter<br/>drops unstable features<br/>PSI > 0.25 removed]
         C1[ICIR Feature Selection<br/>~45 features/horizon]
         C2[LightGBM<br/>5 horizons: 6m 1y 2y 3y 5y<br/>filed-date PIT-safe]
@@ -91,31 +91,31 @@ graph TB
 
 | Component | Location | Purpose | Status |
 |---|---|---|---|
-| US pipeline | `scripts/run_pipeline.py` | Fetch + clean US fundamentals | ✅ |
+| US pipeline | `scripts/workflows/run_pipeline.py` | Fetch + clean US fundamentals | ✅ |
 | Multi-market pipeline | `pipeline/step1_*.py` – `step6_*.py` | 14-market unified pipeline | ✅ |
 | KR integration | `pipeline/phase_a_integrate_kr.py` | DART KR data integration | ⚠️ running |
 | Feature library | `pipeline/feature_library.py` | 326 feature definitions | ✅ |
-| Quarterly enrichment | `scripts/enrich_quarterly_features.py` | 5 intra-year dynamics | ✅ |
-| Feature imputation | `scripts/impute_features.py` | Quarterly cols + size_category recovery → 341 cols | ✅ |
-| Equity + vol patch | `scripts/patch_equity_vol_features.py` | Fix equity coalesce bug + add 5 vol/roa cols → 346 cols | ✅ (one-time; logic now in step3/step5) |
+| Quarterly enrichment | `scripts/enrichments/enrich_quarterly_features.py` | 5 intra-year dynamics | ✅ |
+| Feature imputation | `scripts/enrichments/impute_features.py` | Quarterly cols + size_category recovery → 341 cols | ✅ |
+| Equity + vol patch | `scripts/enrichments/patch_equity_vol_features.py` | Fix equity coalesce bug + add 5 vol/roa cols → 346 cols | ✅ (one-time; logic now in step3/step5) |
 | Beneish/Altman/Piotroski | `pipeline/step5_compute_features.py` | Fixed DEPI (was 1.0), Altman X4 book-equity fallback for non-US, Piotroski F6 Δ(current_ratio); growth features winsorized at p1/p99 | ✅ |
 | Montier C-Score + Richardson accruals | `pipeline/step5_compute_features.py` | Montier C-Score (6-binary, Montier 2008) + `sloan_wc_accruals` + `sloan_lt_accruals` (Richardson 2005). C2 uses `ppe_net` — do not change to `property_plant_equipment` (95.7% null) | ✅ |
-| Survivorship correction | `scripts/mark_survivorship.py` | Impute −50% return for likely-delisted | ✅ |
-| AAER fraud labels | `scripts/fetch_aaer_labels.py` | 492 positive rows / 118 companies | ✅ |
-| Train models | `scripts/train_models.py` | LightGBM 5 horizons (6m/1y/2y/3y/5y), filed-date PIT-safe, PSI filter + ICIR selection, n_estimators=600 | ✅ Phase C |
-| Tune models | `scripts/tune_models.py` | Optuna 100 trials + CatBoost ensemble + Platt calibration | ✅ |
-| OOF scorer | `scripts/generate_oof_scores.py` | Walk-forward OOF → ml_1y_oof / ml_3y_oof / ml_5y_oof (unbiased, NaN for train rows) | ✅ Phase C |
-| Historical ML scoring | `scripts/score_historical.py` | Load models → write ml_1y/3y/5y to parquet | ✅ |
-| SPY benchmark data | `scripts/fetch_spy_returns.py` | Downloads SPY annual calendar-year returns → data/spy_returns.csv | ✅ Phase C |
+| Survivorship correction | `scripts/enrichments/mark_survivorship.py` | Impute −50% return for likely-delisted | ✅ |
+| AAER fraud labels | `scripts/data_io/fetch_aaer_labels.py` | 492 positive rows / 118 companies | ✅ |
+| Train models | `scripts/modeling/train_models.py` | LightGBM 5 horizons (6m/1y/2y/3y/5y), filed-date PIT-safe, PSI filter + ICIR selection, n_estimators=600 | ✅ Phase C |
+| Tune models | `scripts/modeling/tune_models.py` | Optuna 100 trials + CatBoost ensemble + Platt calibration | ✅ |
+| OOF scorer | `scripts/modeling/generate_oof_scores.py` | Walk-forward OOF → ml_1y_oof / ml_3y_oof / ml_5y_oof (unbiased, NaN for train rows) | ✅ Phase C |
+| Historical ML scoring | `scripts/modeling/score_historical.py` | Load models → write ml_1y/3y/5y to parquet | ✅ |
+| SPY benchmark data | `scripts/data_io/fetch_spy_returns.py` | Downloads SPY annual calendar-year returns → data/spy_returns.csv | ✅ Phase C |
 | Horizon router | `alpha/horizon_router.py` | Maps investment horizon (months) to nearest discrete model key (6m/1y/2y/3y/5y) | ✅ Phase C |
 | **Alpha factor package** | `alpha/factors/` | 5-factor scores: Value · Quality · Momentum · Growth · Fraud Risk | ✅ |
-| Backtester | `scripts/backtester.py` | Walk-forward simulation · SPY benchmark · factor attribution (beta/alpha/R²/tracking_error) · 4 strategies | ✅ Phase C |
-| Factor research | `scripts/factor_research.py` | IC/ICIR/decay analysis | ✅ |
-| Leverage strategy | `scripts/leverage_strategy.py` | Long/short Kelly sizing | ✅ |
-| Monitor drift | `scripts/monitor_drift.py` | PSI + AUC monitoring | ✅ |
-| Bias audit | `scripts/bias_audit.py` | 4 audits: look-ahead (PIT) · survivorship · overfitting (overfit_gap) · multiple testing (Bonferroni) | ✅ Phase C |
-| Generate reports | `scripts/generate_reports.py` | PDF tearsheet + weekly picks | ✅ |
-| DB migration | `scripts/migrate_to_db.py` | Load parquet → TimescaleDB hypertable | Phase C — deferred |
+| Backtester | `scripts/_shared/backtester.py` | Walk-forward simulation · SPY benchmark · factor attribution (beta/alpha/R²/tracking_error) · 4 strategies | ✅ Phase C |
+| Factor research | `scripts/analysis/factor_research.py` | IC/ICIR/decay analysis | ✅ |
+| Leverage strategy | `scripts/portfolio/leverage_strategy.py` | Long/short Kelly sizing | ✅ |
+| Monitor drift | `scripts/quality/monitor_drift.py` | PSI + AUC monitoring | ✅ |
+| Bias audit | `scripts/quality/bias_audit.py` | 4 audits: look-ahead (PIT) · survivorship · overfitting (overfit_gap) · multiple testing (Bonferroni) | ✅ Phase C |
+| Generate reports | `scripts/analysis/generate_reports.py` | PDF tearsheet + weekly picks | ✅ |
+| DB migration | `scripts/data_io/migrate_to_db.py` | Load parquet → TimescaleDB hypertable | Phase C — deferred |
 | Experiment Notebook | `notebooks/08_experiment_hub.ipynb` | Master research frontend — Feature Selection · Model Perf · Screener Rankings · Deep Dive · Live Picks | ✅ |
 | FastAPI | `api/` | REST screener with filters + pagination | ✅ |
 

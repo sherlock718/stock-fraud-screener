@@ -104,13 +104,13 @@ Portfolio improvements applied:
 
 ```bash
 # Run full backtest
-python3 scripts/backtester.py --strategy all --market US
+python3 scripts/_shared/backtester.py --strategy all --market US
 
 # Compare equal-weight vs vol-weighted
-python3 scripts/backtester.py --strategy composite --market US --equal-weight
+python3 scripts/_shared/backtester.py --strategy composite --market US --equal-weight
 
 # Disable liquidity filter
-python3 scripts/backtester.py --strategy composite --market US --min-cap 0
+python3 scripts/_shared/backtester.py --strategy composite --market US --min-cap 0
 ```
 
 ---
@@ -130,8 +130,8 @@ python3 scripts/backtester.py --strategy composite --market US --min-cap 0
 ## Factor Research
 
 ```bash
-python3 scripts/factor_research.py --all-horizons
-python3 scripts/factor_research.py --horizon 3y --top 20
+python3 scripts/analysis/factor_research.py --all-horizons
+python3 scripts/analysis/factor_research.py --horizon 3y --top 20
 ```
 
 Outputs `reports/factor_research_{horizon}.csv` with IC, ICIR, t-statistic, and turnover per factor.
@@ -142,19 +142,19 @@ Outputs `reports/factor_research_{horizon}.csv` with IC, ICIR, t-statistic, and 
 
 ```bash
 # Full pipeline refresh (US)
-python3 scripts/refresh_data.py
+python3 scripts/workflows/refresh_data.py
 
 # Train models after data refresh
-python3 scripts/train_models.py
+python3 scripts/modeling/train_models.py
 
 # Advanced training options
-python3 scripts/train_models.py \
+python3 scripts/modeling/train_models.py \
     --train-cutoff 2019 \   # last year included in training set (default: 2019)
     --val-end 2021 \        # last year included in validation set (default: 2021)
     --sector-neutral        # compute sector-neutral IC in feature selection
 
 # Run backtest
-python3 scripts/backtester.py --strategy all --market US
+python3 scripts/_shared/backtester.py --strategy all --market US
 
 # Launch app
 streamlit run app_v2.py
@@ -168,13 +168,13 @@ Run after building the dataset to check for systematic biases before training:
 
 ```bash
 # Report only (no writes)
-python3 scripts/bias_audit.py
+python3 scripts/quality/bias_audit.py
 
 # Compute and append forward_return_{h}_usd columns (FX-adjusted)
-python3 scripts/bias_audit.py --fix
+python3 scripts/quality/bias_audit.py --fix
 
 # Write FX-adjusted output to a separate file
-python3 scripts/bias_audit.py --fix --out data/historical_dataset_fx.parquet
+python3 scripts/quality/bias_audit.py --fix --out data/historical_dataset_fx.parquet
 ```
 
 Checks three biases:
@@ -190,7 +190,7 @@ Checks three biases:
 
    ```bash
    export HF_TOKEN=your_hf_write_token
-   python3 scripts/push_to_hf.py --repo your-username/stock-screener-data
+   python3 scripts/data_io/push_to_hf.py --repo your-username/stock-screener-data
    ```
 
    Options: `--data-only`, `--models-only`, `--public` (default: private repo).

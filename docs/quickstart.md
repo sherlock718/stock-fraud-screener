@@ -30,10 +30,10 @@ Key dependencies installed:
 
 ```bash
 # US market only (recommended for first run)
-python3 scripts/run_pipeline.py --market US
+python3 scripts/workflows/run_pipeline.py --market US
 
 # All markets (takes longer)
-python3 scripts/run_pipeline.py
+python3 scripts/workflows/run_pipeline.py
 ```
 
 This produces `data/historical_dataset_clean.parquet`.
@@ -44,7 +44,7 @@ This produces `data/historical_dataset_clean.parquet`.
 ## 3 — Train Models
 
 ```bash
-python3 scripts/train_models.py
+python3 scripts/modeling/train_models.py
 ```
 
 Trains all 5 horizon models (6m/1y/2y/3y/5y) with ICIR feature selection. Outputs to `models/`.
@@ -52,15 +52,15 @@ Trains all 5 horizon models (6m/1y/2y/3y/5y) with ICIR feature selection. Output
 For Optuna-tuned models with CatBoost ensemble:
 
 ```bash
-python3 scripts/tune_models.py
+python3 scripts/modeling/tune_models.py
 ```
 
 ## 4 — Launch the Research Notebook
 
 ```bash
 # Rebuild screener and alpha registries first (if not already built)
-python3 scripts/build_screener_registry.py
-python3 scripts/build_alpha_registry.py
+python3 scripts/portfolio/build_screener_registry.py
+python3 scripts/portfolio/build_alpha_registry.py
 
 # Open the experiment hub notebook
 jupyter notebook notebooks/08_experiment_hub.ipynb

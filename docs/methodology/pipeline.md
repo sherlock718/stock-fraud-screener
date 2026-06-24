@@ -18,7 +18,7 @@ flowchart TD
 
 ## Step 1 — Fetch Tickers
 
-**Script:** `scripts/run_pipeline.py` (dispatches to market-specific fetchers)
+**Script:** `scripts/workflows/run_pipeline.py` (dispatches to market-specific fetchers)
 
 Fetches the universe of companies for each market:
 
@@ -32,7 +32,7 @@ Output: `data/tickers_{market}.csv` — columns: `ticker`, `cik` (US), `company_
 
 ## Step 2 — Build Annual Snapshots
 
-**Script:** `scripts/run_pipeline.py::build_snapshots()`
+**Script:** `scripts/workflows/run_pipeline.py::build_snapshots()`
 
 For each ticker, fetches annual financial statements and aligns them by `fiscal_year`:
 
@@ -47,7 +47,7 @@ One row = one company × one fiscal year. Missing years are not filled — gaps 
 
 ## Step 3 — Enrich Prices
 
-**Script:** `scripts/run_pipeline.py::enrich_prices()`
+**Script:** `scripts/workflows/run_pipeline.py::enrich_prices()`
 
 Downloads daily OHLCV from yfinance and computes:
 
@@ -59,7 +59,7 @@ Downloads daily OHLCV from yfinance and computes:
 
 ## Step 4 — Enrich Macro
 
-**Script:** `scripts/run_pipeline.py::enrich_macro()`
+**Script:** `scripts/workflows/run_pipeline.py::enrich_macro()`
 
 Joins macroeconomic data at the fiscal year-end date:
 
@@ -80,7 +80,7 @@ All computations are purely cross-sectional within a fiscal year — no look-for
 
 ## Step 6 — Clean Dataset
 
-**Script:** `scripts/run_pipeline.py::clean_dataset()`
+**Script:** `scripts/workflows/run_pipeline.py::clean_dataset()`
 
 | Operation | Detail |
 |---|---|
@@ -96,16 +96,16 @@ Output: `data/historical_dataset_clean.parquet`
 
 ```bash
 # US only
-python3 scripts/run_pipeline.py --market US
+python3 scripts/workflows/run_pipeline.py --market US
 
 # EU (requires SimFin API key in SIMFIN_API_KEY env var)
-python3 scripts/run_pipeline_eu.py --market DE
+python3 scripts/workflows/run_pipeline_eu.py --market DE
 
 # Korea (requires DART API key in DART_API_KEY env var)
-python3 scripts/run_pipeline_kr.py
+python3 scripts/workflows/run_pipeline_kr.py
 
 # All markets
-python3 scripts/run_pipeline.py
+python3 scripts/workflows/run_pipeline.py
 ```
 
 ## Incremental Refresh

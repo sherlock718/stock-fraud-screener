@@ -154,7 +154,7 @@ Raw price features (existing):
 
 ## Multi-Horizon Volatility Features
 
-Annualised daily-return volatility and rolling fundamental stability, added via `scripts/patch_equity_vol_features.py`. Computed from `price_cache.db` (daily prices) and rolling ROA/ROE series.
+Annualised daily-return volatility and rolling fundamental stability, added via `scripts/enrichments/patch_equity_vol_features.py`. Computed from `price_cache.db` (daily prices) and rolling ROA/ROE series.
 
 | Feature | Formula | Fill Rate | Notes |
 |---|---|---|---|
@@ -277,7 +277,7 @@ Z < 1.81 = distress zone; 1.81–2.99 = grey zone; ≥ 2.99 = safe zone.
 
 ## Quarterly-Enriched Features (5 columns)
 
-Computed by `scripts/enrich_quarterly_features.py` from Q1/Q2/Q3 filings and joined onto annual training rows (74.8% coverage).
+Computed by `scripts/enrichments/enrich_quarterly_features.py` from Q1/Q2/Q3 filings and joined onto annual training rows (74.8% coverage).
 
 | Feature | Description |
 |---|---|

@@ -75,11 +75,11 @@ If `market_cap_at_filing` is unavailable, the fallback is: micro/small = `--smal
 
 ## 7. Live monitoring
 
-**Rule 19 — Drawdown circuit breaker.** Once live trading begins, portfolio drawdown is monitored continuously. If realised drawdown from the most recent peak exceeds 20%, position sizing is halved and no new positions are opened until drawdown recovers below 10%. Implemented in `scripts/monitor_drift.py`.
+**Rule 19 — Drawdown circuit breaker.** Once live trading begins, portfolio drawdown is monitored continuously. If realised drawdown from the most recent peak exceeds 20%, position sizing is halved and no new positions are opened until drawdown recovers below 10%. Implemented in `scripts/quality/monitor_drift.py`.
 
 **Rule 20 — IC decay tracking.** Rolling IC is computed over 3m, 6m, and 12m windows for every registered alpha signal. If a signal's 3m rolling IC falls below 0.02 it is flagged for review. If it falls below 0 for two consecutive months it is removed from `alpha_registry.json` pending re-evaluation.
 
-**Rule 21 — Model drift check.** PSI and rolling AUC are computed weekly by `scripts/monitor_drift.py`. If PSI > 0.25 on any feature or rolling AUC drops more than 0.05 below the walk-forward baseline, an alert is raised and a model retrain is scheduled.
+**Rule 21 — Model drift check.** PSI and rolling AUC are computed weekly by `scripts/quality/monitor_drift.py`. If PSI > 0.25 on any feature or rolling AUC drops more than 0.05 below the walk-forward baseline, an alert is raised and a model retrain is scheduled.
 
 ---
 
@@ -87,7 +87,7 @@ If `market_cap_at_filing` is unavailable, the fallback is: micro/small = `--smal
 
 **Rule 22 — Point-in-time safety.** All features are constructed using only information available at the filing date. No look-ahead leakage is permitted. Forward returns are target variables only — never input features.
 
-**Rule 23 — Survivorship correction.** Delisted stocks receive an imputed forward return of −50% per year to correct for survivorship bias. This is applied by `scripts/mark_survivorship.py` before any backtest.
+**Rule 23 — Survivorship correction.** Delisted stocks receive an imputed forward return of −50% per year to correct for survivorship bias. This is applied by `scripts/enrichments/mark_survivorship.py` before any backtest.
 
 **Rule 24 — Minimum history.** A backtest requires at least 3 annual observations to compute Sharpe and at least 3 years of SPY overlap to compute beta and alpha. Metrics requiring more data are reported as `null` rather than suppressed silently.
 

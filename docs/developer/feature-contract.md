@@ -58,7 +58,7 @@ These columns belong to the Phase C scoring overlay. They are absent from the ba
 Run the contract validator:
 
 ```bash
-python3 scripts/validate_feature_contract.py
+python3 scripts/quality/validate_feature_contract.py
 ```
 
 ### Flags
@@ -94,7 +94,7 @@ A Phase B group failure means the pipeline build is incomplete:
 
 1. Check which group failed in the validator output
 2. Re-run the corresponding pipeline step or enrichment script
-3. Verify with `python3 scripts/validate_feature_contract.py`
+3. Verify with `python3 scripts/quality/validate_feature_contract.py`
 
 Execution order for Phase B:
 ```
@@ -111,13 +111,13 @@ step1 → step2 → step3 → step4 → step5 → step6
 Phase C groups require trained model artifacts. Run in order:
 
 ```
-1. scripts/train_models.py              → models/*.joblib
-2. scripts/generate_oof_scores.py       → ml_*_oof columns
-3. scripts/score_historical.py          → ml_* columns
-4. scripts/compute_alpha.py             → alpha_* columns
-5. scripts/patch_equity_vol_features.py → equity_vol_* columns
-6. scripts/mark_survivorship.py --fix   → delisted_flag
-7. scripts/enrich_quarterly_features.py → quarterly columns
+1. scripts/modeling/train_models.py              → models/*.joblib
+2. scripts/modeling/generate_oof_scores.py       → ml_*_oof columns
+3. scripts/modeling/score_historical.py          → ml_* columns
+4. scripts/modeling/compute_alpha.py             → alpha_* columns
+5. scripts/enrichments/patch_equity_vol_features.py → equity_vol_* columns
+6. scripts/enrichments/mark_survivorship.py --fix   → delisted_flag
+7. scripts/enrichments/enrich_quarterly_features.py → quarterly columns
 ```
 
 ---

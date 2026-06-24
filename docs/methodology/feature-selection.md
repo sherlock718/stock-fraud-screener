@@ -41,7 +41,7 @@ The training default uses `PSI_THRESHOLD = 0.25` — the institutional standard 
 
 **Why before IC**: if a feature's distribution has shifted significantly, its historical IC estimate is unreliable for forward prediction. Computing IC on a drifted feature is garbage-in, garbage-out.
 
-**CLI**: `python3 scripts/run_feature_selection.py --psi-threshold 0.25` (default).
+**CLI**: `python3 scripts/modeling/run_feature_selection.py --psi-threshold 0.25` (default).
 
 ---
 
@@ -110,7 +110,7 @@ After ICIR ranking, correlated features are deduplicated:
 
 **Result**: ~45 final features per horizon (from ~60 pre-dedup candidates, top-K ICIR).
 
-CLI: `python3 scripts/run_feature_selection.py --help` to see all options; writes `models/feature_sets_{6m,1y,2y,3y,5y}.json` (all 5 horizons).
+CLI: `python3 scripts/modeling/run_feature_selection.py --help` to see all options; writes `models/feature_sets_{6m,1y,2y,3y,5y}.json` (all 5 horizons).
 
 ---
 
@@ -118,22 +118,22 @@ CLI: `python3 scripts/run_feature_selection.py --help` to see all options; write
 
 ```bash
 # Standalone feature selection (writes models/feature_sets_{6m,1y,2y,3y,5y}.json)
-python3 scripts/run_feature_selection.py
+python3 scripts/modeling/run_feature_selection.py
 
 # Tighter PSI threshold
-python3 scripts/run_feature_selection.py --psi-threshold 0.20
+python3 scripts/modeling/run_feature_selection.py --psi-threshold 0.20
 
 # Stricter IC minimum
-python3 scripts/run_feature_selection.py --ic-min 0.03
+python3 scripts/modeling/run_feature_selection.py --ic-min 0.03
 
 # Keep more features before dedup
-python3 scripts/run_feature_selection.py --top-k 80
+python3 scripts/modeling/run_feature_selection.py --top-k 80
 
 # Sector-neutral IC (via train_models.py directly)
-python3 scripts/train_models.py --sector-neutral
+python3 scripts/modeling/train_models.py --sector-neutral
 
 # Walk-forward CV
-python3 scripts/train_models.py --walk-forward
+python3 scripts/modeling/train_models.py --walk-forward
 ```
 
 ---
@@ -153,7 +153,7 @@ After feature selection, `models/feature_sets_{6m,1y,2y,3y,5y}.json` records the
 
 `reports/feature_selection_summary.csv` contains IC, ICIR, PSI, and selection status for every candidate across all horizons.
 
-Use `scripts/factor_research.py` to view IC, ICIR, t-statistic, and factor decay per feature, or to compare which features appear across horizons.
+Use `scripts/analysis/factor_research.py` to view IC, ICIR, t-statistic, and factor decay per feature, or to compare which features appear across horizons.
 
 ---
 

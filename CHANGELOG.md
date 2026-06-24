@@ -8,6 +8,17 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Repo Cleanup — Sessions 2–5 (2026-06-24)
+
+#### Changed
+- **repo cleanup**: Archived deprecated UI/API/deployment code into `_archive/`.
+- **scripts/**: Reorganized 49 runnable scripts into workflow-oriented subdirectories.
+- **scripts/**: Added `scripts/_root.py` for canonical project root resolution.
+- **tests**: Added `pytest.ini` with pythonpath configuration.
+- **docs**: Added `docs/developer/script-migration-map.md`.
+- **CLAUDE.md**: Extracted large reference tables into `CLAUDE_REFERENCE.md` to reduce default context size.
+- **docs**: Updated all documentation paths after scripts/ reorganization (30 files).
+
 ### Session 16A — Pipeline Orchestration Cleanup (2026-06-22)
 
 #### **`scripts/run_dataset_enrichments.py`** — new

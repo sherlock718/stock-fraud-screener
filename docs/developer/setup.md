@@ -138,7 +138,7 @@ Credentials and connection string:
 
 ### 2 — Run the migration (parquet → `company_scores`)
 
-`scripts/migrate_to_db.py` loads `data/historical_dataset_clean.parquet`
+`scripts/data_io/migrate_to_db.py` loads `data/historical_dataset_clean.parquet`
 (58,190 rows × 360 columns) into a `company_scores` table.  This table is
 **separate** from the `snapshots` table defined in `init.sql` — it is a flat
 denormalised table created by the migration script itself.
@@ -146,11 +146,11 @@ denormalised table created by the migration script itself.
 ```bash
 # Dry run first — prints schema, no writes
 DATABASE_URL=postgresql://screener:screener@localhost:5432/screener \
-    python3 scripts/migrate_to_db.py --dry-run
+    python3 scripts/data_io/migrate_to_db.py --dry-run
 
 # Full migration (takes ~30–60 s on a laptop)
 DATABASE_URL=postgresql://screener:screener@localhost:5432/screener \
-    python3 scripts/migrate_to_db.py
+    python3 scripts/data_io/migrate_to_db.py
 
 # Verify
 psql postgresql://screener:screener@localhost:5432/screener \
@@ -183,7 +183,7 @@ The `api` service sets `DATABASE_URL` automatically via `docker-compose.yml`.
   screener API (`screener.py` checks both `fraud_score_composite` and
   `composite_score`). The parquet does **not** contain a `composite_score`
   column; the API falls back gracefully to `fraud_score_composite`.
-- ML score columns (`ml_1y`, `ml_3y`, `ml_5y`, `ml_6m`, `ml_2y`) are produced by `scripts/train_models.py` and `scripts/score_historical.py`. The migration script will skip them silently; the API returns `null` for those fields until models are trained and scores are written back into the dataset.
+- ML score columns (`ml_1y`, `ml_3y`, `ml_5y`, `ml_6m`, `ml_2y`) are produced by `scripts/modeling/train_models.py` and `scripts/modeling/score_historical.py`. The migration script will skip them silently; the API returns `null` for those fields until models are trained and scores are written back into the dataset.
 
 ### Stopping / resetting the DB
 
@@ -203,19 +203,19 @@ To build everything from scratch:
 
 ```bash
 # 1. Run US pipeline (30–60 min)
-python3 scripts/run_pipeline.py --market US
+python3 scripts/workflows/run_pipeline.py --market US
 
 # 2. Train base models
-python3 scripts/train_models.py
+python3 scripts/modeling/train_models.py
 
 # 3. (Optional) Tune with Optuna + CatBoost
-python3 scripts/tune_models.py
+python3 scripts/modeling/tune_models.py
 
 # 4. Run backtest
-python3 scripts/backtester.py
+python3 scripts/_shared/backtester.py
 
 # 5. Generate reports
-python3 scripts/generate_reports.py --top 25
+python3 scripts/analysis/generate_reports.py --top 25
 
 # 6. Open the research notebook
 jupyter notebook notebooks/08_experiment_hub.ipynb

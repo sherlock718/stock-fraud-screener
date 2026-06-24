@@ -26,7 +26,7 @@ If any check fails, fix it before declaring the phase done. Do not re-audit. Run
 
 ```bash
 # Run and verify "0 failed"
-python3 scripts/test_dataset_quality.py
+python3 scripts/quality/test_dataset_quality.py
 
 # Verify shape
 python3 -c "
@@ -200,7 +200,7 @@ for path in sorted(glob.glob('models/feature_sets_*.json')):
 
 # Verify PSI threshold = 0.25
 python3 -c "
-src = open('scripts/run_feature_selection.py').read()
+src = open('scripts/modeling/run_feature_selection.py').read()
 if 'psi_threshold=0.25' in src or \"default=0.25\" in src or '0.25' in src:
     print('  [PASS] PSI threshold is 0.25')
 else:
@@ -302,7 +302,7 @@ if 'ml_1y_oof' in df.columns:
 "
 
 # Verify bias_audit passes look-ahead check
-python3 scripts/bias_audit.py --ci
+python3 scripts/quality/bias_audit.py --ci
 ```
 
 ### C2. Horizons + Models
@@ -361,10 +361,10 @@ else:
 
 ```bash
 # Full bias audit — all four checks
-python3 scripts/bias_audit.py
+python3 scripts/quality/bias_audit.py
 
 # CI mode — look-ahead is a hard fail
-python3 scripts/bias_audit.py --ci
+python3 scripts/quality/bias_audit.py --ci
 
 # Verify overfit_gap written to model_meta.json for each horizon
 python3 -c "
@@ -394,7 +394,7 @@ assert len(df) >= 10, 'Need at least 10 years of SPY data'
 "
 
 # Run backtest (use --top 20 for speed, runs WF-ML scoring internally)
-python3 scripts/backtester.py --strategy composite --top 20
+python3 scripts/_shared/backtester.py --strategy composite --top 20
 
 # Verify backtest_results.json has SPY fields
 python3 -c "

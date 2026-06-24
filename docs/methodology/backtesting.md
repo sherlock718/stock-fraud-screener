@@ -33,7 +33,7 @@ gantt
 ## SPY Benchmark (Primary)
 
 Starting Phase C, the primary benchmark is **SPY (S&P 500 ETF)** calendar-year total returns
-(dividends included), downloaded via `scripts/fetch_spy_returns.py` and stored in
+(dividends included), downloaded via `scripts/data_io/fetch_spy_returns.py` and stored in
 `data/spy_returns.csv`.
 
 The equal-weight universe mean is retained as a **secondary** metric (`excess_vs_univ`) but is
@@ -133,19 +133,19 @@ Each strategy result includes:
 
 ```bash
 # Run all strategies (uses SPY if data/spy_returns.csv exists)
-python3 scripts/backtester.py
+python3 scripts/_shared/backtester.py
 
 # Fetch SPY data first (required for SPY benchmark)
-python3 scripts/fetch_spy_returns.py
+python3 scripts/data_io/fetch_spy_returns.py
 
 # Single strategy with tearsheet
-python3 scripts/backtester.py --strategy composite --top 20 --tearsheet
+python3 scripts/_shared/backtester.py --strategy composite --top 20 --tearsheet
 
 # US market only, custom cost
-python3 scripts/backtester.py --market US --cost 40
+python3 scripts/_shared/backtester.py --market US --cost 40
 
 # Survivorship stress test
-python3 scripts/backtester.py --fill-missing -0.5
+python3 scripts/_shared/backtester.py --fill-missing -0.5
 ```
 
 Output: `data/backtest_results.json` — consumed by Section 3 of `notebooks/08_experiment_hub.ipynb`.
