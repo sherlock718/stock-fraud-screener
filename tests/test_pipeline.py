@@ -81,9 +81,7 @@ class TestTemporalSplit:
 
 class TestGetCandidates:
     def test_excludes_leakage_columns(self):
-        import sys, os
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scripts'))
-        from train_models import get_candidates, EXCLUDE, EXCLUDE_PATTERNS
+        from scripts.modeling.train_models import get_candidates, EXCLUDE, EXCLUDE_PATTERNS
 
         df = _make_annual_df()
         candidates = get_candidates(df)
@@ -98,9 +96,7 @@ class TestGetCandidates:
             assert excl not in candidates
 
     def test_returns_nonempty(self):
-        import sys, os
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scripts'))
-        from train_models import get_candidates
+        from scripts.modeling.train_models import get_candidates
         df = _make_annual_df()
         assert len(get_candidates(df)) > 0
 
@@ -109,9 +105,7 @@ class TestTrainMedians:
     """Verify train_model stores medians and model uses them for imputation."""
 
     def test_medians_stored(self):
-        import sys, os
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scripts'))
-        from train_models import train_model
+        from scripts.modeling.train_models import train_model
 
         df = _make_annual_df(n_tickers=30, n_years=8)
         train = df[df['fiscal_year'] <= 2015]
@@ -126,9 +120,7 @@ class TestTrainMedians:
 
     def test_model_predicts_with_missing(self):
         """Model should predict even when all features are NaN (filled by medians)."""
-        import sys, os
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scripts'))
-        from train_models import train_model
+        from scripts.modeling.train_models import train_model
 
         df = _make_annual_df(n_tickers=30, n_years=8)
         train = df[df['fiscal_year'] <= 2015]
@@ -145,9 +137,7 @@ class TestTrainMedians:
 
 class TestICTable:
     def test_returns_dataframe(self):
-        import sys, os
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scripts'))
-        from train_models import compute_ic_table
+        from scripts.modeling.train_models import compute_ic_table
 
         df = _make_annual_df()
         features = ['gross_margin', 'roe', 'debt_to_equity']
@@ -158,9 +148,7 @@ class TestICTable:
         assert 'icir' in ic.columns
 
     def test_icir_finite(self):
-        import sys, os
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scripts'))
-        from train_models import compute_ic_table
+        from scripts.modeling.train_models import compute_ic_table
 
         df = _make_annual_df()
         ic = compute_ic_table(df, ['gross_margin', 'roe'], 'forward_return_1y')
@@ -171,18 +159,14 @@ class TestICTable:
 
 class TestFilingLagAudit:
     def test_detects_leakage(self):
-        import sys, os
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scripts'))
-        from bias_audit import _period_end_date
+        from scripts.quality.bias_audit import _period_end_date
 
         row = pd.Series({'fiscal_year': 2020, 'fiscal_quarter': 4})
         period_end = _period_end_date(row)
         assert period_end == pd.Timestamp('2020-12-31')
 
     def test_quarterly_periods(self):
-        import sys, os
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scripts'))
-        from bias_audit import _period_end_date
+        from scripts.quality.bias_audit import _period_end_date
 
         expected = {
             1: pd.Timestamp('2021-03-31'),

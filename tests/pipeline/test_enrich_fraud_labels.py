@@ -306,7 +306,7 @@ class TestLabelNotFeature:
         """train_models.py EXCLUDE set must contain fraud_confirmed."""
         from pathlib import Path
 
-        source = (Path(__file__).parent.parent.parent / 'scripts' / 'train_models.py').read_text()
+        source = (Path(__file__).parent.parent.parent / 'scripts' / 'modeling' / 'train_models.py').read_text()
         # Find the EXCLUDE set definition (large set literal spanning many lines)
         in_exclude = False
         found = False

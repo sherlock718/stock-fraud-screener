@@ -46,3 +46,32 @@ Progress tracker for repo cleanup sessions.
 - Docstring updates are cosmetic but included for correctness
 
 **Next session:** Session 4 — Move scripts atomically
+
+---
+
+## Session 4 — Move Scripts Atomically (2026-06-24)
+
+**What changed:**
+1. Created 10 subdirectories under `scripts/`: `_shared/`, `workflows/`, `data_io/`, `enrichments/`, `modeling/`, `analysis/`, `portfolio/`, `quality/`, `ops/`, `hooks/`
+2. Added `__init__.py` to `scripts/` and all 10 subdirectories (empty package markers)
+3. Created `scripts/_root.py` (canonical `ROOT = Path(__file__).resolve().parent.parent`)
+4. Moved 49 scripts to their new subdirectories via `git mv`
+5. Replaced all `Path(__file__).parent.parent` patterns with `from scripts._root import ROOT` (42 scripts)
+6. Removed all `sys.path.insert(0, ...)` hacks from scripts (12 occurrences)
+7. Fixed 8 cross-imports (train_models, backtester, enrich_quarterly_features, leverage_strategy)
+8. Updated `alpha/explain.py` import of leverage_strategy
+9. Updated `.github/workflows/refresh_data.yml` (19 path references)
+10. Updated `.github/workflows/monitor_drift.yml` (2 path references)
+11. Fixed subprocess references in `wait_and_merge.py` and `run_dataset_enrichments.py`
+12. Updated docstring/usage examples in 6 workflow scripts
+13. Fixed test imports in `tests/test_pipeline.py` (8 test methods) and `tests/pipeline/test_enrich_fraud_labels.py`
+14. Added `pytest.ini` with `pythonpath = .` and `testpaths = tests`
+
+**Tests:** 341 passed (same count as Session 3)
+
+**Risks/deferred:**
+- Documentation files (CLAUDE.md, architecture.md, scripts.md, etc.) still reference old paths — deferred to Session 5
+- CHANGELOG.md not updated — deferred to Session 5
+- `pipeline/` remains untouched as the production spine (by design)
+
+**Next session:** Session 5 — Update all documentation references and CHANGELOG

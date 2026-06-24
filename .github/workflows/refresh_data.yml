@@ -72,46 +72,46 @@ jobs:
             echo "=== Refreshing $market ==="
             case $market in
               EU|DE|FR|IT|ES|SE|NL|PT|DK|FI)
-                python3 scripts/run_pipeline_eu.py --market $market ;;
+                python3 scripts/workflows/run_pipeline_eu.py --market $market ;;
               KR)
                 if [ -z "$DART_API_KEY" ]; then
                   echo "[WARN] DART_API_KEY not set — skipping KR pipeline"
                 else
-                  python3 scripts/run_pipeline_kr.py
+                  python3 scripts/workflows/run_pipeline_kr.py
                 fi ;;
               *)
-                python3 scripts/run_pipeline.py --market $market ;;
+                python3 scripts/workflows/run_pipeline.py --market $market ;;
             esac
           done
 
       # ── Post-pipeline enrichment ──────────────────────────────────────
-      # For local runs, use: python3 scripts/run_dataset_enrichments.py
+      # For local runs, use: python3 scripts/workflows/run_dataset_enrichments.py
       # CI runs a subset (skips p0f/p0g/fraud enrichment because the HF
       # base dataset already has those columns populated from local builds).
 
       - name: Fix dataset quality
         run: |
-          python3 scripts/fix_dataset_quality.py
+          python3 scripts/enrichments/fix_dataset_quality.py
 
       - name: Post-process — enrich quarterly features
         run: |
-          python3 scripts/enrich_quarterly_features.py
+          python3 scripts/enrichments/enrich_quarterly_features.py
 
       - name: Post-process — impute quarterly features + size_category
         run: |
-          python3 scripts/impute_features.py
+          python3 scripts/enrichments/impute_features.py
 
       - name: Validate feature contract (Phase B must be complete)
         run: |
-          python3 scripts/validate_feature_contract.py
+          python3 scripts/quality/validate_feature_contract.py
 
       - name: Post-process — survivorship correction
         run: |
-          python3 scripts/mark_survivorship.py --fix
+          python3 scripts/enrichments/mark_survivorship.py --fix
 
       - name: Post-process — compute 5-factor alpha scores
         run: |
-          python3 scripts/compute_alpha.py
+          python3 scripts/modeling/compute_alpha.py
 
       - name: Post-process — apply ML fraud scores (requires models/)
         run: |
@@ -133,34 +133,34 @@ jobs:
                   except Exception as e:
                       print(f'Skipping {fname}: {e}')
           " || true
-          python3 scripts/score_historical.py || echo "ML scoring skipped (models unavailable)"
+          python3 scripts/modeling/score_historical.py || echo "ML scoring skipped (models unavailable)"
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
 
       - name: Check data quality (mandatory gate)
         run: |
-          python3 scripts/check_data.py --fail-fast
+          python3 scripts/quality/check_data.py --fail-fast
 
       - name: Run full dataset quality suite
         run: |
-          python3 scripts/test_dataset_quality.py
+          python3 scripts/quality/test_dataset_quality.py
 
       - name: Bias audit (look-ahead hard fail; survivorship/overfitting warn-only)
         run: |
-          python3 scripts/bias_audit.py --ci
+          python3 scripts/quality/bias_audit.py --ci
 
       - name: Refresh factor research reports
         run: |
-          python3 scripts/factor_research.py --all-horizons --no-sector-neutral || echo "factor_research (base) failed (non-fatal)"
-          python3 scripts/factor_research.py --all-horizons || echo "factor_research (sector-neutral) failed (non-fatal)"
+          python3 scripts/analysis/factor_research.py --all-horizons --no-sector-neutral || echo "factor_research (base) failed (non-fatal)"
+          python3 scripts/analysis/factor_research.py --all-horizons || echo "factor_research (sector-neutral) failed (non-fatal)"
 
       - name: Re-run feature selection (PSI=0.25, NW t-stats, BH FDR, sector-neutral IC)
         run: |
-          python3 scripts/run_feature_selection.py || echo "feature selection failed (non-fatal)"
+          python3 scripts/modeling/run_feature_selection.py || echo "feature selection failed (non-fatal)"
 
       - name: Verify doc consistency (numbers match across all docs)
         run: |
-          python3 scripts/verify_doc_consistency.py --warn || echo "doc consistency check failed — review verify_doc_consistency output above"
+          python3 scripts/quality/verify_doc_consistency.py --warn || echo "doc consistency check failed — review verify_doc_consistency output above"
 
       - name: Write health status
         if: always()
@@ -182,7 +182,7 @@ jobs:
       - name: Generate reports
         if: success()
         run: |
-          python3 scripts/generate_reports.py --top 25 || echo "Report generation failed (non-fatal)"
+          python3 scripts/analysis/generate_reports.py --top 25 || echo "Report generation failed (non-fatal)"
 
       - name: Push updated dataset to HuggingFace
         if: success()

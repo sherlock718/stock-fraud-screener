@@ -309,7 +309,7 @@ def _cli_main():
 
     # Lazy import to avoid circular deps
     from pipeline.feature_library import add_normalised_ratios, add_piotroski_ext
-    from scripts.leverage_strategy import (
+    from scripts.portfolio.leverage_strategy import (
         load_data, load_models, score_tickers, composite_score,
         size_positions, REGRESSION_COL
     )
