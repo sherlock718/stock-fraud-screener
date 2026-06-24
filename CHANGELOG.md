@@ -8,6 +8,11 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Repo Cleanup — Session 8 (2026-06-24)
+
+#### Changed
+- **.repomixignore**: Rebuilt from scratch — added `models/`, `reports/`, `research/`, `notebooks/`, `.github/`, `docs/reference/`, binary patterns (`*.parquet`, `*.joblib`, `*.csv`, `*.png`, `*.jpg`, `*.jpeg`), and `repomix-output*` glob variants. Context pack now 171 files / ~463K tokens with zero leakage from excluded directories.
+
 ### Repo Cleanup — Session 7 (2026-06-24)
 
 #### Changed

@@ -1,14 +1,36 @@
-# Big generated artifacts
-data/
-reports/fraud_report.json
-
 # Archived code
 _archive/
 
-# Avoid repacking previous Repomix outputs
+# Data, models, and generated reports
+data/
+models/
+reports/
+
+# Research notebooks and exploratory work
+research/
+notebooks/
+
+# CI/CD configuration
+.github/
+
+# Reference docs (large, not needed for context)
+docs/reference/
+
+# Binary and generated file patterns
+*.parquet
+*.joblib
+*.csv
+*.png
+*.jpg
+*.jpeg
+
+# Repomix output files
 repomix-*.xml
 repomix-*.md
 repomix-*.json
+repomix-output*.xml
+repomix-output*.md
+repomix-output*.json
 
 # Secrets
 .env

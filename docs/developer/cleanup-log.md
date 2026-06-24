@@ -4,6 +4,25 @@ Progress tracker for repo cleanup sessions.
 
 ---
 
+## Session 8 — Final Repomix & .repomixignore Cleanup (2026-06-24)
+
+**What changed:**
+1. Rebuilt `.repomixignore` with full exclusion set:
+   - Directories: `_archive/`, `data/`, `models/`, `reports/`, `research/`, `notebooks/`, `.github/`, `docs/reference/`
+   - Binary patterns: `*.parquet`, `*.joblib`, `*.csv`, `*.png`, `*.jpg`, `*.jpeg`
+   - Repomix outputs: `repomix-*.{xml,md,json}`, `repomix-output*.{xml,md,json}`
+   - Secrets: `.env`, `.env.*`, `secrets/`, `credentials/`, `*.key`, `*.pem`
+2. Verified via Repomix CLI: 171 files / ~463K tokens, zero leakage from excluded directories or binary patterns.
+3. Updated `CHANGELOG.md` with Session 8 entry.
+
+**Tests:** 341 passed (no code changes)
+
+**Risks/deferred:** None. This is the final cleanup session.
+
+**Repo cleanup complete — Sessions 2–8.**
+
+---
+
 ## Session 7 — Architecture Documentation Truth Rebuild (2026-06-24)
 
 **What changed:**
