@@ -1,6 +1,6 @@
 # Quick Start
 
-Get the screener running in 5 minutes.
+Get the platform running in 5 minutes.
 
 ## Prerequisites
 
