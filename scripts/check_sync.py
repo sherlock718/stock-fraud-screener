@@ -111,24 +111,6 @@ RULES: list[Rule] = [
         message="Update Data Pipeline subgraph and Data Flow Detail diagram in docs/architecture.md.",
     ),
     Rule(
-        name="api-change",
-        trigger_desc="api/ directory changed",
-        required_files=["docs/architecture.md"],
-        message="Update FastAPI node in docs/architecture.md. Add docstring to any new route.",
-    ),
-    Rule(
-        name="app-change",
-        trigger_desc="app_v2.py changed (Streamlit UI)",
-        required_files=["docs/guide/app.md"],
-        message="Update docs/guide/app.md for any new tab or major UI feature.",
-    ),
-    Rule(
-        name="infra-change",
-        trigger_desc="infra/ or new system component added",
-        required_files=["docs/architecture.md"],
-        message="Add node to High-Level Overview + row to Component Map in docs/architecture.md.",
-    ),
-    Rule(
         name="changelog",
         trigger_desc="Any source change (all non-docs files)",
         required_files=["CHANGELOG.md"],
@@ -206,12 +188,6 @@ def triggered_rules(changed: set[str]) -> list[tuple[Rule, list[str]]]:
                 "pipeline/step5_compute_features.py",
                 "pipeline/step6_clean_dataset.py",
             ])
-        elif rule.name == "api-change":
-            triggered = _starts_with_any(changed, ("api/",))
-        elif rule.name == "app-change":
-            triggered = "app_v2.py" in changed
-        elif rule.name == "infra-change":
-            triggered = _starts_with_any(changed, ("infra/",))
         elif rule.name == "changelog":
             # Triggered by any non-doc source change
             triggered = bool(source_changes)

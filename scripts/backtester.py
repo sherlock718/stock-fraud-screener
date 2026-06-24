@@ -13,7 +13,7 @@ Usage:
     python3 scripts/backtester.py --strategy composite --market US --top 20
     python3 scripts/backtester.py --strategy qem --top 15 --cost 40 --tearsheet
 
-Saves results to data/backtest_results.json (consumed by app_v2.py).
+Saves results to data/backtest_results.json.
 """
 from __future__ import annotations
 import argparse

@@ -2,6 +2,9 @@
 data/
 reports/fraud_report.json
 
+# Archived code
+_archive/
+
 # Avoid repacking previous Repomix outputs
 repomix-*.xml
 repomix-*.md
