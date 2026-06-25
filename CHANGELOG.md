@@ -8,6 +8,15 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Tests + CI Hardening — Session 17 (2026-06-25)
+
+#### Added
+- **tests/test_integration.py**: Full-pipeline integration test (synthetic data → features → selection → model → alpha scores → backtest selection). 6 new tests.
+
+#### Changed
+- **CLAUDE.md**: Rewritten for Architecture V2 — removed all references to dead `scripts/`, `docs/developer/scripts.md`, `docs/architecture.md`, and other archived paths. Simplified Change Checklist to match the flat package structure.
+- **.git/hooks/pre-commit**: Rewritten to call `quality/check_sync.py --warn-only` (non-blocking architecture sync warnings).
+
 ### Pipeline Consolidation — Session 14 (2026-06-25)
 
 #### Changed
