@@ -194,7 +194,7 @@ COLUMN_GROUPS = [
     {
         "name": "survivorship",
         "phase": "C",
-        "source": "mark_survivorship.py",
+        "source": "step6_clean.py",
         "min_present": 1,
         "columns": [
             "delisted_flag",

@@ -106,7 +106,7 @@ RULES: list[Rule] = [
     ),
     Rule(
         name="pipeline-steps",
-        trigger_desc="Pipeline step scripts (run_pipeline.py, enrich_quarterly_features.py, mark_survivorship.py) changed",
+        trigger_desc="Pipeline step scripts (run_pipeline.py, enrich_quarterly_features.py, step6_clean.py) changed",
         required_files=["docs/architecture.md", "docs/developer/data-update-guide.md"],
         message="Update Data Pipeline subgraph and Data Flow Detail diagram in docs/architecture.md.",
     ),
@@ -180,7 +180,7 @@ def triggered_rules(changed: set[str]) -> list[tuple[Rule, list[str]]]:
             triggered = _any_in(changed, [
                 "scripts/run_pipeline.py",
                 "scripts/enrich_quarterly_features.py",
-                "scripts/mark_survivorship.py",
+                "pipeline/step6_clean.py",
                 "pipeline/step1_fetch_tickers.py",
                 "pipeline/step2_build_snapshots.py",
                 "pipeline/step3_enrich_prices.py",

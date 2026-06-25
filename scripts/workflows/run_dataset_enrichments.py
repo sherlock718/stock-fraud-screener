@@ -2,17 +2,15 @@
 """
 run_dataset_enrichments.py — Post-Step6 enrichment orchestrator.
 
-Runs the canonical Phase B enrichment sequence on historical_dataset_clean.parquet.
-Stops immediately if any step fails.
-
-This script owns the mutation order for base dataset enrichment (Phase B).
-It does NOT include Phase C scripts (OOF scoring, ML scoring, alpha, patches).
+Runs the remaining Phase B enrichment steps on historical_dataset_clean.parquet.
+Quality fixes, imputation, survivorship, and confidence scoring are now handled
+by step6_clean.py itself. This orchestrator runs the remaining steps that depend
+on the clean output.
 
 Usage:
     python3 scripts/workflows/run_dataset_enrichments.py                # run all steps
     python3 scripts/workflows/run_dataset_enrichments.py --dry-run      # print commands only
     python3 scripts/workflows/run_dataset_enrichments.py --apply-universe-filters  # full investable universe
-    python3 scripts/workflows/run_dataset_enrichments.py --skip-survivorship       # skip mark_survivorship
     python3 scripts/workflows/run_dataset_enrichments.py --skip-quarterly          # skip enrich_quarterly
 """
 from __future__ import annotations
@@ -29,35 +27,15 @@ BASE = ROOT
 
 STEPS = [
     {
-        "name": "Fix dataset quality",
-        "cmd": ["scripts/enrichments/fix_dataset_quality.py"],
-        "skip_flag": None,
-    },
-    {
         "name": "Universe definition (p0f)",
         "cmd": ["pipeline/p0f_universe_definition.py"],
         "extra_if_universe_filters": ["--apply-filters"],
         "skip_flag": None,
     },
     {
-        "name": "Confidence score (p0g)",
-        "cmd": ["pipeline/p0g_confidence_score.py"],
-        "skip_flag": None,
-    },
-    {
-        "name": "Survivorship correction",
-        "cmd": ["scripts/enrichments/mark_survivorship.py", "--fix"],
-        "skip_flag": "skip_survivorship",
-    },
-    {
         "name": "Quarterly feature enrichment",
         "cmd": ["scripts/enrichments/enrich_quarterly_features.py", "--fix"],
         "skip_flag": "skip_quarterly",
-    },
-    {
-        "name": "Feature imputation",
-        "cmd": ["scripts/enrichments/impute_features.py"],
-        "skip_flag": None,
     },
     {
         "name": "Fraud labels",
@@ -127,8 +105,6 @@ def main():
                         help="Print commands without executing")
     parser.add_argument("--apply-universe-filters", action="store_true",
                         help="Pass --apply-filters to p0f (full investable universe)")
-    parser.add_argument("--skip-survivorship", action="store_true",
-                        help="Skip mark_survivorship step")
     parser.add_argument("--skip-quarterly", action="store_true",
                         help="Skip enrich_quarterly_features step")
     args = parser.parse_args()

@@ -8,6 +8,22 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Pipeline Consolidation — Session 14 (2026-06-25)
+
+#### Changed
+- **pipeline/step6_clean.py**: Expanded from structural cleaning only to a full enrichment pipeline — now includes quality fixes (dead columns, forecast flag, winsorize accruals, fix gross_margin), imputation (quarterly features, size_category), survivorship correction (delisted flag, pessimistic returns), and data confidence scoring (coverage × consistency × timeliness).
+- **.github/workflows/refresh_data.yml**: Replaced 4 separate enrichment steps with single `step6_clean` call.
+- **scripts/workflows/run_dataset_enrichments.py**: Removed merged steps (quality fix, confidence, survivorship, imputation) — only remaining post-step6 enrichments are p0f universe, quarterly features, fraud labels/taxonomy.
+
+#### Archived
+- `scripts/enrichments/fix_dataset_quality.py` → `_archive/dead_scripts/`
+- `scripts/enrichments/impute_features.py` → `_archive/dead_scripts/`
+- `scripts/enrichments/mark_survivorship.py` → `_archive/dead_scripts/`
+- `pipeline/p0g_confidence_score.py` → `_archive/dead_scripts/`
+
+#### Added
+- **tests/pipeline/test_step6_enrichments.py**: Tests for merged quality fix, survivorship, and confidence functions.
+
 ### Repo Cleanup — Session 8 (2026-06-24)
 
 #### Changed

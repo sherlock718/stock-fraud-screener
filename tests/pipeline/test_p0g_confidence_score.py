@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from pipeline.p0g_confidence_score import (
+from pipeline.step6_clean import (
     build_confidence,
     consistency_score,
     coverage_score,

@@ -35,12 +35,12 @@ CHECKS = {
     'us_total_assets_null_max':   0.01,  # <1% for US annual
     'br_total_assets_null_max':   0.01,  # <1% for BR annual
     'labeled_1y_min':            30_000,
-    # Post-fix_dataset_quality.py expectations
+    # Post-step6 quality fix expectations
     'accruals_max_abs':          50.0,   # after winsorize; raw can be ~15k
     'gross_margin_pct_fmt_max':  0.001,  # <0.1% of rows should remain > 1.5
 }
 
-# Columns that fix_dataset_quality.py drops — presence here means fix hasn't run
+# Columns that step6_clean.py drops — presence here means fix hasn't run
 KNOWN_NULL_COLUMNS = [
     'roic', 'ppe', 'total_equity', 'roe_sector_pct', 'pb_ratio',
     'pb_ratio_sector_pct', 'acc_mt', 'corp_code', 'earnings_stability_5yr',
@@ -184,9 +184,9 @@ def run(src: Path = SRC, verbose: bool = False, fail_fast: bool = False) -> bool
     # ── Dataset quality fixes verification ───────────────────────────────────
     print('\nDataset quality fixes:')
 
-    # is_forecast flag — must be present after fix_dataset_quality.py
+    # is_forecast flag — must be present after step6_clean.py
     check('col:is_forecast', 'is_forecast' in df.columns,
-          'present' if 'is_forecast' in df.columns else 'MISSING — run fix_dataset_quality.py')
+          'present' if 'is_forecast' in df.columns else 'MISSING — run step6_clean.py')
 
     # Known-null columns should have been dropped
     still_present = [c for c in KNOWN_NULL_COLUMNS if c in df.columns]

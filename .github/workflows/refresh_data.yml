@@ -85,29 +85,16 @@ jobs:
           done
 
       # ── Post-pipeline enrichment ──────────────────────────────────────
-      # For local runs, use: python3 scripts/workflows/run_dataset_enrichments.py
-      # CI runs a subset (skips p0f/p0g/fraud enrichment because the HF
-      # base dataset already has those columns populated from local builds).
+      # step6_clean.py now handles: quality fixes, imputation, survivorship,
+      # and confidence scoring in a single pass.
 
-      - name: Fix dataset quality
+      - name: Step 6 — Clean, enrich, and validate
         run: |
-          python3 scripts/enrichments/fix_dataset_quality.py
-
-      - name: Post-process — enrich quarterly features
-        run: |
-          python3 scripts/enrichments/enrich_quarterly_features.py
-
-      - name: Post-process — impute quarterly features + size_category
-        run: |
-          python3 scripts/enrichments/impute_features.py
+          python3 -m pipeline.step6_clean
 
       - name: Validate feature contract (Phase B must be complete)
         run: |
           python3 scripts/quality/validate_feature_contract.py
-
-      - name: Post-process — survivorship correction
-        run: |
-          python3 scripts/enrichments/mark_survivorship.py --fix
 
       - name: Post-process — compute 5-factor alpha scores
         run: |

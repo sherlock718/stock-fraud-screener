@@ -142,10 +142,8 @@ def check_a3_ci_schedule() -> None:
         return
     ci = ci_path.read_text()
     required = [
-        "impute_features.py",
-        "mark_survivorship.py",
+        "step6_clean",
         "compute_alpha.py",
-        "score_historical.py",
         "enrich_quarterly_features.py",
         "test_dataset_quality.py",
     ]
@@ -169,8 +167,7 @@ def check_a4_diagram_vs_ci() -> None:
     scripts_in_ci = set(re.findall(r"[\w_]+\.py", ci))
     core_scripts = {
         "enrich_quarterly_features.py",
-        "impute_features.py",
-        "mark_survivorship.py",
+        "step6_clean",
         "test_dataset_quality.py",
     }
     guide_has_core = core_scripts - scripts_in_guide
