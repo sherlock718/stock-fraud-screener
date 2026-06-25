@@ -956,7 +956,7 @@ def main():
               f'({len(spy_returns)} years, mean {sum(spy_returns.values())/len(spy_returns):+.1%})')
     else:
         print('  SPY data not found (data/spy_returns.csv) — using equal-weight universe mean. '
-              'Run scripts/fetch_spy_returns.py to get SPY data.')
+              'Run python3 -m data_io.fetch_spy_returns to get SPY data.')
 
     # Load monthly price cache for true MaxDD and ADTV filter
     monthly_px = load_monthly_prices()
@@ -967,7 +967,7 @@ def main():
     else:
         print('  Monthly price cache not found (data/monthly_prices.parquet) — '
               'MaxDD will use annual approximation, ADTV filter disabled. '
-              'Run scripts/build_monthly_price_cache.py to build it.')
+              'Run python3 -m pipeline.build_monthly_price_cache to build it.')
 
     to_run = list(STRATEGIES.keys()) if args.strategy == 'all' else [args.strategy]
     results = {}

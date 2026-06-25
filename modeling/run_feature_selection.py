@@ -24,10 +24,8 @@ import pandas as pd
 from scipy import stats
 
 # Reuse constants and helpers from train_models to keep logic in sync
-from modeling.train import (
 from _root import ROOT
-
-BASE = ROOT
+from modeling.train import (
     EXCLUDE,
     EXCLUDE_PATTERNS,
     FORCE_INCLUDE_1Y,
@@ -39,6 +37,8 @@ BASE = ROOT
     deduplicate_features,
     load_data,
 )
+
+BASE = ROOT
 
 # ── Tunable thresholds ─────────────────────────────────────────────────────────
 PSI_THRESHOLD  = 0.25   # institutional standard: PSI > 0.25 indicates significant distribution shift

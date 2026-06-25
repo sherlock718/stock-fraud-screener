@@ -33,7 +33,7 @@ def fmt(path: Path) -> str:
     size_mb = path.stat().st_size / 1e6
     try:
         import pandas as pd
-from scripts._root import ROOT
+from _root import ROOT
 
 BASE = ROOT
         df = pd.read_parquet(path)

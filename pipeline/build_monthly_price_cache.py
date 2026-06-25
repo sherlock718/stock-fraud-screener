@@ -22,7 +22,7 @@ import argparse
 import sys
 import time
 import warnings
-from scripts._root import ROOT
+from _root import ROOT
 
 BASE = ROOT
 warnings.filterwarnings('ignore')
@@ -93,7 +93,7 @@ def _load_ml_scores(df: pd.DataFrame) -> pd.DataFrame:
 # ── Strategy filter import (reuse from backtester) ────────────────────────────
 
 def _get_filters():
-    from scripts._shared.backtester import (
+    from backtest.engine import (
         filter_composite, filter_qem, filter_scdv,
         _apply_filing_lag_filter,
     )

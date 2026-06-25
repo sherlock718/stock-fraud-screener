@@ -21,7 +21,7 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from scripts._root import ROOT
+from _root import ROOT
 
 BASE = ROOT
 
@@ -34,7 +34,7 @@ STEPS = [
     },
     {
         "name": "Quarterly feature enrichment",
-        "cmd": ["scripts/enrichments/enrich_quarterly_features.py", "--fix"],
+        "cmd": ["pipeline/enrich_quarterly_features.py", "--fix"],
         "skip_flag": "skip_quarterly",
     },
     {
@@ -49,7 +49,7 @@ STEPS = [
     },
     {
         "name": "Validate feature contract (Phase B gate)",
-        "cmd": ["scripts/quality/validate_feature_contract.py"],
+        "cmd": ["quality/validate_feature_contract.py"],
         "skip_flag": None,
     },
 ]

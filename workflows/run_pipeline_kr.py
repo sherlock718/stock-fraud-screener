@@ -32,7 +32,7 @@ def fmt(path: Path) -> str:
     size_mb = path.stat().st_size / 1e6
     try:
         import pandas as pd
-from scripts._root import ROOT
+from _root import ROOT
 
 BASE = ROOT
         df = pd.read_parquet(path)
@@ -129,15 +129,15 @@ def main():
     elif args.cmd == 'build':
         # Note: steps 3-6 need --snapshots / --suffix support in the shared scripts.
         # For now, steps 1-2 run standalone; steps 3-6 need a manual merge:
-        #   python3 scripts/workflows/run_pipeline_kr.py build --step 1   (fetches KR tickers + snapshots)
+        #   python3 -m workflows.run_pipeline_kr build --step 1   (fetches KR tickers + snapshots)
         # Then merge snapshots_kr.parquet into snapshots.parquet and re-run
-        # scripts/run_pipeline.py build --step 3 on the combined file.
+        # python3 -m workflows.run_pipeline build --step 3 on the combined file.
         #
         # Automated merge + unified run is planned for after first KR data fetch.
         if args.step > 2:
             print('NOTE: Steps 3-6 for KR data require the unified merge workflow.')
             print('      After step 2 completes, merge KR + US snapshots and run:')
-            print('        python3 scripts/workflows/run_pipeline.py build --step 3')
+            print('        python3 -m workflows.run_pipeline build --step 3')
             print()
 
         build(start_step=min(args.step, 2), limit=args.limit)

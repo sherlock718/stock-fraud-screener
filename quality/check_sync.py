@@ -162,24 +162,24 @@ def triggered_rules(changed: set[str]) -> list[tuple[Rule, list[str]]]:
         # Determine if this rule is triggered
         triggered = False
         if rule.name == "scripts-doc":
-            triggered = _starts_with_any(changed, ("scripts/",))
+            triggered = _starts_with_any(changed, ("workflows/", "research/", "pipeline/"))
         elif rule.name == "feature-count":
             triggered = "pipeline/feature_library.py" in changed
         elif rule.name == "step5-columns":
             triggered = "pipeline/step5_compute_features.py" in changed
         elif rule.name == "quality-check-count":
-            triggered = "scripts/test_dataset_quality.py" in changed
+            triggered = "quality/test_dataset_quality.py" in changed
         elif rule.name == "feature-selection-counts":
-            triggered = _any_in(changed, ["scripts/run_feature_selection.py"]) or \
+            triggered = _any_in(changed, ["modeling/run_feature_selection.py"]) or \
                         any(f.startswith("models/feature_sets_") for f in changed)
         elif rule.name == "ci-workflow":
             triggered = ".github/workflows/refresh_data.yml" in changed
         elif rule.name == "ml-pipeline":
-            triggered = _any_in(changed, ["scripts/train_models.py", "scripts/tune_models.py"])
+            triggered = _any_in(changed, ["modeling/train.py", "modeling/tune.py"])
         elif rule.name == "pipeline-steps":
             triggered = _any_in(changed, [
-                "scripts/run_pipeline.py",
-                "scripts/enrich_quarterly_features.py",
+                "workflows/run_pipeline.py",
+                "pipeline/enrich_quarterly_features.py",
                 "pipeline/step6_clean.py",
                 "pipeline/step1_fetch_tickers.py",
                 "pipeline/step2_build_snapshots.py",

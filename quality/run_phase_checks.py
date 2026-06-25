@@ -319,7 +319,7 @@ def check_b4_factor_research() -> None:
     reports = sorted(glob.glob(str(ROOT / "reports" / "factor_research_*.csv")))
     if not reports:
         check("reports/factor_research_*.csv exist", False,
-              "no files (run scripts/factor_research.py)")
+              "no files (run python3 -m research.factor_research)")
     else:
         check("reports/factor_research_*.csv exist", True, f"{len(reports)} files")
         try:
@@ -449,7 +449,7 @@ def check_c4_backtest() -> None:
     bt_path = ROOT / "data" / "backtest_results.json"
     if not bt_path.exists():
         check("data/backtest_results.json exists", False,
-              "run scripts/backtester.py first")
+              "run python3 -m backtest.engine first")
         return
     try:
         res = json.loads(bt_path.read_text())

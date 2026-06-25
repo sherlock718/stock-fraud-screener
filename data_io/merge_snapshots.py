@@ -182,12 +182,12 @@ def run(activate: bool, backup: bool):
 
         print('\nActive dataset updated.')
         print('Run the macro + features + clean steps:')
-        print('  python3 scripts/run_pipeline.py build --step 4')
+        print('  python3 -m workflows.run_pipeline build --step 4')
     else:
         print('\nDry run complete — combined files written but NOT activated.')
         print('To make these the active dataset, run:')
-        print('  python3 scripts/merge_snapshots.py --activate')
-        print('  python3 scripts/run_pipeline.py build --step 4')
+        print('  python3 -m data_io.merge_snapshots --activate')
+        print('  python3 -m workflows.run_pipeline build --step 4')
 
 
 if __name__ == '__main__':

@@ -15,7 +15,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from scripts._root import ROOT
+from _root import ROOT
 
 DATA = ROOT / 'data'
 LOGS = ROOT / 'logs'
@@ -89,10 +89,10 @@ while True:
     time.sleep(CHECK_INTERVAL)
 
 print('\n─── Step 1: Merging all markets ───')
-run(['python3', 'scripts/data_io/merge_snapshots.py', '--activate', '--backup'])
+run(['python3', '-m', 'data_io.merge_snapshots', '--activate', '--backup'])
 
 print('\n─── Step 2: Re-running features + clean on merged dataset ───')
-run(['python3', 'scripts/workflows/run_pipeline.py', 'build', '--step', '4'])
+run(['python3', '-m', 'workflows.run_pipeline', 'build', '--step', '4'])
 
 print('\n✓ All done. Your combined dataset is ready.')
 print('  → data/historical_dataset_clean.parquet')

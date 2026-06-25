@@ -23,7 +23,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from scripts._root import ROOT
+from _root import ROOT
 
 BASE = ROOT
 

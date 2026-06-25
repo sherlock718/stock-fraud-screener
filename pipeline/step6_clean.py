@@ -223,7 +223,7 @@ def run_impute(df: pd.DataFrame, source_path: Path | None = None) -> pd.DataFram
     """Impute quarterly features and size_category."""
     # Quarterly features — import here to avoid circular imports at module level
     try:
-        from scripts.enrichments.enrich_quarterly_features import (
+        from pipeline.enrich_quarterly_features import (
             compute_quarterly_features,
             NEW_FEATURES as QUARTERLY_COLS,
         )

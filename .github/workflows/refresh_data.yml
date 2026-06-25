@@ -72,15 +72,15 @@ jobs:
             echo "=== Refreshing $market ==="
             case $market in
               EU|DE|FR|IT|ES|SE|NL|PT|DK|FI)
-                python3 scripts/workflows/run_pipeline_eu.py --market $market ;;
+                python3 -m workflows.run_pipeline_eu --market $market ;;
               KR)
                 if [ -z "$DART_API_KEY" ]; then
                   echo "[WARN] DART_API_KEY not set — skipping KR pipeline"
                 else
-                  python3 scripts/workflows/run_pipeline_kr.py
+                  python3 -m workflows.run_pipeline_kr
                 fi ;;
               *)
-                python3 scripts/workflows/run_pipeline.py --market $market ;;
+                python3 -m workflows.run_pipeline --market $market ;;
             esac
           done
 
@@ -120,7 +120,7 @@ jobs:
                   except Exception as e:
                       print(f'Skipping {fname}: {e}')
           " || true
-          python3 scripts/modeling/score_historical.py || echo "ML scoring skipped (models unavailable)"
+          python3 -m modeling.score_historical || echo "ML scoring skipped (models unavailable)"
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
 
@@ -138,8 +138,8 @@ jobs:
 
       - name: Refresh factor research reports
         run: |
-          python3 scripts/analysis/factor_research.py --all-horizons --no-sector-neutral || echo "factor_research (base) failed (non-fatal)"
-          python3 scripts/analysis/factor_research.py --all-horizons || echo "factor_research (sector-neutral) failed (non-fatal)"
+          python3 -m research.factor_research --all-horizons --no-sector-neutral || echo "factor_research (base) failed (non-fatal)"
+          python3 -m research.factor_research --all-horizons || echo "factor_research (sector-neutral) failed (non-fatal)"
 
       - name: Re-run feature selection (PSI=0.25, NW t-stats, BH FDR, sector-neutral IC)
         run: |
@@ -169,7 +169,7 @@ jobs:
       - name: Generate reports
         if: success()
         run: |
-          python3 scripts/analysis/generate_reports.py --top 25 || echo "Report generation failed (non-fatal)"
+          python3 -m research.generate_reports --top 25 || echo "Report generation failed (non-fatal)"
 
       - name: Push updated dataset to HuggingFace
         if: success()

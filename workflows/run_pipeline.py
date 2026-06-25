@@ -30,7 +30,7 @@ import time
 import json
 from datetime import datetime
 from pathlib import Path
-from scripts._root import ROOT
+from _root import ROOT
 
 BASE = ROOT
 
@@ -72,7 +72,7 @@ def run_step(step_num, extra_args=None):
     if result.returncode != 0:
         log(f'ERROR: Step {step_num} failed with exit code {result.returncode}')
         log('Check the log above for details. Fix the issue then run:')
-        log(f'  python scripts/workflows/run_pipeline.py build --step {step_num}')
+        log(f'  python3 -m workflows.run_pipeline build --step {step_num}')
         sys.exit(1)
 
     update_status(step_num, 'completed')
