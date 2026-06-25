@@ -8,6 +8,11 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Feature IC Notebook — Session 18 (2026-06-25)
+
+#### Added
+- **notebooks/feature_ic_analysis.ipynb**: First research artifact on Architecture V2. Full IC analysis (228 features, sector-neutral, Newey-West t-stats, BH-FDR correction, factor group breakdown). Proves `research/`, `alpha/`, `modeling/` packages work end-to-end on real data.
+
 ### Tests + CI Hardening — Session 17 (2026-06-25)
 
 #### Added
