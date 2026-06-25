@@ -34,7 +34,7 @@ import pandas as pd
 from pathlib import Path
 from scipy import stats
 
-from scripts._shared.backtester import (
+from backtest.engine import (
     load_full_hist, load_spy_returns, run_backtest,
     MIN_MARKET_CAP, DEFAULT_COST_BPS, SMALLCAP_COST_BPS,
 )
@@ -43,7 +43,7 @@ from alpha.factors.quality    import compute as _quality_compute
 from alpha.factors.momentum   import compute as _momentum_compute
 from alpha.factors.growth     import compute as _growth_compute
 from alpha.factors.fraud_risk import compute as _fraud_risk_compute
-from scripts._root import ROOT
+from _root import ROOT
 
 BASE = ROOT
 

@@ -26,7 +26,7 @@ import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from scripts._root import ROOT
+from _root import ROOT
 
 PARQUET = ROOT / "data" / "historical_dataset_clean.parquet"
 

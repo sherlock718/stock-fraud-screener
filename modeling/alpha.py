@@ -21,7 +21,7 @@ import numpy as np
 import pandas as pd
 
 from alpha.factors.composite import compute as compute_composite
-from scripts._root import ROOT
+from _root import ROOT
 
 ALPHA_COLS = [
     "alpha_value", "alpha_quality", "alpha_momentum",

@@ -29,7 +29,7 @@ import sys
 from pathlib import Path
 
 import pandas as pd
-from scripts._root import ROOT
+from _root import ROOT
 
 BASE = ROOT
 

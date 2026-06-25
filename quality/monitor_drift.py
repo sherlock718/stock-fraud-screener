@@ -36,7 +36,7 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 from scipy import stats
-from scripts._root import ROOT
+from _root import ROOT
 
 BASE = ROOT
 

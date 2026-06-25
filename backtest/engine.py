@@ -30,7 +30,7 @@ from scipy import stats
 
 import sys
 from pipeline.feature_library import add_normalised_ratios, add_piotroski_ext
-from scripts._root import ROOT
+from _root import ROOT
 
 BASE = ROOT
 

@@ -30,7 +30,7 @@ import os
 import shutil
 import sys
 from pathlib import Path
-from scripts._root import ROOT
+from _root import ROOT
 
 BASE = ROOT
 

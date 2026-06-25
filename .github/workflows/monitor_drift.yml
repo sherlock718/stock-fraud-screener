@@ -80,7 +80,7 @@ jobs:
           if [ -n "${{ github.event.inputs.window_year }}" ]; then
             WINDOW_ARG="--window ${{ github.event.inputs.window_year }}"
           fi
-          python3 scripts/quality/monitor_drift.py $WINDOW_ARG || echo "DRIFT_ALERT=true" >> $GITHUB_OUTPUT
+          python3 -m quality.monitor_drift $WINDOW_ARG || echo "DRIFT_ALERT=true" >> $GITHUB_OUTPUT
 
       - name: Upload drift report
         if: always()
@@ -94,4 +94,4 @@ jobs:
         if: steps.drift.outputs.DRIFT_ALERT == 'true'
         run: |
           echo "::warning::Model drift detected — check drift_report artifact for details"
-          echo "Consider retraining: python3 scripts/modeling/train_models.py"
+          echo "Consider retraining: python3 -m modeling.train"

@@ -38,7 +38,7 @@ import argparse
 import json
 import sys
 import warnings
-from scripts._root import ROOT
+from _root import ROOT
 
 BASE = ROOT
 warnings.filterwarnings('ignore')

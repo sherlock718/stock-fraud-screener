@@ -26,7 +26,7 @@ OUT_PATH = BASE / 'data' / 'spy_returns.csv'
 def fetch_spy(start_year: int, end_year: int) -> pd.DataFrame:
     try:
         import yfinance as yf
-from scripts._root import ROOT
+from _root import ROOT
 
 BASE = ROOT
     except ImportError:

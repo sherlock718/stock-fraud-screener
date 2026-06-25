@@ -25,7 +25,7 @@ from __future__ import annotations
 import argparse
 import json
 import warnings
-from scripts._root import ROOT
+from _root import ROOT
 
 BASE = ROOT
 warnings.filterwarnings('ignore')
@@ -76,7 +76,7 @@ def _load_meta() -> dict:
 
 def _load_data_for_horizon(meta: dict, h: str) -> tuple:
     """Return (df_train, df_val, df_test, features, beat_col, train_medians)."""
-    from scripts.modeling.train_models import load_data  # reuse loader
+    from modeling.train import load_data  # reuse loader
 
     m = meta[h]
     df = load_data()
@@ -255,7 +255,7 @@ def main() -> None:
         features, beat_col = m['features'], m['beat_col']
         train_medians = m['train_medians']
 
-        from scripts.modeling.train_models import load_data
+        from modeling.train import load_data
         df = load_data()
         df_train = df[df['fiscal_year'] <= m['train_cutoff']].copy()
         df_val   = df[(df['fiscal_year'] > m['train_cutoff']) &

@@ -24,8 +24,8 @@ import pandas as pd
 
 warnings.filterwarnings("ignore")
 
-from scripts._shared.backtester import (
-from scripts._root import ROOT
+from backtest.engine import (
+from _root import ROOT
 
 BASE = ROOT
     DEFAULT_COST_BPS,

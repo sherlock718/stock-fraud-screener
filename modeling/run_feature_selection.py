@@ -24,8 +24,8 @@ import pandas as pd
 from scipy import stats
 
 # Reuse constants and helpers from train_models to keep logic in sync
-from scripts.modeling.train_models import (
-from scripts._root import ROOT
+from modeling.train import (
+from _root import ROOT
 
 BASE = ROOT
     EXCLUDE,

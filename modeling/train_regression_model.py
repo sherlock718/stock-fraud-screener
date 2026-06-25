@@ -31,7 +31,7 @@ import argparse
 import json
 import math
 import warnings
-from scripts._root import ROOT
+from _root import ROOT
 
 BASE = ROOT
 warnings.filterwarnings('ignore')
@@ -80,7 +80,7 @@ def _resolve_target(df: pd.DataFrame, horizon: str) -> str:
 
 
 def _load_data() -> pd.DataFrame:
-    from scripts.modeling.train_models import load_data
+    from modeling.train import load_data
     return load_data()
 
 

@@ -33,7 +33,7 @@ from __future__ import annotations
 import argparse
 import json
 import warnings
-from scripts._root import ROOT
+from _root import ROOT
 
 BASE = ROOT
 warnings.filterwarnings('ignore')
