@@ -68,35 +68,6 @@ Does NOT include Phase C scripts (OOF scoring, ML scoring, alpha, patches).
 
 ---
 
-### `score_historical.py` — Apply trained models to full dataset
-
-Loads `model_{1y,3y,5y}.joblib` and `model_meta.json`, scores all 58K rows, and writes
-`ml_1y`, `ml_3y`, `ml_5y` float columns (probability of beating local benchmark) back to
-`data/historical_dataset_clean.parquet`. Also loads `model_3y_regression.joblib` (if present)
-and writes `ml_pred_excess_3y` — the predicted magnitude of 3y excess return used by the
-Stage 3 magnitude ranker in `leverage_strategy.py`. Missing features are filled with
-per-horizon `train_medians` stored in model_meta.json.
-
-```bash
-python3 scripts/modeling/score_historical.py                  # Score and write parquet
-python3 scripts/modeling/score_historical.py --dry-run        # Score only, print stats, no write
-python3 scripts/modeling/score_historical.py --parquet PATH   # Use alternate parquet path
-python3 scripts/modeling/score_historical.py --skip-regression  # Skip ml_pred_excess_3y scoring
-```
-
-| Flag | Default | Description |
-|---|---|---|
-| `--parquet` | `data/historical_dataset_clean.parquet` | Dataset path |
-| `--models-dir` | `models/` | Directory with model_*.joblib + model_meta.json |
-| `--dry-run` | off | Print score distribution but do not write parquet |
-| `--skip-regression` | off | Skip loading `model_3y_regression.joblib` (faster if not needed) |
-
-**Outputs**: Updates `data/historical_dataset_clean.parquet` in-place.
-After running, `ml_1y`, `ml_3y`, `ml_5y`, and `ml_pred_excess_3y` are available for the
-backtester and alpha factor package.
-
----
-
 ### `compute_alpha.py` — Compute 5-factor alpha scores
 
 Loads `data/historical_dataset_clean.parquet`, calls `alpha.factors.composite.compute()` to
@@ -127,7 +98,7 @@ data is absent, so momentum, value, and fraud ML signals are all null. Scores ar
 US rows and the majority of EU/KR rows.
 
 **Re-run when**: any of the five factor modules in `alpha/factors/` are changed, or after
-`score_historical.py` adds updated `ml_*` columns.
+`generate_oof_scores.py` adds updated `ml_*_oof` columns.
 
 ---
 
@@ -166,52 +137,6 @@ New columns: 5 quarterly dynamics + `size_category_imputed` flag.
 
 **Re-run when**: clean parquet is rebuilt (full pipeline re-run) — the join is idempotent;
 existing quarterly columns are dropped before re-merging.
-
----
-
-### `patch_equity_vol_features.py` — Equity coalesce fix + multi-horizon volatility
-
-One-time backfill script that fixes equity-derived features and adds multi-horizon price volatility columns to `data/historical_dataset_clean.parquet`.
-
-**Two operations:**
-1. **Equity patch** — joins `snapshots_combined.parquet` on `(cik, fiscal_year)`, coalesces `equity` (92.4% fill) into `total_equity`, recomputes `roe`, `roic`, `pb_ratio`, `book_to_market`, `net_debt_to_equity`, sector percentile ranks, and 5yr rolling volatility.
-2. **Volatility patch** — reads `data/price_cache.db` (7,753 tickers, daily prices as JSON), computes annualised daily-return volatility over 6m / 36m / 60m windows.
-
-```bash
-python3 scripts/enrichments/patch_equity_vol_features.py              # Apply both patches and save
-python3 scripts/enrichments/patch_equity_vol_features.py --dry-run    # Report fill rates, no write
-```
-
-| Flag | Default | Description |
-|---|---|---|
-| `--dry-run` | off | Print fill rate stats but do not write parquet |
-
-**Outputs**: Updates `data/historical_dataset_clean.parquet` in-place (341 → 346 columns).
-Creates backup at `data/historical_dataset_clean.parquet.bak_pre_patch` before writing.
-New columns: `roa_volatility_5yr`, `earnings_stability_roa_5yr`, `vol_prior_6m`, `vol_prior_36m`, `vol_prior_60m`.
-Fixed columns (all were near-0% fill due to equity coalesce bug): `roe`, `roic`, `pb_ratio`, `book_to_market`, `net_debt_to_equity`, `roe_sector_pct`, `pb_ratio_sector_pct`, `roe_volatility_5yr`, `earnings_stability_5yr`.
-
-**Dependencies**: Requires `data/snapshots_combined.parquet` and `data/price_cache.db`.
-
----
-
-### `patch_montier_c2.py` — Montier C2 null fix
-
-One-shot patch that recomputes all 7 Montier C-score columns in `data/historical_dataset_clean.parquet` after fixing the root cause in `pipeline/step5_compute_features.py` (C2 used `property_plant_equipment` which is 95.7% null; changed to `ppe_net` which is 19.4% null).
-
-```bash
-python3 scripts/enrichments/patch_montier_c2.py            # Recompute and save
-python3 scripts/enrichments/patch_montier_c2.py --dry-run  # Print null rates only, no write
-```
-
-| Flag | Default | Description |
-|---|---|---|
-| `--dry-run` | off | Print post-fix null rates but do not write parquet |
-
-**Fixed columns**: `montier_c1` (24.5% null), `montier_c2` (41.6% null, was 100%), `montier_c3` (21.8%), `montier_c4` (48.3%), `montier_c5` (26.5%), `montier_c6` (16.9%), `montier_c_score` (24.5%).
-
-**Root cause**: `add_montier_c_score()` in `step5_compute_features.py` computed the C2 depreciation rate signal using `property_plant_equipment` (95.7% null). The null mask `c2[(dep.isna()) | (ppe.isna())] = np.nan` propagated those nulls through the entire `montier_c2` column. Fix: use `ppe_net` (19.4% null).
-
 
 ---
 
@@ -408,7 +333,7 @@ Walk-forward CV (`--walk-forward`) excludes folds where forward returns have not
 
 Computes true out-of-sample ML scores using an expanding-window approach.
 For each fiscal year Y: train on filed_date < Jan 1 of Y, score fiscal_year == Y.
-Eliminates in-sample contamination from `score_historical.py`.
+Eliminates in-sample contamination from full-dataset scoring.
 
 Writes `ml_1y_oof`, `ml_3y_oof`, `ml_5y_oof` to the parquet. Training-window rows get NaN.
 Feature sets loaded from `models/feature_sets_{h}.json` (Phase B output).
@@ -486,7 +411,6 @@ python3 scripts/modeling/train_regression_model.py --train-cutoff 2020
 - `reports/regression_ic_{h}.csv` — walk-forward Spearman IC per fold
 
 **Run after**: `train_models.py` (needs `models/feature_sets_{h}.json` for each horizon).
-**Run before**: `score_historical.py` (to write `ml_pred_excess_{h}` columns to parquet).
 
 ---
 
@@ -852,27 +776,6 @@ Exit code 1 if any alert fires (used by GitHub Actions to emit a warning).
 
 ---
 
-### `analyze_distributions.py` — Dataset Distribution Analysis
-
-```bash
-python3 scripts/analysis/analyze_distributions.py
-python3 scripts/analysis/analyze_distributions.py --parquet data/historical_dataset_clean.parquet --out-dir reports
-python3 scripts/analysis/analyze_distributions.py --corr
-```
-
-| Flag | Default | Description |
-|---|---|---|
-| `--parquet PATH` | `data/historical_dataset_clean.parquet` | Input parquet path |
-| `--out-dir DIR` | `reports` | Output directory |
-| `--corr` | False | Also compute and save correlation matrix |
-
-Non-fatal CI step for dataset quality monitoring. Produces:
-
-- `reports/distribution_report.txt` — NaN% per column (sorted desc), top 20 columns by outlier rate (|z|>5), market fill rates for 10 key features, fraud label balance, rows per market and fiscal year range
-- `reports/correlation_matrix.parquet` (with `--corr`) — pairwise Pearson correlation matrix for all numeric columns with >1000 non-null values; also prints high-correlation pairs (|r|>0.95) to stdout
-
----
-
 ### `bias_audit.py` — Bias Audit Suite (Look-Ahead / Survivorship / Overfitting / Regression)
 
 Runs five bias checks against the dataset and models:
@@ -1019,14 +922,6 @@ python3 scripts/data_io/merge_snapshots.py --activate --backup    # activate wit
 |---|---|---|
 | `--activate` | off | Copy combined file to `data/snapshots.parquet` (pipeline default input) |
 | `--backup` | off | Save existing `snapshots.parquet` as `snapshots.parquet.bak` before overwrite |
-
-### `clean_dataset.py` — Normalize and Clean
-
-Applies normalization, outlier clipping, and schema enforcement. Called automatically by `run_pipeline.py` step 3.
-
-### `enrich_sectors_dividends.py` — Add Sector + Dividend Data
-
-Fetches sector classifications and dividend history. Called automatically by `run_pipeline.py` step 5.
 
 ---
 
@@ -1263,28 +1158,6 @@ python3 scripts/quality/check_sync.py --files a.py b.py    # check a specific li
 The pre-commit hook at `.git/hooks/pre-commit` calls this automatically before every `git commit`. To bypass in emergencies: `git commit --no-verify`.
 
 **Rules now cover**: scripts/ changes → scripts.md; step5 columns → architecture.md + data-update-guide.md; test_dataset_quality.py changes → data-update-guide.md + phase-done-criteria.md; run_feature_selection.py / feature_sets_*.json changes → index.md + scripts.md + feature-selection.md; refresh_data.yml changes → data-update-guide.md.
-
----
-
-### `verify_doc_consistency.py` — Cross-File Fact Verifier
-
-Reads the live parquet and key docs, then checks that column counts, row counts, feature counts,
-and quality check counts are consistent across all files. Also checks Phase C artifacts (model_meta.json
-horizon coverage, spy_returns.csv, horizon_router.py presence). Run before Phase gate checks or after
-any dataset change.
-
-```bash
-python3 scripts/quality/verify_doc_consistency.py           # fail if any mismatch
-python3 scripts/quality/verify_doc_consistency.py --warn    # print mismatches, exit 0
-```
-
-| Flag | Default | Description |
-|---|---|---|
-| `--warn` | False | Print failures but always exit 0 (used in CI as advisory) |
-
-**Checks**: column count consistency across index.md, README.md, architecture.md, models.md, CLAUDE.md, phase-done-criteria.md, data-update-guide.md; feature counts (all 5 horizons) in scripts.md, feature-selection.md; row count in index.md; quality check count (98) in data-update-guide.md; Phase C: model_meta.json horizons, spy_returns.csv, horizon_router.py. Note: exact thresholds will need updating after Phase C model retrain restores full column count.
-
-**In CI**: runs weekly after `run_feature_selection.py` as a non-blocking advisory step. Output appears in the GitHub Actions log.
 
 ---
 
