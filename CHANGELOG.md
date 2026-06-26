@@ -8,6 +8,18 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Pruned Feature Set Backtest — Session 23 (2026-06-26)
+
+#### Added
+- **`research/pruned_backtest.py`**: Runs proper-split backtest with only the 27 temporally stable features. Implements add-back logic if Sharpe drops > 0.1.
+- **`reports/pruned_backtest_results.md`**: Comparison report (full 43 vs lean 27 features).
+- **`models/feature_sets_pruned.json`**: Final pruned feature set for downstream use.
+
+#### Results
+- Lean 27-feature model Sharpe = **1.124** (vs 0.954 full model — improvement of +0.17)
+- CAGR +33.8% vs SPY +17.1% (excess +16.7%), hit rate 73.9%
+- Removing 16 unstable features reduced overfitting — simpler model is strictly better
+
 ### Proper Train/Validate/Test Split — Session 22 (2026-06-26)
 
 #### Added

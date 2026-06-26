@@ -48,6 +48,8 @@ reports/*
 !reports/backtest_tearsheet_summary.md
 !reports/feature_ablation_results.md
 !reports/feature_ablation_results.json
+!reports/proper_split_results.json
+!reports/pruned_backtest_results.md
 
 # Logs
 logs/

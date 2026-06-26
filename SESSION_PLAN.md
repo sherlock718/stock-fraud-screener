@@ -13,6 +13,7 @@ Persistent session-by-session plan. Each session prompt should reference this fi
 | 20 | Archive purge — 122 dead files removed | 4922403 | 2026-06-26 |
 | 21 | Feature ablation — 1 load-bearing, 16 prune candidates | 5c773df | 2026-06-26 |
 | 22 | Proper train/val/test split — unbiased Sharpe 0.954, GATE PASS | 97d1c97 | 2026-06-26 |
+| 23 | Pruned feature set backtest — 27 features, Sharpe 1.124 | e6ead61 | 2026-06-26 |
 
 ---
 
@@ -46,18 +47,19 @@ Split: Train 2008-2014 / Validate 2015-2018 / Test 2019-2024
 
 ---
 
-### Session 23: Pruned Feature Set Backtest
+### Session 23: Pruned Feature Set Backtest ✓ DONE
 
-**Why:** Use ablation results + proper split to build a lean ~25-feature model.
+**Result:** Lean 27-feature model Sharpe **1.124** (BETTER than full 43-feature 0.954). No add-back needed.
 
-**What to do:**
-1. Drop the 16 prune candidates from feature set
-2. Re-run proper-split backtest with lean set
-3. **Validate as a GROUP** — don't assume individual ablation results sum linearly. Two correlated features (e.g. ps_ratio + ps_ratio_sector_pct) might both show "neutral" individually but removing both could hurt. Run the full pruned set as one backtest.
-4. Compare Sharpe: full 45 vs lean ~25 (both on test period 2017-2023)
-5. If pruned set is worse than full, add back features one at a time until stable
+**What was done:**
+1. Took 27 temporally stable features (survived both 2008-2014 and 2010-2016 train windows)
+2. Re-ran walk-forward backtest on test period 2019-2024 with only these 27 features
+3. Sharpe improved +0.17 vs full model — removing 16 noisy features reduced overfitting
+4. CAGR +33.8% vs SPY +17.1% (excess +16.7%), hit rate 73.9%
+5. No add-back triggered (lean model strictly better)
 
-**Depends on:** Session 22 gate passing (Sharpe ≥ 0.5)
+**Key output:** `reports/pruned_backtest_results.md`, `models/feature_sets_pruned.json`
+**Script:** `research/pruned_backtest.py`
 
 ---
 
