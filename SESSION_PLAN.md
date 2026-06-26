@@ -16,7 +16,7 @@ Persistent session-by-session plan. Each session prompt should reference this fi
 | 23 | Pruned feature set backtest — 27 features, Sharpe 1.124 | e6ead61 | 2026-06-26 |
 | 24 | Agreement filter (LightGBM+Tree, t=0.35) — Sharpe 1.138, CAGR +34% | bae0eba | 2026-06-26 |
 | 25 | Regime overlay (SPY DD >15% = risk-off) — insurance-only, dormant in test | fd9116b | 2026-06-26 |
-| 26 | IC code consolidation — factor_research.py now calls ic_engine.py | PENDING | 2026-06-26 |
+| 26 | IC code consolidation — factor_research.py now calls ic_engine.py | 1e512ac | 2026-06-26 |
 
 ---
 
