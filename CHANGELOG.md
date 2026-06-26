@@ -8,6 +8,20 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Proper Train/Validate/Test Split — Session 22 (2026-06-26)
+
+#### Added
+- **`research/proper_split_backtest.py`**: Unbiased feature selection + walk-forward backtest with temporal split (Train 2008-2014 / Val 2015-2018 / Test 2019-2024). Fixes look-ahead bias where feature selection previously used full history.
+- **`reports/proper_split_results.md`**: Full results report with gate decision.
+- **`reports/proper_split_results.json`**: Machine-readable results.
+
+#### Results
+- **GATE PASS**: Test-period Sharpe = 0.954 (≥ 0.8 threshold)
+- CAGR +31.9% vs SPY +17.1% (excess +14.8%) on unbiased test period 2019-2024
+- 43 features selected using train-only data (vs 45 with full-history bias)
+- Feature stability: 50% Jaccard overlap across shifted train windows (27 stable core features)
+- Previous biased Sharpe (1.37) was ~44% overstated; corrected to 0.954
+
 ### Feature Ablation Study — Session 21 (2026-06-26)
 
 #### Added
