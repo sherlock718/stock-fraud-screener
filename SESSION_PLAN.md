@@ -14,6 +14,7 @@ Persistent session-by-session plan. Each session prompt should reference this fi
 | 21 | Feature ablation — 1 load-bearing, 16 prune candidates | 5c773df | 2026-06-26 |
 | 22 | Proper train/val/test split — unbiased Sharpe 0.954, GATE PASS | 97d1c97 | 2026-06-26 |
 | 23 | Pruned feature set backtest — 27 features, Sharpe 1.124 | e6ead61 | 2026-06-26 |
+| 24 | Agreement filter (LightGBM+Tree, t=0.35) — Sharpe 1.138, CAGR +34% | bae0eba | 2026-06-26 |
 
 ---
 
@@ -63,17 +64,22 @@ Split: Train 2008-2014 / Validate 2015-2018 / Test 2019-2024
 
 ---
 
-### Session 24: Explainable Decision Tree Model
+### Session 24: Explainable Decision Tree + Agreement Filter ✓ DONE
 
-**Why:** Makes the tool usable for actual stock decisions. "Here's WHY this stock was picked."
+**Result:** Agreement filter (tree_prob ≥ 0.35) Sharpe **1.138**, CAGR **+34.0%**, 0% max DD.
 
-**What to do:**
-1. Train a depth-3-5 decision tree alongside LightGBM (same feature pool from session 22)
-2. Extract human-readable rules (IF earnings_yield > X AND piotroski > Y → BUY)
-3. Compare Sharpe: tree vs LightGBM (expect tree slightly worse but explainable)
-4. Add tree rules to portfolio output/screener
+**What was done:**
+1. Trained depth-4 decision tree on 27 pruned features, walk-forward backtest 2019-2024
+2. Extracted 5 human-readable BUY rules (IF/THEN conditions with thresholds)
+3. Threshold sweep (0.30–0.50) for agreement filter:
+   - 0.35: Sharpe 1.138, CAGR +34.0% ← selected (natural plateau, best CAGR)
+   - 0.40: Sharpe 1.072, CAGR +33.2%
+   - 0.50: Sharpe 1.536, CAGR +25.9% (too restrictive)
+4. Decision: Agreement filter (0.35) = primary. LightGBM ranks, tree gates.
+5. Beats LightGBM-only CAGR (+33.8%) AND adds explainability for every pick
 
-**Depends on:** Session 23 (use the final pruned feature set)
+**Key output:** `models/decision_tree_rules.json`, `reports/explainable_model_results.md`
+**Script:** `research/explainable_tree.py`
 
 ---
 

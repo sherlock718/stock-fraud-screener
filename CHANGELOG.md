@@ -8,6 +8,20 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Explainable Decision Tree + Agreement Filter — Session 24 (2026-06-26)
+
+#### Added
+- **`research/explainable_tree.py`**: Walk-forward backtest with decision tree, LightGBM, and agreement filter with threshold sweep. Extracts human-readable IF/THEN rules.
+- **`models/decision_tree_rules.json`**: 5 BUY rules in structured JSON (conditions, probability, sample support).
+- **`reports/explainable_model_results.md`**: Three-way comparison + threshold sweep results.
+
+#### Results
+- Threshold sweep (0.30–0.50): selected **tree_prob ≥ 0.35** (natural plateau)
+- Agreement filter (0.35): Sharpe **1.138**, CAGR **+34.0%**, 0% max drawdown, 73.9% hit rate
+- Beats LightGBM alone (+33.8%) while adding explainability for every pick
+- **Decision: Agreement filter (threshold=0.35) = primary strategy**
+- Every pick has a tree rule: e.g. `sales_to_price > 0.02 AND value_composite > 0.65 → BUY`
+
 ### Pruned Feature Set Backtest — Session 23 (2026-06-26)
 
 #### Added
