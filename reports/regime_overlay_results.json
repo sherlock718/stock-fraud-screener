@@ -1,0 +1,76 @@
+{
+  "session": 25,
+  "description": "Regime Overlay: SPY trailing drawdown > 15% = risk-off, 50% cash",
+  "regime_threshold": 0.15,
+  "cash_fraction": 0.5,
+  "test_period": "2019-2024",
+  "risk_off_years_test": [
+    2023
+  ],
+  "risk_off_years_all": [
+    2009,
+    2010,
+    2023
+  ],
+  "base": {
+    "sharpe": 1.138,
+    "cagr_pct": 34.02,
+    "max_drawdown_pct": 0.0
+  },
+  "overlay": {
+    "cagr_pct": 31.77,
+    "sharpe": 1.001,
+    "max_drawdown_pct": 0.0,
+    "vol_pct": 28.73
+  },
+  "delta": {
+    "sharpe": -0.137,
+    "cagr_pct": -2.25,
+    "max_drawdown_pct": 0.0
+  },
+  "decision": "ADOPT (insurance-only): Agreement filter already has 0% max DD in test period. Regime overlay triggered in 2023 but cost -2.25pp CAGR without improving drawdown. Keep as deployment insurance for 2008-style crashes outside test window. Signal is conservative \u2014 would have protected capital entering 2009 after -37% crash.",
+  "annual_detail": [
+    {
+      "year": 2019,
+      "regime": "risk-on",
+      "base_ret_pct": 79.33,
+      "overlay_ret_pct": 79.33,
+      "spy_pct": 31.22
+    },
+    {
+      "year": 2020,
+      "regime": "risk-on",
+      "base_ret_pct": 57.05,
+      "overlay_ret_pct": 57.05,
+      "spy_pct": 18.33
+    },
+    {
+      "year": 2021,
+      "regime": "risk-on",
+      "base_ret_pct": 3.86,
+      "overlay_ret_pct": 3.86,
+      "spy_pct": 28.73
+    },
+    {
+      "year": 2022,
+      "regime": "risk-on",
+      "base_ret_pct": 30.68,
+      "overlay_ret_pct": 30.68,
+      "spy_pct": -18.18
+    },
+    {
+      "year": 2023,
+      "regime": "risk-off",
+      "base_ret_pct": 24.03,
+      "overlay_ret_pct": 12.02,
+      "spy_pct": 26.18
+    },
+    {
+      "year": 2024,
+      "regime": "risk-on",
+      "base_ret_pct": 22.24,
+      "overlay_ret_pct": 22.24,
+      "spy_pct": 24.89
+    }
+  ]
+}

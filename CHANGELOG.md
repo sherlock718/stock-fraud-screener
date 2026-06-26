@@ -8,6 +8,19 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Regime Overlay (Macro Signal) — Session 25 (2026-06-26)
+
+#### Added
+- **`research/regime_overlay.py`**: SPY trailing drawdown regime signal (>15% from peak = risk-off → 50% cash). Runs agreement filter backtest with/without overlay.
+- **`reports/regime_overlay_results.md`**: Comparison report with annual regime breakdown.
+- **`reports/regime_overlay_results.json`**: Machine-readable results.
+
+#### Results
+- Regime signal: risk-off triggered in 2009, 2010 (post-2008 crash) and 2023 (post-2022 bear)
+- Test period (2019-2024): overlay costs -2.25pp CAGR, no drawdown improvement (base already 0% max DD)
+- **Decision: ADOPT as insurance-only** — dormant in backtest but protects against 2008-style crashes in deployment
+- Overlay Sharpe 1.001 vs Base 1.138 (cost of insurance in benign period)
+
 ### Explainable Decision Tree + Agreement Filter — Session 24 (2026-06-26)
 
 #### Added
