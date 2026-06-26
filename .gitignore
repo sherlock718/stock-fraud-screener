@@ -46,6 +46,8 @@ models/model_meta.json
 # Reports (generated — optional to track)
 reports/*
 !reports/backtest_tearsheet_summary.md
+!reports/feature_ablation_results.md
+!reports/feature_ablation_results.json
 
 # Logs
 logs/

@@ -8,6 +8,19 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Feature Ablation Study — Session 21 (2026-06-26)
+
+#### Added
+- **`research/ablation.py`**: Feature ablation harness — drops one feature at a time from feature_sets_3y.json, re-runs walk-forward ML + composite backtest, measures Sharpe/CAGR/hit rate delta.
+- **`reports/feature_ablation_results.md`**: Ranked impact table for all 45 features.
+- **`reports/feature_ablation_results.json`**: Machine-readable ablation results.
+
+#### Results
+- 1 load-bearing feature: `value_composite` (Sharpe Δ=-0.115, acts as volatility dampener)
+- 16 prune candidates (removing improves Sharpe): top 3 are `book_to_market` (+0.121), `altman_x4` (+0.110), `value_x_momentum` (+0.102)
+- 28 neutral features (zero marginal impact)
+- Model can potentially shrink from 45 → ~25 features with improved Sharpe
+
 ### Archive Purge — Session 20 (2026-06-26)
 
 #### Removed
