@@ -31,6 +31,7 @@ import pandas as pd
 from pathlib import Path
 from scipy import stats
 from _root import ROOT
+from research.ic_engine import compute_yearly_ic
 
 BASE = ROOT
 
@@ -78,33 +79,6 @@ EXCLUDE_PATTERNS = [
     'alpha_momentum', 'alpha_value', 'alpha_growth', 'alpha_quality',
 ]
 
-# Map SIC code ranges to ~10 broad sectors for neutralization
-def _sic_to_sector(sic: pd.Series) -> pd.Series:
-    s = pd.to_numeric(sic, errors='coerce').fillna(0).astype(int)
-    sector = pd.Series('Other', index=s.index)
-    sector[s.between(100,  999)]  = 'Agriculture/Mining'
-    sector[s.between(1000, 1499)] = 'Mining/Resources'
-    sector[s.between(1500, 1999)] = 'Construction'
-    sector[s.between(2000, 3999)] = 'Manufacturing'
-    sector[s.between(4000, 4999)] = 'Utilities/Transport'
-    sector[s.between(5000, 5999)] = 'Trade'
-    sector[s.between(6000, 6799)] = 'Finance/Insurance/RE'
-    sector[s.between(7000, 7999)] = 'Services/Hospitality'
-    sector[s.between(8000, 8999)] = 'Services/Professional'
-    return sector
-
-
-def _sector_demean(values: pd.Series, sectors: pd.Series) -> pd.Series:
-    """Subtract sector median to remove sector-level factor effects."""
-    result = values.copy().astype(float)
-    for sec in sectors.unique():
-        mask = (sectors == sec) & values.notna()
-        if mask.sum() < 5:
-            continue
-        med = values[mask].median()
-        if pd.notna(med):
-            result[mask] = values[mask] - med
-    return result
 
 
 def _add_normalised_ratios(df: pd.DataFrame) -> pd.DataFrame:
@@ -158,20 +132,13 @@ def get_candidates(df: pd.DataFrame) -> list[str]:
 def compute_ic_series(df: pd.DataFrame, feature: str, ret_col: str,
                       sector_neutral: bool = False) -> list[float]:
     """Return list of annual IC values for a single factor."""
-    sub = df[df[ret_col].notna() & df[feature].notna()].copy()
-    ics = []
-    for yr in sorted(sub['fiscal_year'].unique()):
-        grp = sub[sub['fiscal_year'] == yr].copy()
-        if len(grp) < 30:
-            continue
-        feat_vals = grp[feature]
-        if sector_neutral and 'sic_code' in grp.columns:
-            sectors = _sic_to_sector(grp['sic_code'])
-            feat_vals = _sector_demean(feat_vals, sectors)
-        corr, _ = stats.spearmanr(feat_vals, grp[ret_col])
-        if not np.isnan(corr):
-            ics.append(corr)
-    return ics
+    ic_s = compute_yearly_ic(
+        df, feature, ret_col,
+        sector_neutral=sector_neutral,
+        min_obs=30,
+        sic_col_override="sic_code",
+    )
+    return ic_s.dropna().tolist()
 
 
 def compute_turnover(df: pd.DataFrame, feature: str) -> float | None:

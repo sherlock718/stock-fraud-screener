@@ -66,15 +66,20 @@ def compute_yearly_ic(
     feat: str,
     ret_col: str,
     sector_neutral: bool = True,
+    min_obs: int = 6,
+    sic_col_override: str | None = None,
 ) -> pd.Series:
     """Compute IC per fiscal year, optionally sector-neutral."""
-    sic_col = "sic_sector" if "sic_sector" in df.columns else (
-              "sic_code" if "sic_code" in df.columns else None)
+    if sic_col_override is not None:
+        sic_col = sic_col_override if sic_col_override in df.columns else None
+    else:
+        sic_col = "sic_sector" if "sic_sector" in df.columns else (
+                  "sic_code" if "sic_code" in df.columns else None)
 
     ics = {}
     for yr, grp in df.groupby("fiscal_year"):
         sub = grp[[feat, ret_col]].dropna()
-        if len(sub) < 6:
+        if len(sub) < min_obs:
             continue
         if sector_neutral and sic_col is not None:
             sub = sub.copy()

@@ -8,6 +8,12 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### IC Code Consolidation — Session 26 (2026-06-26)
+
+#### Changed
+- **`research/factor_research.py`**: Removed duplicated IC logic (`_sic_to_sector`, `_sector_demean`, inline Spearman loop). Now calls `ic_engine.compute_yearly_ic()` as single source of truth.
+- **`research/ic_engine.py`**: Added `min_obs` and `sic_col_override` parameters to `compute_yearly_ic()` for caller flexibility (backward-compatible defaults).
+
 ### Regime Overlay (Macro Signal) — Session 25 (2026-06-26)
 
 #### Added
