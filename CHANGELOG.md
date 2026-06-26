@@ -8,6 +8,13 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Archive Purge — Session 20 (2026-06-26)
+
+#### Removed
+- **`_archive/`** (118 files, 1.1 MB): dead pre-V2 code — old scripts, API stubs, docs, repomix metadata pack. Nothing imported from it.
+- **`research/archive/`** (3 notebooks): superseded by `research/notebooks/` suite (IC analysis, EDA, factor correlation, etc.)
+- **`notebooks/08_experiment_hub.ipynb`** (65 cells): references dead paths (`screener_registry.json`), fully superseded by research notebooks and backtest engine.
+
 ### Full Backtest Run — Session 19 (2026-06-26)
 
 #### Added
