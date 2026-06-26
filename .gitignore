@@ -44,7 +44,8 @@ models/*.joblib
 models/model_meta.json
 
 # Reports (generated — optional to track)
-reports/
+reports/*
+!reports/backtest_tearsheet_summary.md
 
 # Logs
 logs/

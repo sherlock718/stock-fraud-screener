@@ -8,6 +8,17 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Full Backtest Run — Session 19 (2026-06-26)
+
+#### Added
+- **reports/backtest_tearsheet_summary.md**: OOS backtest results for all 4 strategies (COMPOSITE, QEM, SCDV, IARB). Walk-forward ML, 30 bps cost, top-20 equal-weight, SPY benchmark.
+
+#### Results
+- COMPOSITE: Sharpe 1.37, CAGR +39.4%, excess +25.6% vs SPY, 88% hit rate (15 years OOS)
+- QEM: Sharpe 1.04, CAGR +20.1%, low beta (0.33)
+- SCDV: Sharpe 0.83, Sortino 9.03, only real drawdown (-7%)
+- IARB: 1 year only — insufficient for risk metrics
+
 ### Feature IC Notebook — Session 18 (2026-06-25)
 
 #### Added
