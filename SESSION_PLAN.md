@@ -17,6 +17,7 @@ Persistent session-by-session plan. Each session prompt should reference this fi
 | 24 | Agreement filter (LightGBM+Tree, t=0.35) — Sharpe 1.138, CAGR +34% | bae0eba | 2026-06-26 |
 | 25 | Regime overlay (SPY DD >15% = risk-off) — insurance-only, dormant in test | fd9116b | 2026-06-26 |
 | 26 | IC code consolidation — factor_research.py now calls ic_engine.py | 1e512ac | 2026-06-26 |
+| 27 | Pipeline spine orientation — map + lineage + risks + backlog | e807af3 | 2026-06-26 |
 
 ---
 
@@ -114,11 +115,18 @@ Split: Train 2008-2014 / Validate 2015-2018 / Test 2019-2024
 Each session produces:
 1. **What we covered** — summary of files read, architecture mapped, risks found
 2. **Quiz** — 5-8 short questions to confirm your understanding
-3. **Next-session prompt** — self-contained, ready to paste
+3. **Your backlog inputs** — after quiz, you add Critical / Parked items to `docs/architecture/BACKLOG.md`
+4. **Next-session prompt** — self-contained, ready to paste
+
+Backlog file: `docs/architecture/BACKLOG.md` — accumulates across sessions 27-30, becomes the post-orientation roadmap.
 
 ---
 
-### Session 27: Pipeline Spine (raw data → clean dataset)
+### Session 27: Pipeline Spine (raw data → clean dataset) ✓ DONE
+
+**Result:** Full pipeline map, column lineage, risk register produced. Quiz score 3/10 (concepts OK, specifics need work). Backlog: ADTV addition, FAQ file, FX handling parked.
+
+**Output:** `docs/architecture/orientation_pipeline_spine.md`, `docs/architecture/BACKLOG.md`
 
 **Focus files:**
 - `pipeline/step1_fetch_sec.py` — raw SEC EDGAR fetch
@@ -207,7 +215,7 @@ Inspect modeling/ and alpha/ packages. Produce:
 
 6. Save output to docs/architecture/orientation_modeling_alpha.md
 
-7. End with: quiz (5-8 questions), then prompt for session 29.
+7. End with: quiz (5-8 specific questions), then ask me for backlog inputs (Critical / Parked items to add to docs/architecture/BACKLOG.md), then prompt for session 29.
 ```
 
 ---
