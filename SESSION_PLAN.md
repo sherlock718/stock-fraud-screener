@@ -435,35 +435,33 @@ After: pytest, commit as `feat(modeling): unify feature sets (27 canonical) + ad
 
 ---
 
-### Session 35: Code Consolidation (EXCLUDE, _sic_to_sector, WF loop)
+### Session 35: Code Consolidation (EXCLUDE sets + load_data)
 
-**Items:** Parked #14 (key parts)
+**Items:** Parked #14 (EXCLUDE only), Parked #23 (load_data)
 
-**Scope:** Extract shared code into single-source modules.
+**Scope:** Consolidate the two duplications that have real leakage/drift risk. Skip abstractions a solo dev doesn't need (WF loop extraction, _sic_to_sector — Claude can update both copies inline).
 
 **Prompt:**
 ```
 Session 35: Code Consolidation
 
-Read SESSION_PLAN.md first. Execution session — deduplicate shared code.
+Read SESSION_PLAN.md first. Execution session — consolidate code with real drift risk.
 
-Three consolidation tasks:
+Two tasks (skip abstractions that don't help a solo maintainer):
 
 1. EXCLUDE_COLS/PATTERNS → modeling/constants.py
    - Currently defined in backtest/engine.py, research/factor_research.py, modeling/train.py
    - Create modeling/constants.py with canonical EXCLUDE_COLS and EXCLUDE_PATTERNS
    - Update all 3 consumers to import from there
+   - WHY: if these diverge, features leak into ML training = contaminated model
 
-2. _sic_to_sector() → pipeline/feature_library.py (or modeling/constants.py)
-   - Duplicated in backtest/engine.py and research/ic_engine.py
-   - Move to one canonical location, import from both
+2. Consolidate load_data() → modeling/constants.py (or modeling/data_loader.py)
+   - Duplicated across train.py, score_oof.py, run_feature_selection.py with minor differences
+   - Single shared function prevents silent drift in data loading logic
 
-3. Walk-forward scoring loop → modeling/walk_forward.py
-   - Extract the common WF training loop from backtest/engine.py into a standalone function
-   - Signature: wf_score(df, features, target, model_factory, min_train_years=5) → predictions Series
-   - Update engine.py to call it. Leave research scripts for now (they can be migrated in a future session).
+DO NOT extract: walk-forward loop (4 copies work fine, Claude updates all at once), _sic_to_sector (15 lines in 2 files, trivial to keep in sync).
 
-After: pytest, commit as `refactor(modeling): consolidate EXCLUDE, _sic_to_sector, WF loop`. Push.
+After: pytest, commit as `refactor(modeling): consolidate EXCLUDE sets + load_data`. Push.
 ```
 
 ---
@@ -528,7 +526,7 @@ After: pytest, commit as `feat(alpha,backtest): IC validation per factor + ACWI 
 
 **Items:** Critical #12
 
-**Scope:** Simplify strategy to ML probability + agreement filter + hard gates only.
+**Scope:** Add a `mode='ml_gates'` parameter to existing filter_composite(). No new files.
 
 **Prompt:**
 ```
@@ -539,50 +537,49 @@ Read SESSION_PLAN.md first. Execution session — architecture simplification.
 Current: filter_composite() manually blends value/quality/ML/momentum/fraud_risk at hand-picked weights (25/20/30/15/10).
 Problem: ML already learned the optimal blend. Manual weights compete with learned weights.
 
-New architecture:
+New architecture (mode='ml_gates'):
 - Ranking signal: ml_3y_oof probability (single number)
 - Agreement filter: tree_prob >= 0.35 (existing, kept)
 - Hard gates only: Beneish M < -1.78, market_cap >= MIN, not delisted, Piotroski >= 3
 - No soft score blending
 
 Implementation:
-1. Create `backtest/strategy_ml_gates.py` with the new filter function
-2. Add it as a strategy option in engine.py (alongside existing strategies which stay for comparison)
-3. Run walk-forward backtest with new strategy
-4. Report Sharpe/CAGR/hit_rate vs old filter_composite
+1. Add `mode` parameter to filter_composite() in backtest/engine.py: 'blended' (current default) vs 'ml_gates' (new)
+2. When mode='ml_gates': skip weight blending, rank by ml_3y_oof only, apply hard gates
+3. Run walk-forward backtest with mode='ml_gates'
+4. Report Sharpe/CAGR/hit_rate vs mode='blended' in commit message
 
-Do NOT delete filter_composite — keep it for comparison. The new strategy is additive.
+NO new files. Just a mode param on the existing function.
 
-After: pytest, commit as `feat(backtest): add ML-only + gates strategy (no manual weight blend)`. Push.
+After: pytest, commit as `feat(backtest): add ml_gates mode to filter_composite (no manual weight blend)`. Push.
 ```
 
 ---
 
-### Session 39: Walk-Forward Feature Selection + Expand Val
+### Session 39: Expand Validation Set
 
-**Items:** Critical #7 + #8
+**Items:** Critical #8 (Critical #7 dropped — session 22 proved feature stability, WF selection is over-engineering for solo dev)
 
-**Scope:** Make feature selection per-fold; widen validation window.
+**Scope:** Widen validation window from 1 year to 3 years. Simple config change.
 
 **Prompt:**
 ```
-Session 39: Walk-Forward Feature Selection + Expand Validation
+Session 39: Expand Validation Set (2021-2023)
 
 Read SESSION_PLAN.md first. Execution session.
 
-Part 1 — Walk-forward feature selection:
-- Current: run_feature_selection.py selects features ONCE on all training data
-- Fix: modify to select features per walk-forward fold (re-run IC/ICIR/PSI within each training window)
-- Output: per-fold feature sets + a "stable features" summary (features selected in >80% of folds)
-- Save to models/feature_sets_wf_{h}.json
+Current: val is only 2023 (1 year, ~800 rows). Optuna/calibration could overfit to one year's market regime.
+Fix: val = 2021-2023 (3 years, ~2400 rows).
 
-Part 2 — Expand validation set:
-- Current: val is only 2023 (1 year, ~800 rows)
-- Change: val = 2021-2023 (3 years, ~2400 rows)
-- Update modeling/train.py train/val split logic
-- Re-run tune.py if Optuna config exists, else just document the change
+Steps:
+1. Update modeling/train.py train/val split logic: val_years = [2021, 2022, 2023]
+2. Re-run model training to confirm AUC doesn't degrade with wider val
+3. If Optuna tune.py exists, update its val window too
+4. Report: new val AUC vs old val AUC
 
-After: pytest, report if stable feature count differs from current 27. Commit as `feat(modeling): walk-forward feature selection + expanded validation (2021-2023)`. Push.
+NOTE: Walk-forward feature selection (Critical #7) is DROPPED from execution plan. Session 22 already proved the 27 features are temporally stable (50% Jaccard across shifted windows). Re-selecting per fold adds complexity a solo dev doesn't need. If stability degrades in future, revisit then.
+
+After: pytest, commit as `feat(modeling): expand validation set to 2021-2023 (3 years)`. Push.
 ```
 
 ---
@@ -646,11 +643,13 @@ After: pytest, commit as `feat(portfolio): parameterize ADTV by AUM + add FAQ`. 
 
 ### Post-Session 41
 
-After completing all Critical items, reassess Parked list. Likely next:
-- Parked #14 remaining parts (strategy filter extraction)
+All Critical items addressed except #7 (WF feature selection — intentionally dropped, proven unnecessary by session 22 GATE). Reassess Parked list. Likely next:
 - Parked #11 (automated retraining trigger)
 - Parked #13 (portfolio mode toggle)
+- Parked #22 (alpha factor NaN warning — natural fit with session 37 if not done there)
 - Commercialization prep (API, frontend, pricing)
+
+**Tracking at session close:** Move completed items from BACKLOG.md Critical/Parked → Completed section.
 
 ---
 
