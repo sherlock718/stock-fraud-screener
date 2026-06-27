@@ -18,6 +18,8 @@ Persistent session-by-session plan. Each session prompt should reference this fi
 | 25 | Regime overlay (SPY DD >15% = risk-off) — insurance-only, dormant in test | fd9116b | 2026-06-26 |
 | 26 | IC code consolidation — factor_research.py now calls ic_engine.py | 1e512ac | 2026-06-26 |
 | 27 | Pipeline spine orientation — map + lineage + risks + backlog | e807af3 | 2026-06-26 |
+| 28 | Modeling + alpha orientation — scoring, OOF, alpha factors, backlog | e367b63 | 2026-06-26 |
+| 29 | Research + backtest orientation — engine internals, validation chain, risk register | 673426e | 2026-06-28 |
 
 ---
 
