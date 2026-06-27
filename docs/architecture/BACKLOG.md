@@ -22,6 +22,10 @@ Priority is owner's judgment, not urgency.
 | 11 | Filing date rebalance timing | Session 29 | Backtest assumes all filings available Jan 1 of holding year. Actual 10-K filings arrive Mar-Jun. Should use `filed_date` as earliest eligible trade date per stock, or shift holding period to start after median filing month. |
 | 12 | Remove composite weight blend — rank by ML only | Session 29 | `filter_composite()` manually blends value/quality/ML at hand-picked weights (25/20/30/15/10). Redundant — ML already learned the optimal blend from data. Replace with: ML probability as sole ranking signal + agreement filter (tree gate) + hard safety gates only (Beneish, market cap, not-delisted, Piotroski floor). Current hybrid architecture has manual weights competing with learned weights. |
 
+| 13 | Unit tests for quality/ scripts (CI gates have 0 test coverage) | Session 30 | check_data and test_dataset_quality are mandatory CI gates but have zero automated tests verifying their own logic. A bug in these scripts = bad data silently passes. |
+| 14 | Unit tests for alpha/factors and backtest/engine | Session 30 | Factor computation, walk-forward logic, Kelly sizing, and position caps are all untested. Core correctness risk. |
+| 15 | Fix undefined BASE in workflows/run_pipeline_br.py | Session 30 | Uses BASE before import from _root.py. Would crash if actually executed. Trivial fix. |
+
 ---
 
 ## Parked for Later (nice-to-have, not blocking)
@@ -46,6 +50,8 @@ Priority is owner's judgment, not urgency.
 | 16 | Economic rationale registry for features | Session 29 | Each surviving feature should map to a theoretical justification (why it predicts returns). Features without economic story get flagged. For future new features: integrate as automated gate in feature selection pipeline — lookup against registry, flag unmatched features for manual review before production entry. |
 | 17 | Forward return survivorship in price data | Session 29 | Delisted stocks disappear from price data, biasing forward_return_1y upward. Fix requires survivorship-free price database (CRSP = expensive). Partial mitigation: flag tickers that disappear from next year's data and impute worst-case return. |
 | 18 | Quarterly data integration | Session 29 | Currently one data point per company per year (annual filing). Quarterly filings could provide earlier signals and enable intra-year rebalancing. Major pipeline change — only pursue after annual model is production-ready. |
+| 19 | Activate fraud/ package (extract from pipeline/) | Session 30 | `fraud/taxonomy.py` is a stub (NotImplementedError). All fraud logic lives in `pipeline/enrich_fraud_taxonomy.py`. Extract when taxonomy needs to be extended or reused. |
+| 20 | CI non-fatal steps should alert on failure | Session 30 | factor_research and feature_selection failures are swallowed with `|| echo`. Should at least produce a GitHub annotation so regressions are visible. |
 
 ---
 

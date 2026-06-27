@@ -8,6 +8,13 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Quality + Orchestration Orientation — Session 30 (2026-06-28)
+
+#### Added
+- **`docs/architecture/orientation_quality_orchestration.md`**: Final orientation covering quality checks inventory (8 scripts), workflow/CI map (3 workflows + 6 local orchestrators), test coverage gaps, cross-package dependency graph, support package map (fraud/, portfolio/, data_io/), consolidated risk register (23 items ranked across all sessions), and priority-ordered refactor backlog.
+- **`docs/architecture/BACKLOG.md`**: Added Critical #13-15 (quality test coverage, alpha/backtest tests, pipeline_br bug), Parked #19-20 (fraud package activation, CI alert improvement).
+- Marked orientation phase (sessions 27-30) COMPLETE in SESSION_PLAN.md.
+
 ### Research + Backtest Orientation — Session 29 (2026-06-27)
 
 #### Added
