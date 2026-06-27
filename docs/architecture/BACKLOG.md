@@ -45,14 +45,9 @@ Priority is owner's judgment, not urgency.
 | 16 | Economic rationale registry for features | Session 29 | Each surviving feature should map to a theoretical justification (why it predicts returns). Features without economic story get flagged. For future new features: integrate as automated gate in feature selection pipeline — lookup against registry, flag unmatched features for manual review before production entry. |
 | 17 | Forward return survivorship in price data | Session 29 | Delisted stocks disappear from price data, biasing forward_return_1y upward. Fix requires survivorship-free price database (CRSP = expensive). Partial mitigation: flag tickers that disappear from next year's data and impute worst-case return. |
 | 18 | Quarterly data integration | Session 29 | Currently one data point per company per year (annual filing). Quarterly filings could provide earlier signals and enable intra-year rebalancing. Major pipeline change — only pursue after annual model is production-ready. |
+| 19 | Simplify strategy filters to safety-gates-only | Session 29 | Current `filter_composite()` blends value/quality/ML at hand-picked weights (25/20/30/15/10). Redundant — ML already learned the optimal blend. Future: filter should ONLY apply hard gates (Beneish, market cap, not-delisted, Piotroski floor). Ranking should come from ML probability + agreement filter. Not causing wrong results today (Sharpe 1.138) but architecturally confused. Priority-1 refactor when entering that phase. |
 
 ---
-
-## Architecture (post-orientation refactor)
-
-| # | Item | Discovered | Context |
-|---|------|-----------|---------|
-| 1 | Simplify strategy filters to safety-gates-only | Session 29 | Current `filter_composite()` manually blends value/quality/ML at fixed weights (25/20/30/15/10). This is redundant — ML already learned the optimal blend from data. Future: strategy filter should ONLY apply hard safety gates (Beneish, market cap, not-delisted, Piotroski floor). Stock ranking should come purely from ML probability + agreement filter (tree gate). The fixed-weight blend is a historical artifact from before ML was validated. |
 
 ---
 
