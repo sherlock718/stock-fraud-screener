@@ -9,7 +9,7 @@ Priority is owner's judgment, not urgency.
 
 | # | Item | Discovered | Context |
 |---|------|-----------|---------|
-| 1 | ADTV feature addition to step3 | Session 27 | Volume data is free (yfinance), already fetched but not persisted. Without it, can't filter illiquid stocks. |
+| 1 | ADTV filter: parameterize by AUM + use median not mean | Session 27/29 | Current $1M ADTV floor is institutional (assumes $1M AUM). Retail with $50-200K needs much lower threshold. Use **median** daily volume (not mean) to avoid single-day block-trade spikes. Alternative: 20th percentile of trailing 30 days. Make AUM a config parameter that auto-scales the liquidity filter. |
 | 2 | FAQ / key facts file | Session 27 | Quick-reference for LLM and human. Company count, feature count, pipeline flow, thresholds. Reduces re-audit cost. |
 | 3 | Unify divergent feature sets (pick 27 pruned as canonical) | Session 28 | `feature_sets_3y.json` (45) vs `feature_sets_pruned.json` (27). OOF scoring uses 45, backtest uses 27. Pruned performed better (Sharpe 1.124 > 0.954). One canonical set per horizon needed. |
 | 4 | Retrain decision tree on production split (2008-2022) | Session 28 | Tree currently trained on 2008-2018 only. Should match LightGBM's training window for consistency. Rules may change. |
@@ -17,6 +17,9 @@ Priority is owner's judgment, not urgency.
 | 6 | Validate alpha factors with IC analysis | Session 28 | Alpha factors are the customer-facing explainability layer. If any factor has near-zero IC against forward returns, it's misleading to show it. Run IC per factor, remove or downweight factors that don't predict. |
 | 7 | Walk-forward feature selection for production pipeline | Session 28 | Current `run_feature_selection.py` selects once on full training data. Should re-select per fold to prevent selection bias. Already validated in session 22 GATE but production pipeline takes shortcut. |
 | 8 | Expand validation set or use WF AUC for tuning | Session 28 | Val is only 2023 (1 year, ~800 rows). Optuna/calibration could overfit to one year's market regime. Options: expand val to 2021-2023, or use walk-forward mean AUC as Optuna objective instead of single-year val AUC. |
+| 9 | Survivorship bias: change default to impute or flag | Session 29 | Default behavior is DROP stocks with missing forward_return_1y. This is optimistic — missing stocks are often delisted (worst outcome). Should either default to impute -50% return, or at minimum require explicit `--accept-survivorship` flag. |
+| 10 | Fix benchmark for non-US strategies (iarb) | Session 29 | iarb selects non-US stocks but benchmarks against SPY (US-only S&P 500). Excess return claims are meaningless. Need MSCI ACWI or per-market local index as benchmark. |
+| 11 | Filing date rebalance timing | Session 29 | Backtest assumes all filings available Jan 1 of holding year. Actual 10-K filings arrive Mar-Jun. Should use `filed_date` as earliest eligible trade date per stock, or shift holding period to start after median filing month. |
 
 ---
 
@@ -36,6 +39,11 @@ Priority is owner's judgment, not urgency.
 | 10 | Document regression model vs classifier relationship | Session 28 | Two models answer different questions (probability vs magnitude). Not a bug but needs clear documentation for users. |
 | 11 | Add automated retraining trigger in CI | Session 28 | Models manually retrained. No job checks data freshness. Needed for productionization. |
 | 12 | Sweep agreement threshold 0.50–0.80 | Session 28 | Higher threshold = fewer picks, higher Sharpe, lower CAGR. Check if 0.6-0.8 gives acceptable CAGR (>20%) with very high selectivity. Report n_picks/CAGR/Sharpe tradeoff. |
+| 13 | Portfolio construction mode toggle | Session 29 | Two modes: (a) **Concentrated** (top 5-10, equal-weight, no sector cap) for unleveraged Dhando-style investing. (b) **Diversified** (top 20, inverse-vol, position+sector caps) auto-activated when `leverage_multiplier > 1.0`. Leverage param IS the switch — no separate config needed. |
+| 14 | Time-varying risk-free rate | Session 29 | RISK_FREE=0.03 constant distorts Sharpe in zero-rate era (2009-2022). Load from Treasury 1y CSV, use matched rate per year. Doesn't affect stock selection, only reporting accuracy. |
+| 15 | Economic rationale registry for features | Session 29 | Each surviving feature should map to a theoretical justification (why it predicts returns). Features without economic story get flagged. For future new features: integrate as automated gate in feature selection pipeline — lookup against registry, flag unmatched features for manual review before production entry. |
+| 16 | Forward return survivorship in price data | Session 29 | Delisted stocks disappear from price data, biasing forward_return_1y upward. Fix requires survivorship-free price database (CRSP = expensive). Partial mitigation: flag tickers that disappear from next year's data and impute worst-case return. |
+| 17 | Quarterly data integration | Session 29 | Currently one data point per company per year (annual filing). Quarterly filings could provide earlier signals and enable intra-year rebalancing. Major pipeline change — only pursue after annual model is production-ready. |
 
 ---
 
