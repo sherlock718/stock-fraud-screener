@@ -321,13 +321,336 @@ Inspect fraud/, quality/, portfolio/, data_io/, workflows/. Produce:
 
 ---
 
-### Session 31+: Post-Orientation (TBD after sessions 27-30)
+## Execution Phase (Sessions 31–41)
 
-Decided after orientation phase completes. Likely candidates:
-- Architecture cleanup (execute refactor candidates from orientation)
-- API/productionization
-- Scheduled refresh pipeline
-- Commercialization prep
+> **Rule: One commit per session. Run pytest after changes. Push to remote.**
+> Backlog reference: `docs/architecture/BACKLOG.md`
+
+### Session 31: Trivial Bug Fixes
+
+**Items:** Critical #15 (BASE in run_pipeline_br.py), Parked #9 (BASE in score_oof.py), Parked #25 (archive dead jp_free file)
+
+**Scope:** 3 one-line fixes + 1 file deletion. No logic changes.
+
+**Prompt:**
+```
+Session 31: Trivial Bug Fixes
+
+Read SESSION_PLAN.md first. Execution session — small, safe fixes.
+
+Fix these 3 bugs (all trivial, no logic changes):
+1. workflows/run_pipeline_br.py — uses BASE before `from _root import ROOT`. Move ROOT import + BASE assignment above first use.
+2. modeling/score_oof.py — line 44 uses BASE before line 52 defines it. Move `BASE = ROOT` above `DATA_PATH`.
+3. Delete pipeline/step1_fetch_tickers_jp_free.py if it exists (dead file, unused variant).
+
+After fixes: run `pytest tests/ -x` to confirm nothing broke. Commit, push.
+```
+
+---
+
+### Session 32: Unit Tests for quality/ Scripts
+
+**Items:** Critical #13
+
+**Scope:** Write tests for `check_data.py` and `test_dataset_quality.py` using synthetic in-memory data (same pattern as `tests/test_pipeline.py`).
+
+**Prompt:**
+```
+Session 32: Unit Tests for Quality Scripts
+
+Read SESSION_PLAN.md first. Execution session — add test coverage for CI gates.
+
+quality/check_data.py and quality/test_dataset_quality.py are MANDATORY CI gates with zero unit tests.
+Write tests/test_quality.py following the existing pattern in tests/test_pipeline.py (synthetic in-memory data, no disk I/O).
+
+Test strategy:
+- Build a minimal synthetic DataFrame matching pipeline schema (~30 rows)
+- Test that passing data passes all checks (happy path)
+- Test that broken data (nulls, out-of-range, missing columns) fails correctly
+- Test edge cases: empty dataframe, single row, all-NaN column
+
+Target: 10-15 test functions covering the most critical check categories (schema, structural, value ranges, forward return caps, growth winsorization).
+
+After: run `pytest tests/ -x`. Commit as `test(quality): add unit tests for CI gate scripts`. Push.
+```
+
+---
+
+### Session 33: Unit Tests for Alpha + Backtest
+
+**Items:** Critical #14
+
+**Scope:** Write tests for `alpha/factors/*.py` (compute functions) and `backtest/engine.py` (core WF logic).
+
+**Prompt:**
+```
+Session 33: Unit Tests for Alpha Factors + Backtest Engine
+
+Read SESSION_PLAN.md first. Execution session — test coverage for core scoring logic.
+
+Write tests/test_alpha_factors.py and tests/test_backtest_engine.py.
+
+Alpha tests (tests/test_alpha_factors.py):
+- Each factor's compute() function with synthetic data
+- Verify output is Series of float in [0,1] range (percentile ranks)
+- Verify NaN handling (all-NaN input → NaN output, partial NaN → still computes)
+- Verify composite weights sum to 1.0
+
+Backtest tests (tests/test_backtest_engine.py):
+- Test run_backtest() with synthetic 5-ticker, 5-year data
+- Verify annual returns are computed correctly
+- Verify position sizing respects MAX_POSITION_WEIGHT
+- Verify sector cap respects MAX_SECTOR_WEIGHT
+- Test edge case: fewer stocks than top_n
+
+Use synthetic data only (same pattern as test_pipeline.py). After: pytest, commit as `test(alpha,backtest): add unit tests for factor computation and WF engine`. Push.
+```
+
+---
+
+### Session 34: Unify Feature Sets + Model Staleness Check
+
+**Items:** Critical #3 + #5
+
+**Scope:** Pick 27-feature pruned set as canonical. Add CI staleness warning.
+
+**Prompt:**
+```
+Session 34: Unify Feature Sets + Model Staleness Check
+
+Read SESSION_PLAN.md first. Execution session.
+
+Part 1 — Unify feature sets:
+- Read models/feature_sets_pruned.json (27 features, Sharpe 1.124) and models/feature_sets_3y.json (45 features, Sharpe 0.954)
+- The 27-feature pruned set is CANONICAL (proven better). Make score_oof.py, train.py, and any other consumer load from feature_sets_pruned.json for the 3y horizon.
+- For other horizons (1y, 5y): keep their existing feature_sets_{h}.json unchanged.
+- Document the decision in a comment at the load site.
+
+Part 2 — Model staleness check:
+- Create quality/check_model_staleness.py: compares mtime of models/model_meta.json vs data/historical_dataset_clean.parquet. Warns (exit 0) if model is older than data. Fails (exit 1) with --strict.
+- Add to refresh_data.yml as a non-fatal step after ML scoring.
+
+After: pytest, commit as `feat(modeling): unify feature sets (27 canonical) + add staleness check`. Push.
+```
+
+---
+
+### Session 35: Code Consolidation (EXCLUDE, _sic_to_sector, WF loop)
+
+**Items:** Parked #14 (key parts)
+
+**Scope:** Extract shared code into single-source modules.
+
+**Prompt:**
+```
+Session 35: Code Consolidation
+
+Read SESSION_PLAN.md first. Execution session — deduplicate shared code.
+
+Three consolidation tasks:
+
+1. EXCLUDE_COLS/PATTERNS → modeling/constants.py
+   - Currently defined in backtest/engine.py, research/factor_research.py, modeling/train.py
+   - Create modeling/constants.py with canonical EXCLUDE_COLS and EXCLUDE_PATTERNS
+   - Update all 3 consumers to import from there
+
+2. _sic_to_sector() → pipeline/feature_library.py (or modeling/constants.py)
+   - Duplicated in backtest/engine.py and research/ic_engine.py
+   - Move to one canonical location, import from both
+
+3. Walk-forward scoring loop → modeling/walk_forward.py
+   - Extract the common WF training loop from backtest/engine.py into a standalone function
+   - Signature: wf_score(df, features, target, model_factory, min_train_years=5) → predictions Series
+   - Update engine.py to call it. Leave research scripts for now (they can be migrated in a future session).
+
+After: pytest, commit as `refactor(modeling): consolidate EXCLUDE, _sic_to_sector, WF loop`. Push.
+```
+
+---
+
+### Session 36: Survivorship Fix + Filing-Date Rebalance
+
+**Items:** Critical #9 + #11
+
+**Scope:** Change backtest defaults to honest behavior.
+
+**Prompt:**
+```
+Session 36: Survivorship Fix + Filing-Date Rebalance Timing
+
+Read SESSION_PLAN.md first. Execution session — backtest correctness.
+
+Part 1 — Survivorship (backtest/engine.py):
+- Change default behavior: instead of DROP rows with missing forward_return_1y, IMPUTE -50% return for stocks that disappear from the dataset next year.
+- Add parameter `survivorship_mode='impute'` (options: 'impute', 'drop', 'flag_only')
+- Default = 'impute'. The -50% value already exists as `fill_missing_return` param.
+
+Part 2 — Filing-date rebalance (backtest/engine.py):
+- Current: assumes all filings available Jan 1 of holding year
+- Fix: only include stocks whose filed_date < holding_year Jan 1 in that year's portfolio
+- Stocks filing later become eligible in the NEXT year's portfolio
+- This means: filter `df[df['filed_date'] < f'{holding_year}-01-01']` before scoring
+
+After BOTH changes: re-run the walk-forward backtest to get updated Sharpe. Report new vs old metrics in commit message. pytest, commit as `fix(backtest): honest survivorship imputation + filing-date rebalance gate`. Push.
+```
+
+---
+
+### Session 37: Alpha IC Validation + Non-US Benchmark
+
+**Items:** Critical #6 + #10
+
+**Scope:** Validate each alpha factor predicts returns; add proper benchmark for iarb.
+
+**Prompt:**
+```
+Session 37: Alpha Factor IC Validation + Non-US Benchmark
+
+Read SESSION_PLAN.md first. Execution session.
+
+Part 1 — Alpha factor IC validation:
+- For each of the 5 alpha factors (value, quality, momentum, growth, fraud_risk): compute cross-sectional Spearman IC against forward_return_1y, yearly, then report mean IC and ICIR.
+- Use research/ic_engine.py (already has the machinery).
+- Save results to reports/alpha_factor_ic.csv
+- If any factor has |mean IC| < 0.02: flag it in the report. Do NOT auto-remove — just report.
+
+Part 2 — Non-US benchmark:
+- In backtest/engine.py, add benchmark option: 'spy' (default for US), 'acwi' (for non-US/iarb)
+- Create data_io/fetch_acwi_returns.py to download ACWI ETF (ticker: ACWI) annual returns via yfinance
+- Update iarb strategy filter to use acwi benchmark when market != 'US'
+
+After: pytest, commit as `feat(alpha,backtest): IC validation per factor + ACWI benchmark for non-US`. Push.
+```
+
+---
+
+### Session 38: Remove Composite Weight Blend → ML-Only + Gates
+
+**Items:** Critical #12
+
+**Scope:** Simplify strategy to ML probability + agreement filter + hard gates only.
+
+**Prompt:**
+```
+Session 38: Simplify Strategy — ML-Only Ranking + Hard Gates
+
+Read SESSION_PLAN.md first. Execution session — architecture simplification.
+
+Current: filter_composite() manually blends value/quality/ML/momentum/fraud_risk at hand-picked weights (25/20/30/15/10).
+Problem: ML already learned the optimal blend. Manual weights compete with learned weights.
+
+New architecture:
+- Ranking signal: ml_3y_oof probability (single number)
+- Agreement filter: tree_prob >= 0.35 (existing, kept)
+- Hard gates only: Beneish M < -1.78, market_cap >= MIN, not delisted, Piotroski >= 3
+- No soft score blending
+
+Implementation:
+1. Create `backtest/strategy_ml_gates.py` with the new filter function
+2. Add it as a strategy option in engine.py (alongside existing strategies which stay for comparison)
+3. Run walk-forward backtest with new strategy
+4. Report Sharpe/CAGR/hit_rate vs old filter_composite
+
+Do NOT delete filter_composite — keep it for comparison. The new strategy is additive.
+
+After: pytest, commit as `feat(backtest): add ML-only + gates strategy (no manual weight blend)`. Push.
+```
+
+---
+
+### Session 39: Walk-Forward Feature Selection + Expand Val
+
+**Items:** Critical #7 + #8
+
+**Scope:** Make feature selection per-fold; widen validation window.
+
+**Prompt:**
+```
+Session 39: Walk-Forward Feature Selection + Expand Validation
+
+Read SESSION_PLAN.md first. Execution session.
+
+Part 1 — Walk-forward feature selection:
+- Current: run_feature_selection.py selects features ONCE on all training data
+- Fix: modify to select features per walk-forward fold (re-run IC/ICIR/PSI within each training window)
+- Output: per-fold feature sets + a "stable features" summary (features selected in >80% of folds)
+- Save to models/feature_sets_wf_{h}.json
+
+Part 2 — Expand validation set:
+- Current: val is only 2023 (1 year, ~800 rows)
+- Change: val = 2021-2023 (3 years, ~2400 rows)
+- Update modeling/train.py train/val split logic
+- Re-run tune.py if Optuna config exists, else just document the change
+
+After: pytest, report if stable feature count differs from current 27. Commit as `feat(modeling): walk-forward feature selection + expanded validation (2021-2023)`. Push.
+```
+
+---
+
+### Session 40: Retrain Decision Tree on Production Split
+
+**Items:** Critical #4
+
+**Scope:** Retrain depth-4 tree on 2008-2022 window (matching LightGBM).
+
+**Prompt:**
+```
+Session 40: Retrain Decision Tree (2008-2022)
+
+Read SESSION_PLAN.md first. Execution session.
+
+Current: decision tree trained on 2008-2018 only (from session 24 research).
+Fix: retrain on 2008-2022 (production training window) using the canonical 27 pruned features.
+
+Steps:
+1. Load historical_dataset_clean.parquet, filter to train period 2008-2022
+2. Train depth-4 DecisionTreeClassifier on beat_local_market_1y target (same as session 24)
+3. Extract human-readable rules → models/decision_tree_rules.json (overwrite)
+4. Re-run agreement filter threshold sweep (0.30-0.50) on test period 2023-2024
+5. Report: did rules change? Did optimal threshold change? New Sharpe/CAGR?
+6. Save updated tree model
+
+After: pytest, commit as `feat(modeling): retrain decision tree on 2008-2022 production window`. Push.
+```
+
+---
+
+### Session 41: ADTV Filter + FAQ File
+
+**Items:** Critical #1 + #2
+
+**Scope:** Parameterize liquidity filter; write quick-reference FAQ.
+
+**Prompt:**
+```
+Session 41: ADTV Filter Parameterization + FAQ File
+
+Read SESSION_PLAN.md first. Execution session — product readiness.
+
+Part 1 — ADTV filter (backtest/engine.py or portfolio/build_portfolio.py):
+- Current: hardcoded $1M ADTV floor (institutional assumption)
+- Fix: add `aum_target` parameter (default $200K for retail)
+- Formula: min_adtv = aum_target * 0.01 (can't be >1% of daily volume)
+- Use MEDIAN daily volume (not mean) over trailing 30 days to avoid block-trade spikes
+- Update backtest to use new filter
+
+Part 2 — FAQ file:
+- Create docs/FAQ.md (NOT a README, a quick-reference for LLM and human operators)
+- Content: company count, feature count (27 canonical), pipeline steps (1-6), key thresholds (PSI 0.25, IC 0.02, Beneish -1.78, tree 0.35), model horizons (1y/3y/5y), data source (SEC EDGAR), update frequency (weekly CI)
+- Keep it under 50 lines
+
+After: pytest, commit as `feat(portfolio): parameterize ADTV by AUM + add FAQ`. Push.
+```
+
+---
+
+### Post-Session 41
+
+After completing all Critical items, reassess Parked list. Likely next:
+- Parked #14 remaining parts (strategy filter extraction)
+- Parked #11 (automated retraining trigger)
+- Parked #13 (portfolio mode toggle)
+- Commercialization prep (API, frontend, pricing)
 
 ---
 

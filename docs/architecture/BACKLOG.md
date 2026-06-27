@@ -52,6 +52,11 @@ Priority is owner's judgment, not urgency.
 | 18 | Quarterly data integration | Session 29 | Currently one data point per company per year (annual filing). Quarterly filings could provide earlier signals and enable intra-year rebalancing. Major pipeline change — only pursue after annual model is production-ready. |
 | 19 | Activate fraud/ package (extract from pipeline/) | Session 30 | `fraud/taxonomy.py` is a stub (NotImplementedError). All fraud logic lives in `pipeline/enrich_fraud_taxonomy.py`. Extract when taxonomy needs to be extended or reused. |
 | 20 | CI non-fatal steps should alert on failure | Session 30 | factor_research and feature_selection failures are swallowed with `|| echo`. Should at least produce a GitHub annotation so regressions are visible. |
+| 21 | Extract model hyperparams to config file | Session 28 | n_estimators=600, max_depth=6 hardcoded in train.py, score_oof.py, tune.py. One config file prevents drift. |
+| 22 | Validate alpha factor signal presence (warn on NaN) | Session 28 | Alpha factors silently return NaN if all signals missing. Should log warning loudly. |
+| 23 | Consolidate load_data() duplication | Session 28 | Duplicated across train.py, score_oof.py, run_feature_selection.py with minor differences. Single shared loader prevents drift. |
+| 24 | Strategy filters to separate module | Session 29 | `filter_composite/qem/scdv/iarb` live in backtest/engine.py but imported by research scripts. Move to `portfolio/strategies.py` to decouple. |
+| 25 | Archive dead file step1_fetch_tickers_jp_free.py | Session 27 | Unused variant of JP pipeline without paid API. Clutters pipeline directory. |
 
 ---
 
