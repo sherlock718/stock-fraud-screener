@@ -48,6 +48,14 @@ Priority is owner's judgment, not urgency.
 
 ---
 
+## Architecture (post-orientation refactor)
+
+| # | Item | Discovered | Context |
+|---|------|-----------|---------|
+| 1 | Simplify strategy filters to safety-gates-only | Session 29 | Current `filter_composite()` manually blends value/quality/ML at fixed weights (25/20/30/15/10). This is redundant — ML already learned the optimal blend from data. Future: strategy filter should ONLY apply hard safety gates (Beneish, market cap, not-delisted, Piotroski floor). Stock ranking should come purely from ML probability + agreement filter (tree gate). The fixed-weight blend is a historical artifact from before ML was validated. |
+
+---
+
 ## Ideas (unvalidated, revisit after session 30)
 
 | # | Item | Discovered | Context |
