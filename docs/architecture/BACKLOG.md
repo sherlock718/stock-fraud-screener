@@ -20,6 +20,7 @@ Priority is owner's judgment, not urgency.
 | 9 | Survivorship bias: change default to impute or flag | Session 29 | Default behavior is DROP stocks with missing forward_return_1y. This is optimistic — missing stocks are often delisted (worst outcome). Should either default to impute -50% return, or at minimum require explicit `--accept-survivorship` flag. |
 | 10 | Fix benchmark for non-US strategies (iarb) | Session 29 | iarb selects non-US stocks but benchmarks against SPY (US-only S&P 500). Excess return claims are meaningless. Need MSCI ACWI or per-market local index as benchmark. |
 | 11 | Filing date rebalance timing | Session 29 | Backtest assumes all filings available Jan 1 of holding year. Actual 10-K filings arrive Mar-Jun. Should use `filed_date` as earliest eligible trade date per stock, or shift holding period to start after median filing month. |
+| 12 | Remove composite weight blend — rank by ML only | Session 29 | `filter_composite()` manually blends value/quality/ML at hand-picked weights (25/20/30/15/10). Redundant — ML already learned the optimal blend from data. Replace with: ML probability as sole ranking signal + agreement filter (tree gate) + hard safety gates only (Beneish, market cap, not-delisted, Piotroski floor). Current hybrid architecture has manual weights competing with learned weights. |
 
 ---
 
@@ -45,7 +46,6 @@ Priority is owner's judgment, not urgency.
 | 16 | Economic rationale registry for features | Session 29 | Each surviving feature should map to a theoretical justification (why it predicts returns). Features without economic story get flagged. For future new features: integrate as automated gate in feature selection pipeline — lookup against registry, flag unmatched features for manual review before production entry. |
 | 17 | Forward return survivorship in price data | Session 29 | Delisted stocks disappear from price data, biasing forward_return_1y upward. Fix requires survivorship-free price database (CRSP = expensive). Partial mitigation: flag tickers that disappear from next year's data and impute worst-case return. |
 | 18 | Quarterly data integration | Session 29 | Currently one data point per company per year (annual filing). Quarterly filings could provide earlier signals and enable intra-year rebalancing. Major pipeline change — only pursue after annual model is production-ready. |
-| 19 | Simplify strategy filters to safety-gates-only | Session 29 | Current `filter_composite()` blends value/quality/ML at hand-picked weights (25/20/30/15/10). Redundant — ML already learned the optimal blend. Future: filter should ONLY apply hard gates (Beneish, market cap, not-delisted, Piotroski floor). Ranking should come from ML probability + agreement filter. Not causing wrong results today (Sharpe 1.138) but architecturally confused. Priority-1 refactor when entering that phase. |
 
 ---
 
