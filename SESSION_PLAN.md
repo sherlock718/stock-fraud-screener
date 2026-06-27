@@ -556,30 +556,30 @@ After: pytest, commit as `feat(backtest): add ml_gates mode to filter_composite 
 
 ---
 
-### Session 39: Expand Validation Set
+### Session 39: Expand Validation Set + Fix Feature Selection Leakage
 
-**Items:** Critical #8 (Critical #7 dropped — session 22 proved feature stability, WF selection is over-engineering for solo dev)
+**Items:** Critical #7 + #8
 
-**Scope:** Widen validation window from 1 year to 3 years. Simple config change.
+**Scope:** Widen val window (3 years). Fix feature selection script to exclude test data (one-line filter, not full WF architecture — session 22 already proved stability).
 
 **Prompt:**
 ```
-Session 39: Expand Validation Set (2021-2023)
+Session 39: Expand Validation Set + Fix Feature Selection Leakage
 
 Read SESSION_PLAN.md first. Execution session.
 
-Current: val is only 2023 (1 year, ~800 rows). Optuna/calibration could overfit to one year's market regime.
-Fix: val = 2021-2023 (3 years, ~2400 rows).
+Part 1 — Expand validation set:
+- Current: val is only 2023 (1 year, ~800 rows). Optuna/calibration could overfit to one year's market regime.
+- Fix: val = 2021-2023 (3 years, ~2400 rows).
+- Update modeling/train.py train/val split logic: val_years = [2021, 2022, 2023]
+- Report: new val AUC vs old val AUC
 
-Steps:
-1. Update modeling/train.py train/val split logic: val_years = [2021, 2022, 2023]
-2. Re-run model training to confirm AUC doesn't degrade with wider val
-3. If Optuna tune.py exists, update its val window too
-4. Report: new val AUC vs old val AUC
+Part 2 — Fix feature selection leakage (Critical #7):
+- Current bug: run_feature_selection.py computes IC/PSI on ALL data including test years (soft leakage)
+- Fix: add `--train-end` parameter (default 2020). Filter df to fiscal_year <= train_end BEFORE computing IC, ICIR, and PSI.
+- This is the caveman fix — one filter line. Session 22 already proved the 27 features are temporally stable, so full WF per-fold selection is unnecessary.
 
-NOTE: Walk-forward feature selection (Critical #7) is DROPPED from execution plan. Session 22 already proved the 27 features are temporally stable (50% Jaccard across shifted windows). Re-selecting per fold adds complexity a solo dev doesn't need. If stability degrades in future, revisit then.
-
-After: pytest, commit as `feat(modeling): expand validation set to 2021-2023 (3 years)`. Push.
+After: pytest, commit as `feat(modeling): expand val to 2021-2023 + restrict feature selection to train-only`. Push.
 ```
 
 ---
@@ -643,7 +643,7 @@ After: pytest, commit as `feat(portfolio): parameterize ADTV by AUM + add FAQ`. 
 
 ### Post-Session 41
 
-All Critical items addressed except #7 (WF feature selection — intentionally dropped, proven unnecessary by session 22 GATE). Reassess Parked list. Likely next:
+All 15 Critical items addressed. Reassess Parked list. Likely next:
 - Parked #11 (automated retraining trigger)
 - Parked #13 (portfolio mode toggle)
 - Parked #22 (alpha factor NaN warning — natural fit with session 37 if not done there)
