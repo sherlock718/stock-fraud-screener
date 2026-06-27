@@ -8,6 +8,11 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Research + Backtest Orientation — Session 29 (2026-06-27)
+
+#### Added
+- **`docs/architecture/orientation_research_backtest.md`**: Full orientation covering backtest engine internals, research pipeline dependency graph, signal validation chain, risk register (7 bias vectors, hardcoded thresholds, fragile paths), and refactor candidates.
+
 ### IC Code Consolidation — Session 26 (2026-06-26)
 
 #### Changed
