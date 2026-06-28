@@ -734,6 +734,46 @@ def main() -> None:
               f'LGBM val={val_auc:.3f}/test={test_auc:.3f} | '
               f'LR val={lr_val_auc:.3f}/test={lr_test_auc:.3f})')
 
+    # Train 3y regression model (ranks by predicted return magnitude)
+    print('\nTraining 3y regression model...')
+    ret_col_3y = HORIZONS['3y'][0]
+    reg_feats = model_meta['3y']['features']
+    reg_medians = model_meta['3y']['train_medians']
+
+    reg_mask = df_train[ret_col_3y].notna()
+    if args.clean_training:
+        if 'fraud_suspect' in df_train.columns:
+            reg_mask &= (df_train['fraud_suspect'] == 0)
+        if 'piotroski_roa_pos' in df_train.columns:
+            reg_mask &= (df_train['piotroski_roa_pos'] == 1)
+        if 'beneish_m_score' in df_train.columns:
+            reg_mask &= (df_train['beneish_m_score'] < -1.78)
+
+    df_reg = df_train[reg_mask].copy()
+    X_reg = df_reg[reg_feats].fillna(pd.Series(reg_medians))
+    y_reg = df_reg[ret_col_3y].clip(-1, 5)
+
+    reg_3y = lgb.LGBMRegressor(
+        n_estimators=600, max_depth=6, learning_rate=0.03,
+        num_leaves=63, subsample=0.8, colsample_bytree=0.7,
+        min_child_samples=20, reg_alpha=0.1, reg_lambda=1.0,
+        random_state=42, n_jobs=-1, verbose=-1,
+    )
+    reg_3y.fit(X_reg, y_reg)
+    joblib.dump(reg_3y, MODELS_DIR / 'model_3y_regression.joblib')
+
+    model_meta['3y_regression'] = {
+        'features': reg_feats,
+        'train_cutoff': train_cutoff,
+        'train_medians': reg_medians,
+        'n_train': len(df_reg),
+        'target': ret_col_3y,
+        'target_clip': [-1, 5],
+    }
+    if args.clean_training:
+        model_meta['3y_regression']['training_filter'] = 'fraud_suspect==0 & piotroski_roa_pos==1 & beneish_m_score<-1.78'
+    print(f'  Regression saved → models/model_3y_regression.joblib ({len(df_reg):,} rows, {len(reg_feats)} features)')
+
     (MODELS_DIR / 'model_meta.json').write_text(json.dumps(model_meta, indent=2))
     print(f'\nAll models saved → {MODELS_DIR}/')
     print(f'IC tables + importance reports → {REPORTS}/')

@@ -8,6 +8,12 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Fix — Session 44 (2026-06-28)
+
+#### Fixed
+- **`modeling/train.py`**: Now trains and persists LGBMRegressor as `models/model_3y_regression.joblib` alongside classifiers. Regression metadata added to `model_meta.json`.
+- **`notebooks/production_screener.ipynb`**: Loads persisted regression model instead of retraining inline every run. Fixes reproducibility drift between notebook executions.
+
 ### Feature — Session 43 (2026-06-28)
 
 #### Added
