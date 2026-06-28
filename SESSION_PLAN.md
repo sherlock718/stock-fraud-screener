@@ -609,26 +609,33 @@ After: pytest, commit as `feat(modeling): expand val to 2021-2023 + restrict fea
 
 **Items:** Critical #4
 
-**Scope:** Retrain depth-4 tree on 2008-2022 window (matching LightGBM).
+**Scope:** Retrain depth-4 tree on 2008-2020 window (matching LightGBM's TRAIN_CUTOFF after session 39).
 
 **Prompt:**
 ```
-Session 40: Retrain Decision Tree (2008-2022)
+Session 40: Retrain Decision Tree (2008-2020)
 
 Read SESSION_PLAN.md first. Execution session.
 
+Context: Session 39 changed TRAIN_CUTOFF from 2022 to 2020 (val=2021-2023, test=2024+).
+Decision tree must match LightGBM's training window for consistency.
+
 Current: decision tree trained on 2008-2018 only (from session 24 research).
-Fix: retrain on 2008-2022 (production training window) using the canonical 27 pruned features.
+Fix: retrain on 2008-2020 (production training window) using the canonical 27 pruned features.
 
 Steps:
-1. Load historical_dataset_clean.parquet, filter to train period 2008-2022
+1. Load historical_dataset_clean.parquet, filter to train period 2008-2020
 2. Train depth-4 DecisionTreeClassifier on beat_local_market_1y target (same as session 24)
 3. Extract human-readable rules → models/decision_tree_rules.json (overwrite)
-4. Re-run agreement filter threshold sweep (0.30-0.50) on test period 2023-2024
-5. Report: did rules change? Did optimal threshold change? New Sharpe/CAGR?
+4. Re-run agreement filter threshold sweep (0.30-0.50) on val period 2021-2023
+5. Report: did rules change? Did optimal threshold change? New Sharpe/CAGR on val?
 6. Save updated tree model
+7. Also run train.py (full LightGBM retrain) and report val AUC delta vs old (old val was 2023-only, new is 2021-2023)
 
-After: pytest, commit as `feat(modeling): retrain decision tree on 2008-2022 production window`. Push.
+Concern: training lost 2 years of data (2021-2022). Watch for val AUC degradation.
+Test period (2024) is only ~800 rows — threshold sweep may be noisy; val (2021-2023) is more reliable for tuning.
+
+After: pytest, commit as `feat(modeling): retrain decision tree + LightGBM on 2008-2020 production split`. Push.
 ```
 
 ---
