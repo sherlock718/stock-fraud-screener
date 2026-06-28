@@ -34,7 +34,7 @@ Persistent session-by-session plan. Each session prompt should reference this fi
 | 41 | Parameterize ADTV by AUM ($200K retail) + FAQ quick-reference | 6b618f7 | 2026-06-28 |
 | 42 | Clean model retrain + ROA gate + top 15 balanced config (OOS CAGR +25.9%, Sharpe 1.08) | b68b2e8 | 2026-06-28 |
 | 43 | Production screener + regression ranking + $10B cap (CAGR +34.7%, Sharpe 0.97) | 7773ce0 | 2026-06-28 |
-| 44 | Persist regression model as artifact — notebook loads instead of retraining | pending | 2026-06-28 |
+| 44 | Persist regression model as artifact — notebook loads instead of retraining | 1807f57 | 2026-06-28 |
 
 ---
 
