@@ -20,7 +20,7 @@ Priority is owner's judgment, not urgency.
 | ~~9~~ | ~~Survivorship bias: change default to impute or flag~~ | ~~Session 29~~ | **DONE — Session 36. Default survivorship_mode='impute' (-50%). CLI: --survivorship-mode.** |
 | ~~10~~ | ~~Fix benchmark for non-US strategies (iarb)~~ | ~~Session 29~~ | **DONE — Session 37 (10bb452). Non-US strategies now use MSCI ACWI ex-US as primary benchmark. SPY remains informational. data/acwi_exus_returns.csv added (2008-2024).** |
 | ~~11~~ | ~~Filing date rebalance timing~~ | ~~Session 29~~ | **DONE — Session 36. filing_date_gate=True by default; only stocks filed before holding year start are eligible.** |
-| 12 | Remove composite weight blend — rank by ML only | Session 29 | `filter_composite()` manually blends value/quality/ML at hand-picked weights (25/20/30/15/10). Redundant — ML already learned the optimal blend from data. Replace with: ML probability as sole ranking signal + agreement filter (tree gate) + hard safety gates only (Beneish, market cap, not-delisted, Piotroski floor). Current hybrid architecture has manual weights competing with learned weights. |
+| ~~12~~ | ~~Remove composite weight blend — rank by ML only~~ | ~~Session 29~~ | **DONE — Session 38. `mode='ml_gates'` added to filter_composite(). ML 3y WF as sole ranking signal + tree agreement gate (>=0.35) + hard gates (Beneish, Piotroski>=3, not-delisted). Sharpe 1.204 vs blended 0.937.** |
 
 | ~~13~~ | ~~Unit tests for quality/ scripts (CI gates have 0 test coverage)~~ | ~~Session 30~~ | **DONE — Session 32 (d874e10)** |
 | ~~14~~ | ~~Unit tests for alpha/factors and backtest/engine~~ | ~~Session 30~~ | **DONE — Session 33 (a4f6aff)** |

@@ -310,6 +310,41 @@ def load_and_score(df: pd.DataFrame) -> pd.DataFrame:
         n_scored = (~np.isnan(scores)).sum()
         print(f'      {h}: {n_scored:,} rows scored walk-forward', flush=True)
 
+    # ── Walk-forward decision tree (agreement gate) ────────────────────────────
+    # Depth-4 tree trained on same data as LightGBM, provides tree_prob for ml_gates
+    beat_col_3y = 'beat_local_market_3y'
+    if beat_col_3y in df.columns:
+        from sklearn.tree import DecisionTreeClassifier
+        tree_probs = np.full(len(df), np.nan)
+        print('    WF-Tree: training year by year...', flush=True)
+        for score_yr in years:
+            _cutoff = pd.Timestamp(f'{score_yr}-01-01')
+            _pit_mask = _filed.isna() | (_filed < _cutoff)
+            train_df = df[
+                (df['fiscal_year'] < score_yr) & df[beat_col_3y].notna() & _pit_mask
+            ].copy()
+            if train_df['fiscal_year'].nunique() < min_train_years:
+                continue
+            feats = _ic_rank(train_df, all_features, 'forward_return_3y', top_n=35)
+            feats = [f for f in feats if f in train_df.columns]
+            if len(feats) < 5:
+                continue
+            train_med = train_df[feats].median()
+            X_train = train_df[feats].fillna(train_med)
+            y_train = train_df[beat_col_3y].astype(int)
+            tree_clf = DecisionTreeClassifier(
+                max_depth=4, min_samples_leaf=30, random_state=42
+            )
+            tree_clf.fit(X_train, y_train)
+            score_mask = (df['fiscal_year'] == score_yr).values
+            if score_mask.sum() == 0:
+                continue
+            X_score = df.loc[score_mask, feats].fillna(train_med)
+            tree_probs[score_mask] = tree_clf.predict_proba(X_score)[:, 1]
+        df['tree_prob'] = tree_probs
+        n_tree = (~np.isnan(tree_probs)).sum()
+        print(f'      tree: {n_tree:,} rows scored walk-forward', flush=True)
+
     # Also keep static model scores as fallback (for years before walk-forward kicks in)
     meta_path = MODELS_DIR / 'model_meta.json'
     if meta_path.exists():
@@ -355,10 +390,32 @@ def _ml(s: pd.DataFrame, horizon: str) -> str:
     return st
 
 
-def filter_composite(yr_df: pd.DataFrame, top_n: int, market: str | None) -> pd.Index:
+def filter_composite(yr_df: pd.DataFrame, top_n: int, market: str | None,
+                     mode: str = 'blended') -> pd.Index:
     s = yr_df.copy()
     if market:
         s = s[s['market'] == market]
+
+    # ── Hard gates (both modes) ──────────────────────────────────────────────
+    if 'beneish_m_score' in s.columns:
+        s = s[s['beneish_m_score'].fillna(0) < -1.78]
+    if 'likely_delisted' in s.columns:
+        s = s[s['likely_delisted'].fillna(1) == 0]
+
+    if mode == 'ml_gates':
+        # Piotroski floor gate
+        if 'piotroski_f_score' in s.columns:
+            s = s[s['piotroski_f_score'].fillna(0) >= 3]
+        # Agreement gate (tree_prob, when available)
+        if 'tree_prob' in s.columns:
+            s = s[s['tree_prob'].fillna(0) >= 0.35]
+        # Rank by ML 3y probability only
+        ml_col = _ml(s, '3y')
+        if ml_col not in s.columns or s[ml_col].notna().sum() == 0:
+            return pd.Index([])
+        return s.nlargest(top_n, ml_col).index
+
+    # ── Blended mode (legacy default) ────────────────────────────────────────
     score = pd.Series(0.0, index=s.index)
     total_w = 0.0
     for col, w in [('value_composite', 0.25), ('quality_composite', 0.20),
@@ -369,10 +426,6 @@ def filter_composite(yr_df: pd.DataFrame, top_n: int, market: str | None) -> pd.
     if total_w == 0:
         return pd.Index([])
     s['_score'] = score / total_w
-    if 'beneish_m_score' in s.columns:
-        s = s[s['beneish_m_score'].fillna(0) < -1.78]
-    if 'likely_delisted' in s.columns:
-        s = s[s['likely_delisted'].fillna(1) == 0]
     return s.nlargest(top_n, '_score').index
 
 
@@ -459,6 +512,7 @@ def filter_iarb(yr_df: pd.DataFrame, top_n: int, market: str | None) -> pd.Index
 
 STRATEGIES = {
     'composite': filter_composite,
+    'ml_gates':  lambda yr_df, top_n, market: filter_composite(yr_df, top_n, market, mode='ml_gates'),
     'qem':       filter_qem,
     'scdv':      filter_scdv,
     'iarb':      filter_iarb,

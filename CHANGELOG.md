@@ -8,6 +8,23 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Feature — Session 38 (2026-06-28)
+
+#### Changed
+- **`backtest/engine.py`**: `filter_composite()` gains `mode` param: `'blended'` (legacy default, manual weight blend) vs `'ml_gates'` (ML-only ranking + hard gates). New `'ml_gates'` strategy added to `STRATEGIES` dict.
+- **`backtest/engine.py`**: `load_and_score()` now trains a walk-forward depth-4 decision tree alongside LightGBM, producing `tree_prob` column for the agreement gate.
+
+#### ml_gates architecture
+- **Ranking**: `ml_3y_wf` probability (single signal, no manual weight blend)
+- **Agreement gate**: `tree_prob >= 0.35` (walk-forward decision tree)
+- **Hard gates**: Beneish M < -1.78, Piotroski >= 3, not delisted
+- **Market cap + ADTV**: applied upstream (unchanged)
+
+#### Results (walk-forward, 2013-2024, top_n=10)
+- ml_gates Sharpe **1.204** vs blended **0.937** (+0.267)
+- ml_gates CAGR **+29.0%** vs blended **+27.7%** (+1.3%)
+- ml_gates hit rate **80.0%** vs blended **76.0%** (+4pp)
+
 ### Feature — Session 37 (2026-06-28)
 
 #### Added
