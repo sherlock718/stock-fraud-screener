@@ -39,6 +39,7 @@ FULL_DATA         = BASE / 'data' / 'historical_dataset_clean.parquet'
 MODELS_DIR        = BASE / 'models'
 OUT_PATH          = BASE / 'data' / 'backtest_results.json'
 SPY_PATH          = BASE / 'data' / 'spy_returns.csv'
+ACWI_EXUS_PATH    = BASE / 'data' / 'acwi_exus_returns.csv'
 MONTHLY_CACHE     = BASE / 'data' / 'monthly_prices.parquet'
 
 DEFAULT_COST_BPS  = 30    # 30 bps round-trip (commission 10bps + slippage 20bps)
@@ -62,6 +63,14 @@ def load_spy_returns() -> dict[int, float]:
     if SPY_PATH.exists():
         df = pd.read_csv(SPY_PATH)
         return dict(zip(df['year'].astype(int), df['spy_return'].astype(float)))
+    return {}
+
+
+def load_acwi_exus_returns() -> dict[int, float]:
+    """Load MSCI ACWI ex-US annual returns. Returns {year: return}."""
+    if ACWI_EXUS_PATH.exists():
+        df = pd.read_csv(ACWI_EXUS_PATH)
+        return dict(zip(df['year'].astype(int), df['acwi_exus_return'].astype(float)))
     return {}
 
 
@@ -532,6 +541,8 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
                  max_filing_lag_months: int = MAX_FILING_LAG_MONTHS,
                  filing_date_gate: bool = True,
                  spy_returns: dict | None = None,
+                 acwi_exus_returns: dict | None = None,
+                 is_non_us: bool = False,
                  monthly_px: pd.DataFrame | None = None,
                  use_adtv_filter: bool = True,
                  max_pct_adtv: float = 0.05) -> dict:
@@ -551,6 +562,10 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
             become eligible in the next year's portfolio.
         spy_returns: Dict of {year: spy_annual_return} for SPY benchmark.
             If None, falls back to equal-weight universe mean as benchmark.
+        acwi_exus_returns: Dict of {year: acwi_exus_annual_return} for non-US
+            benchmark. Used as primary benchmark when is_non_us=True.
+        is_non_us: When True, use ACWI ex-US (or equal-weight non-US universe)
+            as primary benchmark instead of SPY. SPY remains informational.
         monthly_px: Monthly price cache from build_monthly_price_cache.py.
             When provided, MaxDD is computed from a monthly NAV curve instead
             of the annual wealth index (fixes the MaxDD=0% bug).
@@ -654,8 +669,10 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
         port_ret = float(np.dot(weights, net_rets))
         cost_drag = float(np.dot(weights, per_pick_cost))
 
-        # ── Benchmark: SPY (primary) + equal-weight universe (secondary) ──
-        # SPY is used for excess_cagr_pct; universe mean kept as bench_universe_pct
+        # ── Benchmark: primary depends on US vs non-US ──────────────────────
+        # Non-US strategies: ACWI ex-US (primary) or equal-weight non-US universe
+        # US strategies: SPY (primary) or equal-weight universe
+        # SPY always tracked as informational for all strategies
         bench_df = yr_df.copy()
         if market:
             bench_df = bench_df[bench_df['market'] == market]
@@ -665,15 +682,20 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
         universe_ret = bench_rets_s.mean() if len(bench_rets_s) > 5 else np.nan
         bench_coverage = len(bench_rets_s) / max(len(bench_df), 1)
 
-        # Primary benchmark: SPY for this calendar year
         spy_ret = spy_returns.get(int(yr)) if spy_returns else None
-        bench_ret = spy_ret if spy_ret is not None else universe_ret
+        acwi_ret = acwi_exus_returns.get(int(yr)) if acwi_exus_returns else None
+
+        if is_non_us:
+            bench_ret = acwi_ret if acwi_ret is not None else universe_ret
+        else:
+            bench_ret = spy_ret if spy_ret is not None else universe_ret
 
         annual_rows.append({
             'year':            yr,
             'port_ret':        port_ret,
             'bench_ret':       bench_ret,
             'spy_ret':         spy_ret,
+            'acwi_ret':        acwi_ret,
             'universe_ret':    universe_ret,
             'excess':          port_ret - bench_ret if pd.notna(bench_ret) else np.nan,
             'excess_vs_spy':   port_ret - spy_ret if spy_ret is not None else np.nan,
@@ -787,7 +809,9 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
         'cagr_pct':             round(cagr * 100, 2),
         'bench_cagr_pct':       round(bench_cagr * 100, 2),
         'excess_cagr_pct':      round((cagr - bench_cagr) * 100, 2),
-        'benchmark_source':     'SPY' if spy_returns else 'equal_weight_universe',
+        'benchmark_source':     ('ACWI_exUS' if is_non_us and acwi_exus_returns
+                                 else 'SPY' if spy_returns and not is_non_us
+                                 else 'equal_weight_universe'),
         'spy_cagr_pct':         round(spy_cagr * 100, 2),
         'excess_cagr_vs_spy':   round((cagr - spy_cagr) * 100, 2),
         'beta_vs_spy':          beta_vs_spy,
@@ -975,6 +999,14 @@ def main():
         print('  SPY data not found (data/spy_returns.csv) — using equal-weight universe mean. '
               'Run python3 -m data_io.fetch_spy_returns to get SPY data.')
 
+    # Load ACWI ex-US benchmark for non-US strategies
+    acwi_exus_returns = load_acwi_exus_returns()
+    if acwi_exus_returns:
+        print(f'  ACWI ex-US benchmark loaded: {min(acwi_exus_returns)} – {max(acwi_exus_returns)} '
+              f'({len(acwi_exus_returns)} years, mean {sum(acwi_exus_returns.values())/len(acwi_exus_returns):+.1%})')
+    else:
+        print('  ACWI ex-US data not found — non-US strategies will use equal-weight universe.')
+
     # Load monthly price cache for true MaxDD and ADTV filter
     monthly_px = load_monthly_prices()
     if monthly_px is not None:
@@ -993,6 +1025,8 @@ def main():
         fn = STRATEGIES[key]
         mkt_label = args.market or 'all'
         label = f'{key.upper()} | {mkt_label} | top{args.top} | {args.cost}bps'
+        # iarb is non-US by definition; also non-US if market is explicitly non-US
+        strategy_is_non_us = (key == 'iarb') or (args.market and args.market.upper() != 'US')
         print(f'  Backtesting {label}...', end=' ', flush=True)
         result = run_backtest(df, fn, label, args.top, args.market,
                               args.cost, args.smallcap_cost,
@@ -1003,6 +1037,8 @@ def main():
                               max_filing_lag_months=args.max_filing_lag,
                               filing_date_gate=not args.no_filing_gate,
                               spy_returns=spy_returns,
+                              acwi_exus_returns=acwi_exus_returns,
+                              is_non_us=strategy_is_non_us,
                               monthly_px=monthly_px,
                               use_adtv_filter=not args.no_adtv)
         results[key] = result

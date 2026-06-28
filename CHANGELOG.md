@@ -8,6 +8,19 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Feature — Session 37 (2026-06-28)
+
+#### Added
+- **`research/alpha_ic_validation.py`**: Walk-forward IC validation for all 5 alpha factors (value, quality, momentum, growth, fraud_risk). Reports mean IC, IC_IR, hit rate, NW t-stat. Flags factors with |IC| < 0.02 or IC_IR < 0.3.
+- **`data/acwi_exus_returns.csv`**: MSCI ACWI ex-US annual returns 2008–2024 for non-US strategy benchmarking.
+
+#### Changed
+- **`backtest/engine.py`**: Non-US strategies (iarb, or any `--market` != US) now use ACWI ex-US as primary benchmark instead of SPY. SPY remains tracked as informational. New params: `acwi_exus_returns`, `is_non_us`.
+
+#### Results
+- All 5 alpha factors PASS IC validation: value IC=0.152, quality IC=0.095, momentum IC=0.038, growth IC=0.046, fraud_risk IC=0.143
+- iarb strategy: benchmark_source now correctly shows 'ACWI_exUS', excess return +7.3% vs ACWI (was misleadingly -3.3% vs SPY)
+
 ### Fix — Session 36 (2026-06-28)
 
 #### Changed
