@@ -27,6 +27,7 @@ Persistent session-by-session plan. Each session prompt should reference this fi
 | 34 | Unify feature sets (27 canonical) + model staleness check + tests for research/portfolio | 3c01a46 | 2026-06-28 |
 | 35 | Consolidate EXCLUDE sets + load_data → modeling/constants.py | cb11c9d | 2026-06-28 |
 | 36 | Honest survivorship imputation + filing-date rebalance gate | 0657f3d | 2026-06-28 |
+| 37 | Alpha IC validation (all 5 pass) + fix non-US benchmark (ACWI ex-US) | 10bb452 | 2026-06-28 |
 
 ---
 
