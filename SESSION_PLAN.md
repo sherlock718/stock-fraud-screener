@@ -336,14 +336,26 @@ Inspect fraud/, quality/, portfolio/, data_io/, workflows/. Produce:
 ```
 Session 31: Trivial Bug Fixes
 
-Read SESSION_PLAN.md first. Execution session — small, safe fixes.
+Read SESSION_PLAN.md first. Execution session.
 
-Fix these 3 bugs (all trivial, no logic changes):
-1. workflows/run_pipeline_br.py — uses BASE before `from _root import ROOT`. Move ROOT import + BASE assignment above first use.
+Backlog items: Critical #15, Parked #9, Parked #25
+
+Scope — fix 3 bugs (all trivial, no logic changes):
+1. workflows/run_pipeline_br.py — uses BASE before `from _root import ROOT`. Move ROOT import + BASE assignment above first use of BASE.
 2. modeling/score_oof.py — line 44 uses BASE before line 52 defines it. Move `BASE = ROOT` above `DATA_PATH`.
 3. Delete pipeline/step1_fetch_tickers_jp_free.py if it exists (dead file, unused variant).
 
-After fixes: run `pytest tests/ -x` to confirm nothing broke. Commit, push.
+Working protocol:
+- Token-optimized: read only the lines needed (offset/limit), no full-file dumps
+- Caveman approach: minimal fix, no refactoring beyond the bug
+- One commit, conventional message: `fix(pipeline,modeling): fix undefined BASE + archive dead file`
+
+Session close checklist:
+- Run `pytest tests/ -x` — confirm nothing broke
+- Commit + push to remote
+- Update SESSION_PLAN.md completed table (row: session 31, commit hash, date)
+- Move Critical #15, Parked #9, Parked #25 → BACKLOG.md Completed section
+- Write session 32 prompt (self-contained, copy-paste ready) at end of response
 ```
 
 ---
