@@ -70,6 +70,17 @@ Scope examples: `pipeline`, `modeling`, `alpha`, `fraud`, `quality`, `research`,
 
 ---
 
+## Session Execution Protocol (Sessions 35–41 only — remove after session 41)
+
+Before executing any session work:
+1. Read the **planned session entry** in `SESSION_PLAN.md` (under "Execution Phase")
+2. Read the **backlog items** referenced in that entry from `docs/architecture/BACKLOG.md`
+3. If the user's prompt diverges from the plan, **flag it and ask** before executing
+4. Never invent new backlog items — work maps to existing Critical/Parked numbers
+5. Handoff prompts must quote the SESSION_PLAN.md scope, not paraphrase or extend it
+
+---
+
 ## Key Paths
 
 - Dataset: `data/historical_dataset_clean.parquet`
