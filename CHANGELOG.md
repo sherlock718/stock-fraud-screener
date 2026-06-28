@@ -8,6 +8,12 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Refactor — Session 45 (2026-06-28)
+
+#### Changed
+- **`modeling/constants.py`**: Added production gate thresholds as named constants (`BENEISH_THRESHOLD`, `TREE_THRESHOLD`, `PIOTROSKI_MIN`, `VALUE_GATE_PCT`, `ALTMAN_Z_MIN`, `MAX_MARKET_CAP_PROD`). Single source of truth for hardcoded values previously scattered across engine, notebook, and train.py.
+- **`backtest/engine.py`**: `filter_composite` ml_gates mode now imports thresholds from constants. Added Altman Z gate (`altman_z_score > 1.0`) to align with production notebook. CAGR +33.9%, Sharpe 1.115 (vs prior 34.7% / 0.97 — Altman gate removes distressed stocks, improving risk-adjusted returns).
+
 ### Fix — Session 44 (2026-06-28)
 
 #### Fixed

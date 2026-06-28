@@ -31,7 +31,11 @@ from scipy import stats
 import sys
 from pipeline.feature_library import add_normalised_ratios, add_piotroski_ext
 from _root import ROOT
-from modeling.constants import EXCLUDE_COLS, EXCLUDE_PATTERNS
+from modeling.constants import (
+    EXCLUDE_COLS, EXCLUDE_PATTERNS,
+    BENEISH_THRESHOLD, TREE_THRESHOLD, PIOTROSKI_MIN,
+    VALUE_GATE_PCT, ALTMAN_Z_MIN,
+)
 
 BASE = ROOT
 
@@ -438,22 +442,25 @@ def filter_composite(yr_df: pd.DataFrame, top_n: int, market: str | None,
 
     # ── Hard gates (both modes) ──────────────────────────────────────────────
     if 'beneish_m_score' in s.columns:
-        s = s[s['beneish_m_score'].fillna(0) < -1.78]
+        s = s[s['beneish_m_score'].fillna(0) < BENEISH_THRESHOLD]
     if 'likely_delisted' in s.columns:
         s = s[s['likely_delisted'].fillna(1) == 0]
 
     if mode == 'ml_gates':
-        # Quality gate: Piotroski >= 3 + ROA positive (filters value traps)
+        # Quality gate: Piotroski >= MIN + ROA positive (filters value traps)
         if 'piotroski_f_score' in s.columns:
-            s = s[s['piotroski_f_score'].fillna(0) >= 3]
+            s = s[s['piotroski_f_score'].fillna(0) >= PIOTROSKI_MIN]
         if 'piotroski_roa_pos' in s.columns:
             s = s[s['piotroski_roa_pos'].fillna(0) == 1]
         # Value gate: not grossly overpriced (top-half cheapness within sector)
         if 'ps_ratio_sector_pct' in s.columns:
-            s = s[s['ps_ratio_sector_pct'].fillna(0.5) <= 0.7]
-        # Agreement gate: tree must concur at >= 0.55
+            s = s[s['ps_ratio_sector_pct'].fillna(0.5) <= VALUE_GATE_PCT]
+        # Agreement gate: tree must concur
         if 'tree_prob' in s.columns:
-            s = s[s['tree_prob'].fillna(0) >= 0.55]
+            s = s[s['tree_prob'].fillna(0) >= TREE_THRESHOLD]
+        # Altman Z gate: exclude distressed companies
+        if 'altman_z_score' in s.columns:
+            s = s[s['altman_z_score'].fillna(0) > ALTMAN_Z_MIN]
         # Rank by regression 3y (return magnitude), fallback to classification
         if 'reg_3y_wf' in s.columns and s['reg_3y_wf'].notna().sum() > 5:
             return s.nlargest(top_n, 'reg_3y_wf').index

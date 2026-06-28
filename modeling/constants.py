@@ -56,6 +56,14 @@ EXCLUDE_PATTERNS = [
     'composite_score',
 ]
 
+# ── Production gate thresholds (single source of truth) ──────────────────────
+BENEISH_THRESHOLD = -1.78
+TREE_THRESHOLD = 0.55
+PIOTROSKI_MIN = 3
+VALUE_GATE_PCT = 0.70
+ALTMAN_Z_MIN = 1.0
+MAX_MARKET_CAP_PROD = 10_000_000_000
+
 
 # ── Shared data loader ────────────────────────────────────────────────────────
 
