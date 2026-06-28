@@ -25,6 +25,7 @@ Priority is owner's judgment, not urgency.
 | ~~13~~ | ~~Unit tests for quality/ scripts (CI gates have 0 test coverage)~~ | ~~Session 30~~ | **DONE — Session 32 (d874e10)** |
 | ~~14~~ | ~~Unit tests for alpha/factors and backtest/engine~~ | ~~Session 30~~ | **DONE — Session 33 (a4f6aff)** |
 | ~~15~~ | ~~Fix undefined BASE in workflows/run_pipeline_br.py~~ | ~~Session 30~~ | **DONE — Session 31 (1ecbdd6)** |
+| ~~16~~ | ~~Unit tests for research/ + portfolio/ modules~~ | ~~Session 34~~ | **DONE — Session 34 (1539bd3). Also fixed syntax bug in build_screener_registry.py.** |
 
 ---
 

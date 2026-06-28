@@ -24,6 +24,7 @@ Persistent session-by-session plan. Each session prompt should reference this fi
 | 31 | Bug fixes — undefined BASE in BR pipeline + score_oof, delete dead JP file | 1ecbdd6 | 2026-06-28 |
 | 32 | Unit tests for quality/ scripts — 41 tests covering check_data + dataset_quality | f4decdf | 2026-06-28 |
 | 33 | Unit tests for alpha/ + backtest/ — 43 tests covering factors + WF engine | a4f6aff | 2026-06-28 |
+| 34 | Unit tests for research/ + portfolio/ — 70 tests, fix screener syntax bug | 1539bd3 | 2026-06-28 |
 
 ---
 
