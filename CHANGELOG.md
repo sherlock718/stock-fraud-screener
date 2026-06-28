@@ -8,6 +8,13 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Feature — Session 47b (2026-06-28)
+
+#### Added
+- **`notebooks/production_screener.ipynb`**: Gate 8 — momentum hard gate (`momentum_12m_prior > -0.40`) kills value traps / structural decliners before scoring.
+- **`notebooks/production_screener.ipynb`**: Section 9.5 — Gemini Flash LLM M&A screen flags pending deals in final picks. Gracefully skips if API key unavailable.
+- Persist cell now includes `mna_flag` per pick and `momentum_12m_min` in config.
+
 ### Feature — Session 47 (2026-06-28)
 
 #### Added
