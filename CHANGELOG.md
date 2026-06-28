@@ -8,6 +8,12 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Feature — Session 47 (2026-06-28)
+
+#### Added
+- **`notebooks/production_screener.ipynb`**: Section 10 — persist picks to `data/production_picks_YYYY-MM-DD.json` (timestamped, never overwritten) and `data/production_picks_latest.json` (always current). Prints diff vs previous run (new/dropped tickers).
+- **`.gitignore`**: Exclude `data/production_picks_*.json` from version control.
+
 ### Test — Session 46 (2026-06-28)
 
 #### Added

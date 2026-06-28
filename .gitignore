@@ -38,6 +38,7 @@ data/pit_report.csv
 data/auditor_checkpoint.json
 data/market_signals_checkpoint.json
 data/mcap_checkpoint.json
+data/production_picks_*.json
 
 # Trained models (stored in HuggingFace Hub)
 models/*.joblib
