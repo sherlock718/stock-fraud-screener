@@ -13,6 +13,12 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 #### Added
 - **`notebooks/production_screener.ipynb`**: End-to-end production notebook — the product. Sections: data import → hard gates (Beneish/Piotroski/ROA/fraud/market-cap $50M-$5B/Altman-Z) → 22-feature scoring → LightGBM+tree agreement gate (0.45) → real ADTV liquidity filter → top 15 equal-weight portfolio → per-stock analysis + buy rationale → final output with OOS backtest reference (CAGR +25.9%, Sharpe 1.08).
 
+#### Changed
+- **`backtest/engine.py`**: Added `--max-cap` param (market cap ceiling), `ml_gates` CLI choice, and value gate (ps_ratio_sector_pct <= 0.7). Best config: no cap + cheap gate + 2023 retrain → CAGR +31.1%, Sharpe 1.189.
+- **`modeling/train.py`**: Added `--clean-training` flag (fraud_suspect==0, ROA+, Beneish<-1.78 filter on training data). Reproducible clean model retraining.
+- **`models/model_{3y,1y,5y,2y,6m}.joblib`**: Retrained through 2023 with clean data (28 features, 17.7K clean rows, val AUC not applicable for 3y+).
+- **`models/decision_tree_model.joblib`**: Retrained depth-4 tree on 2008-2023 clean data, aligned with LightGBM 3y features.
+
 ### Feature — Session 42 (2026-06-28)
 
 #### Changed

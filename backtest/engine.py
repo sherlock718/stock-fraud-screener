@@ -46,6 +46,7 @@ DEFAULT_COST_BPS  = 30    # 30 bps round-trip (commission 10bps + slippage 20bps
 SMALLCAP_COST_BPS = 60    # Illiquidity premium for micro/small caps
 RISK_FREE = 0.03          # Annual risk-free rate for Sharpe/Sortino
 MIN_MARKET_CAP    = 50_000_000  # $50M floor — removes truly illiquid stocks
+MAX_MARKET_CAP    = 0           # 0 = no ceiling; set to e.g. 5_000_000_000 for small/mid-cap only
 
 # Tiered slippage (bps) by market-cap band; applied per-pick inside run_backtest
 SLIPPAGE_TIERS = [
@@ -403,6 +404,9 @@ def filter_composite(yr_df: pd.DataFrame, top_n: int, market: str | None,
             s = s[s['piotroski_f_score'].fillna(0) >= 3]
         if 'piotroski_roa_pos' in s.columns:
             s = s[s['piotroski_roa_pos'].fillna(0) == 1]
+        # Value gate: not grossly overpriced (top-half cheapness within sector)
+        if 'ps_ratio_sector_pct' in s.columns:
+            s = s[s['ps_ratio_sector_pct'].fillna(0.5) <= 0.7]
         # Agreement gate: tree must concur at >= 0.45
         if 'tree_prob' in s.columns:
             s = s[s['tree_prob'].fillna(0) >= 0.45]
@@ -586,6 +590,7 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
                  top_n: int, market: str | None,
                  cost_bps: int, smallcap_cost_bps: int,
                  min_market_cap: int = MIN_MARKET_CAP,
+                 max_market_cap: int = MAX_MARKET_CAP,
                  vol_weighted: bool = True,
                  fill_missing_return: float | None = None,
                  survivorship_mode: str = 'impute',
@@ -654,9 +659,12 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
             holding_start = pd.Timestamp(f'{yr + 1}-01-01')
             yr_df = yr_df[filed.isna() | (filed < holding_start)]
 
-        # Liquidity pre-filter: remove stocks below market cap threshold
-        if min_market_cap > 0 and 'market_cap_at_filing' in yr_df.columns:
-            yr_df = yr_df[yr_df['market_cap_at_filing'].fillna(0) >= min_market_cap]
+        # Liquidity pre-filter: remove stocks outside market cap range
+        if 'market_cap_at_filing' in yr_df.columns:
+            if min_market_cap > 0:
+                yr_df = yr_df[yr_df['market_cap_at_filing'].fillna(0) >= min_market_cap]
+            if max_market_cap > 0:
+                yr_df = yr_df[yr_df['market_cap_at_filing'].fillna(0) <= max_market_cap]
 
         # ADTV liquidity filter: remove tickers too illiquid for a 5%-ADTV position
         if use_adtv_filter and monthly_px is not None:
@@ -1009,7 +1017,7 @@ def print_tearsheet(result: dict) -> None:
 def main():
     parser = argparse.ArgumentParser(description='Walk-forward backtester')
     parser.add_argument('--strategy', default='all',
-                        choices=['all', 'composite', 'qem', 'scdv', 'iarb'])
+                        choices=['all', 'composite', 'ml_gates', 'qem', 'scdv', 'iarb'])
     parser.add_argument('--market',   default=None,  help='Filter to one market (e.g. US)')
     parser.add_argument('--top',      default=15,    type=int, help='Top N picks per year (default 15 for balanced config)')
     parser.add_argument('--cost',     default=DEFAULT_COST_BPS, type=int,
@@ -1018,6 +1026,8 @@ def main():
                         help=f'Round-trip cost for micro/small caps in bps (default {SMALLCAP_COST_BPS})')
     parser.add_argument('--min-cap', default=MIN_MARKET_CAP, type=int,
                         help=f'Min market cap filter in USD (default {MIN_MARKET_CAP:,}, 0 to disable)')
+    parser.add_argument('--max-cap', default=MAX_MARKET_CAP, type=int,
+                        help=f'Max market cap filter in USD (default {MAX_MARKET_CAP} = no ceiling)')
     parser.add_argument('--equal-weight', action='store_true',
                         help='Use equal-weight instead of inverse-volatility weighting')
     parser.add_argument('--fill-missing', type=float, default=None, metavar='RETURN',
@@ -1086,6 +1096,7 @@ def main():
         result = run_backtest(df, fn, label, args.top, args.market,
                               args.cost, args.smallcap_cost,
                               min_market_cap=args.min_cap,
+                              max_market_cap=args.max_cap,
                               vol_weighted=not args.equal_weight,
                               fill_missing_return=args.fill_missing,
                               survivorship_mode=args.survivorship_mode,
@@ -1118,6 +1129,7 @@ def main():
         'top_n':             args.top,
         'market':            args.market,
         'min_market_cap':    args.min_cap,
+        'max_market_cap':    args.max_cap,
         'vol_weighted':      not args.equal_weight,
         'fill_missing':      args.fill_missing,
         'survivorship_mode': args.survivorship_mode,

@@ -544,6 +544,10 @@ def main() -> None:
     parser.add_argument('--sector-zscore', action='store_true', dest='sector_zscore',
                         help='Apply within-sector z-score normalization to features before training '
                              '(removes cross-sector valuation level differences).')
+    parser.add_argument('--clean-training', action='store_true',
+                        help='Filter training data to clean stocks only: '
+                             'fraud_suspect==0, piotroski_roa_pos==1, beneish_m_score<-1.78. '
+                             'Removes value trap bias — model learns what honest/profitable companies do.')
     args = parser.parse_args()
 
     train_cutoff = args.train_cutoff
@@ -562,6 +566,20 @@ def main() -> None:
     df_val   = df[(df['fiscal_year'] > train_cutoff) & (df['fiscal_year'] <= val_end)].copy()
     df_test  = df[df['fiscal_year'] > val_end].copy()
     pit_excluded = (df['fiscal_year'] <= train_cutoff).sum() - len(df_train)
+
+    if args.clean_training:
+        n_before = len(df_train)
+        mask = pd.Series(True, index=df_train.index)
+        if 'fraud_suspect' in df_train.columns:
+            mask &= (df_train['fraud_suspect'] == 0)
+        if 'piotroski_roa_pos' in df_train.columns:
+            mask &= (df_train['piotroski_roa_pos'] == 1)
+        if 'beneish_m_score' in df_train.columns:
+            mask &= (df_train['beneish_m_score'] < -1.78)
+        df_train = df_train[mask].copy()
+        print(f'  Clean training filter: {n_before:,} → {len(df_train):,} '
+              f'(removed {n_before - len(df_train):,} fraud/distress/unprofitable)')
+
     print(f'  Train : fiscal_year <= {train_cutoff}, filed < {_cutoff_date.date()} → {len(df_train):,} rows ({pit_excluded:,} PIT-excluded)')
     print(f'  Val   : {train_cutoff+1}–{val_end} → {len(df_val):,} rows')
     print(f'  Test  : > {val_end} → {len(df_test):,} rows')
@@ -708,6 +726,8 @@ def main() -> None:
             'train_medians':  train_medians,
             'shap_top_features': shap_top,
         }
+        if args.clean_training:
+            model_meta[h]['training_filter'] = 'fraud_suspect==0 & piotroski_roa_pos==1 & beneish_m_score<-1.78'
         if _old_meta.get(h, {}).get('best_params'):
             model_meta[h]['best_params'] = _old_meta[h]['best_params']
         print(f'done ({len(feats)} features, {len(y_train):,} rows, '
