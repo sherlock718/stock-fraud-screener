@@ -161,35 +161,30 @@ def compute_monthly_nav(annual_rows: list[dict], monthly_px: pd.DataFrame) -> tu
 
 
 def adtv_filter(yr_df: pd.DataFrame, monthly_px: pd.DataFrame | None,
-                yr: int, max_pct_adtv: float = 0.05) -> pd.DataFrame:
-    """Remove picks whose intended position size exceeds max_pct_adtv of 30d ADTV.
-
-    Position size is estimated as equal-weight within the portfolio scaled by
-    a hypothetical $1M AUM. This is a conservative liquidity screen — the
-    actual constraint should be tightened at live trading time.
+                yr: int, max_pct_adtv: float = 0.01,
+                aum_target: float = 200_000) -> pd.DataFrame:
+    """Remove picks whose position would exceed max_pct_adtv of trailing 30d median ADTV.
 
     Args:
-        max_pct_adtv: Maximum fraction of ADTV a single position may represent.
-            Default 5% — standard institutional liquidity constraint.
+        max_pct_adtv: Max fraction of ADTV a single position may represent.
+            Default 1% — retail-friendly constraint.
+        aum_target: Portfolio AUM in dollars. Default $200K (retail).
+            min_adtv = aum_target * max_pct_adtv.
     """
     if monthly_px is None or yr_df.empty:
         return yr_df
 
-    # Use ADTV from last 3 months of the prior year (Dec of yr-1 through Feb of yr)
-    # so we don't peek into the holding period
     obs_end   = pd.Timestamp(f'{yr}-12-31')
     obs_start = pd.Timestamp(f'{yr}-09-30')
     sub = monthly_px[
         (monthly_px['date'] >= obs_start) &
         (monthly_px['date'] <= obs_end)
-    ].groupby('ticker')['adtv_30d'].mean().reset_index()
+    ].groupby('ticker')['adtv_30d'].median().reset_index()
     sub.columns = ['ticker', 'adtv_est']
 
     merged = yr_df.merge(sub, on='ticker', how='left')
-    # Drop tickers with known ADTV that is too low for a 5% position in $1M portfolio
-    # 5% of $1M = $50K; require adtv >= $50K / max_pct_adtv = $1M minimum ADTV
-    # If ADTV is unknown, keep the stock (conservative: don't exclude unknown)
-    min_adtv = 50_000 / max_pct_adtv  # = $1M ADTV for 5% constraint
+    # Position can't exceed max_pct_adtv of daily volume
+    min_adtv = aum_target * max_pct_adtv
     keep = merged['adtv_est'].isna() | (merged['adtv_est'] >= min_adtv)
     return yr_df[keep.values]
 
@@ -599,7 +594,8 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
                  is_non_us: bool = False,
                  monthly_px: pd.DataFrame | None = None,
                  use_adtv_filter: bool = True,
-                 max_pct_adtv: float = 0.05) -> dict:
+                 max_pct_adtv: float = 0.01,
+                 aum_target: float = 200_000) -> dict:
     """Walk-forward backtest engine.
 
     Args:
@@ -624,8 +620,9 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
             When provided, MaxDD is computed from a monthly NAV curve instead
             of the annual wealth index (fixes the MaxDD=0% bug).
         use_adtv_filter: When True and monthly_px is available, remove picks
-            that would require trading > max_pct_adtv of 30d ADTV.
-        max_pct_adtv: Liquidity threshold (default 5% of ADTV).
+            that would require trading > max_pct_adtv of 30d median ADTV.
+        max_pct_adtv: Max fraction of ADTV per position (default 1%).
+        aum_target: Portfolio AUM in dollars (default $200K for retail).
     """
     # Resolve effective imputation value from survivorship_mode
     if fill_missing_return is not None:
@@ -661,7 +658,7 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
 
         # ADTV liquidity filter: remove tickers too illiquid for a 5%-ADTV position
         if use_adtv_filter and monthly_px is not None:
-            yr_df = adtv_filter(yr_df, monthly_px, yr, max_pct_adtv)
+            yr_df = adtv_filter(yr_df, monthly_px, yr, max_pct_adtv, aum_target)
 
         idx = filter_fn(yr_df, top_n, market)
         picks = yr_df.loc[idx]
@@ -1037,6 +1034,8 @@ def main():
                         help='Print detailed tearsheet for each strategy')
     parser.add_argument('--no-adtv', action='store_true',
                         help='Disable ADTV liquidity filter (use if monthly_prices.parquet not built)')
+    parser.add_argument('--aum-target', type=float, default=200_000,
+                        help='Portfolio AUM in dollars for ADTV filter (default $200K retail)')
     args = parser.parse_args()
 
     print('Loading + scoring full historical data...')
@@ -1094,7 +1093,8 @@ def main():
                               acwi_exus_returns=acwi_exus_returns,
                               is_non_us=strategy_is_non_us,
                               monthly_px=monthly_px,
-                              use_adtv_filter=not args.no_adtv)
+                              use_adtv_filter=not args.no_adtv,
+                              aum_target=args.aum_target)
         results[key] = result
 
         if result.get('n_years', 0) > 0:
@@ -1122,6 +1122,7 @@ def main():
         'max_filing_lag':    args.max_filing_lag,
         'filing_date_gate':  not args.no_filing_gate,
         'adtv_filter':       not args.no_adtv and monthly_px is not None,
+        'aum_target':        args.aum_target,
         'monthly_nav_maxdd': monthly_px is not None,
         'strategies':        results,
     }

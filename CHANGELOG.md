@@ -8,6 +8,12 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Feature — Session 41 (2026-06-28)
+
+#### Changed
+- **`backtest/engine.py` ADTV filter**: Parameterized by `aum_target` (default $200K retail, was hardcoded $1M institutional). Formula: `min_adtv = aum_target * 0.01`. Uses median (not mean) trailing 30d volume to resist block-trade spikes. New CLI flag `--aum-target`.
+- **`docs/FAQ.md`**: New quick-reference file — company count, feature count, pipeline steps, key thresholds, model horizons, data source, update frequency.
+
 ### Feature — Session 40 (2026-06-28)
 
 #### Changed
