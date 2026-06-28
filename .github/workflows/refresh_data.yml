@@ -124,6 +124,10 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
 
+      - name: Check model staleness (warn if model older than data)
+        run: |
+          python3 -m quality.check_model_staleness || true
+
       - name: Check data quality (mandatory gate)
         run: |
           python3 -m quality.check_data --fail-fast

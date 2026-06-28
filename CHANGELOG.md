@@ -8,6 +8,14 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Feat — Session 34 (2026-06-28)
+
+#### Changed
+- **`models/feature_sets_3y.json`**: Replaced 45-feature set with canonical 27-feature pruned set (Sharpe 1.124 > 0.954). All consumers (score_oof, train_regression_model) now use the pruned set for 3y horizon automatically.
+
+#### Added
+- **`quality/check_model_staleness.py`**: Compares model_meta.json mtime vs data parquet mtime. Warns if model is stale; `--strict` exits 1. Added to CI workflow as non-fatal step after ML scoring.
+
 ### Tests — Session 34 (2026-06-28)
 
 #### Added
