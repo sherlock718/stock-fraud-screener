@@ -23,7 +23,7 @@ Priority is owner's judgment, not urgency.
 | 12 | Remove composite weight blend — rank by ML only | Session 29 | `filter_composite()` manually blends value/quality/ML at hand-picked weights (25/20/30/15/10). Redundant — ML already learned the optimal blend from data. Replace with: ML probability as sole ranking signal + agreement filter (tree gate) + hard safety gates only (Beneish, market cap, not-delisted, Piotroski floor). Current hybrid architecture has manual weights competing with learned weights. |
 
 | ~~13~~ | ~~Unit tests for quality/ scripts (CI gates have 0 test coverage)~~ | ~~Session 30~~ | **DONE — Session 32 (d874e10)** |
-| 14 | Unit tests for alpha/factors and backtest/engine | Session 30 | Factor computation, walk-forward logic, Kelly sizing, and position caps are all untested. Core correctness risk. |
+| ~~14~~ | ~~Unit tests for alpha/factors and backtest/engine~~ | ~~Session 30~~ | **DONE — Session 33 (a4f6aff)** |
 | ~~15~~ | ~~Fix undefined BASE in workflows/run_pipeline_br.py~~ | ~~Session 30~~ | **DONE — Session 31 (1ecbdd6)** |
 
 ---

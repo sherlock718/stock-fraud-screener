@@ -8,6 +8,12 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Tests — Session 33 (2026-06-28)
+
+#### Added
+- **`tests/alpha/test_factors.py`**: 22 unit tests for all alpha factor modules — value, quality, momentum, growth, fraud_risk, composite (output range 0–1, NaN handling, no-signal fallback, custom weights, index alignment).
+- **`tests/backtest/test_walk_forward.py`**: 21 unit tests for walk-forward engine — run_backtest output shape/keys, temporal boundaries, single period, empty universe, equal-weight mode, SPY benchmark, fill_missing_return, bootstrap_ci, filing lag filter, SIC sector mapping, sector cap, filter_composite.
+
 ### Tests — Session 32 (2026-06-28)
 
 #### Added
