@@ -8,6 +8,12 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Feature — Session 39 (2026-06-28)
+
+#### Changed
+- **`modeling/train.py`**: `TRAIN_CUTOFF` 2022 → 2020; validation set now spans 2021-2023 (3 years, ~2400 rows) instead of 2023 only (~800 rows). Reduces Optuna/calibration overfitting risk to a single market regime.
+- **`modeling/run_feature_selection.py`**: Added `--train-end` parameter (default 2020). IC, ICIR, and PSI are now computed only on `fiscal_year <= train_end`, preventing soft leakage from val/test years into feature selection. `get_candidates()` also restricted to train-only data.
+
 ### Feature — Session 38 (2026-06-28)
 
 #### Changed

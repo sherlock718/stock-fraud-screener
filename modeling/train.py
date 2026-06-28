@@ -3,7 +3,7 @@ Train and save ML models (1y / 3y / 5y) from historical_dataset_clean.parquet.
 
 Temporal split (no data leakage):
   train  : fiscal_year <= TRAIN_CUTOFF AND filed_date < Jan 1 of (TRAIN_CUTOFF+1)
-  val    : TRAIN_CUTOFF < fiscal_year <= VAL_END  (default 2023)
+  val    : TRAIN_CUTOFF < fiscal_year <= VAL_END  (default 2021-2023, 3 years)
   test   : fiscal_year > VAL_END  (default 2024+)
 
 Feature selection pipeline (on TRAIN split only):
@@ -72,7 +72,7 @@ REPORTS.mkdir(exist_ok=True)
 import sys
 from pipeline.feature_library import add_normalised_ratios, add_piotroski_ext
 
-TRAIN_CUTOFF = 2022   # last fiscal year included in training
+TRAIN_CUTOFF = 2020   # last fiscal year included in training
 VAL_END      = 2023   # val = (TRAIN_CUTOFF, VAL_END]; test = > VAL_END
 
 HORIZONS = {

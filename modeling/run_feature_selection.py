@@ -3,10 +3,13 @@ Standalone feature selection pipeline.
 
 Stages (per horizon):
   1. PSI filter  — removes features with PSI > PSI_THRESHOLD between
-                   train (fiscal_year <= TRAIN_CUTOFF) and test (> VAL_END)
+                   train (fiscal_year <= train_end) and test (> VAL_END)
   2. IC screen   — keeps |mean_IC| >= IC_MIN_ABS and n_years >= N_YEARS_MIN
   3. ICIR rank   — sort by |ICIR|, keep top TOP_K_ICIR
   4. Spearman dedup — drop near-duplicates (|r| > CORR_THRESHOLD)
+
+All IC/PSI computation is restricted to fiscal_year <= train_end (default 2020)
+to prevent val/test leakage into feature selection.
 
 Outputs:
   models/feature_sets_{1y,3y,5y}.json   — selected feature list per horizon
@@ -240,13 +243,15 @@ def run_selection(
     top_k: int     = TOP_K_ICIR,
     corr_thr: float = CORR_THRESHOLD,
     sector_neutral: bool = True,
+    train_end: int | None = None,
 ) -> dict:
     ret_col, beat_col = HORIZONS[horizon]
 
-    df_train = df[df["fiscal_year"] <= TRAIN_CUTOFF].copy()
+    cutoff = train_end if train_end is not None else TRAIN_CUTOFF
+    df_train = df[df["fiscal_year"] <= cutoff].copy()
     df_test  = df[df["fiscal_year"]  > VAL_END].copy()
 
-    candidates = get_candidates(df)
+    candidates = get_candidates(df_train)
     print(f"\n  [{horizon}] {len(candidates)} candidates")
 
     # Stage 1 — PSI filter
@@ -299,21 +304,26 @@ def main():
                         help="Demean return and feature within sector before IC (default: on)")
     parser.add_argument("--no-sector-neutral", dest="sector_neutral", action="store_false",
                         help="Disable sector-neutral IC")
+    parser.add_argument("--train-end", type=int, default=TRAIN_CUTOFF,
+                        help=f"Last fiscal_year used for IC/PSI computation (default: {TRAIN_CUTOFF}). "
+                             "Prevents leakage from val/test years into feature selection.")
     parser.add_argument("--dry-run", action="store_true",
                         help="Print stats but do not write JSON files")
     args = parser.parse_args()
 
     # Build effective thresholds (may override module-level defaults)
-    psi_thr  = args.psi_threshold
-    ic_min   = args.ic_min
-    top_k    = args.top_k
-    corr_thr = args.corr
-    sn       = args.sector_neutral
+    psi_thr   = args.psi_threshold
+    ic_min    = args.ic_min
+    top_k     = args.top_k
+    corr_thr  = args.corr
+    sn        = args.sector_neutral
+    train_end = args.train_end
 
     print("Loading data …")
     df = load_data()
     print(f"  {len(df):,} annual rows · {df.shape[1]} columns")
     print(f"  Sector-neutral IC: {sn}")
+    print(f"  Feature selection train-end: fiscal_year <= {train_end}")
 
     all_summaries = []
     results = {}
@@ -323,7 +333,7 @@ def main():
         result = run_selection(df, horizon, force,
                                psi_thr=psi_thr, ic_min=ic_min,
                                top_k=top_k, corr_thr=corr_thr,
-                               sector_neutral=sn)
+                               sector_neutral=sn, train_end=train_end)
         if not result:
             continue
         results[horizon] = result
