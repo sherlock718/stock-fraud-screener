@@ -8,6 +8,16 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Tests — Session 34 (2026-06-28)
+
+#### Added
+- **`tests/research/test_ic_engine.py`**: 26 unit tests for IC engine — Newey-West HAC t-stat (edge cases, NaN, sign), BH FDR correction (all/none/partial rejection, index preservation), SIC-to-sector mapping, compute_yearly_ic (sector-neutral, min_obs, sic_col_override, random baseline).
+- **`tests/research/test_factor_research.py`**: 20 unit tests for factor research orchestration — get_candidates (exclusions, sparse/string filter), compute_ic_series (correlated/noise signals), compute_turnover (stable feature, insufficient overlap), quintile spread, analyse_factor (output dict, ICIR sign, n_years).
+- **`tests/portfolio/test_portfolio.py`**: 24 unit tests for portfolio modules — compute_composite (rank weighting, missing cols, bounds), kelly_weights (normalization, monotonicity, below-half fallback), apply_constraints (position cap + renorm, sector cap), _rank_blend (missing cols, monotonic, bounds), _quality_gate (Piotroski/Beneish/delisted filters).
+
+#### Fixed
+- **`portfolio/build_screener_registry.py`**: Fixed syntax error — `from _root import ROOT` was spliced into the middle of `from backtest.engine import (...)` statement.
+
 ### Tests — Session 33 (2026-06-28)
 
 #### Added

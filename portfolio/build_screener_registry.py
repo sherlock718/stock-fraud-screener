@@ -24,10 +24,8 @@ import pandas as pd
 
 warnings.filterwarnings("ignore")
 
-from backtest.engine import (
 from _root import ROOT
-
-BASE = ROOT
+from backtest.engine import (
     DEFAULT_COST_BPS,
     MIN_MARKET_CAP,
     SMALLCAP_COST_BPS,
@@ -35,6 +33,8 @@ BASE = ROOT
     load_spy_returns,
     run_backtest,
 )
+
+BASE = ROOT
 
 OUT_PATH = BASE / "data" / "screener_registry.json"
 FULL_DATA = BASE / "data" / "historical_dataset_clean.parquet"
