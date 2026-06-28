@@ -8,6 +8,11 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Feature — Session 43 (2026-06-28)
+
+#### Added
+- **`notebooks/production_screener.ipynb`**: End-to-end production notebook — the product. Sections: data import → hard gates (Beneish/Piotroski/ROA/fraud/market-cap/Altman-Z) → 22-feature scoring → LightGBM+tree agreement gate (0.45) → top 15 equal-weight portfolio → per-stock analysis + buy rationale → final output table with expected returns.
+
 ### Feature — Session 42 (2026-06-28)
 
 #### Changed
