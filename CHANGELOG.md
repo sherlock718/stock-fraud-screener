@@ -13,6 +13,7 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 #### Added
 - **`notebooks/production_screener.ipynb`**: Gate 8 — momentum hard gate (`momentum_12m_prior > -0.40`) kills value traps / structural decliners before scoring.
 - **`notebooks/production_screener.ipynb`**: Section 9.5 — Gemini Flash LLM M&A screen flags pending deals in final picks. Gracefully skips if API key unavailable.
+- **`notebooks/production_screener.ipynb`**: M&A screen switched from Gemini to Groq (Llama 3.3 70B) — free tier actually works.
 - **`backtest/engine.py`**: Momentum gate added to `ml_gates` strategy (Sharpe 0.97→1.45, MaxDD -17%→-8%).
 - **`modeling/constants.py`**: Add `MOMENTUM_12M_MIN = -0.40` threshold.
 - Persist cell now includes `mna_flag` per pick and `momentum_12m_min` in config.
