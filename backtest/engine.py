@@ -398,9 +398,9 @@ def filter_composite(yr_df: pd.DataFrame, top_n: int, market: str | None,
         s = s[s['likely_delisted'].fillna(1) == 0]
 
     if mode == 'ml_gates':
-        # Piotroski floor gate
+        # Piotroski quality gate — require financial health (>=5 filters value traps)
         if 'piotroski_f_score' in s.columns:
-            s = s[s['piotroski_f_score'].fillna(0) >= 3]
+            s = s[s['piotroski_f_score'].fillna(0) >= 5]
         # Agreement gate (tree_prob, when available)
         if 'tree_prob' in s.columns:
             s = s[s['tree_prob'].fillna(0) >= 0.35]

@@ -32,6 +32,7 @@ Persistent session-by-session plan. Each session prompt should reference this fi
 | 39 | Expand val to 2021-2023 + restrict feature selection to train-only | 3c9e691 | 2026-06-28 |
 | 40 | Retrain decision tree (2008-2020) + LightGBM production models | b490f57 | 2026-06-28 |
 | 41 | Parameterize ADTV by AUM ($200K retail) + FAQ quick-reference | 6b618f7 | 2026-06-28 |
+| 42 | Raise Piotroski gate to ≥5 (filter value traps, CAGR +30.9%) | TBD | 2026-06-28 |
 
 ---
 

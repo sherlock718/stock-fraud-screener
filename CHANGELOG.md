@@ -8,6 +8,11 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Feature — Session 42 (2026-06-28)
+
+#### Changed
+- **`backtest/engine.py` ml_gates Piotroski gate**: Raised from ≥3 to ≥5. Filters value traps — distressed companies that are cash-burning (not recovering). Backtest: CAGR +30.9% (was +28.4%), bankruptcy rate 0.23% (was 0.61%). Piotroski ≥5 requires: positive OCF, positive net income, improving margins, no dilution.
+
 ### Feature — Session 41 (2026-06-28)
 
 #### Changed
