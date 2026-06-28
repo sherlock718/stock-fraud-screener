@@ -29,10 +29,21 @@
 | PSI | 0.25 | Feature drift alert (Population Stability Index) |
 | IC | 0.02 | Minimum Information Coefficient for feature retention |
 | Beneish M-score | −1.78 | Below = likely earnings manipulator |
+| Piotroski F-score | ≥ 3 | Minimum financial strength |
+| ROA | > 0 | Must be profitable (piotroski_roa_pos == 1) |
 | Tree agreement | 0.55 | Minimum tree probability to pass gate |
+| Altman Z-score | > 1.0 | Not in distress zone |
+| P/S sector pct | ≤ 0.70 | Not overpriced vs sector peers |
+| Momentum 12m | > −0.40 | No structural decliners / value traps |
+| Market cap | $50M–$10B | Small/mid-cap focus |
 | ADTV filter | AUM × 1% | Position can't exceed 1% of median 30d volume |
 
-## Backtest Summary
+## Backtest Summary (Walk-Forward, 2013–2023)
+- **Strategy:** ml_gates (LightGBM regression + decision tree agreement + 8 hard gates)
+- **CAGR:** +31.5% (SPY +13.6%)
+- **Sharpe:** 1.45
+- **MaxDD:** −8.1%
+- **Top N:** 15 equal-weight, annual rebalance
 - **Train:** 2008–2020 | **Val:** 2021–2023 | **Test:** 2024
-- **Sharpe (test):** ~1.2 (ml_gates mode)
 - **Benchmark:** SPY (US), ACWI ex-US (international)
+- **M&A screen:** Groq/Llama 3.3 flags pending deals (manual review, not auto-exclude)

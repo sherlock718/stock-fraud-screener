@@ -36,6 +36,9 @@ Persistent session-by-session plan. Each session prompt should reference this fi
 | 43 | Production screener + regression ranking + $10B cap (CAGR +34.7%, Sharpe 0.97) | 7773ce0 | 2026-06-28 |
 | 44 | Persist regression model as artifact — notebook loads instead of retraining | 1807f57 | 2026-06-28 |
 | 45 | Centralize production thresholds + Altman Z gate in engine (CAGR +33.9%, Sharpe 1.115) | c303b1b | 2026-06-28 |
+| 46 | Gate unit tests (9 tests) + FAQ stale threshold fix | d46c2ec | 2026-06-28 |
+| 47 | Persist production picks (timestamped JSON + diff) | 48c16a6 | 2026-06-28 |
+| 47b | Momentum gate + LLM M&A screen (Sharpe 1.45, MaxDD -8.1%) | 8871f42 | 2026-06-28 |
 
 ---
 
@@ -838,42 +841,60 @@ After: pytest, commit as `feat(notebook): persist production picks for tracking`
 
 ---
 
-### Session 48: Regime Overlay + Paper Trading Launch
+### Session 48: Final Audit + Archive Cleanup + Docs Update ✓ DONE
 
-**Scope:** Wire existing regime overlay into notebook. Generate first real picks. Record entry.
+**Scope:** Documentation audit, archive cleanup, architecture validation. No new features.
+
+**What was done (actual):**
+1. Verified PRODUCTION_CONFIG.md — all 8 gates listed, stats match backtest (Sharpe 1.45, CAGR +31.5%, MaxDD -8.1%)
+2. Updated FAQ.md — added all gate thresholds, momentum gate, current backtest summary
+3. Deleted `_archive/repomix_metadata_pack/` (dead metadata)
+4. Renamed `models/decision_tree_model.joblib` → `research_tree_snapshot.joblib` (stale research artifact)
+5. Updated notebook model load path
+6. Confirmed: no circular imports, no dead imports from pipeline/archive/, .gitignore covers all generated data
+7. Backtest engine validation: Sharpe 1.45 > 1.4 threshold ✓
+8. quality/check_sync.py passes ✓
+
+**Skipped from original plan:** Regime overlay (user chose not to implement) and paper trading launch (starts manually).
+
+**Note:** Session prompt claimed "Sharpe 1.74, CAGR +25.2%" but actual backtest output is Sharpe 1.45, CAGR +31.5%. Docs updated to match verified engine output.
+
+---
+
+### Session 49: 6-Month Paper Trading Review (January 2027)
+
+**Scope:** Honest forward-test report. Compare paper portfolio performance vs SPY over 6 months.
 
 **Prompt:**
 ```
-Session 48: Regime Overlay + Paper Trading
+Session 49: 6-Month Paper Trading Review
 
-Read SESSION_PLAN.md (session 48 entry). Execution session.
+Read SESSION_PLAN.md first. This is a review session — evaluate real-world performance.
 
-Problem: Regime overlay (SPY DD>15% = reduce 50%) was built in session 25 but never
-wired into the production notebook. Also need to launch paper trading.
+Context: Production screener has been running since July 2026. FY2024 picks were generated
+in session 47b (Sharpe 1.45 in backtest). 6 months of real market data now available.
 
-Fix:
-1. notebooks/production_screener.ipynb — add regime check section after portfolio:
-   - Load SPY data, compute trailing drawdown from peak
-   - If DD > 15%: flag "RISK-OFF — reduce positions 50%"
-   - If DD <= 15%: flag "NORMAL — full deployment"
-   (Use research/regime_overlay.py logic as reference)
-2. Run notebook for FY2025 → generate 15 picks with current scores
-3. Save to data/paper_portfolio_2026-07.json with entry context
-4. Create docs/PAPER_TRADING.md: picks, entry date, success criteria
-   (annualized return > SPY + 15%, no position down >50%), 6-month review date
+Tasks:
+1. Load production_picks_latest.json (the picks from July 2026 run)
+2. Fetch actual 6-month returns for each pick (Jul 2026 – Jan 2027)
+3. Compare portfolio return vs SPY over same period
+4. Report: CAGR (annualized), hit rate, max single-stock drawdown
+5. Honest assessment: does live performance match backtest expectations?
+6. Save report to reports/paper_trading_6month_review.md
 
-After: pytest, commit as `feat(portfolio): regime overlay + paper trading launch`. Push.
+Success criteria (from backtest): annualized excess > +15% vs SPY, no position down >50%.
+If failing: document why, recommend adjustments.
 ```
 
 ---
 
-### Post-Session 48: Research Backlog
+### Post-Session 49: Research Backlog
 
 | # | Topic | When |
 |---|-------|------|
-| 49 | Multi-horizon blend (0.6×3y + 0.4×1y) | After 3 months paper trading |
-| 50 | 6-month forward test honest report | January 2027 |
-| 51 | Auto-retrain pipeline (Parked #11) | When live money deployed |
+| 50 | Multi-horizon blend (0.6×3y + 0.4×1y) | After paper trading review |
+| 51 | 6-month forward test honest report | January 2027 |
+| 52 | Auto-retrain pipeline (Parked #11) | When live money deployed |
 
 **Tracking at session close:** Move completed items from BACKLOG.md → Completed section.
 

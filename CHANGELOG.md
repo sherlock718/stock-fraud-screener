@@ -8,6 +8,16 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Chore — Session 48 (2026-06-29)
+
+#### Changed
+- **`docs/FAQ.md`**: Added all 8 gate thresholds, momentum gate, updated backtest summary to match current stats (Sharpe 1.45, CAGR +31.5%, MaxDD -8.1%).
+- **`models/decision_tree_model.joblib`** → **`models/research_tree_snapshot.joblib`**: Renamed to clarify this is a research artifact, not the production walk-forward tree.
+- **`notebooks/production_screener.ipynb`**: Updated model load path to match rename.
+
+#### Removed
+- **`_archive/repomix_metadata_pack/`**: Dead metadata directory (unused).
+
 ### Feature — Session 47b (2026-06-28)
 
 #### Added
