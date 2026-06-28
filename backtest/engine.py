@@ -34,7 +34,7 @@ from _root import ROOT
 from modeling.constants import (
     EXCLUDE_COLS, EXCLUDE_PATTERNS,
     BENEISH_THRESHOLD, TREE_THRESHOLD, PIOTROSKI_MIN,
-    VALUE_GATE_PCT, ALTMAN_Z_MIN,
+    VALUE_GATE_PCT, ALTMAN_Z_MIN, MOMENTUM_12M_MIN,
 )
 
 BASE = ROOT
@@ -461,6 +461,9 @@ def filter_composite(yr_df: pd.DataFrame, top_n: int, market: str | None,
         # Altman Z gate: exclude distressed companies
         if 'altman_z_score' in s.columns:
             s = s[s['altman_z_score'].fillna(0) > ALTMAN_Z_MIN]
+        # Momentum gate: exclude structural decliners
+        if 'momentum_12m_prior' in s.columns:
+            s = s[s['momentum_12m_prior'].fillna(0) > MOMENTUM_12M_MIN]
         # Rank by regression 3y (return magnitude), fallback to classification
         if 'reg_3y_wf' in s.columns and s['reg_3y_wf'].notna().sum() > 5:
             return s.nlargest(top_n, 'reg_3y_wf').index
