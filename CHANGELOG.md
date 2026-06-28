@@ -8,6 +8,14 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Feature — Session 40 (2026-06-28)
+
+#### Changed
+- **`models/decision_tree_rules.json`**: Retrained depth-4 decision tree on 2008-2020 (was 2008-2018). Now matches LightGBM's `TRAIN_CUTOFF=2020`. Rules changed: 5 → 8 BUY rules, new top split on `sales_to_price > 3.3059`.
+- **`models/decision_tree_model.joblib`**: New artifact — saved tree model for production scoring.
+- **Agreement filter threshold**: 0.35 confirmed on 3-year val (2021-2023): Sharpe 1.128, CAGR +18.53%, 0% max DD.
+- **Production LightGBM retrain**: `--train-cutoff 2023` absorbs val into training (38,917 rows). 1y test AUC 0.500 (2024 only, single noisy year); 2y test AUC 0.566.
+
 ### Feature — Session 39 (2026-06-28)
 
 #### Changed

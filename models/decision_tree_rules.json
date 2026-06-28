@@ -3,41 +3,42 @@
   "max_depth": 4,
   "n_features": 27,
   "features_used": [
-    "value_composite",
-    "financing_cashflow_to_assets",
     "sales_to_price",
-    "capex_intensity",
-    "ocf_to_assets",
     "ps_ratio_sector_pct",
-    "value_x_momentum",
-    "piotroski_ocf_pos",
-    "fcf_yield",
-    "piotroski_shares_ok",
+    "capex_intensity",
+    "value_composite",
+    "altman_x5",
     "entry_price",
-    "shares_growth",
-    "piotroski_f_score_9",
     "book_to_market",
     "altman_x4",
-    "debt_to_assets_sector_pct",
-    "price_to_52w_high",
-    "beneish_aqi",
-    "vol_prior_6m",
-    "altman_x5",
-    "momentum_consistency",
     "quarterly_positive_rev_frac",
-    "other_noncurrent_assets",
+    "ocf_to_assets",
+    "financing_cashflow_to_assets",
+    "piotroski_f_score_9",
+    "fcf_yield",
+    "piotroski_shares_ok",
     "gross_profit_to_assets",
+    "piotroski_ocf_pos",
+    "shares_growth",
+    "debt_to_assets_sector_pct",
     "piotroski_delta_at",
+    "value_x_momentum",
+    "beneish_aqi",
+    "momentum_consistency",
     "ocf_to_debt",
+    "other_noncurrent_assets",
+    "vol_prior_6m",
+    "price_to_52w_high",
     "goodwill_to_assets"
   ],
-  "train_period": "2008-2018",
-  "test_period": "2019-2024",
-  "tree_sharpe": 2.238,
-  "lgbm_sharpe": 1.124,
-  "agreement_sharpe": 1.138,
-  "n_rules_total": 14,
-  "n_rules_buy": 5,
+  "train_period": "2008-2020",
+  "val_period": "2021-2023",
+  "test_period": "2024+",
+  "agreement_threshold": 0.35,
+  "val_sharpe": 1.128,
+  "val_cagr_pct": 18.53,
+  "n_rules_total": 15,
+  "n_rules_buy": 8,
   "rules": [
     {
       "conditions": [
@@ -49,17 +50,17 @@
         {
           "feature": "entry_price",
           "operator": "<=",
-          "threshold": 248.1426
+          "threshold": 223.35
         },
         {
-          "feature": "fcf_yield",
+          "feature": "financing_cashflow_to_assets",
           "operator": "<=",
-          "threshold": -0.0986
+          "threshold": -0.0571
         }
       ],
       "prediction": "BUY",
-      "probability": 0.612,
-      "samples": 56
+      "probability": 0.677,
+      "samples": 65
     },
     {
       "conditions": [
@@ -71,49 +72,49 @@
         {
           "feature": "entry_price",
           "operator": "<=",
-          "threshold": 248.1426
+          "threshold": 223.35
         },
         {
-          "feature": "fcf_yield",
+          "feature": "financing_cashflow_to_assets",
           "operator": ">",
-          "threshold": -0.0986
+          "threshold": -0.0571
         },
         {
           "feature": "fcf_yield",
           "operator": "<=",
-          "threshold": -0.0004
+          "threshold": -0.0983
+        }
+      ],
+      "prediction": "BUY",
+      "probability": 0.587,
+      "samples": 123
+    },
+    {
+      "conditions": [
+        {
+          "feature": "sales_to_price",
+          "operator": "<=",
+          "threshold": 0.0209
+        },
+        {
+          "feature": "entry_price",
+          "operator": "<=",
+          "threshold": 223.35
+        },
+        {
+          "feature": "financing_cashflow_to_assets",
+          "operator": ">",
+          "threshold": -0.0571
+        },
+        {
+          "feature": "fcf_yield",
+          "operator": ">",
+          "threshold": -0.0983
         }
       ],
       "prediction": "HOLD",
-      "probability": 0.281,
-      "samples": 463
-    },
-    {
-      "conditions": [
-        {
-          "feature": "sales_to_price",
-          "operator": "<=",
-          "threshold": 0.0209
-        },
-        {
-          "feature": "entry_price",
-          "operator": "<=",
-          "threshold": 248.1426
-        },
-        {
-          "feature": "fcf_yield",
-          "operator": ">",
-          "threshold": -0.0986
-        },
-        {
-          "feature": "fcf_yield",
-          "operator": ">",
-          "threshold": -0.0004
-        }
-      ],
-      "prediction": "HOLD",
-      "probability": 0.414,
-      "samples": 498
+      "probability": 0.371,
+      "samples": 1326
     },
     {
       "conditions": [
@@ -125,22 +126,22 @@
         {
           "feature": "entry_price",
           "operator": ">",
-          "threshold": 248.1426
-        },
-        {
-          "feature": "gross_profit_to_assets",
-          "operator": "<=",
-          "threshold": 0.4693
+          "threshold": 223.35
         },
         {
           "feature": "value_composite",
           "operator": "<=",
           "threshold": 0.2417
+        },
+        {
+          "feature": "capex_intensity",
+          "operator": "<=",
+          "threshold": 0.0994
         }
       ],
       "prediction": "HOLD",
-      "probability": 0.023,
-      "samples": 101
+      "probability": 0.096,
+      "samples": 50
     },
     {
       "conditions": [
@@ -152,22 +153,49 @@
         {
           "feature": "entry_price",
           "operator": ">",
-          "threshold": 248.1426
+          "threshold": 223.35
         },
         {
-          "feature": "gross_profit_to_assets",
+          "feature": "value_composite",
           "operator": "<=",
-          "threshold": 0.4693
+          "threshold": 0.2417
+        },
+        {
+          "feature": "capex_intensity",
+          "operator": ">",
+          "threshold": 0.0994
+        }
+      ],
+      "prediction": "HOLD",
+      "probability": 0.019,
+      "samples": 63
+    },
+    {
+      "conditions": [
+        {
+          "feature": "sales_to_price",
+          "operator": "<=",
+          "threshold": 0.0209
+        },
+        {
+          "feature": "entry_price",
+          "operator": ">",
+          "threshold": 223.35
         },
         {
           "feature": "value_composite",
           "operator": ">",
           "threshold": 0.2417
+        },
+        {
+          "feature": "value_x_momentum",
+          "operator": "<=",
+          "threshold": 0.0501
         }
       ],
       "prediction": "HOLD",
-      "probability": 0.185,
-      "samples": 443
+      "probability": 0.29,
+      "samples": 309
     },
     {
       "conditions": [
@@ -179,17 +207,22 @@
         {
           "feature": "entry_price",
           "operator": ">",
-          "threshold": 248.1426
+          "threshold": 223.35
         },
         {
-          "feature": "gross_profit_to_assets",
+          "feature": "value_composite",
           "operator": ">",
-          "threshold": 0.4693
+          "threshold": 0.2417
+        },
+        {
+          "feature": "value_x_momentum",
+          "operator": ">",
+          "threshold": 0.0501
         }
       ],
       "prediction": "HOLD",
-      "probability": 0.391,
-      "samples": 74
+      "probability": 0.186,
+      "samples": 428
     },
     {
       "conditions": [
@@ -199,51 +232,132 @@
           "threshold": 0.0209
         },
         {
-          "feature": "value_composite",
+          "feature": "sales_to_price",
           "operator": "<=",
-          "threshold": 0.6534
+          "threshold": 3.3059
         },
         {
-          "feature": "vol_prior_6m",
+          "feature": "goodwill_to_assets",
           "operator": "<=",
-          "threshold": 0.5343
+          "threshold": 0.1926
+        },
+        {
+          "feature": "entry_price",
+          "operator": "<=",
+          "threshold": 6253.4846
+        }
+      ],
+      "prediction": "BUY",
+      "probability": 0.505,
+      "samples": 14091
+    },
+    {
+      "conditions": [
+        {
+          "feature": "sales_to_price",
+          "operator": ">",
+          "threshold": 0.0209
+        },
+        {
+          "feature": "sales_to_price",
+          "operator": "<=",
+          "threshold": 3.3059
+        },
+        {
+          "feature": "goodwill_to_assets",
+          "operator": "<=",
+          "threshold": 0.1926
+        },
+        {
+          "feature": "entry_price",
+          "operator": ">",
+          "threshold": 6253.4846
+        }
+      ],
+      "prediction": "HOLD",
+      "probability": 0.361,
+      "samples": 425
+    },
+    {
+      "conditions": [
+        {
+          "feature": "sales_to_price",
+          "operator": ">",
+          "threshold": 0.0209
+        },
+        {
+          "feature": "sales_to_price",
+          "operator": "<=",
+          "threshold": 3.3059
+        },
+        {
+          "feature": "goodwill_to_assets",
+          "operator": ">",
+          "threshold": 0.1926
+        },
+        {
+          "feature": "momentum_consistency",
+          "operator": "<=",
+          "threshold": -0.6678
+        }
+      ],
+      "prediction": "HOLD",
+      "probability": 0.239,
+      "samples": 54
+    },
+    {
+      "conditions": [
+        {
+          "feature": "sales_to_price",
+          "operator": ">",
+          "threshold": 0.0209
+        },
+        {
+          "feature": "sales_to_price",
+          "operator": "<=",
+          "threshold": 3.3059
+        },
+        {
+          "feature": "goodwill_to_assets",
+          "operator": ">",
+          "threshold": 0.1926
+        },
+        {
+          "feature": "momentum_consistency",
+          "operator": ">",
+          "threshold": -0.6678
+        }
+      ],
+      "prediction": "BUY",
+      "probability": 0.561,
+      "samples": 3867
+    },
+    {
+      "conditions": [
+        {
+          "feature": "sales_to_price",
+          "operator": ">",
+          "threshold": 0.0209
+        },
+        {
+          "feature": "sales_to_price",
+          "operator": ">",
+          "threshold": 3.3059
         },
         {
           "feature": "price_to_52w_high",
           "operator": "<=",
-          "threshold": 0.8928
-        }
-      ],
-      "prediction": "HOLD",
-      "probability": 0.485,
-      "samples": 2823
-    },
-    {
-      "conditions": [
-        {
-          "feature": "sales_to_price",
-          "operator": ">",
-          "threshold": 0.0209
+          "threshold": 0.4162
         },
         {
-          "feature": "value_composite",
+          "feature": "debt_to_assets_sector_pct",
           "operator": "<=",
-          "threshold": 0.6534
-        },
-        {
-          "feature": "vol_prior_6m",
-          "operator": "<=",
-          "threshold": 0.5343
-        },
-        {
-          "feature": "price_to_52w_high",
-          "operator": ">",
-          "threshold": 0.8928
+          "threshold": 0.5967
         }
       ],
       "prediction": "BUY",
-      "probability": 0.54,
-      "samples": 4091
+      "probability": 0.682,
+      "samples": 77
     },
     {
       "conditions": [
@@ -253,132 +367,24 @@
           "threshold": 0.0209
         },
         {
-          "feature": "value_composite",
-          "operator": "<=",
-          "threshold": 0.6534
-        },
-        {
-          "feature": "vol_prior_6m",
-          "operator": ">",
-          "threshold": 0.5343
-        },
-        {
-          "feature": "entry_price",
-          "operator": "<=",
-          "threshold": 18.9828
-        }
-      ],
-      "prediction": "HOLD",
-      "probability": 0.473,
-      "samples": 1487
-    },
-    {
-      "conditions": [
-        {
           "feature": "sales_to_price",
           "operator": ">",
-          "threshold": 0.0209
-        },
-        {
-          "feature": "value_composite",
-          "operator": "<=",
-          "threshold": 0.6534
-        },
-        {
-          "feature": "vol_prior_6m",
-          "operator": ">",
-          "threshold": 0.5343
-        },
-        {
-          "feature": "entry_price",
-          "operator": ">",
-          "threshold": 18.9828
-        }
-      ],
-      "prediction": "HOLD",
-      "probability": 0.342,
-      "samples": 636
-    },
-    {
-      "conditions": [
-        {
-          "feature": "sales_to_price",
-          "operator": ">",
-          "threshold": 0.0209
-        },
-        {
-          "feature": "value_composite",
-          "operator": ">",
-          "threshold": 0.6534
-        },
-        {
-          "feature": "entry_price",
-          "operator": "<=",
-          "threshold": 2.8527
-        },
-        {
-          "feature": "book_to_market",
-          "operator": "<=",
-          "threshold": 0.9899
-        }
-      ],
-      "prediction": "BUY",
-      "probability": 0.612,
-      "samples": 156
-    },
-    {
-      "conditions": [
-        {
-          "feature": "sales_to_price",
-          "operator": ">",
-          "threshold": 0.0209
-        },
-        {
-          "feature": "value_composite",
-          "operator": ">",
-          "threshold": 0.6534
-        },
-        {
-          "feature": "entry_price",
-          "operator": "<=",
-          "threshold": 2.8527
-        },
-        {
-          "feature": "book_to_market",
-          "operator": ">",
-          "threshold": 0.9899
-        }
-      ],
-      "prediction": "BUY",
-      "probability": 0.745,
-      "samples": 170
-    },
-    {
-      "conditions": [
-        {
-          "feature": "sales_to_price",
-          "operator": ">",
-          "threshold": 0.0209
-        },
-        {
-          "feature": "value_composite",
-          "operator": ">",
-          "threshold": 0.6534
-        },
-        {
-          "feature": "entry_price",
-          "operator": ">",
-          "threshold": 2.8527
+          "threshold": 3.3059
         },
         {
           "feature": "price_to_52w_high",
           "operator": "<=",
-          "threshold": 0.7152
+          "threshold": 0.4162
+        },
+        {
+          "feature": "debt_to_assets_sector_pct",
+          "operator": ">",
+          "threshold": 0.5967
         }
       ],
-      "prediction": "HOLD",
-      "probability": 0.458,
-      "samples": 480
+      "prediction": "BUY",
+      "probability": 0.86,
+      "samples": 54
     },
     {
       "conditions": [
@@ -388,31 +394,61 @@
           "threshold": 0.0209
         },
         {
-          "feature": "value_composite",
+          "feature": "sales_to_price",
           "operator": ">",
-          "threshold": 0.6534
-        },
-        {
-          "feature": "entry_price",
-          "operator": ">",
-          "threshold": 2.8527
+          "threshold": 3.3059
         },
         {
           "feature": "price_to_52w_high",
           "operator": ">",
-          "threshold": 0.7152
+          "threshold": 0.4162
+        },
+        {
+          "feature": "value_x_momentum",
+          "operator": "<=",
+          "threshold": 0.5682
         }
       ],
       "prediction": "BUY",
-      "probability": 0.565,
-      "samples": 4425
+      "probability": 0.569,
+      "samples": 784
+    },
+    {
+      "conditions": [
+        {
+          "feature": "sales_to_price",
+          "operator": ">",
+          "threshold": 0.0209
+        },
+        {
+          "feature": "sales_to_price",
+          "operator": ">",
+          "threshold": 3.3059
+        },
+        {
+          "feature": "price_to_52w_high",
+          "operator": ">",
+          "threshold": 0.4162
+        },
+        {
+          "feature": "value_x_momentum",
+          "operator": ">",
+          "threshold": 0.5682
+        }
+      ],
+      "prediction": "BUY",
+      "probability": 0.716,
+      "samples": 247
     }
   ],
   "readable_buy_rules": [
-    "Rule 1: IF sales_to_price > 0.0209 AND value_composite > 0.6534 AND entry_price <= 2.8527 AND book_to_market > 0.9899 \u2192 BUY (prob=74.5%, n=170)",
-    "Rule 2: IF sales_to_price <= 0.0209 AND entry_price <= 248.1426 AND fcf_yield <= -0.0986 \u2192 BUY (prob=61.2%, n=56)",
-    "Rule 3: IF sales_to_price > 0.0209 AND value_composite > 0.6534 AND entry_price <= 2.8527 AND book_to_market <= 0.9899 \u2192 BUY (prob=61.2%, n=156)",
-    "Rule 4: IF sales_to_price > 0.0209 AND value_composite > 0.6534 AND entry_price > 2.8527 AND price_to_52w_high > 0.7152 \u2192 BUY (prob=56.5%, n=4425)",
-    "Rule 5: IF sales_to_price > 0.0209 AND value_composite <= 0.6534 AND vol_prior_6m <= 0.5343 AND price_to_52w_high > 0.8928 \u2192 BUY (prob=54.0%, n=4091)"
+    "Rule 1: IF sales_to_price > 0.0209 AND sales_to_price > 3.3059 AND price_to_52w_high <= 0.4162 AND debt_to_assets_sector_pct > 0.5967 \u2192 BUY (prob=86.0%, n=54)",
+    "Rule 2: IF sales_to_price > 0.0209 AND sales_to_price > 3.3059 AND price_to_52w_high > 0.4162 AND value_x_momentum > 0.5682 \u2192 BUY (prob=71.6%, n=247)",
+    "Rule 3: IF sales_to_price > 0.0209 AND sales_to_price > 3.3059 AND price_to_52w_high <= 0.4162 AND debt_to_assets_sector_pct <= 0.5967 \u2192 BUY (prob=68.2%, n=77)",
+    "Rule 4: IF sales_to_price <= 0.0209 AND entry_price <= 223.35 AND financing_cashflow_to_assets <= -0.0571 \u2192 BUY (prob=67.7%, n=65)",
+    "Rule 5: IF sales_to_price <= 0.0209 AND entry_price <= 223.35 AND financing_cashflow_to_assets > -0.0571 AND fcf_yield <= -0.0983 \u2192 BUY (prob=58.7%, n=123)",
+    "Rule 6: IF sales_to_price > 0.0209 AND sales_to_price > 3.3059 AND price_to_52w_high > 0.4162 AND value_x_momentum <= 0.5682 \u2192 BUY (prob=56.9%, n=784)",
+    "Rule 7: IF sales_to_price > 0.0209 AND sales_to_price <= 3.3059 AND goodwill_to_assets > 0.1926 AND momentum_consistency > -0.6678 \u2192 BUY (prob=56.1%, n=3867)",
+    "Rule 8: IF sales_to_price > 0.0209 AND sales_to_price <= 3.3059 AND goodwill_to_assets <= 0.1926 AND entry_price <= 6253.4846 \u2192 BUY (prob=50.5%, n=14091)"
   ]
 }
