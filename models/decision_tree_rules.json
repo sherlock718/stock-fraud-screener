@@ -31,6 +31,7 @@
     "price_to_52w_high",
     "goodwill_to_assets"
   ],
+  "feature_selection_origin": "Session 22-23 temporal stability (survived both 2008-2014 and 2010-2016 shifted windows). Conservative subset of train period — no val/test leakage.",
   "train_period": "2008-2020",
   "val_period": "2021-2023",
   "test_period": "2024+",
