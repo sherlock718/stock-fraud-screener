@@ -35,7 +35,7 @@ Persistent session-by-session plan. Each session prompt should reference this fi
 | 42 | Clean model retrain + ROA gate + top 15 balanced config (OOS CAGR +25.9%, Sharpe 1.08) | b68b2e8 | 2026-06-28 |
 | 43 | Production screener + regression ranking + $10B cap (CAGR +34.7%, Sharpe 0.97) | 7773ce0 | 2026-06-28 |
 | 44 | Persist regression model as artifact — notebook loads instead of retraining | 1807f57 | 2026-06-28 |
-| 45 | Centralize production thresholds + Altman Z gate in engine (CAGR +33.9%, Sharpe 1.115) | pending | 2026-06-28 |
+| 45 | Centralize production thresholds + Altman Z gate in engine (CAGR +33.9%, Sharpe 1.115) | c303b1b | 2026-06-28 |
 
 ---
 
