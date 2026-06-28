@@ -33,7 +33,7 @@ Persistent session-by-session plan. Each session prompt should reference this fi
 | 40 | Retrain decision tree (2008-2020) + LightGBM production models | b490f57 | 2026-06-28 |
 | 41 | Parameterize ADTV by AUM ($200K retail) + FAQ quick-reference | 6b618f7 | 2026-06-28 |
 | 42 | Clean model retrain + ROA gate + top 15 balanced config (OOS CAGR +25.9%, Sharpe 1.08) | b68b2e8 | 2026-06-28 |
-| 43 | Production screener notebook — end-to-end pipeline as product | 48cea3e | 2026-06-28 |
+| 43 | Production screener + regression ranking + $10B cap (CAGR +34.7%, Sharpe 0.97) | 7773ce0 | 2026-06-28 |
 
 ---
 
@@ -715,14 +715,27 @@ After: pytest, commit as `feat(notebooks): production screener notebook`. Push.
 
 ---
 
-### Post-Session 43
+### Post-Session 43 — Next Steps
 
-Next priorities:
-- Parked #11 (automated retraining trigger — needed for weekly refresh)
-- Walk-forward retrain to 2023 (model is stale, trained on ≤2020)
-- Paper trading validation (6-month forward test)
-- Quarterly rebalancing (Parked #18)
-- Regime overlay for growth/momentum markets
+Production config is now validated: Regression + tree>=0.55 + $10B cap.
+CAGR +34.7%, Sharpe 0.97, 0 negative years (2013-2023).
+
+**Immediate priorities (sessions 44-46):**
+
+| # | Session | What | Why |
+|---|---------|------|-----|
+| 44 | Paper trading setup | Generate FY2025 picks, record entry prices, track for 6 months | Live validation before real money |
+| 45 | Automated retraining pipeline | Monthly retrain trigger, model versioning, drift detection | Parked #11 — required for production refresh |
+| 46 | Regime overlay integration | SPY DD >15% = reduce position 50%. Dormant since session 25 — wire into notebook | Insurance for 2008-style crashes |
+
+**Research backlog (sessions 47+):**
+
+| # | Topic | Expected impact |
+|---|-------|-----------------|
+| 47 | Quarterly rebalancing (Parked #18) | Currently annual — 12 months is too long if thesis breaks. Test Q vs annual rebalance on WF. |
+| 48 | Sector concentration cap | Current picks: 3/15 same sector. Add max 3 per sector cap and retest. |
+| 49 | Multi-horizon blend | Current: rank by 3y return only. Test 0.6×3y + 0.4×1y for near-term signal. |
+| 50 | Out-of-sample forward test report | After 6 months of paper trading (session 44), write honest OOS report. |
 
 **Tracking at session close:** Move completed items from BACKLOG.md Critical/Parked → Completed section.
 
