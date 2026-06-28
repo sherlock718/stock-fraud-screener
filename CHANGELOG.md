@@ -8,6 +8,14 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Test — Session 46 (2026-06-28)
+
+#### Added
+- **`tests/backtest/test_engine_gates.py`**: 9 unit tests covering ml_gates mode: max_cap, min_cap, value gate, tree threshold, Altman Z gate, regression ranking, Beneish gate, Piotroski gate, ROA gate. All use synthetic DataFrames.
+
+#### Fixed
+- **`docs/FAQ.md`**: Updated stale tree threshold 0.35→0.55, corrected model description (classifier+regressor), added feature count note.
+
 ### Refactor — Session 45 (2026-06-28)
 
 #### Changed

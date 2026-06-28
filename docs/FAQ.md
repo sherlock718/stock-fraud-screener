@@ -19,8 +19,9 @@
 
 ## Models
 - **Horizons:** 1-year, 3-year, 5-year forward return prediction
-- **Primary:** LightGBM (ranking) gated by depth-4 decision tree (explainability)
-- **Agreement threshold:** tree_prob ≥ 0.35
+- **Primary:** LightGBM classifier (gate) + LightGBM regressor (ranking by predicted 3y return magnitude)
+- **Agreement threshold:** tree_prob ≥ 0.55 (depth-4 decision tree must concur)
+- **Features:** 28 for 3y horizon (walk-forward IC-ranked per year)
 
 ## Key Thresholds
 | Metric | Threshold | Meaning |
@@ -28,7 +29,7 @@
 | PSI | 0.25 | Feature drift alert (Population Stability Index) |
 | IC | 0.02 | Minimum Information Coefficient for feature retention |
 | Beneish M-score | −1.78 | Below = likely earnings manipulator |
-| Tree agreement | 0.35 | Minimum tree probability to pass gate |
+| Tree agreement | 0.55 | Minimum tree probability to pass gate |
 | ADTV filter | AUM × 1% | Position can't exceed 1% of median 30d volume |
 
 ## Backtest Summary
