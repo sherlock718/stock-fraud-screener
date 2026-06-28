@@ -29,7 +29,7 @@ Persistent session-by-session plan. Each session prompt should reference this fi
 | 36 | Honest survivorship imputation + filing-date rebalance gate | 0657f3d | 2026-06-28 |
 | 37 | Alpha IC validation (all 5 pass) + fix non-US benchmark (ACWI ex-US) | 10bb452 | 2026-06-28 |
 | 38 | ml_gates mode: ML-only ranking + WF tree agreement + hard gates (Sharpe 1.204 vs 0.937) | 583bbb7 | 2026-06-28 |
-| 39 | Expand val to 2021-2023 + restrict feature selection to train-only | TBD | 2026-06-28 |
+| 39 | Expand val to 2021-2023 + restrict feature selection to train-only | 3c9e691 | 2026-06-28 |
 
 ---
 
