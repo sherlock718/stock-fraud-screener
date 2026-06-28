@@ -181,7 +181,7 @@ Merges snap + prices + macro, then computes ~170 features in groups:
 
 | Duplication | Files | Severity |
 |---|---|---|
-| `add_normalised_ratios()` | `pipeline/feature_library.py` AND `research/factor_research.py` | Low — identical logic, used at different pipeline stages |
+| `add_normalised_ratios()` | `pipeline/feature_library.py` AND `research/factor_research.py` | Low — identical logic, used at different pipeline stages. Still unfixed as of session 48. |
 | Winsorization | step5 (line 890) AND step6 `winsorize_accruals()` | Low — step6 is market×year specific, step5 is global. Both needed but confusing |
 | Size category logic | step5 `add_size_features()` AND step6 `_impute_size_category()` | Low — step6 fills gaps that step5 couldn't (missing market_cap) |
 
@@ -194,6 +194,11 @@ Merges snap + prices + macro, then computes ~170 features in groups:
 | `shares_outstanding` vs `common_shares_outstanding` | Same — aliased in step5, both survive |
 | `receivables` vs `accounts_receivable` | Same pattern |
 | Feature names: `_growth` vs `_growth_yoy` | Inconsistent between step2's naming and step5's alias targets |
+
+> **Updated Session 35**: `EXCLUDE_COLS` / `EXCLUDE_PATTERNS` (previously duplicated across
+> `backtest/engine.py`, `research/factor_research.py`, and `modeling/train.py`) are now
+> consolidated in `modeling/constants.py` — single source of truth. All consumers import from there.
+> The canonical feature set is **27 temporally stable features** (`models/feature_sets_pruned.json`).
 
 ### Dead / Unused Code
 

@@ -64,17 +64,25 @@ Walk-forward ML inside the backtest:
 - Feature selection: top-35 by |ICIR| on training data (`_ic_rank`)
 - Imputation: expanding-window training median (no look-ahead)
 - PIT: only filings with filed_date < January 1st of score year
-- Produces `ml_{1y,3y,5y}_wf` columns
+- Produces `ml_{1y,3y,5y}_wf` columns (classifier) and `reg_3y_wf` (regressor)
+- Also trains walk-forward LGBMRegressor (session 43) predicting continuous `forward_return_3y`
+- Also trains walk-forward Decision Tree for agreement gate (`tree_prob_wf`)
 - Falls back to static pre-trained models (`models/model_{1y,3y,5y}.joblib`)
+- Training data filter for regression: `fraud_suspect==0`, `piotroski_roa_pos==1`, `beneish_m_score < -1.78`
 
-#### Strategy Filters (4 strategies)
+#### Strategy Filters (5 strategies)
 
-| Strategy | Key Logic | Weight Allocation |
+| Strategy | Key Logic | Status |
 |---|---|---|
-| `composite` | Blend: value 25%, quality 20%, ML_1y 30%, ML_3y 15%, piotroski 10%. Beneish < −1.78 gate. | Default |
-| `qem` | Piotroski ≥ 7, EPS growth > 0, momentum > −10%. Blend: EPS 20%, quality 25%, ML_1y 25%, momentum 15%, value 15% | Default |
-| `scdv` | Micro/small cap only, P/B < 2.0, Piotroski ≥ 6, Altman-Z > 1.81. Blend: value 35%, quality 25%, ML_3y 25%, piotroski 15%. D/E penalty. | Default |
-| `iarb` | Non-US only, P/B < 1.5, Piotroski ≥ 6. Blend: value 30%, quality 25%, ML_3y 25%, momentum 20%. Country boost (KR +5%, BR +3%, CA +2%). | Default |
+| **`ml_gates`** | **8 hard gates (Beneish<-1.78, !delisted, Piotroski>=3, ROA+, value_pct<=0.70, tree>=0.55, AltmanZ>1.0, momentum>-40%). Rank by reg_3y_wf (LGBMRegressor), fallback ml_3y_wf. Top 15 equal-weight.** | **PRODUCTION (Sessions 42-47b)** |
+| `composite` | Blend: value 25%, quality 20%, ML_1y 30%, ML_3y 15%, piotroski 10%. Beneish < −1.78 gate. | Legacy |
+| `qem` | Piotroski ≥ 7, EPS growth > 0, momentum > −10%. Blend: EPS 20%, quality 25%, ML_1y 25%, momentum 15%, value 15% | Legacy |
+| `scdv` | Micro/small cap only, P/B < 2.0, Piotroski ≥ 6, Altman-Z > 1.81. Blend: value 35%, quality 25%, ML_3y 25%, piotroski 15%. D/E penalty. | Legacy |
+| `iarb` | Non-US only, P/B < 1.5, Piotroski ≥ 6. Blend: value 30%, quality 25%, ML_3y 25%, momentum 20%. Country boost (KR +5%, BR +3%, CA +2%). | Legacy |
+
+> **Updated Sessions 42-43**: `ml_gates` is now the production strategy. It uses regression ranking
+> (predicted 3y return magnitude) instead of composite score blending. The 4 legacy strategies
+> remain in the codebase for research/comparison but are not used for production picks.
 
 ---
 
@@ -157,7 +165,7 @@ Outputs:                   60 candidates →           Walk-forward ML         L
 | Temporal stability | Features survive shifted window | 50% Jaccard overlap |
 | Walk-forward ML | No look-ahead in scoring | Expanding window, PIT |
 | Backtest gate | Real-world signal after costs | Sharpe ≥ 0.8 (session 22) |
-| Agreement filter | Both models agree on picks | tree_prob ≥ 0.35 |
+| Agreement filter | Both models agree on picks | tree_prob >= 0.55 (production) |
 | Regime overlay | Macro crash protection | SPY DD > 15% → risk-off |
 
 ---
@@ -168,7 +176,7 @@ Outputs:                   60 candidates →           Walk-forward ML         L
 
 | # | Risk | Severity | Current Mitigation | Residual |
 |---|---|---|---|---|
-| 1 | **Survivorship bias** | HIGH | `survivorship_pct` reported; `fill_missing_return=-0.5` option | Default is DROP missing → optimistic. No delisted-company imputation by default |
+| 1 | **Survivorship bias** | ~~HIGH~~ **MEDIUM** | `survivorship_mode='impute'` (default), imputes -50% | **Updated Session 36**: Default changed from DROP to IMPUTE (-50%). Pessimistic assumption now standard. |
 | 2 | **Annual rebalance look-ahead** | MED | PIT filter (filed_date < Jan 1 of score year), 18-month filing lag filter | Assumes all filings available Jan 1 of holding year; actual filing dates vary (Mar-Jun typical for 10-K) |
 | 3 | **Forward return availability** | MED | Uses `forward_return_1y` column | Column computed from price data that may itself have survivorship issues (delisted tickers drop out) |
 | 4 | **Benchmark choice** | MED | SPY primary, universe mean fallback | SPY is US-only; non-US strategies (iarb) benchmark against SPY which is wrong; should use ACWI |
@@ -190,7 +198,7 @@ Outputs:                   60 candidates →           Walk-forward ML         L
 ### Fragile Paths
 
 1. **`_ic_rank()` inside `load_and_score()`** — duplicates IC logic from `research/ic_engine.py` with slightly different parameters (top_n=35 vs engine's flexibility). Divergence risk.
-2. **`EXCLUDE_COLS` / `EXCLUDE_PATTERNS`** — defined separately in `backtest/engine.py`, `research/factor_research.py`, and `modeling/train.py`. Must stay in sync manually.
+2. ~~**`EXCLUDE_COLS` / `EXCLUDE_PATTERNS`**~~ — **RESOLVED Session 35**: Now consolidated in `modeling/constants.py`. All consumers import from there.
 3. **`_sic_to_sector()`** — duplicated verbatim in `backtest/engine.py` and `research/ic_engine.py`. Any change must be made in both.
 4. **Walk-forward ML code** — copy-pasted across `proper_split_backtest.py`, `pruned_backtest.py`, `explainable_tree.py` (3 copies of the same training loop with minor variations).
 5. **`filter_composite()` imports** — research scripts import strategy filters from `backtest/engine.py`, creating tight coupling between research and execution.
@@ -206,7 +214,13 @@ Outputs:                   60 candidates →           Walk-forward ML         L
 | MAX_FILING_LAG_MONTHS | 18 | engine.py:476 | Conservative; could miss valid late filers |
 | DRAWDOWN_THRESHOLD | 0.15 | regime_overlay.py:24 | Arbitrary; not optimized |
 | CASH_FRACTION | 0.50 | regime_overlay.py:25 | Arbitrary; not optimized |
-| tree_threshold | 0.35 | explainable_tree.py (selected via sweep) | Only 5 values tested (0.30–0.50) |
+| tree_threshold | **0.55** | modeling/constants.py | **Updated Sessions 42-43** (was 0.35). Production gate. |
+| PIOTROSKI_MIN | 3 | modeling/constants.py | Production quality gate (Session 43) |
+| ALTMAN_Z_MIN | 1.0 | modeling/constants.py | Distress exclusion (Session 45) |
+| MOMENTUM_12M_MIN | -0.40 | modeling/constants.py | Structural decliner gate (Session 47b) |
+| VALUE_GATE_PCT | 0.70 | modeling/constants.py | Sector-relative cheapness (Session 43) |
+| MAX_MARKET_CAP_PROD | $10B | modeling/constants.py | Production cap ceiling (Session 43) |
+| top_n (production) | 15 | engine.py --top | Balanced portfolio size |
 | PSI_THRESHOLD | 0.25 | run_feature_selection.py:42 | Industry standard but may be loose |
 | IC_MIN_ABS | 0.02 | run_feature_selection.py:43 | Low bar; many weak features pass |
 | TOP_K_ICIR | 60 | run_feature_selection.py:44 | Large pre-dedup pool |
@@ -225,11 +239,10 @@ Outputs:                   60 candidates →           Walk-forward ML         L
 
 **Fix**: Extract a single `wf_score(df, features, model_factory, year_range)` function in `backtest/` or `modeling/` that accepts a model factory callable.
 
-### Priority 2: Consolidate EXCLUDE sets
+### ~~Priority 2: Consolidate EXCLUDE sets~~ — DONE (Session 35)
 
-**Problem**: `EXCLUDE_COLS`/`EXCLUDE_PATTERNS` defined in 3 places with slightly different contents.
-
-**Fix**: Single canonical definition in `pipeline/feature_library.py` or `modeling/constants.py`, imported everywhere.
+> **RESOLVED**: `EXCLUDE_COLS`/`EXCLUDE_PATTERNS` now defined in `modeling/constants.py`,
+> imported by all consumers (`backtest/engine.py`, `research/factor_research.py`, `modeling/train.py`).
 
 ### Priority 3: Deduplicate `_sic_to_sector()`
 
@@ -322,12 +335,17 @@ Outputs:                   60 candidates →           Walk-forward ML         L
 
 ---
 
-## 7. Key Metrics Summary (from sessions 22-25)
+## 7. Key Metrics Summary (sessions 22-48)
 
-| Stage | Sharpe | CAGR | Notes |
-|---|---|---|---|
-| Full 43-feature (biased) | 1.37 | — | Look-ahead in feature selection |
-| Proper split (unbiased) | 0.954 | +31.9% | Gate PASS |
-| Pruned 27 features | 1.124 | +33.8% | Simpler = better |
-| Agreement filter (t=0.35) | 1.138 | +34.0% | Final production model |
-| + Regime overlay | ~1.1 | +31.7% | Insurance only, dormant in test |
+| Stage | Sharpe | CAGR | MaxDD | Notes |
+|---|---|---|---|---|
+| Full 43-feature (biased) | 1.37 | — | — | Look-ahead in feature selection |
+| Proper split (unbiased) | 0.954 | +31.9% | — | Gate PASS (session 22) |
+| Pruned 27 features | 1.124 | +33.8% | — | Simpler = better (session 23) |
+| Agreement filter (t=0.35) | 1.138 | +34.0% | 0% | Session 24 (OLD threshold) |
+| **ml_gates (t=0.55, reg ranking)** | **1.45** | **+31.5%** | **-8.1%** | **PRODUCTION (sessions 42-47b)** |
+| + Regime overlay | ~1.1 | +31.7% | — | Insurance only, dormant in test |
+
+> **Updated Sessions 42-47b**: Production `ml_gates` with tree threshold 0.55 and regression
+> ranking achieves Sharpe 1.45, CAGR +31.5%, MaxDD -8.1% (2013-2023, top 15, $10B cap).
+> Lower raw CAGR than old t=0.35 but significantly better risk-adjusted returns.

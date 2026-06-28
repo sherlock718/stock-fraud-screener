@@ -18,6 +18,7 @@
 | `quality/check_sync.py` | Architecture doc sync — enforces CLAUDE.md Change Checklist rules on staged files | Pre-commit (--warn-only) | SOFT — warning only |
 | `quality/validate_feature_contract.py` | Group-level column presence check: Phase B (pipeline) vs Phase C (ML layer) | Post-enrichment orchestrator | HARD for Phase B, optional for Phase C |
 | `quality/run_phase_checks.py` | Mechanistic Phase A/B/C done-criteria verifier (dataset shape, feature library, feature selection, factor research, models, backtest) | Manual / milestone gate | EXIT 1 if any FAIL |
+| `quality/check_model_staleness.py` | Model freshness vs data freshness. Warns if model_meta.json older than dataset. `--strict` exits 1. | Manual / CI (optional) | MIXED — warn default, HARD with `--strict` |
 
 ### 1.2 What's Validated vs What's NOT
 
@@ -96,19 +97,21 @@ refresh_data.yml:
 | `tests/test_integration.py` | Full-pipeline end-to-end on synthetic data | All packages |
 | `tests/test_ablation.py` | Feature ablation logic | research/ablation |
 
-### 3.2 Critical Gaps (NOT Tested)
+### 3.2 Test Coverage Status (Updated Sessions 32-46)
 
-| Module | Gap | Risk |
-|--------|-----|------|
-| `quality/*` | Zero unit tests for any quality script | A bug in check_data could silently pass bad data |
-| `workflows/*` | Zero unit tests | Orchestration logic never verified in isolation |
-| `alpha/factors/*` | No unit tests for factor computation | Factor NaN handling, weight blending untested |
-| `backtest/engine.py` | No unit tests (only tested via integration) | Walk-forward bugs would surface only via wrong Sharpe |
-| `portfolio/*` | No unit tests | Kelly sizing, sector cap, position cap logic untested |
-| `data_io/*` | No unit tests | HF push/pull, merge_snapshots logic untested |
-| `fraud/*` | No unit tests (taxonomy is a stub) | taxonomy.classify_fraud_type() raises NotImplementedError |
-| `research/ic_engine.py` | No unit tests | IC calculation correctness relies solely on manual inspection |
-| `modeling/score_oof.py` | No unit tests | OOF scoring (critical for fraud_risk factor) untested |
+> **Total test count: 523** (was ~100 at Session 30). Major expansion in sessions 32-34, 46.
+
+| Module | Status | Session Added | Tests |
+|--------|--------|---------------|-------|
+| `quality/check_data + dataset_quality` | **COVERED** | Session 32 | 41 tests |
+| `alpha/factors/*` | **COVERED** | Session 33 | 23 tests |
+| `backtest/engine.py` (walk-forward + gates) | **COVERED** | Sessions 33, 46 | 29 tests (incl. 9 gate tests) |
+| `research/ic_engine + factor_research` | **COVERED** | Session 33 | 20 tests |
+| `portfolio/*` | **COVERED** | Session 34 | 24 tests |
+| `workflows/*` | Still **NO** unit tests | — | 0 tests |
+| `fraud/*` | Still **NO** unit tests (stubs) | — | 0 tests |
+| `data_io/*` | Still **NO** unit tests | — | 0 tests |
+| `modeling/score_oof.py` | Still **NO** unit tests | — | 0 tests |
 
 ---
 
@@ -215,11 +218,11 @@ Key cross-package imports:
 
 | # | Risk | Source | Detail |
 |---|------|--------|--------|
-| 1 | **Survivorship bias (backtest default=DROP)** | Session 29 | Missing forward_return stocks are dropped, not imputed. Optimistic backtest. |
-| 2 | **Feature selection uses test data (soft leakage)** | Session 28 | PSI filter in train.py computes PSI between train and test distributions. |
-| 3 | **No unit tests for quality scripts** | Session 30 | A bug in check_data/test_dataset_quality could silently pass bad data through CI. |
-| 4 | **Fraud taxonomy package is non-functional** | Session 30 | `fraud/taxonomy.py` raises NotImplementedError. All fraud logic lives in pipeline/enrich_fraud_taxonomy.py instead. |
-| 5 | **Portfolio/alpha modules untested** | Session 30 | Kelly sizing, factor computation, IC weighting have zero automated tests. |
+| 1 | ~~**Survivorship bias (backtest default=DROP)**~~ | Session 29 | **RESOLVED Session 36**: Default changed to `impute` (-50%). Pessimistic assumption now standard. |
+| 2 | ~~**Feature selection uses test data (soft leakage)**~~ | Session 28 | **RESOLVED Session 39**: All IC/PSI computation restricted to fiscal_year <= 2020 (train-only). |
+| 3 | ~~**No unit tests for quality scripts**~~ | Session 30 | **RESOLVED Session 32**: 41 tests for quality/check_data + dataset_quality. |
+| 4 | **Fraud taxonomy package is non-functional** | Session 30 | `fraud/taxonomy.py` still raises NotImplementedError. All fraud logic lives in pipeline/enrich_fraud_taxonomy.py instead. Still unresolved. |
+| 5 | ~~**Portfolio/alpha modules untested**~~ | Session 30 | **RESOLVED Sessions 33-34**: 23 alpha tests, 24 portfolio tests, 29 backtest tests added. |
 
 ### Tier 2: MEDIUM Severity
 
@@ -227,13 +230,13 @@ Key cross-package imports:
 |---|------|--------|--------|
 | 6 | Force-include overrides ICIR selection (9 features) | Session 28 | Momentum/macro features bypass statistical selection pipeline |
 | 7 | Decision tree trained on single window (2008-2018) | Session 28 | No walk-forward; could overfit to one market regime |
-| 8 | Two divergent feature sets (27 vs 45) | Session 28 | Pruned drives backtest but OOF scoring uses full 45 |
+| 8 | ~~Two divergent feature sets (27 vs 45)~~ | Session 28 | **RESOLVED**: 27 pruned is canonical for production. Walk-forward uses dynamic IC-ranking (28 for 3y). |
 | 9 | Annual rebalance look-ahead (assumes Jan 1 availability) | Session 29 | Most 10-Ks filed Mar-Jun; backtest uses too-early entry |
 | 10 | Benchmark mismatch for non-US (SPY for iarb) | Session 29 | Excess return claims meaningless without proper benchmark |
-| 11 | EXCLUDE_COLS defined in 3 separate files | Session 29 | Must stay in sync manually; divergence = leakage risk |
+| 11 | ~~EXCLUDE_COLS defined in 3 separate files~~ | Session 29 | **RESOLVED Session 35**: Consolidated in `modeling/constants.py`, imported everywhere. |
 | 12 | Walk-forward loop copy-pasted 4 times | Session 29 | Bug fix in one copy won't propagate to others |
 | 13 | RISK_FREE constant (3%) distorts zero-rate era Sharpe | Session 29 | Reporting accuracy issue |
-| 14 | workflows/run_pipeline_br.py has undefined BASE | Session 30 | Uses BASE before from _root import ROOT (would crash) |
+| 14 | ~~workflows/run_pipeline_br.py has undefined BASE~~ | Session 30 | **RESOLVED Session 31**: Fixed ordering bug. |
 | 15 | monitor_drift depends on alpha_registry.json existing | Session 30 | IC decay check fails silently if registry absent |
 
 ### Tier 3: LOW Severity
@@ -253,32 +256,32 @@ Key cross-package imports:
 
 ## 7. Refactor Backlog (Priority-Ordered)
 
-### Theme A: Testing Infrastructure (LOE: 3-4 sessions)
+### ~~Theme A: Testing Infrastructure~~ — ALL COMPLETE (Sessions 32-34, 46)
 
-| # | Item | LOE | Why |
-|---|------|-----|-----|
-| A1 | Unit tests for quality/ scripts | 1 session | Critical CI gates have zero test coverage |
-| A2 | Unit tests for alpha/factors/* | 1 session | Factor NaN handling, weight blending untested |
-| A3 | Unit tests for backtest/engine.py | 1 session | Core WF logic, position sizing, slippage |
-| A4 | Unit tests for portfolio/* | 0.5 session | Kelly sizing, sector cap logic |
+| # | Item | Status |
+|---|------|--------|
+| A1 | Unit tests for quality/ scripts | **DONE** Session 32 (41 tests) |
+| A2 | Unit tests for alpha/factors/* | **DONE** Session 33 (23 tests) |
+| A3 | Unit tests for backtest/engine.py | **DONE** Sessions 33, 46 (29 tests) |
+| A4 | Unit tests for portfolio/* | **DONE** Session 34 (24 tests) |
 
 ### Theme B: Code Consolidation (LOE: 2-3 sessions)
 
 | # | Item | LOE | Why |
 |---|------|-----|-----|
 | B1 | Extract shared walk-forward training loop | 1 session | 4 copies across research scripts |
-| B2 | Unify EXCLUDE_COLS/PATTERNS (single source) | 0.5 session | 3 files must stay in sync |
+| B2 | ~~Unify EXCLUDE_COLS/PATTERNS (single source)~~ | **DONE** Session 35 | `modeling/constants.py` |
 | B3 | Consolidate `_sic_to_sector()` duplication | 0.5 session | engine.py + ic_engine.py |
-| B4 | Unify feature sets (27 pruned as canonical) | 0.5 session | Two parallel standards cause confusion |
-| B5 | Fix undefined BASE in run_pipeline_br.py | Trivial | Would crash on use |
+| B4 | ~~Unify feature sets (27 pruned as canonical)~~ | **DONE** Session 34 | 27 canonical confirmed |
+| B5 | ~~Fix undefined BASE in run_pipeline_br.py~~ | **DONE** Session 31 | Fixed ordering |
 
 ### Theme C: Production Hardening (LOE: 3-4 sessions)
 
 | # | Item | LOE | Why |
 |---|------|-----|-----|
-| C1 | Model staleness CI check | 0.5 session | No check that .joblib is fresher than data |
-| C2 | Survivorship default = impute (not drop) | 1 session | Current default is optimistic |
-| C3 | Filing-date aware rebalance timing | 1 session | Jan 1 assumption is look-ahead |
+| C1 | ~~Model staleness CI check~~ | **DONE** Session 34 | `quality/check_model_staleness.py` |
+| C2 | ~~Survivorship default = impute (not drop)~~ | **DONE** Session 36 | Default is now -50% imputation |
+| C3 | ~~Filing-date aware rebalance timing~~ | **DONE** Session 36 | Rebalance gated by filing_date |
 | C4 | Non-US benchmark (ACWI for iarb) | 0.5 session | SPY benchmark meaningless for non-US |
 | C5 | Activate fraud/ package (extract from pipeline) | 1 session | Currently stub/dead |
 

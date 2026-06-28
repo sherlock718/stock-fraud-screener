@@ -11,6 +11,8 @@
 | Component | Value |
 |-----------|-------|
 | Primary model | LightGBM Classifier |
+| **Production scoring** | **LightGBM Regressor** (ranking by predicted 3y return magnitude) |
+| Agreement gate | Depth-4 Decision Tree — **tree_prob >= 0.55** |
 | n_estimators | 600 |
 | max_depth | 6 |
 | num_leaves | 63 |
@@ -21,9 +23,11 @@
 | reg_alpha / reg_lambda | 0.1 / 1.0 |
 | scale_pos_weight | auto (neg/pos ratio) |
 | Baseline comparator | Logistic Regression (StandardScaler + C=0.1) |
-| Agreement gate | Depth-4 Decision Tree (session 24) — tree_prob ≥ 0.35 |
-| Regression model | LightGBM Huber (predicts continuous excess return) |
 | Tuning (optional) | Optuna + CatBoost comparison + isotonic calibration |
+
+> **Updated Sessions 42-43**: Production strategy `ml_gates` ranks stocks by `reg_3y_wf`
+> (LGBMRegressor predicting continuous 3y forward return) with tree gate at 0.55.
+> The classifier remains for OOF scoring and other horizons. Tree threshold changed from 0.35 to 0.55.
 
 ### 1.2 Horizons
 
@@ -42,10 +46,13 @@ Five discrete models, one per horizon:
 ### 1.3 Train/Test Split Mechanics
 
 ```
-Train  : fiscal_year <= 2022 AND filed_date < 2023-01-01  (PIT-safe)
-Val    : fiscal_year 2023
-Test   : fiscal_year > 2023 (2024+)
+Train  : fiscal_year <= 2020  (TRAIN_CUTOFF)
+Val    : fiscal_year 2021–2023  (3 years)
+Test   : fiscal_year > 2023  (2024+)
 ```
+
+> **Updated Session 39**: Val expanded from single year (2023) to 3-year window (2021-2023).
+> Feature selection restricted to train-only (fiscal_year <= 2020) to prevent leakage.
 
 - **Point-in-time (PIT) enforcement**: Rows with filed_date after the train cutoff boundary are excluded from training even if their fiscal_year ≤ cutoff. Prevents look-ahead from late-filed annual reports.
 - **Dedup**: Within (ticker, fiscal_year), keeps row with largest `total_assets` (largest filer wins).
@@ -86,8 +93,12 @@ Additional sophistication:
 - **Force-includes** for 6m/1y/2y: momentum/macro features that ICIR systematically under-selects
 
 **Current feature counts** (from `models/feature_sets_*.json`):
-- 3y: 45 features
-- Pruned (27 temporally stable): used for backtest in sessions 23-24
+- 3y: 28 features (walk-forward IC-ranked per year from training data)
+- Pruned (27 temporally stable): canonical production set (`feature_sets_pruned.json`)
+
+> **Updated Session 39**: The "45 vs 27 divergence" risk is RESOLVED. The 27-feature pruned
+> set is canonical. Feature selection now confined to train-only (fiscal_year <= 2020).
+> PSI computed on train vs val (not train vs test).
 
 ---
 
@@ -126,6 +137,11 @@ DEFAULT_WEIGHTS = {
 Composite = weighted average of 5 factor scores. Weights are normalized to sum to 1.0.
 
 **Interaction**: Factors are **additive only** — no multiplicative gates, no conditional overrides. Each factor contributes independently to the composite. The only non-linearity is that `fraud_risk` factor consumes ML OOF scores (`ml_{h}_oof`), creating an indirect dependency: ML model → OOF scores → fraud_risk factor → composite.
+
+> **Updated Session 43**: In production `ml_gates` mode, the alpha composite is **bypassed entirely**.
+> Ranking is by `reg_3y_wf` (regression predicted return magnitude) with tree agreement gate.
+> The composite blend remains functional for legacy strategies and for the `alpha_composite`
+> column written to the dataset, but it does NOT drive production picks.
 
 ### 2.4 Supporting Modules
 
@@ -187,9 +203,12 @@ Composite = weighted average of 5 factor scores. Weights are normalized to sum t
                            │
                            ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│ DECISION LAYER (research/explainable_tree.py + regime_overlay.py)     │
-│   Agreement filter: LightGBM ranks + tree gates (prob ≥ 0.35)        │
-│   Regime overlay: SPY trailing DD > 15% → 50% cash                   │
+│ DECISION LAYER (backtest/engine.py ml_gates strategy)                 │
+│   8 hard gates: Beneish<-1.78, !delisted, Piotroski>=3, ROA+,       │
+│                  value<=70th, tree>=0.55, AltmanZ>1.0, mom>-40%      │
+│   Ranking: reg_3y_wf (LGBMRegressor), fallback ml_3y_wf             │
+│   Top N = 15 picks, equal-weight, annual rebalance                   │
+│   Regime overlay: SPY trailing DD > 15% → 50% cash (insurance)      │
 │   Output: final BUY/HOLD signal                                      │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -213,7 +232,7 @@ Composite = weighted average of 5 factor scores. Weights are normalized to sum t
 
 | Risk | Severity | Location | Detail |
 |------|----------|----------|--------|
-| Feature selection on full data | HIGH | train.py PSI filter uses df_test | PSI computed between train and test. If test distribution informs which features pass, it's soft leakage. Feature selection should use train+val only. |
+| ~~Feature selection on full data~~ | ~~HIGH~~ **RESOLVED** | run_feature_selection.py | **Fixed Session 39**: All IC/PSI computation now restricted to fiscal_year <= TRAIN_CUTOFF (2020). Val/test data excluded. |
 | Force-include overrides ICIR | MEDIUM | train.py:90-96 | 9 features hardcoded for 6m/1y, bypassing the selection pipeline. If chosen by hindsight, they inject lookahead. |
 | Decision tree trained on 2008-2018 | MEDIUM | decision_tree_rules.json | Tree rules are frozen from one train window. No walk-forward — could overfit to that period's market regime. |
 | Equal alpha weights | LOW | composite.py | 20% per factor regardless of realized IC. Slightly inefficient but avoids weight-mining overfitting. |
@@ -233,7 +252,12 @@ Composite = weighted average of 5 factor scores. Weights are normalized to sum t
 | Threshold | Value | Location | Risk |
 |-----------|-------|----------|------|
 | Alpha weights | 20% equal | composite.py:17 | No empirical optimization — could underweight high-IC factors |
-| Agreement filter | tree_prob ≥ 0.35 | Session 24 sweep | Chosen from {0.30, 0.35, 0.40, 0.50} — only 4 points tested |
+| Agreement filter | **tree_prob >= 0.55** | modeling/constants.py | **Updated Sessions 42-43** (was 0.35). Stricter gate, better risk-adjusted returns. |
+| PIOTROSKI_MIN | 3 | modeling/constants.py | Production quality gate (Session 43) |
+| VALUE_GATE_PCT | 0.70 | modeling/constants.py | Sector-relative cheapness gate (Session 43) |
+| ALTMAN_Z_MIN | 1.0 | modeling/constants.py | Distress exclusion (Session 45) |
+| MOMENTUM_12M_MIN | -0.40 | modeling/constants.py | Structural decliner gate (Session 47b) |
+| MAX_MARKET_CAP_PROD | $10B | modeling/constants.py | Small/mid-cap ceiling (Session 43) |
 | Regime overlay | SPY DD > 15% | research/regime_overlay.py | Arbitrary threshold, tested on limited sample (2009, 2010, 2023 triggers) |
 | PSI threshold | 0.25 | run_feature_selection.py:44 | Industry standard but sensitive: 0.20 vs 0.30 could add/drop 5-10 features |
 | IC minimum | 0.02 | run_feature_selection.py:45 | Very permissive — most quant shops use 0.03-0.05 |
@@ -246,11 +270,11 @@ Composite = weighted average of 5 factor scores. Weights are normalized to sum t
 
 | Risk | Detail |
 |------|--------|
-| **Two divergent feature sets** | `feature_sets_3y.json` (45 features) vs `feature_sets_pruned.json` (27 features). The pruned set drives the backtest, but `score_oof.py` loads from `feature_sets_{h}.json` (45). Which is canonical for production? |
+| ~~**Two divergent feature sets**~~ | **RESOLVED**: 27 pruned features are canonical for production. Walk-forward uses IC-ranked features from training data (28 for 3y). The old `feature_sets_3y.json` (45) is research reference only. |
 | **Fraud_risk factor circular dependency** | ML OOF scores are inputs to fraud_risk alpha factor, but alpha_fraud_risk is EXCLUDED from ML training. The exclusion prevents direct circularity but creates an implicit signal loop: ML → OOF → fraud_risk → composite → screener decisions. |
-| **OOF file has undefined BASE** | `modeling/score_oof.py` line 44 uses `BASE` before it's assigned (line 52 assigns it). Would crash on import. Likely a copy-paste ordering bug. |
+| ~~**OOF file has undefined BASE**~~ | **RESOLVED Session 31**: Fixed ordering bug in score_oof.py. |
 | **Regression model uncoupled from classifier** | `train_regression_model.py` shares feature sets but trains independently. No guarantee they agree — a stock could rank high on binary probability but low on predicted excess return. |
-| **No automated retraining trigger** | Models must be manually retrained after new data arrives. No CI job or staleness check on model artifacts. |
+| **No automated retraining trigger** | Partially addressed: `quality/check_model_staleness.py` added (Session 34) with `--strict` mode. Not yet in mandatory CI. Manual retraining still required. |
 
 ---
 
@@ -258,13 +282,13 @@ Composite = weighted average of 5 factor scores. Weights are normalized to sum t
 
 | # | What | Why | Effort |
 |---|------|-----|--------|
-| 1 | **Unify feature_sets_pruned.json vs feature_sets_{h}.json** | Two parallel feature set standards cause confusion about which is canonical. Should be one source of truth per horizon. | Medium |
-| 2 | **Fix BASE ordering in score_oof.py** | Line 44 uses BASE before line 52 defines it. Would crash. Trivial fix but currently likely shadowed by import order. | Trivial |
+| 1 | ~~**Unify feature_sets_pruned.json vs feature_sets_{h}.json**~~ | **RESOLVED**: 27 pruned is canonical. Walk-forward uses dynamic IC-ranking. | ~~Medium~~ Done |
+| 2 | ~~**Fix BASE ordering in score_oof.py**~~ | **RESOLVED Session 31**: Fixed. | ~~Trivial~~ Done |
 | 3 | **Extract model hyperparams to config** | n_estimators=600, max_depth=6, etc. are hardcoded in 3+ files (train.py, score_oof.py, tune.py). Should be one config. | Medium |
-| 4 | **Add model staleness check** | CI or pre-commit hook that warns when model artifacts are older than the last data refresh. | Small |
+| 4 | ~~**Add model staleness check**~~ | **DONE Session 34**: `quality/check_model_staleness.py` added. | ~~Small~~ Done |
 | 5 | **Validate alpha factor signal presence** | Currently factors silently return NaN if all their signals are missing. Should warn loudly. | Small |
 | 6 | **Weight optimization experiment** | Equal 20% weights are safe but possibly suboptimal. Run a restricted (train-only) optimization to see if IC-weighted outperforms. | Research task |
-| 7 | **Consolidate train.py load_data() duplication** | `load_data()` is duplicated across train.py, score_oof.py, run_feature_selection.py with minor differences. Single shared loader would prevent drift. | Medium |
+| 7 | ~~**Consolidate train.py load_data() duplication**~~ | **RESOLVED Session 35**: `modeling/constants.py` now has single `load_data()` function imported everywhere. | ~~Medium~~ Done |
 | 8 | **Add horizon_router to composite** | Currently composite weights are horizon-agnostic. A stock screened at 6m horizon still gets equal weight on 3y fraud ML scores. | Design decision |
 
 ---
