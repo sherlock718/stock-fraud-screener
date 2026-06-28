@@ -528,7 +528,9 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
                  min_market_cap: int = MIN_MARKET_CAP,
                  vol_weighted: bool = True,
                  fill_missing_return: float | None = None,
+                 survivorship_mode: str = 'impute',
                  max_filing_lag_months: int = MAX_FILING_LAG_MONTHS,
+                 filing_date_gate: bool = True,
                  spy_returns: dict | None = None,
                  monthly_px: pd.DataFrame | None = None,
                  use_adtv_filter: bool = True,
@@ -536,11 +538,17 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
     """Walk-forward backtest engine.
 
     Args:
-        fill_missing_return: If set, impute this return for picked stocks with
-            NaN forward_return_1y instead of dropping them. Use -0.5 to
-            model worst-case survivorship (missing = delisted).
+        fill_missing_return: If set, overrides the survivorship_mode imputation
+            value. Default None means survivorship_mode controls behavior.
+        survivorship_mode: How to handle stocks with NaN forward_return_1y.
+            'impute' (default): impute -0.5 return (missing ~ delisted).
+            'drop': drop rows (optimistic, old behavior).
+            'flag_only': drop but log count per year.
         max_filing_lag_months: Drop filings received more than N months after
             fiscal year-end (look-ahead protection). Default 18.
+        filing_date_gate: When True, only include stocks whose filed_date
+            is before the holding year start (Jan 1). Stocks filing later
+            become eligible in the next year's portfolio.
         spy_returns: Dict of {year: spy_annual_return} for SPY benchmark.
             If None, falls back to equal-weight universe mean as benchmark.
         monthly_px: Monthly price cache from build_monthly_price_cache.py.
@@ -550,6 +558,17 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
             that would require trading > max_pct_adtv of 30d ADTV.
         max_pct_adtv: Liquidity threshold (default 5% of ADTV).
     """
+    # Resolve effective imputation value from survivorship_mode
+    if fill_missing_return is not None:
+        _impute_val = fill_missing_return
+        _do_impute = True
+    elif survivorship_mode == 'impute':
+        _impute_val = -0.5
+        _do_impute = True
+    else:
+        _impute_val = None
+        _do_impute = False
+
     years = sorted(y for y in df['fiscal_year'].unique() if y <= 2023)
     annual_rows = []
     total_survivorship_dropped = 0
@@ -560,6 +579,12 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
 
         # ── Look-ahead protection: drop implausibly late filings ──────────────
         yr_df = _apply_filing_lag_filter(yr_df, yr, max_filing_lag_months)
+
+        # ── Filing-date gate: only include stocks filed before holding year ───
+        if filing_date_gate and 'filed_date' in yr_df.columns:
+            filed = pd.to_datetime(yr_df['filed_date'], errors='coerce')
+            holding_start = pd.Timestamp(f'{yr + 1}-01-01')
+            yr_df = yr_df[filed.isna() | (filed < holding_start)]
 
         # Liquidity pre-filter: remove stocks below market cap threshold
         if min_market_cap > 0 and 'market_cap_at_filing' in yr_df.columns:
@@ -583,9 +608,9 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
         n_missing = int(missing_mask.sum())
         total_survivorship_dropped += n_missing
 
-        if fill_missing_return is not None and n_missing > 0:
+        if _do_impute and n_missing > 0:
             picks = picks.copy()
-            picks.loc[missing_mask, 'forward_return_1y'] = fill_missing_return
+            picks.loc[missing_mask, 'forward_return_1y'] = _impute_val
             picks_valid = picks
         else:
             picks_valid = picks[~missing_mask]
@@ -634,8 +659,8 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
         bench_df = yr_df.copy()
         if market:
             bench_df = bench_df[bench_df['market'] == market]
-        if fill_missing_return is not None:
-            bench_df['forward_return_1y'] = bench_df['forward_return_1y'].fillna(fill_missing_return)
+        if _do_impute:
+            bench_df['forward_return_1y'] = bench_df['forward_return_1y'].fillna(_impute_val)
         bench_rets_s = bench_df['forward_return_1y'].dropna()
         universe_ret = bench_rets_s.mean() if len(bench_rets_s) > 5 else np.nan
         bench_coverage = len(bench_rets_s) / max(len(bench_df), 1)
@@ -782,6 +807,7 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
         'avg_cost_drag_bps':    round(res['cost_drag'].mean() * 10000, 1),
         'best_year_pct':        round(res['port_ret'].max() * 100, 2),
         'worst_year_pct':       round(res['port_ret'].min() * 100, 2),
+        'survivorship_mode':    survivorship_mode,
         'survivorship_pct':     round(total_survivorship_dropped / max(total_picks_attempted, 1) * 100, 1),
         'cagr_bootstrap_mean_pct':   boot.get('cagr_bootstrap_mean_pct'),
         'cagr_bootstrap_1sigma_pct': boot.get('cagr_bootstrap_1sigma_pct'),
@@ -918,11 +944,17 @@ def main():
     parser.add_argument('--equal-weight', action='store_true',
                         help='Use equal-weight instead of inverse-volatility weighting')
     parser.add_argument('--fill-missing', type=float, default=None, metavar='RETURN',
-                        help='Impute this return for picks with missing forward_return_1y '
+                        help='Override survivorship imputation value '
                              '(e.g. -0.5 for worst-case survivorship bias)')
+    parser.add_argument('--survivorship-mode', choices=['impute', 'drop', 'flag_only'],
+                        default='impute',
+                        help='How to handle missing forward returns: impute -50%% (default), '
+                             'drop (optimistic), or flag_only (drop + log)')
     parser.add_argument('--max-filing-lag', type=int, default=MAX_FILING_LAG_MONTHS,
                         help=f'Max months between fiscal year-end and filed_date '
                              f'(look-ahead filter, default {MAX_FILING_LAG_MONTHS})')
+    parser.add_argument('--no-filing-gate', action='store_true',
+                        help='Disable filing-date gate (allow stocks not yet filed into portfolio)')
     parser.add_argument('--tearsheet', action='store_true',
                         help='Print detailed tearsheet for each strategy')
     parser.add_argument('--no-adtv', action='store_true',
@@ -967,7 +999,9 @@ def main():
                               min_market_cap=args.min_cap,
                               vol_weighted=not args.equal_weight,
                               fill_missing_return=args.fill_missing,
+                              survivorship_mode=args.survivorship_mode,
                               max_filing_lag_months=args.max_filing_lag,
+                              filing_date_gate=not args.no_filing_gate,
                               spy_returns=spy_returns,
                               monthly_px=monthly_px,
                               use_adtv_filter=not args.no_adtv)
@@ -994,7 +1028,9 @@ def main():
         'min_market_cap':    args.min_cap,
         'vol_weighted':      not args.equal_weight,
         'fill_missing':      args.fill_missing,
+        'survivorship_mode': args.survivorship_mode,
         'max_filing_lag':    args.max_filing_lag,
+        'filing_date_gate':  not args.no_filing_gate,
         'adtv_filter':       not args.no_adtv and monthly_px is not None,
         'monthly_nav_maxdd': monthly_px is not None,
         'strategies':        results,

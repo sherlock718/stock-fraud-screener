@@ -8,6 +8,17 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Fix — Session 36 (2026-06-28)
+
+#### Changed
+- **`backtest/engine.py`**: Default survivorship handling now imputes -50% return for stocks with missing forward_return_1y (previously dropped them — optimistic bias). New `survivorship_mode` param: 'impute' (default), 'drop', 'flag_only'. CLI: `--survivorship-mode`.
+- **`backtest/engine.py`**: Filing-date rebalance gate — only stocks whose `filed_date < holding_year+1 Jan 1` are eligible for that year's portfolio. Prevents look-ahead from filings not yet available. CLI: `--no-filing-gate` to disable.
+
+#### Impact
+- Old (drop + no gate): CAGR +26.6%, Sharpe 0.982, MaxDD -3.0%
+- New (impute + gate): CAGR +24.0%, Sharpe 1.036, MaxDD -8.4%
+- Sharpe improves +5% (less noisy), CAGR drops -2.6pp (more honest), MaxDD more realistic
+
 ### Refactor — Session 35 (2026-06-28)
 
 #### Added
