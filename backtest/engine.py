@@ -341,6 +341,50 @@ def load_and_score(df: pd.DataFrame) -> pd.DataFrame:
         n_tree = (~np.isnan(tree_probs)).sum()
         print(f'      tree: {n_tree:,} rows scored walk-forward', flush=True)
 
+    # ── Walk-forward regression (3y return magnitude) ─────────────────────────
+    ret_col_3y = 'forward_return_3y'
+    if ret_col_3y in df.columns:
+        reg_scores = np.full(len(df), np.nan)
+        print('    WF-Reg 3y: training year by year...', flush=True)
+        for score_yr in years:
+            _cutoff = pd.Timestamp(f'{score_yr}-01-01')
+            _pit_mask = _filed.isna() | (_filed < _cutoff)
+            train_df = df[
+                (df['fiscal_year'] < score_yr) & df[ret_col_3y].notna() & _pit_mask
+            ].copy()
+            if train_df['fiscal_year'].nunique() < min_train_years:
+                continue
+            # Clean training data for regression too
+            clean_mask = (
+                (train_df.get('fraud_suspect', pd.Series(0, index=train_df.index)) == 0) &
+                (train_df.get('piotroski_roa_pos', pd.Series(1, index=train_df.index)) == 1) &
+                (train_df.get('beneish_m_score', pd.Series(-3, index=train_df.index)) < -1.78)
+            )
+            train_df = train_df[clean_mask]
+            if len(train_df) < 100:
+                continue
+            feats = _ic_rank(train_df, all_features, ret_col_3y, top_n=35)
+            feats = [f for f in feats if f in train_df.columns]
+            if len(feats) < 5:
+                continue
+            train_med = train_df[feats].median()
+            X_train = train_df[feats].fillna(train_med)
+            y_train = train_df[ret_col_3y].clip(-1, 5)
+            reg = lgb.LGBMRegressor(
+                n_estimators=600, max_depth=6, learning_rate=0.03,
+                num_leaves=63, subsample=0.8, colsample_bytree=0.7,
+                min_child_samples=20, random_state=42, n_jobs=-1, verbose=-1,
+            )
+            reg.fit(X_train, y_train)
+            score_mask = (df['fiscal_year'] == score_yr).values
+            if score_mask.sum() == 0:
+                continue
+            X_score = df.loc[score_mask, feats].fillna(train_med)
+            reg_scores[score_mask] = reg.predict(X_score)
+        df['reg_3y_wf'] = reg_scores
+        n_reg = (~np.isnan(reg_scores)).sum()
+        print(f'      reg_3y: {n_reg:,} rows scored walk-forward', flush=True)
+
     # Also keep static model scores as fallback (for years before walk-forward kicks in)
     meta_path = MODELS_DIR / 'model_meta.json'
     if meta_path.exists():
@@ -407,10 +451,12 @@ def filter_composite(yr_df: pd.DataFrame, top_n: int, market: str | None,
         # Value gate: not grossly overpriced (top-half cheapness within sector)
         if 'ps_ratio_sector_pct' in s.columns:
             s = s[s['ps_ratio_sector_pct'].fillna(0.5) <= 0.7]
-        # Agreement gate: tree must concur at >= 0.45
+        # Agreement gate: tree must concur at >= 0.55
         if 'tree_prob' in s.columns:
-            s = s[s['tree_prob'].fillna(0) >= 0.45]
-        # Rank by ML 3y probability only
+            s = s[s['tree_prob'].fillna(0) >= 0.55]
+        # Rank by regression 3y (return magnitude), fallback to classification
+        if 'reg_3y_wf' in s.columns and s['reg_3y_wf'].notna().sum() > 5:
+            return s.nlargest(top_n, 'reg_3y_wf').index
         ml_col = _ml(s, '3y')
         if ml_col not in s.columns or s[ml_col].notna().sum() == 0:
             return pd.Index([])

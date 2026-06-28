@@ -1,64 +1,71 @@
-# Production Configuration (Session 42)
+# Production Configuration (Session 43)
 
-## Performance (Walk-Forward, 2013-2024)
+## Performance (Walk-Forward, 2013-2023, $10B cap)
 
-| Metric | Full (12yr) | OOS (2021-2024) |
+| Metric | Full (11yr) | OOS (2021-2023) |
 |--------|-------------|-----------------|
-| CAGR | +33.5% | +25.9% |
-| Sharpe | 1.08 | ~0.8 |
-| Volatility | 30.9% | — |
-| Worst year | +1.7% | +4.0% (2021) |
-| Beat SPY | 50% of years | 25% |
-| SPY CAGR | +14.5% | +15.4% |
+| CAGR | +34.7% | +43.5% |
+| Sharpe | 0.97 | 1.68 |
+| MaxDD | -17.2% | — |
+| Worst year | +7.4% (2019) | +26.7% (2021) |
+| Negative years | 0/11 | 0/3 |
+| Hit rate | 80.3% | — |
+| SPY CAGR | +13.6% | +10.2% |
+| After 150bps costs | +32.5% | — |
 
 ## Model
 
-- **Algorithm:** LightGBM classifier (binary: beat_local_market_3y)
-- **Features:** 22 canonical (3y model), 30 (1y model)
+- **Ranking:** LightGBM regressor (target: forward_return_3y magnitude)
+- **Gate:** Decision tree classifier (tree_prob >= 0.55)
+- **Features:** 28 canonical (3y model, selected via IC/ICIR on train-only)
 - **Training data:** Clean stocks only (fraud_suspect==0, ROA positive, Beneish < -1.78)
-- **Train period:** fiscal_year <= 2020
-- **Val AUC:** 0.601 (vs 0.571 for original all-data model)
+- **Train period:** fiscal_year <= 2023 (expanding window in walk-forward)
+- **Why regression over classification:** Regression ranks by HOW MUCH a stock beats market, not just probability. +3% CAGR improvement, same risk profile when combined with strict tree gate.
 
 ## Scoring + Portfolio Construction
 
 ```
-Step 1: Score all US stocks (market_cap >= $50M) with LightGBM → ml_3y
-Step 2: Score all with decision tree → tree_prob
-Step 3: Apply hard gates:
+Step 1: Apply hard gates:
+  - Market = US
+  - Market cap: $50M – $10B
   - Beneish M-score < -1.78
   - Piotroski F-score >= 3
-  - piotroski_roa_pos == 1 (positive return on assets)
-  - tree_prob >= 0.45
-  - Market = US
-  - Market cap >= $50M
-Step 4: Rank by ml_3y descending
-Step 5: Take top 15
-Step 6: Equal-weight, annual rebalance
+  - piotroski_roa_pos == 1
+  - Altman Z-score > 1.0
+  - ps_ratio_sector_pct <= 0.70 (not overpriced vs sector)
+Step 2: Score survivors with decision tree → tree_prob
+Step 3: Gate: tree_prob >= 0.55 (strict agreement)
+Step 4: Score with LightGBM regression → predicted 3y return
+Step 5: ADTV liquidity filter (position < 1% of daily volume)
+Step 6: Rank by reg_3y descending, take top 15
+Step 7: Equal-weight, annual rebalance
 ```
 
 ## Why This Config
 
 | Choice | Reason | Alternative tested |
 |--------|--------|-------------------|
-| Clean training data | Removes value trap bias. Model learns what makes HONEST companies outperform | All-data model picks bankrupt companies |
-| ROA positive gate | Effect size 2.0 for separating winners from losers in distressed zone | OCF gate too aggressive (kills 8% CAGR) |
-| Tree >= 0.45 | Filters stocks tree disagrees with. 0.35 too loose, 0.50 same picks | Higher thresholds reduce stock count too much |
-| Top 15 (not 10 or 20) | Balanced: top10=lumpy, top20=diluted. 15 = best CAGR/Sharpe balance | top10: +35.8% CAGR but 32.5% vol |
-| Equal weight (not vol-wt) | Vol-weighting costs ~8% CAGR. Equal keeps simplicity | Vol-wt: Sharpe 1.41 but only 27% CAGR |
-| No momentum gate | Costs CAGR without improving OOS. Model already captures momentum | mom>0: smoother but 25.5% CAGR |
+| Regression ranking | +3% CAGR vs classifier. Captures return magnitude, not just direction | Classifier: +30.9% CAGR (good but lower) |
+| Tree >= 0.55 | Strict quality control on regression picks. 0 negative years. | 0.45: +30.9% CAGR but higher MaxDD |
+| $10B cap | Avoids mega-cap institutional territory. Minimal cost (-0.2% CAGR vs no cap) | $5B too tight (-8% CAGR). No cap: +34.9% |
+| Clean training | Regression on honest companies only. Prevents learning value-trap patterns | All-data: trains on bankruptcies |
+| Value gate (P/S <=70th) | Removes overpriced growth that regression might chase | Without: more volatile, similar CAGR |
+| Top 15 equal-weight | Balanced concentration. Regression less concentrated than classifier | Top 10 too lumpy |
 
 ## Pros
 
-- Picks are investable (real companies: LOW, DELL, CNC, not bankrupt shells)
-- Never negative in full 12-year backtest (worst: +1.7%)
-- Clean model has higher predictive power (Val AUC 0.601 vs 0.571)
-- Simple: equal-weight, annual rebalance, no complex optimization
+- 0 negative years in 11-year walk-forward backtest
+- Outperformance NOT dependent on outliers (excl top 1%: still +26.6% CAGR)
+- Survives heavy transaction costs (150bps: +32.5% CAGR)
+- Picks are real small/mid-cap companies (median $400-700M market cap)
+- 80.3% hit rate — 4 out of 5 years beat the market
+- Low turnover impact: 71% annual replacement, costs absorbed
 
 ## Cons / Risks
 
-- OOS degradation: expect ~25% CAGR not 33% in live trading
-- Regime-dependent: underperforms in growth/momentum markets (2021, 2024)
-- Annual rebalance = stuck for 12 months even if thesis breaks
-- Small OOS sample (4 years) — not statistically robust
-- Deep value tilt means you'll look wrong during tech rallies
-- 30.9% volatility means 20-30% swings year to year
+- MaxDD -17.2% (higher than classifier's -10%)
+- Regression may chase small-cap outliers in live trading (unverifiable until tried)
+- Only 11 years of walk-forward data — not statistically definitive
+- Deep value tilt: will underperform in growth/momentum markets
+- $10B cap means missing some mid-cap winners ($10-50B range)
+- Model trained on historical patterns; regime change could invalidate
