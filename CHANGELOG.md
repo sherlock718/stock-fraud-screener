@@ -11,7 +11,9 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 ### Feature — Session 42 (2026-06-28)
 
 #### Changed
-- **`backtest/engine.py` ml_gates Piotroski gate**: Raised from ≥3 to ≥5. Filters value traps — distressed companies that are cash-burning (not recovering). Backtest: CAGR +30.9% (was +28.4%), bankruptcy rate 0.23% (was 0.61%). Piotroski ≥5 requires: positive OCF, positive net income, improving margins, no dilution.
+- **`models/model_{1y,3y}.joblib`**: Retrained on clean data only (fraud_suspect==0, ROA positive, Beneish < -1.78). Val AUC improved 0.571 → 0.601. Model learns what makes honest/profitable companies outperform.
+- **`backtest/engine.py` ml_gates mode**: Gates revised: Piotroski >= 3 + ROA positive + tree >= 0.45. Default top_n 20 → 15. WF CAGR +33.5%, Sharpe 1.08, OOS CAGR +25.9%.
+- **`docs/PRODUCTION_CONFIG.md`**: Full production workflow with honest OOS numbers, pros/cons.
 
 ### Feature — Session 41 (2026-06-28)
 

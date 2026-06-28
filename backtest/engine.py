@@ -398,12 +398,14 @@ def filter_composite(yr_df: pd.DataFrame, top_n: int, market: str | None,
         s = s[s['likely_delisted'].fillna(1) == 0]
 
     if mode == 'ml_gates':
-        # Piotroski quality gate — require financial health (>=5 filters value traps)
+        # Quality gate: Piotroski >= 3 + ROA positive (filters value traps)
         if 'piotroski_f_score' in s.columns:
-            s = s[s['piotroski_f_score'].fillna(0) >= 5]
-        # Agreement gate (tree_prob, when available)
+            s = s[s['piotroski_f_score'].fillna(0) >= 3]
+        if 'piotroski_roa_pos' in s.columns:
+            s = s[s['piotroski_roa_pos'].fillna(0) == 1]
+        # Agreement gate: tree must concur at >= 0.45
         if 'tree_prob' in s.columns:
-            s = s[s['tree_prob'].fillna(0) >= 0.35]
+            s = s[s['tree_prob'].fillna(0) >= 0.45]
         # Rank by ML 3y probability only
         ml_col = _ml(s, '3y')
         if ml_col not in s.columns or s[ml_col].notna().sum() == 0:
@@ -1009,7 +1011,7 @@ def main():
     parser.add_argument('--strategy', default='all',
                         choices=['all', 'composite', 'qem', 'scdv', 'iarb'])
     parser.add_argument('--market',   default=None,  help='Filter to one market (e.g. US)')
-    parser.add_argument('--top',      default=20,    type=int, help='Top N picks per year')
+    parser.add_argument('--top',      default=15,    type=int, help='Top N picks per year (default 15 for balanced config)')
     parser.add_argument('--cost',     default=DEFAULT_COST_BPS, type=int,
                         help=f'Round-trip cost in bps (default {DEFAULT_COST_BPS})')
     parser.add_argument('--smallcap_cost', default=SMALLCAP_COST_BPS, type=int,
