@@ -76,4 +76,8 @@ Priority is owner's judgment, not urgency.
 
 | # | Item | Session done | Commit |
 |---|------|-------------|--------|
-| — | — | — | — |
+| Critical 1-16 | All critical items (see above strikethrough entries) | Sessions 31-41 | Various |
+| — | Clean model retrain (fraud/ROA filter on training data) | Session 42 | b68b2e8 |
+| — | ROA positive gate + tree >= 0.45 agreement | Session 42 | b68b2e8 |
+| — | Top-15 balanced config (CAGR +33.5%, Sharpe 1.08, OOS +25.9%) | Session 42 | b68b2e8 |
+| — | Production config documentation (docs/PRODUCTION_CONFIG.md) | Session 42 | b68b2e8 |

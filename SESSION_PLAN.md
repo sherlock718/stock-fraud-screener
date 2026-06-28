@@ -675,13 +675,53 @@ After: pytest, commit as `feat(portfolio): parameterize ADTV by AUM + add FAQ`. 
 
 ---
 
-### Post-Session 41
+### Session 43: Production Notebook (End-to-End Pipeline)
 
-All 15 Critical items addressed. Reassess Parked list. Likely next:
-- Parked #11 (automated retraining trigger)
-- Parked #13 (portfolio mode toggle)
-- Parked #22 (alpha factor NaN warning — natural fit with session 37 if not done there)
-- Commercialization prep (API, frontend, pricing)
+**Scope:** Create `notebooks/production_screener.ipynb` — a single notebook that IS the product.
+
+**Prompt:**
+```
+Session 43: Production Screener Notebook
+
+Read SESSION_PLAN.md first. Execution session — product delivery.
+
+Create notebooks/production_screener.ipynb with these sections:
+
+1. Data Import — Load historical_dataset_clean.parquet, add_piotroski_ext, add_normalised_ratios
+2. Hard Gates — Apply fraud/distress filters FIRST:
+   - Beneish M-score < -1.78 (fraud)
+   - Piotroski >= 3 (minimum health)
+   - piotroski_roa_pos == 1 (profitable)
+   - fraud_suspect == 0
+   - Market = US, market_cap >= $50M
+   - Altman Z > 1.0 (not in extreme distress)
+3. Feature Selection — Load 22 canonical features (from model_meta.json)
+4. Model Scoring — Load production clean LightGBM + decision tree, score survivors
+5. Agreement Gate — tree_prob >= 0.45
+6. Portfolio Construction — Top 15 by ml_3y, equal-weight
+7. Stock Analysis — For each pick: show key metrics, sector, thesis
+8. LLM Summary — Generate natural-language buy rationale per stock (use Claude API or template)
+9. Final Output — Table with: ticker, ml_3y, tree_prob, Piotroski, Altman Z, market_cap, expected_return
+
+Investment philosophy embedded:
+- Small-cap focus (institutional funds not fishing here)
+- Fraud/distress removal is the PRIMARY alpha (not stock picking)
+- Liquidity: ADTV filter for $200K AUM (1% of daily volume)
+- Optimize 3y CAGR, target >30%, Sharpe >1.0
+
+After: pytest, commit as `feat(notebooks): production screener notebook`. Push.
+```
+
+---
+
+### Post-Session 43
+
+Next priorities:
+- Parked #11 (automated retraining trigger — needed for weekly refresh)
+- Walk-forward retrain to 2023 (model is stale, trained on ≤2020)
+- Paper trading validation (6-month forward test)
+- Quarterly rebalancing (Parked #18)
+- Regime overlay for growth/momentum markets
 
 **Tracking at session close:** Move completed items from BACKLOG.md Critical/Parked → Completed section.
 
