@@ -13,7 +13,7 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 #### Changed
 - **`docs/FAQ.md`**: Added all 8 gate thresholds, momentum gate, updated backtest summary to match current stats (Sharpe 1.45, CAGR +31.5%, MaxDD -8.1%).
 - **`models/decision_tree_model.joblib`** → **`models/research_tree_snapshot.joblib`**: Renamed to clarify this is a research artifact, not the production walk-forward tree.
-- **`notebooks/production_screener.ipynb`**: Updated model load path to match rename.
+- **`notebooks/production_screener.ipynb`**: Import all gate thresholds from `modeling/constants.py` instead of hardcoding. Single source of truth for BENEISH_THRESHOLD, TREE_THRESHOLD, PIOTROSKI_MIN, VALUE_GATE_PCT, ALTMAN_Z_MIN, MOMENTUM_12M_MIN, MAX_MARKET_CAP_PROD.
 
 #### Removed
 - **`_archive/repomix_metadata_pack/`**: Dead metadata directory (unused).
