@@ -8,6 +8,12 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Tests — Session 32 (2026-06-28)
+
+#### Added
+- **`tests/quality/test_check_data.py`**: 10 unit tests for `quality/check_data.py` — validates all check categories with synthetic data (shape, ranges, duplicates, nulls, winsorization).
+- **`tests/quality/test_dataset_quality_gate.py`**: 31 unit tests for `quality/test_dataset_quality.py` — covers schema, structural, market coverage, fill rates, distributions, fraud labels, forward returns, growth winsorization, ML score exclusion, and point-in-time checks.
+
 ### Bug Fixes — Session 31 (2026-06-28)
 
 #### Fixed

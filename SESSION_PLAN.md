@@ -22,6 +22,7 @@ Persistent session-by-session plan. Each session prompt should reference this fi
 | 29 | Research + backtest orientation — engine internals, validation chain, risk register | 673426e | 2026-06-28 |
 | 30 | Quality + orchestration orientation — final map, consolidated risks, test gaps | 57bd3eb | 2026-06-28 |
 | 31 | Bug fixes — undefined BASE in BR pipeline + score_oof, delete dead JP file | 1ecbdd6 | 2026-06-28 |
+| 32 | Unit tests for quality/ scripts — 41 tests covering check_data + dataset_quality | f4decdf | 2026-06-28 |
 
 ---
 
@@ -361,9 +362,9 @@ Session close checklist:
 
 ---
 
-### Session 32: Unit Tests for quality/ Scripts
+### Session 32: Unit Tests for quality/ Scripts ✓ DONE
 
-**Items:** Critical #13
+**Items:** ~~Critical #13~~
 
 **Scope:** Write tests for `check_data.py` and `test_dataset_quality.py` using synthetic in-memory data (same pattern as `tests/test_pipeline.py`).
 
