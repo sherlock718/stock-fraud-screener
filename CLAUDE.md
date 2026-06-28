@@ -77,7 +77,13 @@ Before executing any session work:
 2. Read the **backlog items** referenced in that entry from `docs/architecture/BACKLOG.md`
 3. If the user's prompt diverges from the plan, **flag it and ask** before executing
 4. Never invent new backlog items — work maps to existing Critical/Parked numbers
-5. Handoff prompts must quote the SESSION_PLAN.md scope, not paraphrase or extend it
+
+At session close (handoff prompt):
+5. **READ** `SESSION_PLAN.md` for the next session's entry — the prompt block is already written there
+6. Copy it VERBATIM. Never author, paraphrase, or invent a handoff prompt from memory or backlog
+
+When making ANY claim about plan/backlog coverage ("X is planned for session N", "X isn't assigned"):
+7. **READ the file first.** Do not answer from partial reads or assumptions. If uncertain, say so.
 
 ---
 
