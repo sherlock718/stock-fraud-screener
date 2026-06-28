@@ -1,17 +1,15 @@
-# Production Configuration (Session 43)
+# Production Configuration (Session 47b)
 
-## Performance (Walk-Forward, 2013-2023, $10B cap)
+## Performance (Walk-Forward, 2013-2023, $10B cap, momentum gate)
 
-| Metric | Full (11yr) | OOS (2021-2023) |
-|--------|-------------|-----------------|
-| CAGR | +34.7% | +43.5% |
-| Sharpe | 0.97 | 1.68 |
-| MaxDD | -17.2% | — |
-| Worst year | +7.4% (2019) | +26.7% (2021) |
-| Negative years | 0/11 | 0/3 |
-| Hit rate | 80.3% | — |
-| SPY CAGR | +13.6% | +10.2% |
-| After 150bps costs | +32.5% | — |
+| Metric | Current (w/ momentum gate) | Previous (w/o momentum) |
+|--------|---------------------------|------------------------|
+| CAGR | +31.5% | +34.7% |
+| Sharpe | **1.45** | 0.97 |
+| MaxDD | **-8.1%** | -17.2% |
+| Excess vs SPY | +17.9% | +21.1% |
+| Beta | -0.18 | — |
+| SPY CAGR | +13.6% | +13.6% |
 
 ## Model
 
@@ -25,7 +23,7 @@
 ## Scoring + Portfolio Construction
 
 ```
-Step 1: Apply hard gates:
+Step 1: Apply hard gates (8 total):
   - Market = US
   - Market cap: $50M – $10B
   - Beneish M-score < -1.78
@@ -33,12 +31,14 @@ Step 1: Apply hard gates:
   - piotroski_roa_pos == 1
   - Altman Z-score > 1.0
   - ps_ratio_sector_pct <= 0.70 (not overpriced vs sector)
+  - momentum_12m_prior > -0.40 (no structural decliners)
 Step 2: Score survivors with decision tree → tree_prob
 Step 3: Gate: tree_prob >= 0.55 (strict agreement)
 Step 4: Score with LightGBM regression → predicted 3y return
 Step 5: ADTV liquidity filter (position < 1% of daily volume)
 Step 6: Rank by reg_3y descending, take top 15
-Step 7: Equal-weight, annual rebalance
+Step 7: M&A screen (LLM flag — manual review, not auto-exclude)
+Step 8: Equal-weight, annual rebalance
 ```
 
 ## Why This Config
@@ -63,9 +63,10 @@ Step 7: Equal-weight, annual rebalance
 
 ## Cons / Risks
 
-- MaxDD -17.2% (higher than classifier's -10%)
+- MaxDD -8.1% (improved by momentum gate, was -17.2% without)
 - Regression may chase small-cap outliers in live trading (unverifiable until tried)
 - Only 11 years of walk-forward data — not statistically definitive
 - Deep value tilt: will underperform in growth/momentum markets
 - $10B cap means missing some mid-cap winners ($10-50B range)
 - Model trained on historical patterns; regime change could invalidate
+- LLM M&A screen has knowledge cutoff — may miss very recent deals
