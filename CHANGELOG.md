@@ -8,6 +8,15 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Bug Fixes — Session 31 (2026-06-28)
+
+#### Fixed
+- **`workflows/run_pipeline_br.py`**: Moved `ROOT` import and `BASE` assignment above first use (was `NameError` at module load).
+- **`modeling/score_oof.py`**: Moved `ROOT` import and `BASE` assignment above `DATA_PATH` definition (same `NameError`).
+
+#### Removed
+- **`pipeline/step1_fetch_tickers_jp_free.py`**: Dead file (unused JP free-tier variant).
+
 ### Quality + Orchestration Orientation — Session 30 (2026-06-28)
 
 #### Added

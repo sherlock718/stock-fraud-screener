@@ -22,6 +22,9 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+from _root import ROOT
+
+BASE = ROOT
 DATA = BASE / 'data'
 
 
@@ -31,9 +34,6 @@ def fmt(path: Path) -> str:
     size_mb = path.stat().st_size / 1e6
     try:
         import pandas as pd
-from _root import ROOT
-
-BASE = ROOT
         df = pd.read_parquet(path)
         return f'  ✓ {size_mb:.1f} MB  {len(df):,} rows × {len(df.columns)} cols'
     except Exception:

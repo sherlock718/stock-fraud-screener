@@ -41,15 +41,14 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import roc_auc_score
 
+from _root import ROOT
+from pipeline.feature_library import add_normalised_ratios, add_piotroski_ext
+
+BASE = ROOT
 DATA_PATH  = BASE / 'data' / 'historical_dataset_clean.parquet'
 MODELS_DIR = BASE / 'models'
 REPORTS    = BASE / 'reports'
 REPORTS.mkdir(exist_ok=True)
-
-from pipeline.feature_library import add_normalised_ratios, add_piotroski_ext
-from _root import ROOT
-
-BASE = ROOT
 
 ALL_HORIZONS = {
     '6m': ('forward_return_6m', 'beat_local_market_6m'),

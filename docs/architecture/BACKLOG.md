@@ -24,7 +24,7 @@ Priority is owner's judgment, not urgency.
 
 | 13 | Unit tests for quality/ scripts (CI gates have 0 test coverage) | Session 30 | check_data and test_dataset_quality are mandatory CI gates but have zero automated tests verifying their own logic. A bug in these scripts = bad data silently passes. |
 | 14 | Unit tests for alpha/factors and backtest/engine | Session 30 | Factor computation, walk-forward logic, Kelly sizing, and position caps are all untested. Core correctness risk. |
-| 15 | Fix undefined BASE in workflows/run_pipeline_br.py | Session 30 | Uses BASE before import from _root.py. Would crash if actually executed. Trivial fix. |
+| ~~15~~ | ~~Fix undefined BASE in workflows/run_pipeline_br.py~~ | ~~Session 30~~ | **DONE — Session 31 (1ecbdd6)** |
 
 ---
 
@@ -40,7 +40,7 @@ Priority is owner's judgment, not urgency.
 | 6 | Tighten correlation dedup from 0.85 to 0.80 | Session 28 | 0.80 is more standard. Pruned backtest (fewer features = better) supports tighter dedup. Test impact before applying. |
 | 7 | Per-horizon Optuna tuning for n_estimators | Session 28 | All 5 models use n_estimators=600. Shorter horizons (6m) may need fewer trees to avoid overfitting. Run `modeling/tune.py` per horizon. |
 | 8 | Document fraud_risk circular dependency | Session 28 | ML → OOF → fraud_risk → composite. Not a bug (excluded from training) but fragile. Add comment + unit test asserting alpha columns stay in EXCLUDE set. |
-| 9 | Fix BASE ordering bug in score_oof.py | Session 28 | Line 44 uses BASE before line 52 defines it. Trivial fix: move `BASE = ROOT` above `DATA_PATH`. |
+| ~~9~~ | ~~Fix BASE ordering bug in score_oof.py~~ | ~~Session 28~~ | **DONE — Session 31 (1ecbdd6)** |
 | 10 | Document regression model vs classifier relationship | Session 28 | Two models answer different questions (probability vs magnitude). Not a bug but needs clear documentation for users. |
 | 11 | Add automated retraining trigger in CI | Session 28 | Models manually retrained. No job checks data freshness. Needed for productionization. |
 | 12 | Sweep agreement threshold 0.50–0.80 | Session 28 | Higher threshold = fewer picks, higher Sharpe, lower CAGR. Check if 0.6-0.8 gives acceptable CAGR (>20%) with very high selectivity. Report n_picks/CAGR/Sharpe tradeoff. |
@@ -56,7 +56,7 @@ Priority is owner's judgment, not urgency.
 | 22 | Validate alpha factor signal presence (warn on NaN) | Session 28 | Alpha factors silently return NaN if all signals missing. Should log warning loudly. |
 | 23 | Consolidate load_data() duplication | Session 28 | Duplicated across train.py, score_oof.py, run_feature_selection.py with minor differences. Single shared loader prevents drift. |
 | 24 | Strategy filters to separate module | Session 29 | `filter_composite/qem/scdv/iarb` live in backtest/engine.py but imported by research scripts. Move to `portfolio/strategies.py` to decouple. |
-| 25 | Archive dead file step1_fetch_tickers_jp_free.py | Session 27 | Unused variant of JP pipeline without paid API. Clutters pipeline directory. |
+| ~~25~~ | ~~Archive dead file step1_fetch_tickers_jp_free.py~~ | ~~Session 27~~ | **DONE — Session 31 (1ecbdd6)** |
 
 ---
 

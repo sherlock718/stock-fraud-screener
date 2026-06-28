@@ -21,6 +21,7 @@ Persistent session-by-session plan. Each session prompt should reference this fi
 | 28 | Modeling + alpha orientation — scoring, OOF, alpha factors, backlog | e367b63 | 2026-06-26 |
 | 29 | Research + backtest orientation — engine internals, validation chain, risk register | 673426e | 2026-06-28 |
 | 30 | Quality + orchestration orientation — final map, consolidated risks, test gaps | 57bd3eb | 2026-06-28 |
+| 31 | Bug fixes — undefined BASE in BR pipeline + score_oof, delete dead JP file | 1ecbdd6 | 2026-06-28 |
 
 ---
 
