@@ -630,12 +630,15 @@ Steps:
 4. Re-run agreement filter threshold sweep (0.30-0.50) on val period 2021-2023
 5. Report: did rules change? Did optimal threshold change? New Sharpe/CAGR on val?
 6. Save updated tree model
-7. Also run train.py (full LightGBM retrain) and report val AUC delta vs old (old val was 2023-only, new is 2021-2023)
+7. Run train.py with default --train-cutoff 2020 and report val AUC (3-year val vs old 1-year val)
+8. If val AUC is acceptable, do production retrain: python3 modeling/train.py --train-cutoff 2023
+   (absorbs 2021-2023 into training for the deployed model, only 2024+ remains as pure test)
 
-Concern: training lost 2 years of data (2021-2022). Watch for val AUC degradation.
+Concern: step 7 trains on 2 fewer years than before (2008-2020 vs old 2008-2022). Watch for val AUC degradation.
+If val AUC drops materially, flag it — may need to skip straight to step 8 (production retrain on 2008-2023).
 Test period (2024) is only ~800 rows — threshold sweep may be noisy; val (2021-2023) is more reliable for tuning.
 
-After: pytest, commit as `feat(modeling): retrain decision tree + LightGBM on 2008-2020 production split`. Push.
+After: pytest, commit as `feat(modeling): retrain decision tree + LightGBM on production split`. Push.
 ```
 
 ---
