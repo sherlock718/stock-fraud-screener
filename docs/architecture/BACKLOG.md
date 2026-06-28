@@ -9,8 +9,8 @@ Priority is owner's judgment, not urgency.
 
 | # | Item | Discovered | Context |
 |---|------|-----------|---------|
-| 1 | ADTV filter: parameterize by AUM + use median not mean | Session 27/29 | Current $1M ADTV floor is institutional (assumes $1M AUM). Retail with $50-200K needs much lower threshold. Use **median** daily volume (not mean) to avoid single-day block-trade spikes. Alternative: 20th percentile of trailing 30 days. Make AUM a config parameter that auto-scales the liquidity filter. |
-| 2 | FAQ / key facts file | Session 27 | Quick-reference for LLM and human. Company count, feature count, pipeline flow, thresholds. Reduces re-audit cost. |
+| ~~1~~ | ~~ADTV filter: parameterize by AUM + use median not mean~~ | ~~Session 27/29~~ | **DONE — Session 41 (6b618f7). `aum_target` param (default $200K), formula min_adtv = aum_target × 0.01, median (not mean) trailing 30d. CLI: `--aum-target`.** |
+| ~~2~~ | ~~FAQ / key facts file~~ | ~~Session 27~~ | **DONE — Session 41 (6b618f7). `docs/FAQ.md` — 37 lines covering company count, features, pipeline, thresholds, models, data source.** |
 | ~~3~~ | ~~Unify divergent feature sets (pick 27 pruned as canonical)~~ | ~~Session 28~~ | **DONE — Session 34 (3c01a46). feature_sets_3y.json now uses 27 pruned features.** |
 | ~~4~~ | ~~Retrain decision tree on production split (2008-2020)~~ | ~~Session 28~~ | **DONE — Session 40 (b490f57). Tree retrained on 2008-2020. Rules changed (5→8 BUY). Threshold 0.35 confirmed on val 2021-2023 (Sharpe 1.128). Dev models at cutoff 2020; production retrain (cutoff 2023) is a deployment-time step.** |
 | ~~5~~ | ~~Add model staleness CI check~~ | ~~Session 28~~ | **DONE — Session 34 (3c01a46). quality/check_model_staleness.py added to CI as non-fatal step.** |

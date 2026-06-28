@@ -31,6 +31,7 @@ Persistent session-by-session plan. Each session prompt should reference this fi
 | 38 | ml_gates mode: ML-only ranking + WF tree agreement + hard gates (Sharpe 1.204 vs 0.937) | 583bbb7 | 2026-06-28 |
 | 39 | Expand val to 2021-2023 + restrict feature selection to train-only | 3c9e691 | 2026-06-28 |
 | 40 | Retrain decision tree (2008-2020) + LightGBM production models | b490f57 | 2026-06-28 |
+| 41 | Parameterize ADTV by AUM ($200K retail) + FAQ quick-reference | 6b618f7 | 2026-06-28 |
 
 ---
 
@@ -644,7 +645,7 @@ After: pytest, commit as `feat(modeling): retrain decision tree + LightGBM on pr
 
 ---
 
-### Session 41: ADTV Filter + FAQ File
+### Session 41: ADTV Filter + FAQ File ✓ DONE
 
 **Items:** Critical #1 + #2
 
