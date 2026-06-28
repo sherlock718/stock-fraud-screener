@@ -303,22 +303,10 @@ class TestLabelNotFeature:
     """fraud_confirmed must be excluded from ML features."""
 
     def test_fraud_confirmed_in_train_models_exclude_set(self):
-        """train_models.py EXCLUDE set must contain fraud_confirmed."""
-        from pathlib import Path
-
-        source = (Path(__file__).parent.parent.parent / 'modeling' / 'train.py').read_text()
-        # Find the EXCLUDE set definition (large set literal spanning many lines)
-        in_exclude = False
-        found = False
-        for line in source.splitlines():
-            if 'EXCLUDE' in line and '=' in line and '{' in line:
-                in_exclude = True
-            if in_exclude and 'fraud_confirmed' in line:
-                found = True
-                break
-            if in_exclude and '}' in line:
-                break
-        assert found, "fraud_confirmed not found in EXCLUDE set in train_models.py"
+        """Canonical EXCLUDE_COLS must contain fraud_confirmed."""
+        from modeling.constants import EXCLUDE_COLS
+        assert 'fraud_confirmed' in EXCLUDE_COLS, \
+            "fraud_confirmed not found in modeling.constants.EXCLUDE_COLS"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

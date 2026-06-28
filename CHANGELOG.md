@@ -8,6 +8,18 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Refactor — Session 35 (2026-06-28)
+
+#### Added
+- **`modeling/constants.py`**: Canonical `EXCLUDE_COLS`, `EXCLUDE_PATTERNS`, `load_data()`, and `get_feature_candidates()`. Single source of truth for all modules that filter ML-eligible features.
+
+#### Changed
+- **`modeling/train.py`**: Removed local EXCLUDE set and `load_data()`, now imports from `modeling.constants`.
+- **`modeling/score_oof.py`**: Removed local EXCLUDE sets, `load_data()`, and `get_candidates()`, now imports from `modeling.constants`.
+- **`backtest/engine.py`**: Removed local EXCLUDE_COLS/PATTERNS, now imports from `modeling.constants`.
+- **`research/factor_research.py`**: Removed local EXCLUDE/PATTERNS, now imports from `modeling.constants`.
+- **`tests/pipeline/test_enrich_fraud_labels.py`**: Updated test to check `modeling.constants.EXCLUDE_COLS` directly instead of parsing train.py source text.
+
 ### Feat — Session 34 (2026-06-28)
 
 #### Changed

@@ -31,6 +31,7 @@ import pandas as pd
 from pathlib import Path
 from scipy import stats
 from _root import ROOT
+from modeling.constants import EXCLUDE_COLS, EXCLUDE_PATTERNS
 from research.ic_engine import compute_yearly_ic
 
 BASE = ROOT
@@ -45,39 +46,7 @@ HORIZONS = {
     '5y': 'forward_return_5y',
 }
 
-EXCLUDE = {
-    # identifiers & metadata
-    'cik', 'ticker', 'name', 'filed_date', 'fiscal_year', 'fiscal_quarter',
-    'period_type', 'exchange', 'sic_code', 'sic_description', 'market',
-    'country', 'accounting_std', 'size_category_label', 'corp_code', 'acc_mt',
-    # raw dollar amounts — size-contaminated; normalised versions used instead
-    'revenue', 'net_income', 'gross_profit', 'operating_income', 'pretax_income',
-    'cogs', 'sga_expense', 'rd_expense', 'depreciation', 'da_expense',
-    'operating_cash_flow', 'financing_cash_flow', 'investing_cash_flow',
-    'capex', 'fcf',
-    'long_term_debt', 'short_term_debt', 'total_debt',
-    'total_assets', 'total_equity', 'current_assets', 'current_liabilities',
-    'accounts_receivable', 'accounts_payable', 'receivables',
-    'cash', 'intangibles', 'goodwill', 'ppe_net', 'noa',
-    'market_cap_at_filing', 'tax_expense', 'interest_expense',
-    'common_shares_outstanding', 'eps_diluted', 'eps_basic',
-    'retained_earnings', 'additional_paid_in_capital', 'inventory',
-}
-# Patterns that MUST be excluded to prevent look-ahead contamination.
-# ML static scores (ml_1y/3y/5y) are trained on the full dataset including future
-# labels — including them in IC calculations produces artifically inflated spreads
-# (e.g. ml_3y showed 110% Q5 spread).  Only OOF scores are unbiased but we still
-# exclude them here to keep factor research purely fundamentals-driven.
-EXCLUDE_PATTERNS = [
-    'forward_return', 'beat_local_market', 'excess_return_local', 'benchmark_return',
-    # ML-derived scores — all contain indirect future-label information
-    'ml_1y', 'ml_2y', 'ml_3y', 'ml_5y', 'ml_6m',  # static (full-sample) ML scores
-    '_oof',           # out-of-fold ML scores
-    'ml_pred_excess', # regression ML score
-    # Composite alpha scores that blend ML outputs
-    'composite_score', 'alpha_composite', 'alpha_fraud_risk',
-    'alpha_momentum', 'alpha_value', 'alpha_growth', 'alpha_quality',
-]
+EXCLUDE = EXCLUDE_COLS
 
 
 

@@ -31,6 +31,7 @@ from scipy import stats
 import sys
 from pipeline.feature_library import add_normalised_ratios, add_piotroski_ext
 from _root import ROOT
+from modeling.constants import EXCLUDE_COLS, EXCLUDE_PATTERNS
 
 BASE = ROOT
 
@@ -194,22 +195,6 @@ def load_full_hist() -> pd.DataFrame:
     return df.reset_index(drop=True)
 
 
-EXCLUDE_COLS = {
-    'cik', 'ticker', 'name', 'filed_date', 'fiscal_year', 'fiscal_quarter',
-    'period_type', 'exchange', 'sic_code', 'sic_description', 'market',
-    'country', 'accounting_std', 'size_category_label', 'corp_code', 'acc_mt',
-    'revenue', 'net_income', 'gross_profit', 'operating_income', 'pretax_income',
-    'cogs', 'sga_expense', 'rd_expense', 'depreciation', 'da_expense',
-    'operating_cash_flow', 'financing_cash_flow', 'investing_cash_flow',
-    'capex', 'fcf', 'long_term_debt', 'short_term_debt', 'total_debt',
-    'total_assets', 'total_equity', 'current_assets', 'current_liabilities',
-    'accounts_receivable', 'accounts_payable', 'receivables',
-    'cash', 'intangibles', 'goodwill', 'ppe_net', 'noa',
-    'market_cap_at_filing', 'tax_expense', 'interest_expense',
-    'common_shares_outstanding', 'eps_diluted', 'eps_basic',
-    'retained_earnings', 'additional_paid_in_capital', 'inventory',
-}
-EXCLUDE_PATTERNS = ['forward_return', 'beat_local_market', 'excess_return_local', 'benchmark_return']
 
 
 def _select_features(df: pd.DataFrame) -> list[str]:

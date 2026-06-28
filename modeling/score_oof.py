@@ -43,6 +43,7 @@ from sklearn.metrics import roc_auc_score
 
 from _root import ROOT
 from pipeline.feature_library import add_normalised_ratios, add_piotroski_ext
+from modeling.constants import EXCLUDE_COLS, EXCLUDE_PATTERNS, load_data, get_feature_candidates
 
 BASE = ROOT
 DATA_PATH  = BASE / 'data' / 'historical_dataset_clean.parquet'
@@ -58,62 +59,7 @@ ALL_HORIZONS = {
     '5y': ('forward_return_5y', 'beat_local_market_5y'),
 }
 
-EXCLUDE_PATTERNS = ['forward_return', 'beat_local_market', 'excess_return_local',
-                    'benchmark_return', 'fraud_score_', 'ml_']
 
-EXCLUDE_COLS = {
-    'cik', 'ticker', 'name', 'filed_date', 'fiscal_year', 'fiscal_quarter',
-    'period_type', 'exchange', 'sic_code', 'sic_description', 'market',
-    'country', 'accounting_std', 'size_category_label', 'corp_code', 'acc_mt',
-    'revenue', 'net_income', 'gross_profit', 'operating_income', 'pretax_income',
-    'cogs', 'sga_expense', 'rd_expense', 'depreciation', 'da_expense',
-    'operating_cash_flow', 'financing_cash_flow', 'investing_cash_flow',
-    'capex', 'fcf', 'long_term_debt', 'short_term_debt', 'total_debt',
-    'total_assets', 'total_equity', 'current_assets', 'current_liabilities',
-    'accounts_receivable', 'accounts_payable', 'receivables',
-    'cash', 'intangibles', 'goodwill', 'ppe_net', 'noa',
-    'market_cap_at_filing', 'tax_expense', 'interest_expense',
-    'common_shares_outstanding', 'eps_diluted', 'eps_basic',
-    'retained_earnings', 'additional_paid_in_capital', 'inventory',
-    'fraud_confirmed', 'fraud_suspect', 'fraud_label',
-    'alpha_fraud_risk', 'alpha_composite', 'alpha_value', 'alpha_quality',
-    'alpha_growth', 'alpha_momentum',
-}
-
-
-def load_data(parquet_path: Path) -> pd.DataFrame:
-    df_raw = pd.read_parquet(parquet_path)
-    df = df_raw[df_raw['period_type'] == 'annual'].copy()
-    df = df[df['fiscal_year'].between(2008, 2025)].copy()
-    df = df.sort_values('total_assets', ascending=False, na_position='last')
-    df = df.drop_duplicates(subset=['ticker', 'fiscal_year'], keep='first')
-
-    for col in [c for c in df.columns if 'growth_yoy' in c]:
-        lo, hi = df[col].quantile(0.01), df[col].quantile(0.99)
-        df[col] = df[col].clip(lo, hi)
-
-    for col in ['forward_return_1y', 'forward_return_3y', 'forward_return_5y']:
-        if col in df.columns:
-            df[col] = df[col].clip(-1.0, 5.0)
-
-    df = add_piotroski_ext(df)
-    df = add_normalised_ratios(df)
-
-    labels_path = BASE / 'data' / 'fraud_labels.parquet'
-    if labels_path.exists():
-        ldf = pd.read_parquet(labels_path)
-        if 'fraud_confirmed' in ldf.columns:
-            confirmed = ldf[ldf['fraud_confirmed'].astype(bool)][['ticker', 'fraud_year']].copy()
-        else:
-            confirmed = ldf[['ticker', 'fraud_year']].copy()
-        if not confirmed.empty:
-            confirmed = confirmed.rename(columns={'fraud_year': 'fiscal_year'})
-            confirmed['fraud_label'] = 1
-            confirmed = confirmed.drop_duplicates(['ticker', 'fiscal_year'])
-            df = df.merge(confirmed, on=['ticker', 'fiscal_year'], how='left')
-            df['fraud_label'] = df['fraud_label'].fillna(0).astype(int)
-
-    return df.reset_index(drop=True)
 
 
 def load_feature_set(horizon: str, meta: dict | None) -> list[str] | None:
@@ -135,14 +81,7 @@ def load_feature_set(horizon: str, meta: dict | None) -> list[str] | None:
     return None
 
 
-def get_candidates(df: pd.DataFrame) -> list[str]:
-    return [
-        c for c in df.columns
-        if c not in EXCLUDE_COLS
-        and not any(p in c for p in EXCLUDE_PATTERNS)
-        and df[c].dtype in [np.float64, np.float32, np.int64, np.int32, 'Int64']
-        and df[c].notna().mean() > 0.10
-    ]
+get_candidates = get_feature_candidates
 
 
 def train_fold(df_train: pd.DataFrame, features: list[str], beat_col: str,
