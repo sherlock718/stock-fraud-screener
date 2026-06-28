@@ -715,29 +715,165 @@ After: pytest, commit as `feat(notebooks): production screener notebook`. Push.
 
 ---
 
-### Post-Session 43 — Next Steps
+### Post-Session 43 — Hardening Phase (Sessions 44-48)
 
-Production config is now validated: Regression + tree>=0.55 + $10B cap.
+Production config validated: Regression + tree>=0.55 + $10B cap.
 CAGR +34.7%, Sharpe 0.97, 0 negative years (2013-2023).
 
-**Immediate priorities (sessions 44-46):**
+**Goal:** Fix flaws, document properly, then launch paper trading. Caveman: 1 session = 1 scope = 1 commit.
 
-| # | Session | What | Why |
-|---|---------|------|-----|
-| 44 | Paper trading setup | Generate FY2025 picks, record entry prices, track for 6 months | Live validation before real money |
-| 45 | Automated retraining pipeline | Monthly retrain trigger, model versioning, drift detection | Parked #11 — required for production refresh |
-| 46 | Regime overlay integration | SPY DD >15% = reduce position 50%. Dormant since session 25 — wire into notebook | Insurance for 2008-style crashes |
+---
 
-**Research backlog (sessions 47+):**
+### Session 44: Persist Regression Model as Artifact
 
-| # | Topic | Expected impact |
-|---|-------|-----------------|
-| 47 | Quarterly rebalancing (Parked #18) | Currently annual — 12 months is too long if thesis breaks. Test Q vs annual rebalance on WF. |
-| 48 | Sector concentration cap | Current picks: 3/15 same sector. Add max 3 per sector cap and retest. |
-| 49 | Multi-horizon blend | Current: rank by 3y return only. Test 0.6×3y + 0.4×1y for near-term signal. |
-| 50 | Out-of-sample forward test report | After 6 months of paper trading (session 44), write honest OOS report. |
+**Scope:** Notebook currently retrains regression on every run. Fix: train once, save to disk, notebook loads.
 
-**Tracking at session close:** Move completed items from BACKLOG.md Critical/Parked → Completed section.
+**Prompt:**
+```
+Session 44: Persist Regression Model
+
+Read SESSION_PLAN.md (session 44 entry). Execution session.
+
+Problem: notebooks/production_screener.ipynb retrains LGBMRegressor inline every run.
+This breaks reproducibility — picks can drift between runs.
+
+Fix:
+1. modeling/train.py — after LightGBM classifier training for 3y horizon, also train
+   LGBMRegressor(n_estimators=600, max_depth=6, lr=0.03) on forward_return_3y (clean data).
+   Save as models/model_3y_regression.joblib. Add regression metadata to model_meta.json
+   (features, train_medians, train_cutoff).
+2. notebooks/production_screener.ipynb — replace inline regression training (cell "score")
+   with joblib.load('models/model_3y_regression.joblib'). Use train_medians from meta for
+   imputation (not survivors.median()).
+3. Add assert for model file existence at top of notebook.
+
+Verify: notebook produces same ranking loading model vs training inline.
+After: pytest, commit as `fix(modeling): persist regression model as artifact`. Push.
+```
+
+---
+
+### Session 45: Centralize Constants + Align Backtest Engine
+
+**Scope:** Hardcoded thresholds in 5 places → single source of truth. Add Altman Z gate to engine.
+
+**Prompt:**
+```
+Session 45: Centralize Constants
+
+Read SESSION_PLAN.md (session 45 entry). Execution session.
+
+Problem: Beneish=-1.78, tree=0.55, Piotroski=3, value_pct=0.7, Altman=1.0 are hardcoded
+in backtest/engine.py, notebook, and train.py separately. Risk of divergence.
+Also: notebook has Altman Z gate but backtest engine ml_gates mode doesn't.
+
+Fix:
+1. modeling/constants.py — add production threshold constants:
+   BENEISH_THRESHOLD = -1.78, TREE_THRESHOLD = 0.55, PIOTROSKI_MIN = 3,
+   VALUE_GATE_PCT = 0.70, ALTMAN_Z_MIN = 1.0, MAX_MARKET_CAP = 10_000_000_000
+2. backtest/engine.py — import from constants in filter_composite ml_gates mode.
+   Add Altman Z gate: s = s[s['altman_z_score'].fillna(0) > ALTMAN_Z_MIN]
+3. Run backtest, confirm CAGR unchanged (~34.7%).
+
+After: pytest, commit as `refactor(constants): centralize production thresholds`. Push.
+```
+
+---
+
+### Session 46: Tests + Fix Stale FAQ
+
+**Scope:** Add unit tests for gates. Fix FAQ.md stale values.
+
+**Prompt:**
+```
+Session 46: Gate Tests + FAQ Fix
+
+Read SESSION_PLAN.md (session 46 entry). Execution session.
+
+Problem: No test coverage for regression ranking, max_cap, value gate, tree threshold.
+FAQ.md still says tree>=0.35 (stale from session 24).
+
+Fix:
+1. tests/backtest/test_engine_gates.py (new file) — 8-10 tests:
+   - test_max_cap_excludes_large_stocks
+   - test_min_cap_excludes_micro_stocks
+   - test_value_gate_excludes_overpriced
+   - test_tree_threshold_filters_low_confidence
+   - test_altman_z_gate
+   - test_regression_ranking_uses_reg_3y_wf
+   - test_clean_training_filter
+   - test_piotroski_gate
+   Use small synthetic DataFrames (5-20 rows), don't load real data.
+2. docs/FAQ.md — fix: tree threshold 0.35→0.55, features "28 for 3y", add regression model note.
+
+After: pytest (all pass including new), commit as `test(backtest): gate tests + fix FAQ`. Push.
+```
+
+---
+
+### Session 47: Portfolio Output + Tracking
+
+**Scope:** Notebook saves picks to JSON so paper trading has a baseline.
+
+**Prompt:**
+```
+Session 47: Save Production Picks
+
+Read SESSION_PLAN.md (session 47 entry). Execution session.
+
+Problem: Notebook prints picks but doesn't persist them. No way to track over time.
+
+Fix:
+1. notebooks/production_screener.ipynb — add final cell that saves to:
+   - data/production_picks_YYYY-MM-DD.json (timestamped, never overwritten)
+   - data/production_picks_latest.json (always the most recent)
+   Format: {date, config (thresholds + cap), picks [{ticker, name, sector, reg_3y,
+   tree_prob, piotroski, altman_z, market_cap}], metadata {n_universe, n_survivors, n_agreed}}
+2. If previous latest.json exists, print diff: "N new picks, N dropped since last run"
+
+After: pytest, commit as `feat(notebook): persist production picks for tracking`. Push.
+```
+
+---
+
+### Session 48: Regime Overlay + Paper Trading Launch
+
+**Scope:** Wire existing regime overlay into notebook. Generate first real picks. Record entry.
+
+**Prompt:**
+```
+Session 48: Regime Overlay + Paper Trading
+
+Read SESSION_PLAN.md (session 48 entry). Execution session.
+
+Problem: Regime overlay (SPY DD>15% = reduce 50%) was built in session 25 but never
+wired into the production notebook. Also need to launch paper trading.
+
+Fix:
+1. notebooks/production_screener.ipynb — add regime check section after portfolio:
+   - Load SPY data, compute trailing drawdown from peak
+   - If DD > 15%: flag "RISK-OFF — reduce positions 50%"
+   - If DD <= 15%: flag "NORMAL — full deployment"
+   (Use research/regime_overlay.py logic as reference)
+2. Run notebook for FY2025 → generate 15 picks with current scores
+3. Save to data/paper_portfolio_2026-07.json with entry context
+4. Create docs/PAPER_TRADING.md: picks, entry date, success criteria
+   (annualized return > SPY + 15%, no position down >50%), 6-month review date
+
+After: pytest, commit as `feat(portfolio): regime overlay + paper trading launch`. Push.
+```
+
+---
+
+### Post-Session 48: Research Backlog
+
+| # | Topic | When |
+|---|-------|------|
+| 49 | Multi-horizon blend (0.6×3y + 0.4×1y) | After 3 months paper trading |
+| 50 | 6-month forward test honest report | January 2027 |
+| 51 | Auto-retrain pipeline (Parked #11) | When live money deployed |
+
+**Tracking at session close:** Move completed items from BACKLOG.md → Completed section.
 
 ---
 
