@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Feature Dictionary — Multi-Factor Stock Screener</title>
+<style>
+:root {
+  --bg: #0d1117;
+  --surface: #161b22;
+  --surface2: #21262d;
+  --surface3: #30363d;
+  --border: #30363d;
+  --text: #e6edf3;
+  --text-muted: #8b949e;
+  --text-dim: #6e7681;
+  --accent: #58a6ff;
+  --accent-dim: #1f6feb33;
+  --green: #3fb950;
+  --green-dim: #23863633;
+  --orange: #d29922;
+  --orange-dim: #9e6a0333;
+  --red: #f85149;
+  --red-dim: #da363333;
+  --purple: #bc8cff;
+  --purple-dim: #8957e533;
+  --pink: #f778ba;
+  --cyan: #76e3ea;
+  --yellow: #e3b341;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.7;
+  overflow-x: hidden;
+}
+
+/* ─── LAYOUT ─── */
+.container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+/* ─── HERO ─── */
+.hero { text-align: center; padding: 3rem 1rem 2rem; }
+.hero h1 { font-size: 2.4rem; font-weight: 700; background: linear-gradient(135deg, var(--accent), var(--purple)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.hero p { color: var(--text-muted); font-size: 1.1rem; margin-top: 0.5rem; max-width: 600px; margin-left: auto; margin-right: auto; }
+
+/* ─── STATS ─── */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; margin: 2rem 0; }
+.stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; text-align: center; transition: transform 0.2s, border-color 0.2s; }
+.stat-card:hover { transform: translateY(-2px); border-color: var(--accent); }
+.stat-card .num { font-size: 2rem; font-weight: 700; }
+.stat-card .label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.25rem; }
+.stat-card:nth-child(1) .num { color: var(--accent); }
+.stat-card:nth-child(2) .num { color: var(--green); }
+.stat-card:nth-child(3) .num { color: var(--purple); }
+.stat-card:nth-child(4) .num { color: var(--orange); }
+
+/* ─── HOW IT WORKS ─── */
+.pipeline-section { margin: 2.5rem 0; }
+.pipeline-section h2 { font-size: 1.3rem; margin-bottom: 1rem; color: var(--text); }
+.pipeline { display: flex; align-items: center; gap: 0; overflow-x: auto; padding: 1rem 0; }
+.pipe-step { flex: 0 0 auto; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 0.75rem 1rem; text-align: center; min-width: 120px; transition: all 0.2s; cursor: default; }
+.pipe-step:hover { border-color: var(--accent); background: var(--surface2); }
+.pipe-step .icon { font-size: 1.5rem; }
+.pipe-step .name { font-size: 0.75rem; font-weight: 600; margin-top: 0.25rem; }
+.pipe-step .count { font-size: 0.65rem; color: var(--text-muted); }
+.pipe-arrow { color: var(--text-dim); font-size: 1.2rem; padding: 0 0.25rem; flex-shrink: 0; }
+
+/* ─── CONTROLS ─── */
+.controls { position: sticky; top: 0; z-index: 100; background: var(--bg); padding: 1rem 0; border-bottom: 1px solid var(--border); margin-bottom: 1.5rem; }
+.search-wrap { position: relative; margin-bottom: 0.75rem; }
+.search-wrap svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-dim); }
+.search-box { width: 100%; padding: 0.7rem 1rem 0.7rem 2.5rem; font-size: 0.95rem; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--text); outline: none; transition: border-color 0.2s; }
+.search-box:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+.search-box::placeholder { color: var(--text-dim); }
+
+.filter-row { display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; }
+.filter-btn { padding: 0.35rem 0.7rem; font-size: 0.75rem; border-radius: 16px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); cursor: pointer; transition: all 0.15s; font-weight: 500; }
+.filter-btn:hover { border-color: var(--text-muted); color: var(--text); }
+.filter-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.filter-btn[data-filter="value"].active { background: #1f6feb; border-color: #1f6feb; }
+.filter-btn[data-filter="quality"].active { background: #238636; border-color: #238636; }
+.filter-btn[data-filter="fraud"].active { background: #da3633; border-color: #da3633; }
+.filter-btn[data-filter="momentum"].active { background: #8957e5; border-color: #8957e5; }
+.filter-btn[data-filter="growth"].active { background: #9e6a03; border-color: #9e6a03; }
+.filter-btn[data-filter="macro"].active { background: #0d4885; border-color: #388bfd; }
+.beginner-toggle { margin-left: auto; display: flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; color: var(--text-muted); cursor: pointer; user-select: none; }
+.beginner-toggle input { accent-color: var(--accent); }
+
+/* ─── GROUPS ─── */
+.group { margin-bottom: 1rem; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); overflow: hidden; transition: border-color 0.2s; }
+.group:hover { border-color: var(--surface3); }
+.group-header { display: flex; align-items: center; padding: 1rem 1.25rem; cursor: pointer; user-select: none; gap: 0.75rem; }
+.group-icon { font-size: 1.4rem; flex-shrink: 0; }
+.group-info { flex: 1; }
+.group-title { font-size: 1rem; font-weight: 600; }
+.group-subtitle { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.15rem; }
+.group-badge { font-size: 0.7rem; padding: 0.2rem 0.6rem; border-radius: 10px; background: var(--surface2); color: var(--text-muted); font-weight: 500; flex-shrink: 0; }
+.group-chevron { transition: transform 0.25s; color: var(--text-dim); flex-shrink: 0; }
+.group.open .group-chevron { transform: rotate(90deg); }
+.group-body { display: none; padding: 0 1.25rem 1.25rem; }
+.group.open .group-body { display: block; }
+
+/* ─── EXPLAINER BOX ─── */
+.explainer { background: var(--surface2); border-radius: 8px; padding: 1rem; margin-bottom: 1rem; border-left: 3px solid var(--accent); }
+.explainer .analogy { font-size: 0.9rem; color: var(--text); margin-bottom: 0.5rem; }
+.explainer .analogy strong { color: var(--accent); }
+.explainer .detail { font-size: 0.8rem; color: var(--text-muted); }
+
+/* ─── FEATURES ─── */
+.feature-card { padding: 0.9rem 0; border-bottom: 1px solid var(--border); }
+.feature-card:last-child { border-bottom: none; }
+.feat-top { display: flex; align-items: flex-start; gap: 0.75rem; }
+.feat-name { font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace; font-size: 0.82rem; color: var(--green); font-weight: 500; min-width: 200px; flex-shrink: 0; padding-top: 0.1rem; }
+.feat-content { flex: 1; }
+.feat-plain { font-size: 0.88rem; color: var(--text); line-height: 1.5; }
+.feat-technical { font-size: 0.78rem; color: var(--text-muted); margin-top: 0.3rem; display: none; }
+.show-technical .feat-technical { display: block; }
+.feat-formula { font-family: monospace; font-size: 0.75rem; color: var(--text-dim); background: var(--bg); padding: 0.2rem 0.5rem; border-radius: 4px; display: inline-block; margin-top: 0.25rem; }
+.feat-tags { display: flex; gap: 0.3rem; margin-top: 0.4rem; flex-wrap: wrap; }
+.tag { font-size: 0.65rem; padding: 0.15rem 0.45rem; border-radius: 4px; font-weight: 500; }
+.tag-value { background: var(--accent-dim); color: var(--accent); }
+.tag-quality { background: var(--green-dim); color: var(--green); }
+.tag-fraud { background: var(--red-dim); color: var(--red); }
+.tag-momentum { background: var(--purple-dim); color: var(--purple); }
+.tag-growth { background: var(--orange-dim); color: var(--orange); }
+.tag-macro { background: #0d488533; color: #58a6ff; }
+.tag-size { background: #30363d55; color: #8b949e; }
+.tag-interaction { background: #f778ba22; color: var(--pink); }
+.tag-target { background: #e3b34122; color: var(--yellow); }
+
+/* ─── JARGON TOOLTIP ─── */
+.jargon { border-bottom: 1px dashed var(--text-muted); cursor: help; position: relative; }
+.jargon:hover::after { content: attr(data-tip); position: absolute; bottom: 125%; left: 50%; transform: translateX(-50%); background: var(--surface3); color: var(--text); padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.75rem; white-space: nowrap; max-width: 300px; white-space: normal; z-index: 200; border: 1px solid var(--border); box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+
+/* ─── LEGEND ─── */
+.legend-section { margin-top: 3rem; padding: 1.5rem; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+.legend-section h3 { font-size: 1rem; margin-bottom: 1rem; color: var(--text-muted); }
+.legend-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.75rem; }
+.legend-item { display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 768px) {
+  .feat-top { flex-direction: column; gap: 0.25rem; }
+  .feat-name { min-width: auto; }
+  .container { padding: 1rem; }
+  .hero h1 { font-size: 1.8rem; }
+  .pipeline { flex-wrap: wrap; justify-content: center; }
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<div class="hero">
+  <h1>Feature Dictionary</h1>
+  <p>Every column in the dataset explained in plain English. No finance degree required.</p>
+</div>
+
+<div class="stats">
+  <div class="stat-card"><div class="num">367</div><div class="label">Total Columns</div></div>
+  <div class="stat-card"><div class="num">58K</div><div class="label">Rows (stocks x years)</div></div>
+  <div class="stat-card"><div class="num">5</div><div class="label">Alpha Factors</div></div>
+  <div class="stat-card"><div class="num">20+</div><div class="label">Years of Data</div></div>
+</div>
+
+<!-- HOW THE PIPELINE WORKS -->
+<div class="pipeline-section">
+  <h2>How Features Are Built</h2>
+  <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">Each row = one company's annual filing. Features flow through a pipeline where each step adds new columns:</p>
+  <div class="pipeline">
+    <div class="pipe-step"><div class="icon">📄</div><div class="name">Step 2: SEC Filings</div><div class="count">~55 raw numbers</div></div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step"><div class="icon">📈</div><div class="name">Step 3: Prices</div><div class="count">+12 momentum/vol</div></div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step"><div class="icon">🌎</div><div class="name">Step 4: Economy</div><div class="count">+12 macro vars</div></div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step"><div class="icon">🧮</div><div class="name">Step 5: Compute</div><div class="count">+170 derived</div></div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step"><div class="icon">🤖</div><div class="name">Step 6: ML + Alpha</div><div class="count">+23 scores</div></div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step" style="border-color: var(--accent);"><div class="icon">✅</div><div class="name">Final Dataset</div><div class="count">367 columns</div></div>
+  </div>
+</div>
+
+<!-- CONTROLS -->
+<div class="controls">
+  <div class="search-wrap">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M11.5 7a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Zm-.82 4.74a6 6 0 1 1 1.06-1.06l3.04 3.04a.75.75 0 1 1-1.06 1.06l-3.04-3.04Z"/></svg>
+    <input type="text" class="search-box" id="search" placeholder="Search features... (e.g., 'profit', 'debt', 'fraud', 'momentum')">
+  </div>
+  <div class="filter-row">
+    <button class="filter-btn active" data-filter="all">All</button>
+    <button class="filter-btn" data-filter="value">Value</button>
+    <button class="filter-btn" data-filter="quality">Quality</button>
+    <button class="filter-btn" data-filter="fraud">Fraud</button>
+    <button class="filter-btn" data-filter="momentum">Momentum</button>
+    <button class="filter-btn" data-filter="growth">Growth</button>
+    <button class="filter-btn" data-filter="macro">Economy</button>
+    <button class="filter-btn" data-filter="interaction">Combos</button>
+    <label class="beginner-toggle"><input type="checkbox" id="techToggle"> Show formulas</label>
+  </div>
+</div>
+
+<div id="groups-container"></div>
+
+<div class="legend-section">
+  <h3>What do the colored tags mean?</h3>
+  <div class="legend-grid">
+    <div class="legend-item"><div class="legend-dot" style="background: var(--accent)"></div><strong>Value</strong> — Is the stock cheap or expensive?</div>
+    <div class="legend-item"><div class="legend-dot" style="background: var(--green)"></div><strong>Quality</strong> — Is the company well-run and profitable?</div>
+    <div class="legend-item"><div class="legend-dot" style="background: var(--red)"></div><strong>Fraud</strong> — Are there signs of manipulation or distress?</div>
+    <div class="legend-item"><div class="legend-dot" style="background: var(--purple)"></div><strong>Momentum</strong> — Is the stock price trending up or down?</div>
+    <div class="legend-item"><div class="legend-dot" style="background: var(--orange)"></div><strong>Growth</strong> — Is the company growing or shrinking?</div>
+    <div class="legend-item"><div class="legend-dot" style="background: #58a6ff"></div><strong>Economy</strong> — What's happening in the broader economy?</div>
+    <div class="legend-item"><div class="legend-dot" style="background: var(--pink)"></div><strong>Combos</strong> — Two signals combined (e.g., cheap + profitable)</div>
+    <div class="legend-item"><div class="legend-dot" style="background: var(--yellow)"></div><strong>Target</strong> — What we're trying to predict (future returns)</div>
+  </div>
+</div>
+
+</div><!-- /container -->
+
+<script>
+const FEATURES = [
+  // ══════════════════════════════════════════════════════════
+  // A. VALUATION
+  // ══════════════════════════════════════════════════════════
+  {
+    group: "Valuation Ratios",
+    icon: "💰",
+    subtitle: "Is the stock cheap or expensive relative to what the company earns?",
+    analogy: "Think of buying a rental property. You'd compare the <strong>price</strong> to the <strong>yearly rent</strong> it generates. A house priced at 10x rent is cheaper than one at 25x rent. These ratios do the same thing for stocks — comparing market price to various measures of what the company produces.",
+    detail: "Lower ratios generally mean the stock is 'cheaper' (better value). The model learns that historically, cheaper stocks tend to outperform over 3-5 year periods (the 'value premium').",
+    features: [
+      { name: "pe_ratio", plain: "How many years of profit you're paying for. A P/E of 15 means you pay $15 for every $1 of annual profit.", formula: "stock_price × shares / annual_profit", tags: ["value"] },
+      { name: "pb_ratio", plain: "Stock price vs. the company's accounting value. Below 1.0 means the market thinks the company is worth less than its assets.", formula: "market_cap / total_equity", tags: ["value"] },
+      { name: "ps_ratio", plain: "Price relative to revenue. Useful for companies that aren't yet profitable (no earnings to divide by).", formula: "market_cap / revenue", tags: ["value"] },
+      { name: "pcf_ratio", plain: "Price relative to actual cash generated. Cash is harder to fake than profit, so this is a 'purer' valuation metric.", formula: "market_cap / operating_cash_flow", tags: ["value"] },
+      { name: "ev_ebitda", plain: "Enterprise Value (full buyout cost including debt) relative to operating profit. Used by professional investors because it ignores how the company is financed.", formula: "(market_cap + debt - cash) / operating_earnings", tags: ["value"] },
+      { name: "ev_revenue", plain: "Full buyout cost relative to sales. Used for early-stage companies that may not be profitable yet.", formula: "(market_cap + debt - cash) / revenue", tags: ["value"] },
+      { name: "ev_ocf", plain: "Full buyout cost relative to cash generated. Good for capital-intensive businesses (factories, utilities).", formula: "(market_cap + debt - cash) / cash_flow", tags: ["value"] },
+      { name: "earnings_yield", plain: "Flip of P/E: what % return would you earn if all profits were paid out? Higher = cheaper stock. Like an interest rate on your investment.", formula: "profit / market_cap", tags: ["value"] },
+      { name: "book_to_market", plain: "Company's accounting value divided by market price. Classic academic signal — higher means cheaper.", formula: "book_value / market_cap", tags: ["value"] },
+      { name: "sales_to_price", plain: "Revenue per dollar of market cap. Another 'cheapness' lens.", formula: "revenue / market_cap", tags: ["value"] },
+      { name: "fcf_yield", plain: "Free cash flow (cash left after keeping the business running) as % of market cap. Warren Buffett's favorite metric.", formula: "(cash_flow - capital_spending) / market_cap", tags: ["value", "quality"] },
+      { name: "net_debt_to_equity", plain: "How much net borrowing relative to owner equity. Higher = company relies more on borrowed money.", formula: "(debt - cash) / equity", tags: ["value"] },
+      { name: "nwc_to_assets", plain: "How much capital is tied up in day-to-day operations (inventory, receivables) as a fraction of total assets.", formula: "(current_assets - current_liabilities) / total_assets", tags: ["value", "quality"] },
+    ]
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // B. PROFITABILITY
+  // ══════════════════════════════════════════════════════════
+  {
+    group: "Profitability Metrics",
+    icon: "📊",
+    subtitle: "How efficiently does the company turn resources into profit?",
+    analogy: "Imagine two lemonade stands. Both make $100 in profit. But Stand A invested $500 in equipment while Stand B invested $2,000. Stand A has a 20% return, Stand B only 5%. <strong>Profitability ratios measure how much profit per dollar invested.</strong>",
+    detail: "Higher profitability = higher quality company. Research shows profitable companies continue to outperform. The model uses these as 'quality' signals.",
+    features: [
+      { name: "roa", plain: "Return on Assets — how much profit per dollar of assets owned. Like asking: 'For every $100 the company owns, how much profit does it make?'", formula: "net_income / total_assets", tags: ["quality"] },
+      { name: "roe", plain: "Return on Equity — profit per dollar of shareholder money. Can be artificially high if the company uses lots of debt (leverage).", formula: "net_income / shareholder_equity", tags: ["quality"] },
+      { name: "roic", plain: "Return on Invested Capital — the 'gold standard' profitability metric. Measures how well management allocates ALL capital (both debt and equity).", formula: "operating_profit / (equity + debt - cash)", tags: ["quality"] },
+      { name: "gross_margin", plain: "What % of revenue is left after paying for the product itself. A software company might be 80% (cheap to serve); a grocery store might be 25%.", formula: "gross_profit / revenue", tags: ["quality"] },
+      { name: "operating_margin", plain: "What % of revenue is left after ALL operating costs (rent, salaries, marketing). Shows if the core business is profitable.", formula: "operating_income / revenue", tags: ["quality"] },
+      { name: "net_margin", plain: "Final bottom-line profit as % of revenue. After everything (taxes, interest, one-time charges).", formula: "net_income / revenue", tags: ["quality"] },
+      { name: "asset_turnover", plain: "How much revenue per dollar of assets. Higher = the company 'spins' its assets faster. Walmart has high turnover; a power plant has low.", formula: "revenue / total_assets", tags: ["quality"] },
+      { name: "ocf_margin", plain: "What % of revenue converts to actual cash. If this is much lower than net margin, the company might be booking fake profits.", formula: "operating_cash_flow / revenue", tags: ["quality"] },
+      { name: "ocf_to_assets", plain: "Cash generated per dollar of assets. Combines cash quality with asset efficiency.", formula: "operating_cash_flow / total_assets", tags: ["quality"] },
+      { name: "ocf_to_ni", plain: "Cash-to-profit ratio. Should be near 1.0 or higher. If the company reports $10M profit but only generates $3M cash, something's off.", formula: "operating_cash_flow / net_income", tags: ["quality", "fraud"] },
+      { name: "gross_profit_to_assets", plain: "Academic research found this is the single most robust profitability signal for predicting future stock returns (Novy-Marx, 2013).", formula: "gross_profit / total_assets", tags: ["quality"] },
+      { name: "capex_intensity", plain: "How much the company spends on long-term equipment/buildings relative to revenue. Airlines/utilities are high; software companies are low.", formula: "capital_expenditures / revenue", tags: ["quality"] },
+      { name: "rd_intensity", plain: "R&D spending relative to revenue. High for pharma/tech (investing in future); low for banks/utilities.", formula: "research_spending / revenue", tags: ["quality"] },
+      { name: "sga_intensity", plain: "Sales, General & Admin costs relative to revenue. If this keeps rising without revenue growing, it's a warning sign of bloated overhead.", formula: "admin_costs / revenue", tags: ["quality"] },
+    ]
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // C. ACCRUALS
+  // ══════════════════════════════════════════════════════════
+  {
+    group: "Accruals & Balance Sheet Quality",
+    icon: "🔍",
+    subtitle: "Are the reported profits backed by real cash, or just accounting tricks?",
+    analogy: "A company can report profit two ways: (1) <strong>cash in the bank</strong>, or (2) <strong>'we expect to get paid later'</strong> (accruals). If a company books $10M in sales but customers haven't paid yet, that's an accrual. <strong>High accruals = more 'imaginary' profit = higher risk of future disappointment.</strong>",
+    detail: "Historically, companies with high accruals underperform by 5-10% per year. The model uses accrual signals as both a quality filter and a fraud detector.",
+    features: [
+      { name: "sloan_accruals", plain: "The gap between reported profit and actual cash generated, scaled by company size. Higher = more 'paper profit' that isn't backed by cash.", formula: "(net_income - cash_flow) / total_assets", tags: ["fraud", "quality"] },
+      { name: "wc_accruals_to_assets", plain: "Working capital accruals — driven by receivables (IOUs from customers) and inventory building up. These are the most common manipulation targets.", formula: "(change_in_receivables + change_in_inventory - change_in_payables) / assets", tags: ["fraud"] },
+      { name: "sloan_lt_accruals", plain: "Long-term accruals from things like goodwill, intangible assets, and other hard-to-verify items. Harder to detect but equally dangerous.", formula: "total_accruals - working_capital_accruals", tags: ["fraud"] },
+      { name: "noa_to_assets", plain: "Net Operating Assets as a fraction of total assets. When this gets bloated (>0.8), it often means the balance sheet is stuffed with low-quality assets.", formula: "net_operating_assets / total_assets", tags: ["fraud", "quality"] },
+      { name: "noa_growth", plain: "How fast Net Operating Assets are growing. Rapid growth without matching revenue growth = company is 'stuffing' its balance sheet.", formula: "year-over-year change in NOA", tags: ["fraud", "growth"] },
+      { name: "cash_conversion", plain: "For every $1 of reported profit, how much actual cash was generated? Healthy = 1.0+. Below 0.5 is a red flag.", formula: "operating_cash_flow / net_income", tags: ["quality", "fraud"] },
+      { name: "receivables_minus_revenue_growth", plain: "Are customer IOUs growing faster than sales? If yes, the company might be 'shipping' product to fake customers (channel stuffing).", formula: "receivables_growth - revenue_growth", tags: ["fraud"] },
+      { name: "delta_dso", plain: "Change in 'Days Sales Outstanding' — how many more/fewer days it takes to collect payment vs last year. Rising = trouble collecting (or fake sales).", formula: "DSO_this_year - DSO_last_year", tags: ["fraud"] },
+    ]
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // D. FRAUD SCORES
+  // ══════════════════════════════════════════════════════════
+  {
+    group: "Fraud & Distress Detection Scores",
+    icon: "🚨",
+    subtitle: "Academic models that score the likelihood of accounting fraud or bankruptcy",
+    analogy: "Think of a credit score, but for detecting corporate fraud. Just like a FICO score combines payment history, debt levels, and credit age into one number, these scores combine 8+ financial red flags into composite 'manipulation scores'. <strong>They were designed by forensic accountants who studied hundreds of fraud cases.</strong>",
+    detail: "Beneish M-score was 76% accurate at detecting frauds before the SEC caught them. Altman Z-score predicted 72% of bankruptcies 2 years in advance.",
+    features: [
+      { name: "beneish_m_score", plain: "The 'lie detector' for financial statements. Combines 8 red-flag ratios. Score above -1.78 = likely manipulator. Enron scored -1.49 (caught!).", formula: "weighted combination of 8 ratios (DSRI, GMI, AQI, SGI, DEPI, SGAI, LVGI, TATA)", tags: ["fraud"] },
+      { name: "beneish_dsri", plain: "Are receivables growing suspiciously fast relative to sales? Like a store claiming more and more customers 'will pay later'.", formula: "days_sales_receivable_index (this year vs last year)", tags: ["fraud"] },
+      { name: "beneish_gmi", plain: "Is the profit margin shrinking? Companies with falling margins have more incentive to cook the books to hide the decline.", formula: "last_year_margin / this_year_margin", tags: ["fraud"] },
+      { name: "beneish_aqi", plain: "Are 'soft' assets (hard-to-verify things like goodwill, patents) growing? These are the easiest items to inflate.", formula: "soft_assets_ratio change", tags: ["fraud"] },
+      { name: "beneish_sgi", plain: "Sales growth index. Very fast-growing companies face the most pressure to keep the streak alive (temptation to inflate).", formula: "1 + revenue_growth_rate", tags: ["fraud", "growth"] },
+      { name: "beneish_depi", plain: "Is the company slowing down depreciation? That's a trick to make profits look higher by pushing expenses into the future.", formula: "prior_depreciation_rate / current_depreciation_rate", tags: ["fraud"] },
+      { name: "beneish_tata", plain: "Total accruals relative to assets — the overall gap between reported profit and cash. The 'smoking gun' of earnings manipulation.", formula: "(net_income - cash_flow) / total_assets", tags: ["fraud"] },
+      { name: "altman_z_score", plain: "Bankruptcy predictor. Below 1.81 = 'danger zone' (high default risk). Above 2.99 = 'safe zone'. Like a financial health thermometer.", formula: "1.2×liquidity + 1.4×retained + 3.3×profitability + 0.6×equity + 1.0×efficiency", tags: ["fraud"] },
+      { name: "ohlson_prob_bankruptcy", plain: "Estimated probability (0-100%) that the company will go bankrupt within 2 years. Based on a 1980 logistic regression model.", formula: "logistic function of size, leverage, liquidity, profitability", tags: ["fraud"] },
+      { name: "montier_c_score", plain: "Six yes/no forensic checks combined (0-1 scale). Each checks a specific manipulation pattern: receivable stuffing, depreciation tricks, overhead hiding, etc.", formula: "average of 6 binary red flags (require at least 3 available)", tags: ["fraud"] },
+      { name: "montier_c1", plain: "Red flag 1: Are receivables growing faster than revenue? (Booking sales that may never be collected)", tags: ["fraud"] },
+      { name: "montier_c2", plain: "Red flag 2: Is depreciation rate falling? (Making profits look higher by delaying expense recognition)", tags: ["fraud"] },
+      { name: "montier_c3", plain: "Red flag 3: Are admin costs growing faster than revenue? (Hiding costs in overhead categories)", tags: ["fraud"] },
+      { name: "montier_c4", plain: "Red flag 4: Are receivables increasing at all? (General deterioration in payment collection)", tags: ["fraud"] },
+      { name: "montier_c5", plain: "Red flag 5: Is inventory growing faster than revenue? (Unsold product piling up = demand problem)", tags: ["fraud"] },
+      { name: "montier_c6", plain: "Red flag 6: Is cash conversion declining? (Profits rising on paper but cash isn't keeping up)", tags: ["fraud"] },
+    ]
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // E. LIQUIDITY & SOLVENCY
+  // ══════════════════════════════════════════════════════════
+  {
+    group: "Liquidity & Financial Health",
+    icon: "🏦",
+    subtitle: "Can the company pay its bills and survive tough times?",
+    analogy: "Imagine your personal finances: Can you pay this month's rent? (current ratio). If you lost your job, how many months could you survive? (cash ratio). Could you handle a surprise $10K bill? (quick ratio). <strong>These ratios ask the same questions about companies.</strong>",
+    detail: "Includes Piotroski F-score components — 9 binary (yes/no) checks that together score financial strength from 0 (terrible) to 9 (excellent).",
+    features: [
+      { name: "current_ratio", plain: "Can the company pay all bills due this year? Above 2 = comfortable. Below 1 = might not make payroll next month.", formula: "current_assets / current_liabilities", tags: ["quality"] },
+      { name: "quick_ratio", plain: "Same as current ratio but excludes inventory (because you can't instantly sell warehouse goods). Stricter test.", formula: "(current_assets - inventory) / current_liabilities", tags: ["quality"] },
+      { name: "cash_ratio", plain: "Strictest test: only actual cash in the bank vs bills due. Below 0.5 = very tight liquidity.", formula: "cash / current_liabilities", tags: ["quality"] },
+      { name: "debt_to_equity", plain: "For every $1 of owner money, how much is borrowed? 0.5 = moderate. Above 2 = heavily leveraged. Some industries (banks) are always high.", formula: "long_term_debt / equity", tags: ["quality"] },
+      { name: "debt_to_assets", plain: "What fraction of everything the company owns is funded by borrowing? Above 0.6 = quite leveraged.", formula: "long_term_debt / total_assets", tags: ["quality"] },
+      { name: "interest_coverage", plain: "Can the company comfortably pay interest on its loans? Below 1.5x = dangerously close to defaulting.", formula: "operating_profit / interest_payments", tags: ["quality", "fraud"] },
+      { name: "cash_conversion_cycle", plain: "Days from paying suppliers to collecting from customers. Shorter = more efficient. Amazon is negative (collects before paying). Some manufacturers are 90+ days.", formula: "days_to_collect + days_inventory_sits - days_to_pay_suppliers", tags: ["quality"] },
+      { name: "piotroski_f_score", plain: "9-point financial health scorecard. Each point = one positive signal (profitable, generating cash, reducing debt, etc.). 8-9 = excellent. 0-2 = deeply troubled.", formula: "sum of 9 binary checks", tags: ["quality"] },
+      { name: "days_sales_outstanding", plain: "Average days to collect payment from customers. 30 = fast. 90+ = slow (or fake revenue that will never be collected).", formula: "receivables × 365 / revenue", tags: ["quality", "fraud"] },
+    ]
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // F. COMPOSITE SCORES
+  // ══════════════════════════════════════════════════════════
+  {
+    group: "Composite Factor Scores",
+    icon: "⚖️",
+    subtitle: "Combined scores that rank each stock vs its peers",
+    analogy: "Like class rank in school — instead of looking at raw test scores, we rank everyone against their classmates that year. A student who scores 80% might be top 10% in a hard year but only top 40% in an easy year. <strong>These composite scores rank stocks within their year + market so the model adapts to changing conditions.</strong>",
+    detail: "Percentile ranks (0.0 = worst, 1.0 = best) computed within fiscal_year × market cohort. Combining multiple signals into one reduces noise.",
+    features: [
+      { name: "quality_composite", plain: "Average quality rank — combines profitability (ROA, ROE), margins, and cash flow quality into one score. 0.9 = top 10% quality company.", formula: "average_percentile(roa, roe, gross_margin, ocf/ni, ocf_margin)", tags: ["quality"] },
+      { name: "value_composite", plain: "Average cheapness rank — combines multiple valuation metrics. 0.9 = stock is cheaper than 90% of its peers.", formula: "average_percentile(book/market, earnings_yield, sales/price, fcf_yield)", tags: ["value"] },
+      { name: "earnings_stability_5yr", plain: "How predictable are earnings over 5 years? Companies with stable earnings (utilities, staples) score high. Cyclicals (oil, mining) score low.", formula: "negative of 5-year ROE standard deviation (inverted so higher = better)", tags: ["quality"] },
+    ]
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // G. SIZE
+  // ══════════════════════════════════════════════════════════
+  {
+    group: "Company Size",
+    icon: "📐",
+    subtitle: "How big is the company? (Size affects everything)",
+    analogy: "In investing, size matters enormously. A $50 billion company (Apple) behaves very differently from a $200 million company (local bank). Small companies tend to grow faster but are riskier. <strong>These features help the model understand size context.</strong>",
+    detail: "We use log transforms because market cap is extremely skewed — a few mega-caps ($1T+) would dominate otherwise. Log makes the distribution more balanced.",
+    features: [
+      { name: "log_market_cap", plain: "The logarithm of market cap. Think of it as 'number of digits in the market cap'. Log(1B) ≈ 20.7, Log(100B) ≈ 25.3.", formula: "log(market_cap)", tags: ["size"] },
+      { name: "log_assets", plain: "Log of total assets — alternative size measure not affected by stock price swings.", formula: "log(total_assets)", tags: ["size"] },
+      { name: "log_revenue", plain: "Log of revenue — size proxy that works for asset-light businesses (software companies don't have many 'assets').", formula: "log(revenue)", tags: ["size"] },
+      { name: "size_category", plain: "Bucket: 0=micro (<$300M), 1=small (<$2B), 2=mid (<$10B), 3=large ($10B+). Lets the model learn non-linear size effects.", formula: "bucketed from market_cap", tags: ["size"] },
+    ]
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // H. MOMENTUM & VOLATILITY
+  // ══════════════════════════════════════════════════════════
+  {
+    group: "Price Momentum & Volatility",
+    icon: "🚀",
+    subtitle: "What has the stock price been doing recently?",
+    analogy: "Stocks that have been going up tend to keep going up (momentum). It's like a train — once it's moving, it takes energy to stop. The 'momentum effect' has been documented in every market globally. <strong>But stocks that went up too fast sometimes crash (reversals)</strong>, which is why we use multiple timeframes.",
+    detail: "Ranks are computed within year × market so that a 20% return in a bear year (impressive) gets a higher rank than 20% in a bull year (average).",
+    features: [
+      { name: "momentum_12m_prior", plain: "Total stock price return over the past 12 months. The classic momentum signal. +30% means the stock gained 30% over the last year.", formula: "(price_now / price_12_months_ago) - 1", tags: ["momentum"] },
+      { name: "momentum_6m_prior", plain: "6-month price return. Intermediate-term momentum.", formula: "(price_now / price_6_months_ago) - 1", tags: ["momentum"] },
+      { name: "momentum_3m_prior", plain: "3-month price return. Short-term signal — can indicate reversal if diverging from 12-month trend.", formula: "(price_now / price_3_months_ago) - 1", tags: ["momentum"] },
+      { name: "momentum_12m_rank", plain: "Percentile rank of 12-month return among peers. 0.9 means it outperformed 90% of stocks in its market that year.", formula: "percentile_rank(12m_return) within year × market", tags: ["momentum"] },
+      { name: "momentum_composite_rank", plain: "Average of all momentum horizon ranks. More stable signal than any single timeframe.", formula: "mean(12m_rank, 6m_rank, 3m_rank)", tags: ["momentum"] },
+      { name: "vol_prior_12m", plain: "How wildly the stock price swung over 12 months. Higher = more volatile/risky. Think roller coaster vs smooth elevator.", formula: "annualized standard deviation of daily returns", tags: ["momentum"] },
+      { name: "vol_rank_12m", plain: "Volatility rank — INVERTED so low-volatility stocks score HIGH. Research shows boring, low-vol stocks often outperform exciting ones.", formula: "1 - percentile_rank(volatility)", tags: ["momentum"] },
+      { name: "momentum_consistency", plain: "Is the trend consistent? Positive = stock went up steadily over 12 months. Negative = was up but recently pulled back (potential reversal).", formula: "12m_return - 3m_return", tags: ["momentum", "interaction"] },
+      { name: "price_to_52w_high", plain: "Current price as fraction of its 52-week high. 0.95 = near all-time-high. 0.5 = down 50% from peak.", formula: "current_price / 52_week_high_price", tags: ["momentum"] },
+    ]
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // I. GROWTH
+  // ══════════════════════════════════════════════════════════
+  {
+    group: "Growth Features (Year-over-Year)",
+    icon: "📈",
+    subtitle: "How fast is the company growing (or shrinking)?",
+    analogy: "Like tracking your salary growth: if you made $60K last year and $72K this year, that's +20% growth. We measure this for every financial metric. <strong>But beware: a company going from $1K to $200K revenue (20,000% growth) isn't necessarily impressive — it's just tiny.</strong> That's why we 'winsorize' (cap extremes).",
+    detail: "All growth features are capped at 1st-99th percentile to prevent extreme values from dominating the ML model. A company growing from near-zero can show 1,000,000%+ growth which would break the model without this cap.",
+    features: [
+      { name: "revenue_growth", plain: "Year-over-year revenue growth. +15% means the company sold 15% more than last year. Core growth signal.", formula: "(revenue_this_year - revenue_last_year) / revenue_last_year", tags: ["growth"] },
+      { name: "net_income_growth", plain: "Year-over-year profit growth. Can be volatile (one bad quarter can flip sign).", formula: "(profit_this_year - profit_last_year) / |profit_last_year|", tags: ["growth"] },
+      { name: "assets_growth", plain: "How fast total assets are growing. Paradoxically, very fast asset growth often predicts NEGATIVE future returns (overinvestment).", formula: "(assets_now - assets_last_year) / assets_last_year", tags: ["growth", "fraud"] },
+      { name: "eps_growth", plain: "Earnings per share growth. The number investors watch most on earnings day.", formula: "(eps_this_year - eps_last_year) / |eps_last_year|", tags: ["growth"] },
+      { name: "revenue_cagr_3y", plain: "3-year compound annual growth rate — shows the sustained growth trend, not just one year's spike.", formula: "(revenue_now / revenue_3y_ago)^(1/3) - 1", tags: ["growth"] },
+      { name: "revenue_acceleration", plain: "Is growth speeding up or slowing down? Positive = growth rate increasing (accelerating). Like measuring if a car is gaining speed.", formula: "growth_rate_this_year - growth_rate_last_year", tags: ["growth"] },
+      { name: "receivables_growth", plain: "How fast customer IOUs are growing. Should roughly match revenue growth. If much faster = possible fake sales.", formula: "(receivables_now - receivables_last_year) / receivables_last_year", tags: ["growth", "fraud"] },
+      { name: "inventory_growth", plain: "How fast inventory is growing. Growing faster than sales = products not selling (demand problem).", formula: "(inventory_now - inventory_last_year) / inventory_last_year", tags: ["growth", "fraud"] },
+      { name: "shares_growth", plain: "Change in shares outstanding. Positive = dilution (company issuing new shares, diluting your ownership). Negative = buybacks (good for shareholders).", formula: "(shares_now - shares_last_year) / shares_last_year", tags: ["growth", "quality"] },
+      { name: "debt_growth", plain: "How fast the company is taking on new debt. Rapid debt growth = levering up (risky in downturns).", formula: "(debt_now - debt_last_year) / debt_last_year", tags: ["growth", "quality"] },
+    ]
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // J. SECTOR PERCENTILES
+  // ══════════════════════════════════════════════════════════
+  {
+    group: "Sector-Relative Percentiles",
+    icon: "🏭",
+    subtitle: "How does this stock compare to others in its industry?",
+    analogy: "A P/E of 25 is expensive for a bank (they're usually 10-15), but cheap for a tech company (they're usually 30-50). <strong>These features rank each stock against its industry peers</strong>, so the model learns sector context. A utility company with a 5% margin might actually be top-of-class for utilities.",
+    detail: "Computed within SIC 2-digit sector × fiscal year. 18 key metrics are ranked. 0.0 = worst in sector, 1.0 = best in sector.",
+    features: [
+      { name: "pe_ratio_sector_pct", plain: "P/E percentile within industry. 0.9 = more expensive than 90% of sector peers.", tags: ["value"] },
+      { name: "roa_sector_pct", plain: "ROA percentile within industry. 0.9 = more profitable than 90% of sector peers.", tags: ["quality"] },
+      { name: "revenue_growth_sector_pct", plain: "Revenue growth percentile within industry. 0.9 = growing faster than 90% of sector peers.", tags: ["growth"] },
+      { name: "sloan_accruals_sector_pct", plain: "Accruals percentile within industry. 0.9 = MORE accruals than 90% of peers (bad — more manipulation risk).", tags: ["fraud"] },
+      { name: "beneish_m_score_sector_pct", plain: "M-score percentile within industry. 0.9 = more manipulation signals than 90% of peers.", tags: ["fraud"] },
+      { name: "altman_z_score_sector_pct", plain: "Altman Z percentile within industry. LOWER = more distressed relative to peers.", tags: ["fraud"] },
+      { name: "momentum_12m_prior_sector_pct", plain: "Momentum percentile within industry. 0.9 = outperformed 90% of sector peers.", tags: ["momentum"] },
+      { name: "* (14 more)", plain: "Same concept applied to: P/B, P/S, EV/EBITDA, ROE, gross margin, operating margin, debt/assets, current ratio, NI growth, asset growth, OCF/NI.", tags: ["value", "quality"] },
+    ]
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // K. INTERACTIONS
+  // ══════════════════════════════════════════════════════════
+  {
+    group: "Interaction Features (Factor Combos)",
+    icon: "🔗",
+    subtitle: "Some signals work better together — these capture the combinations",
+    analogy: "A stock that is BOTH cheap AND profitable is much better than one that's just cheap (might be cheap for a reason — 'value trap'). Similarly, momentum works better on quality companies. <strong>These features multiply signals together to capture 'the best of both worlds' situations.</strong>",
+    detail: "Documented by Asness et al. (2019): the value×quality interaction produces stronger alpha than either factor alone. The model can learn these on its own, but giving it explicit interaction features speeds up learning.",
+    features: [
+      { name: "value_x_quality", plain: "Cheap AND profitable — the holy grail. Companies that are underpriced relative to their quality are the strongest long-term investments.", formula: "value_rank × quality_rank", tags: ["interaction", "value", "quality"] },
+      { name: "value_x_momentum", plain: "Cheap AND trending up — avoids 'value traps' (stocks that are cheap because they're broken). If it's cheap but gaining momentum, the market may be catching on.", formula: "value_rank × momentum_rank", tags: ["interaction", "value", "momentum"] },
+      { name: "quality_x_momentum", plain: "Profitable AND trending up — the best risk-adjusted combination. Quality stocks with momentum rarely crash as hard.", formula: "quality_rank × momentum_rank", tags: ["interaction", "quality", "momentum"] },
+      { name: "small_x_quality", plain: "Small companies that are also high-quality. The 'small-cap premium' mostly exists in quality small-caps, not junk.", formula: "(1/size) × quality_rank", tags: ["interaction", "size", "quality"] },
+      { name: "value_x_accruals", plain: "Cheap AND low accruals — filters out cheap stocks that are cheap because of accounting manipulation.", formula: "cheapness × (negative accruals)", tags: ["interaction", "value", "fraud"] },
+      { name: "roa_x_noa_growth", plain: "Profitable AND lean balance sheet — the best quality is high profitability without asset bloat.", formula: "profitability × (negative NOA growth)", tags: ["interaction", "quality", "fraud"] },
+    ]
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // L. MACRO
+  // ══════════════════════════════════════════════════════════
+  {
+    group: "Economic / Macro Context",
+    icon: "🌎",
+    subtitle: "What's happening in the broader economy when this stock was filed?",
+    analogy: "Stocks don't exist in a vacuum. A cheap stock during a recession behaves differently than during a boom. <strong>These features tell the model what the economic 'weather' was like</strong> when each annual report was filed — interest rates, recession status, market fear, etc.",
+    detail: "All point-in-time: each row gets the economy's state on its filing date (no future data leakage). From FRED (Federal Reserve Economic Data).",
+    features: [
+      { name: "fed_funds_rate", plain: "The Federal Reserve's interest rate — the 'price of money'. When high (>5%), borrowing is expensive and stocks compete with safe bonds.", tags: ["macro"] },
+      { name: "yield_curve", plain: "10-year rate minus 2-year rate. When NEGATIVE (inverted), it historically predicts a recession within 12-18 months. The most famous recession predictor.", formula: "10yr_treasury - 2yr_treasury", tags: ["macro"] },
+      { name: "recession", plain: "Binary: is the economy officially in a recession? 1 = yes, 0 = no. During recessions, quality stocks outperform and momentum reverses.", formula: "NBER official recession dates", tags: ["macro"] },
+      { name: "hy_spread", plain: "High-yield credit spread — how much extra interest junk-rated companies must pay. When wide (>5%), credit is tight and leveraged companies suffer.", formula: "junk_bond_yield - treasury_yield", tags: ["macro"] },
+      { name: "vix", plain: "The 'fear gauge'. Measures expected stock market volatility. Below 15 = calm. Above 30 = panic. Affects all risk assets.", formula: "CBOE Volatility Index", tags: ["macro"] },
+      { name: "cpi_yoy", plain: "Inflation rate (Consumer Price Index, year-over-year). High inflation erodes purchasing power and typically hurts growth stocks.", formula: "consumer price change over 12 months", tags: ["macro"] },
+      { name: "value_in_high_rate", plain: "Value signal only 'activated' when rates are high. Historical research shows value premium is strongest in tight-money environments.", formula: "value_score × (rates > 3%)", tags: ["macro", "interaction"] },
+      { name: "quality_in_recession", plain: "Quality signal only activated during recessions. Flight-to-quality: investors flee junk and buy quality in downturns.", formula: "quality_score × recession_flag", tags: ["macro", "interaction"] },
+      { name: "momentum_in_expansion", plain: "Momentum signal only activated outside recessions. Trend-following works in expansions but often reverses in recessions.", formula: "momentum × (1 - recession_flag)", tags: ["macro", "interaction"] },
+      { name: "levered_in_tight_credit", plain: "Heavily indebted companies get punished when credit tightens. This feature captures that conditional risk.", formula: "leverage × (credit_spreads > threshold)", tags: ["macro", "quality"] },
+    ]
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // M. FORWARD RETURNS (TARGETS)
+  // ══════════════════════════════════════════════════════════
+  {
+    group: "Forward Returns (What We Predict)",
+    icon: "🎯",
+    subtitle: "These are the TARGETS — what actually happened to the stock price AFTER the filing",
+    analogy: "In ML terms, these are the 'labels' or 'y values'. The model tries to predict these from all the features above. It's like studying for a test — the features are the study material, and forward returns are the test answers. <strong>We only know these in hindsight</strong>, which is why we train on historical data.",
+    detail: "Multiple horizons let us train different models (1-year for trading, 5-year for investing). 'Beat local market' = binary classification target. 'Excess return' = regression target.",
+    features: [
+      { name: "forward_return_1y", plain: "What the stock returned 1 year after the filing date. +25% means the stock went up 25%. Negative = lost money.", formula: "(price_1yr_later / price_at_filing) - 1", tags: ["target"] },
+      { name: "forward_return_3y", plain: "Total return 3 years later. Our primary medium-term target.", formula: "(price_3yr_later / price_at_filing) - 1", tags: ["target"] },
+      { name: "forward_return_5y", plain: "Total return 5 years later. Long-term investing target.", formula: "(price_5yr_later / price_at_filing) - 1", tags: ["target"] },
+      { name: "beat_local_market_1y", plain: "Did this stock beat its local market (S&P 500 for US, FTSE for UK, etc.) over 1 year? Binary: 1 = yes, 0 = no.", formula: "1 if stock_return > benchmark_return", tags: ["target"] },
+      { name: "excess_return_local_3y", plain: "How much the stock beat (or lagged) the market over 3 years. +20% means it outperformed by 20 percentage points.", formula: "stock_return_3y - market_return_3y", tags: ["target"] },
+      { name: "benchmark_return_3y", plain: "What the market itself returned over the same period. Used to determine whether the stock outperformed.", formula: "S&P 500 (or local index) 3yr return", tags: ["target", "macro"] },
+    ]
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // N. ML PREDICTIONS & ALPHA
+  // ══════════════════════════════════════════════════════════
+  {
+    group: "ML Predictions & Alpha Scores (Model Outputs)",
+    icon: "🤖",
+    subtitle: "The screener's final predictions — these are OUTPUTS, not inputs",
+    analogy: "After feeding all 300+ features into the model, these are its answers: <strong>'How likely is this stock to beat the market?'</strong> Think of it like a recommendation score from 0 (avoid) to 1 (strong buy). The 'alpha' scores break this into 5 sub-dimensions so you can see WHY the model likes or dislikes a stock.",
+    detail: "OOF = 'out-of-fold' — means the prediction was made by a model that NEVER saw this data point during training (unbiased). This is the honest estimate of model performance.",
+    features: [
+      { name: "ml_3y", plain: "Model's predicted probability (0-1) that this stock will beat the market over 3 years. 0.75 = model thinks 75% chance of outperformance.", tags: ["quality"] },
+      { name: "ml_3y_oof", plain: "Same prediction but from cross-validation (unbiased). This is the 'honest' prediction — the model never trained on this specific stock-year.", tags: ["quality"] },
+      { name: "ml_5y", plain: "5-year outperformance probability. For long-term investors.", tags: ["quality"] },
+      { name: "ml_1y", plain: "1-year outperformance probability. For shorter-term positioning.", tags: ["quality"] },
+      { name: "alpha_composite", plain: "Final composite score (0-1) combining all 5 factors. This is the 'overall recommendation strength'. Higher = model likes it more.", tags: ["value", "quality"] },
+      { name: "alpha_value", plain: "Value sub-score (0-1). How cheap is this stock relative to fundamentals?", tags: ["value"] },
+      { name: "alpha_quality", plain: "Quality sub-score (0-1). How well-run and profitable is this company?", tags: ["quality"] },
+      { name: "alpha_momentum", plain: "Momentum sub-score (0-1). Is the price trend favorable?", tags: ["momentum"] },
+      { name: "alpha_growth", plain: "Growth sub-score (0-1). Is the company growing revenue/earnings?", tags: ["growth"] },
+      { name: "alpha_fraud_risk", plain: "Fraud risk sub-score (0-1). NOTE: Higher = SAFER (less fraud risk). Inverted so all factors point the same direction (higher = better).", tags: ["fraud"] },
+    ]
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // O. FRAUD ENRICHMENT
+  // ══════════════════════════════════════════════════════════
+  {
+    group: "Fraud Enrichment & Labels",
+    icon: "⚠️",
+    subtitle: "Detailed fraud sub-scores and known fraud labels from SEC enforcement",
+    analogy: "A fraud 'label' is like a criminal conviction — the SEC actually caught this company cheating. We have two types: <strong>confirmed fraud</strong> (SEC issued enforcement action) and <strong>suspected fraud</strong> (strong signals but not formally charged). The sub-scores break fraud risk into categories like a doctor diagnosing specific symptoms.",
+    detail: "Labels from SEC Accounting and Auditing Enforcement Releases (AAER). Only ~2% of companies are fraudulent, making this a rare but high-impact signal.",
+    features: [
+      { name: "fraud_confirmed", plain: "KNOWN FRAUD: This company was caught by the SEC (Accounting Enforcement Release). 1 = confirmed fraud. Used to train fraud detection models.", tags: ["fraud", "target"] },
+      { name: "fraud_suspect", plain: "SUSPECTED: Strong signals of manipulation but no formal SEC action. Broader than confirmed — catches more cases but with some false positives.", tags: ["fraud", "target"] },
+      { name: "fraud_score_composite", plain: "Overall fraud risk score (0-1). Blends all fraud dimensions. Higher = more fraud risk signals present.", tags: ["fraud"] },
+      { name: "fraud_score_accounting", plain: "Accounting manipulation risk specifically (Beneish + accruals signals). Detects revenue inflation, expense hiding.", tags: ["fraud"] },
+      { name: "fraud_score_dilution", plain: "Shareholder dilution risk — excessive share issuance, secondary offerings, options abuse.", tags: ["fraud"] },
+      { name: "fraud_score_distress", plain: "Financial distress risk — how close to bankruptcy? Uses Altman Z, Ohlson O, and leverage metrics.", tags: ["fraud"] },
+      { name: "fraud_score_governance", plain: "Corporate governance risk — filing delays, auditor changes, restatements. Process-based red flags.", tags: ["fraud"] },
+      { name: "fraud_score_quality", plain: "Earnings quality risk — accrual persistence, cash conversion problems, revenue quality issues.", tags: ["fraud"] },
+    ]
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // P. RAW FINANCIALS
+  // ══════════════════════════════════════════════════════════
+  {
+    group: "Raw Financial Statements (Building Blocks)",
+    icon: "📄",
+    subtitle: "The raw numbers from SEC filings — everything else is derived from these",
+    analogy: "These are like the raw ingredients in a recipe. Revenue, profit, assets, debt — the basic numbers every company reports to the SEC. <strong>All the fancy ratios and scores above are calculated FROM these numbers.</strong> They're in dollar terms and vary enormously by company size.",
+    detail: "From SEC EDGAR 10-K (annual) and 10-Q (quarterly) filings. All point-in-time: we use the exact numbers available on the filing date.",
+    features: [
+      { name: "revenue", plain: "Total money earned from selling products/services during the year.", tags: ["quality"] },
+      { name: "net_income", plain: "Final profit after ALL costs (the 'bottom line'). Can be negative (loss).", tags: ["quality"] },
+      { name: "operating_cash_flow", plain: "Actual cash generated from running the business. More reliable than profit (harder to fake).", tags: ["quality"] },
+      { name: "total_assets", plain: "Everything the company owns (cash, buildings, inventory, patents, etc.).", tags: ["size"] },
+      { name: "total_equity", plain: "Assets minus liabilities = what shareholders actually own (book value).", tags: ["value"] },
+      { name: "long_term_debt", plain: "Loans and bonds due in more than 1 year.", tags: ["quality"] },
+      { name: "market_cap_at_filing", plain: "Total market value of all shares on the filing date. = share price × shares outstanding.", tags: ["size", "value"] },
+      { name: "accounts_receivable", plain: "Money customers owe the company (IOUs). A major target for manipulation (fake sales).", tags: ["fraud"] },
+      { name: "inventory", plain: "Products sitting in warehouses waiting to be sold.", tags: ["fraud"] },
+      { name: "capex", plain: "Capital expenditures — money spent on equipment, buildings, technology that lasts multiple years.", tags: ["quality"] },
+      { name: "filing_lag_days", plain: "Days between fiscal year end and SEC filing. Longer delays correlate with problems being hidden.", tags: ["fraud"] },
+    ]
+  },
+];
+
+// ──────────────────────────────────────────────────────────
+// RENDERING
+// ──────────────────────────────────────────────────────────
+const container = document.getElementById('groups-container');
+let activeFilter = 'all';
+let showTechnical = false;
+
+function render(searchTerm = '') {
+  container.innerHTML = '';
+  const term = searchTerm.toLowerCase();
+  let totalVisible = 0;
+
+  FEATURES.forEach((group) => {
+    const filteredFeatures = group.features.filter(f => {
+      const matchesFilter = activeFilter === 'all' || f.tags.includes(activeFilter);
+      const matchesSearch = !term ||
+        f.name.toLowerCase().includes(term) ||
+        f.plain.toLowerCase().includes(term) ||
+        (f.formula && f.formula.toLowerCase().includes(term)) ||
+        f.tags.some(t => t.includes(term));
+      return matchesFilter && matchesSearch;
+    });
+
+    if (filteredFeatures.length === 0) return;
+    totalVisible += filteredFeatures.length;
+
+    const isOpen = !!searchTerm || activeFilter !== 'all';
+    const div = document.createElement('div');
+    div.className = `group${isOpen ? ' open' : ''}${showTechnical ? ' show-technical' : ''}`;
+    div.innerHTML = `
+      <div class="group-header" onclick="this.parentElement.classList.toggle('open')">
+        <div class="group-icon">${group.icon}</div>
+        <div class="group-info">
+          <div class="group-title">${group.group}</div>
+          <div class="group-subtitle">${group.subtitle}</div>
+        </div>
+        <span class="group-badge">${filteredFeatures.length}</span>
+        <svg class="group-chevron" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06Z"/></svg>
+      </div>
+      <div class="group-body">
+        <div class="explainer">
+          <div class="analogy">${group.analogy}</div>
+          <div class="detail">${group.detail}</div>
+        </div>
+        ${filteredFeatures.map(f => `
+          <div class="feature-card">
+            <div class="feat-top">
+              <div class="feat-name">${f.name}</div>
+              <div class="feat-content">
+                <div class="feat-plain">${f.plain}</div>
+                ${f.formula ? `<div class="feat-technical"><span class="feat-formula">${f.formula}</span></div>` : ''}
+                <div class="feat-tags">${f.tags.map(t => `<span class="tag tag-${t}">${t}</span>`).join('')}</div>
+              </div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+    container.appendChild(div);
+  });
+
+  if (totalVisible === 0) {
+    container.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--text-muted);">No features match your search. Try a different term.</div>';
+  }
+}
+
+// ─── EVENT HANDLERS ─────────────────────────────────────────
+document.getElementById('search').addEventListener('input', (e) => render(e.target.value));
+
+document.querySelector('.filter-row').addEventListener('click', (e) => {
+  if (!e.target.classList.contains('filter-btn')) return;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  e.target.classList.add('active');
+  activeFilter = e.target.dataset.filter;
+  render(document.getElementById('search').value);
+});
+
+document.getElementById('techToggle').addEventListener('change', (e) => {
+  showTechnical = e.target.checked;
+  render(document.getElementById('search').value);
+});
+
+// Initial render
+render();
+</script>
+</body>
+</html>
