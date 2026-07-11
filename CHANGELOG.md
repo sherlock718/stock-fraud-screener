@@ -8,6 +8,11 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Docs (2026-07-11)
+
+#### Added
+- **`docs/FEATURE_DICTIONARY.html`**: Interactive feature dictionary covering all 367 dataset columns with plain-English explanations, analogies, search/filter, and formula toggle.
+
 ### Chore — Session 48 (2026-06-29)
 
 #### Changed
