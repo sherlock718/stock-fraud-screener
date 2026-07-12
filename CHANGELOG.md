@@ -8,6 +8,18 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Chore — Repo Cleanup (2026-07-13)
+
+#### Archived
+- `models/archive/`: Non-production model artifacts (1y, 2y, 5y, 6m horizons + baseline LRs + clean/ experiment)
+- `models/archive/feature_sets_{1y,2y,5y,6m,pruned}.json`: Superseded by canonical `feature_sets_3y.json`
+- `data_io/archive/migrate_to_db.py`: Dead migration script (never called)
+- `workflows/archive/wait_and_merge.py`: Unused orchestration script
+- `fraud/archive/taxonomy.py`: Stub (real logic in `pipeline/enrich_fraud_taxonomy.py`)
+- `pipeline/archive/step2_build_snapshots_jp_free.py`: Dead JP variant
+- `research/notebooks/archive/01-06`: Exploratory notebooks from early sessions
+- `data/archive/leveraged_picks_*.csv`: One-off outputs from superseded leverage experiment
+
 ### Docs (2026-07-11)
 
 #### Added
