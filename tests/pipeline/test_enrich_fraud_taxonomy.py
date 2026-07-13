@@ -17,7 +17,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from pipeline.step7_fraud_taxonomy import (
+from pipeline.enrich_fraud_taxonomy import (
     build_accounting_score,
     build_composite_fraud_score,
     build_dilution_score,
@@ -310,7 +310,7 @@ class TestGovernanceScore:
 class TestFraudSuspectOwnership:
     def test_taxonomy_does_not_export_build_fraud_suspect(self):
         """build_fraud_suspect must NOT exist in taxonomy module after consolidation."""
-        import pipeline.step7_fraud_taxonomy as mod
+        import pipeline.enrich_fraud_taxonomy as mod
         assert not hasattr(mod, 'build_fraud_suspect')
 
     def test_taxonomy_preserves_existing_fraud_suspect(self, base_df):

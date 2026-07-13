@@ -134,7 +134,7 @@ COLUMN_GROUPS = [
     {
         "name": "fraud_labels",
         "phase": "B",
-        "source": "step7b_fraud_labels + fetch_aaer_labels",
+        "source": "enrich_fraud_labels + fetch_aaer_labels",
         "min_present": 2,
         "columns": [
             "fraud_confirmed", "fraud_suspect",
@@ -143,7 +143,7 @@ COLUMN_GROUPS = [
     {
         "name": "fraud_taxonomy",
         "phase": "B",
-        "source": "step7_fraud_taxonomy",
+        "source": "enrich_fraud_taxonomy",
         "min_present": 5,
         "columns": [
             "fraud_score_accounting", "fraud_score_dilution",

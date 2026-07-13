@@ -25,15 +25,15 @@ FRED API ────────→ step4_enrich_macro.py ───→ data/mac
               │     170+ computed features,
               │     zero API calls)
               │
-              ├──→ step6_clean.py ──────────→ data/historical_dataset_clean.parquet
-              │    (structural clean, quality      ← CORE PIPELINE ENDS HERE
-              │     fixes, imputation, survivorship,
-              │     confidence score)
-              │
-              └──→ step7_fraud_taxonomy.py ─→ adds fraud_score_* columns (in-place)
-                   step7b_fraud_labels.py ──→ adds fraud_confirmed/suspect (in-place)
-                   (post-pipeline enrichments,    ← ENRICHMENT LAYER
-                    run via workflows/run_dataset_enrichments.py)
+              └──→ step6_clean.py ──────────→ data/historical_dataset_clean.parquet
+                   (structural clean, quality      ← CORE PIPELINE ENDS HERE
+                    fixes, imputation, survivorship,
+                    confidence score)
+                                                        │
+                                                        ▼ (optional enrichment layer)
+                              enrich_fraud_taxonomy.py ─→ adds fraud_score_* columns (in-place)
+                              enrich_fraud_labels.py ───→ adds fraud_confirmed/suspect (in-place)
+                              (run via workflows/run_dataset_enrichments.py)
 ```
 
 ### Multi-Market Variants
@@ -223,8 +223,9 @@ Merges snap + prices + macro, then computes ~170 features in groups:
 - ~~`pipeline/step1_fetch_tickers_jp_free.py`~~ — **Archived** (session 48), workflow reference fixed
 - ~~Column aliasing in step5~~ → **Extracted** to `pipeline/column_aliases.py`. step5 now calls `apply_column_aliases(df)`.
 - ~~`add_normalised_ratios` duplication~~ → **Consolidated**. `research/factor_research.py` imports from `pipeline/feature_library.py`.
-- ~~`enrich_fraud_taxonomy.py` rename~~ → **Done**: `pipeline/step7_fraud_taxonomy.py`
-- ~~`enrich_fraud_labels.py` rename~~ → **Done**: `pipeline/step7b_fraud_labels.py`
+
+### Decided Against
+- `enrich_fraud_taxonomy.py` / `enrich_fraud_labels.py` rename to `step7_*` — **Rejected**. These are NOT core pipeline steps. The `enrich_` prefix correctly signals they're optional post-pipeline enrichments.
 
 ### Should Stay As-Is
 - `step1_fetch_tickers.py` — clear, single-purpose, well-documented
@@ -233,8 +234,9 @@ Merges snap + prices + macro, then computes ~170 features in groups:
 - `step4_enrich_macro.py` — clean vectorised implementation
 - `step6_clean.py` — modular 5-phase pipeline, well-structured
 
-### Could Be Renamed (low priority, not yet done)
+### Could Be Renamed (low priority, decided against for now)
 - `step2_build_snapshots.py` → `step2_fetch_financials.py` (it fetches from EDGAR, not just "builds")
+- `enrich_fraud_taxonomy.py` / `enrich_fraud_labels.py` — keep `enrich_` prefix; they're not pipeline steps
 
 ### Should NOT Be Touched
 - The multi-market variant files (`_kr`, `_br`, `_ca`, `_eu`, `_jp`) — functional, less tested. Risk of breakage > value of cleanup.
@@ -256,9 +258,9 @@ tickers  snapshots  prices   macro   dataset   clean_dataset  (in-place addition
                                               alpha/factors/*.py
 ```
 
-Steps 1-6 are **strictly linear** — no cycles, no backward references. Each step reads only from its predecessor's output.
+Steps 1-6 are **strictly linear** — no cycles, no backward references. Each step reads only from its predecessor's output. This IS the core pipeline.
 
-Step 7/7b is an **enrichment layer** — it modifies `historical_dataset_clean.parquet` in-place (adds columns). It does NOT produce a new file. It runs via `workflows/run_dataset_enrichments.py` as a post-pipeline phase.
+The `enrich_*` scripts are an **optional enrichment layer** — they modify `historical_dataset_clean.parquet` in-place (add columns). They do NOT produce new files. They run via `workflows/run_dataset_enrichments.py` as a post-pipeline phase. The ML training works without them.
 
 ### Single Shared Entrypoint
 - `_root.py` defines `ROOT = Path(__file__).resolve().parent`

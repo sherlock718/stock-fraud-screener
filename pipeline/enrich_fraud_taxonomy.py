@@ -28,11 +28,11 @@ Sub-scores:
   fraud_score_composite    — Weighted average of the five sub-scores
 
 Note: fraud_suspect is NOT owned by this module. It is owned by
-step7b_fraud_labels.py which uses a broader 5-signal definition.
+enrich_fraud_labels.py which uses a broader 5-signal definition.
 
 Usage:
-    python3 pipeline/step7_fraud_taxonomy.py
-    python3 pipeline/step7_fraud_taxonomy.py --dry-run
+    python3 pipeline/enrich_fraud_taxonomy.py
+    python3 pipeline/enrich_fraud_taxonomy.py --dry-run
 """
 from __future__ import annotations
 

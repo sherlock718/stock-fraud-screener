@@ -30,8 +30,8 @@ Output: adds two columns to historical_dataset_clean.parquet in-place
   fraud_suspect    : int (0/1) — quantitative red flags but no confirmed enforcement
 
 Usage:
-    python3 pipeline/step7b_fraud_labels.py
-    python3 pipeline/step7b_fraud_labels.py --dry-run   # print stats, don't write
+    python3 pipeline/enrich_fraud_labels.py
+    python3 pipeline/enrich_fraud_labels.py --dry-run   # print stats, don't write
 """
 from __future__ import annotations
 

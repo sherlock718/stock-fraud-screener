@@ -89,10 +89,10 @@ SOURCE_MAP = {
         'entry_price',
     ]},
     # fraud labels
-    'fraud_confirmed': 'step7b_fraud_labels.py (P0c)',
-    'fraud_suspect': 'step7b_fraud_labels.py (P0c)',
+    'fraud_confirmed': 'enrich_fraud_labels.py (P0c)',
+    'fraud_suspect': 'enrich_fraud_labels.py (P0c)',
     # fraud taxonomy
-    **{c: 'step7_fraud_taxonomy.py (P0d)' for c in [
+    **{c: 'enrich_fraud_taxonomy.py (P0d)' for c in [
         'fraud_score_accounting', 'fraud_score_dilution', 'fraud_score_quality',
         'fraud_score_distress', 'fraud_score_governance', 'fraud_score_composite',
     ]},
@@ -112,9 +112,9 @@ def infer_source(col: str) -> str:
     if col.startswith('beneish') or col.startswith('altman') or col.startswith('piotroski'):
         return 'step5_compute_features (fraud_signals.py)'
     if col.startswith('fraud_score'):
-        return 'step7_fraud_taxonomy.py (P0d)'
+        return 'enrich_fraud_taxonomy.py (P0d)'
     if col in ('fraud_confirmed', 'fraud_suspect'):
-        return 'step7b_fraud_labels.py (P0c)'
+        return 'enrich_fraud_labels.py (P0c)'
     if any(col.startswith(p) for p in ('value_', 'quality_', 'momentum_', 'growth_')):
         return 'step5_compute_features'
     if col.endswith('_sector_pct'):

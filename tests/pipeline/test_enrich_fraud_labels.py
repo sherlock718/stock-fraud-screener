@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from pipeline.step7b_fraud_labels import (
+from pipeline.enrich_fraud_labels import (
     build_fraud_confirmed,
     build_fraud_suspect,
     ENFORCEMENT_WINDOW_AFTER,
