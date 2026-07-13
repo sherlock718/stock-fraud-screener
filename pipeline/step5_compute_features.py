@@ -26,6 +26,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from pipeline.column_aliases import apply_column_aliases
+
 BASE = Path(__file__).parent.parent
 DATA = BASE / 'data'
 
@@ -773,44 +775,7 @@ def run():
     print(f'    After macro merge: {len(df):,} rows')
 
     # ── Normalise column names from step2 → step5 conventions ────────────────
-    # step2 uses descriptive suffix names; step5 uses shorter standard names.
-    # We add alias columns without removing originals (safe to call multiple times).
-    COLUMN_ALIASES = {
-        'equity':                  'total_equity',
-        'receivables':             'accounts_receivable',
-        'revenue_growth_yoy':      'revenue_growth',
-        'net_income_growth_yoy':   'net_income_growth',
-        'asset_growth_yoy':        'assets_growth',
-        'debt_growth_yoy':         'debt_growth',
-        'receivables_growth_yoy':  'receivables_growth',
-        'inventory_growth_yoy':    'inventory_growth',
-        'ap_growth_yoy':           'ap_growth',
-        'ocf_growth_yoy':          'ocf_growth',
-        'capex_growth_yoy':        'capex_growth',
-        'gross_profit_growth_yoy': 'gross_profit_growth',
-        'sga_growth_yoy':          'sga_growth',
-        'rd_growth_yoy':           'rd_growth',
-        'eps_growth_yoy':          'eps_growth',
-        'equity_change_yoy':       'equity_growth',
-        'ppe_growth_yoy':          'ppe_growth',
-        'cash_change_yoy':         'cash_growth',
-        'cogs_growth_yoy':         'cogs_growth',
-        'shares_dilution':         'shares_growth',
-        'shares_outstanding':      'common_shares_outstanding',
-    }
-    # Coalesce columns that may exist in both src and dst (prefer src which has better coverage)
-    COALESCE_ALIASES = {'equity', 'sga_expense'}
-    for src, dst in COLUMN_ALIASES.items():
-        if src not in df.columns:
-            continue
-        if dst not in df.columns:
-            df[dst] = df[src]
-        elif src in COALESCE_ALIASES:
-            # src has better coverage than the sparse dst coming from snapshots
-            df[dst] = df[src].combine_first(df[dst])
-    # asset_growth_yoy maps to two names — handle the second explicitly
-    if 'asset_growth_yoy' in df.columns and 'current_assets_growth' not in df.columns:
-        df['current_assets_growth'] = df['asset_growth_yoy']
+    df = apply_column_aliases(df)
 
     # Ensure numeric dtypes on key financial columns
     numeric_cols = [

@@ -32,6 +32,7 @@ from pathlib import Path
 from scipy import stats
 from _root import ROOT
 from modeling.constants import EXCLUDE_COLS, EXCLUDE_PATTERNS
+from pipeline.feature_library import add_normalised_ratios
 from research.ic_engine import compute_yearly_ic
 
 BASE = ROOT
@@ -50,29 +51,7 @@ EXCLUDE = EXCLUDE_COLS
 
 
 
-def _add_normalised_ratios(df: pd.DataFrame) -> pd.DataFrame:
-    """Add normalised versions of raw dollar features to remove size contamination."""
-    ta  = df.get('total_assets')
-    pti = df.get('pretax_income')
-
-    if ta is not None:
-        ta_safe = ta.replace(0, np.nan)
-        for src, dst in [
-            ('intangibles',         'intangibles_to_assets'),
-            ('goodwill',            'goodwill_to_assets'),
-            ('depreciation',        'depreciation_to_assets'),
-            ('financing_cash_flow', 'financing_cashflow_to_assets'),
-            ('fcf',                 'fcf_to_assets'),
-        ]:
-            if src in df.columns and dst not in df.columns:
-                df[dst] = df[src] / ta_safe
-
-    if 'tax_expense' in df.columns and pti is not None and 'effective_tax_rate' not in df.columns:
-        pos = pti > 0
-        df['effective_tax_rate'] = np.nan
-        df.loc[pos, 'effective_tax_rate'] = df.loc[pos, 'tax_expense'] / pti[pos]
-
-    return df
+_add_normalised_ratios = add_normalised_ratios
 
 
 def load_data() -> pd.DataFrame:

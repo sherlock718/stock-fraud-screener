@@ -39,12 +39,12 @@ STEPS = [
     },
     {
         "name": "Fraud labels",
-        "cmd": ["pipeline/enrich_fraud_labels.py"],
+        "cmd": ["pipeline/step7b_fraud_labels.py"],
         "skip_flag": None,
     },
     {
         "name": "Fraud taxonomy",
-        "cmd": ["pipeline/enrich_fraud_taxonomy.py"],
+        "cmd": ["pipeline/step7_fraud_taxonomy.py"],
         "skip_flag": None,
     },
     {

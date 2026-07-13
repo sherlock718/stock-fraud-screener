@@ -1,6 +1,6 @@
-# Pipeline Spine Orientation (Session 27)
+# Pipeline Spine Orientation (Session 27, updated Session 49)
 
-Generated: 2026-06-26 | Scope: `pipeline/` folder + `_root.py`
+Generated: 2026-06-26 | Updated: 2026-07-14 | Scope: `pipeline/` folder + `_root.py`
 
 ---
 
@@ -25,10 +25,15 @@ FRED API ────────→ step4_enrich_macro.py ───→ data/mac
               │     170+ computed features,
               │     zero API calls)
               │
-              └──→ step6_clean.py ──────────→ data/historical_dataset_clean.parquet
-                   (structural clean, quality      ← THIS IS THE FINAL OUTPUT
-                    fixes, imputation, survivorship,
-                    confidence score)
+              ├──→ step6_clean.py ──────────→ data/historical_dataset_clean.parquet
+              │    (structural clean, quality      ← CORE PIPELINE ENDS HERE
+              │     fixes, imputation, survivorship,
+              │     confidence score)
+              │
+              └──→ step7_fraud_taxonomy.py ─→ adds fraud_score_* columns (in-place)
+                   step7b_fraud_labels.py ──→ adds fraud_confirmed/suspect (in-place)
+                   (post-pipeline enrichments,    ← ENRICHMENT LAYER
+                    run via workflows/run_dataset_enrichments.py)
 ```
 
 ### Multi-Market Variants
@@ -181,7 +186,7 @@ Merges snap + prices + macro, then computes ~170 features in groups:
 
 | Duplication | Files | Severity |
 |---|---|---|
-| `add_normalised_ratios()` | `pipeline/feature_library.py` AND `research/factor_research.py` | Low — identical logic, used at different pipeline stages. Still unfixed as of session 48. |
+| ~~`add_normalised_ratios()`~~ | ~~`pipeline/feature_library.py` AND `research/factor_research.py`~~ | **RESOLVED (Session 49)** — `research/factor_research.py` now imports from `pipeline/feature_library.py` |
 | Winsorization | step5 (line 890) AND step6 `winsorize_accruals()` | Low — step6 is market×year specific, step5 is global. Both needed but confusing |
 | Size category logic | step5 `add_size_features()` AND step6 `_impute_size_category()` | Low — step6 fills gaps that step5 couldn't (missing market_cap) |
 
@@ -207,11 +212,19 @@ Merges snap + prices + macro, then computes ~170 features in groups:
 | `pipeline/build_monthly_price_cache.py` | Semi-active | Used by backtest engine, not by main pipeline |
 | `pipeline/enrich_feature_dictionary.py` | Utility | Generates reports only, not in data path |
 | `pipeline/p0f_universe_definition.py` | Active | Universe filter for research, not in pipeline run |
-| Market variants (step1_*_br, _ca, _eu, _jp, _jp_free) | Active | Multi-market support, functional but less tested than US |
+| Market variants (step1_*_br, _ca, _eu, _jp) | Active | Multi-market support, functional but less tested than US |
+| ~~`pipeline/step1_fetch_tickers_jp_free.py`~~ | **Archived** | Moved to `pipeline/archive/` (session 48). Workflow reference fixed (session 49) |
 
 ---
 
-## 4. Refactor Candidates (DO NOT EXECUTE)
+## 4. Refactor Candidates
+
+### Completed (Session 49)
+- ~~`pipeline/step1_fetch_tickers_jp_free.py`~~ — **Archived** (session 48), workflow reference fixed
+- ~~Column aliasing in step5~~ → **Extracted** to `pipeline/column_aliases.py`. step5 now calls `apply_column_aliases(df)`.
+- ~~`add_normalised_ratios` duplication~~ → **Consolidated**. `research/factor_research.py` imports from `pipeline/feature_library.py`.
+- ~~`enrich_fraud_taxonomy.py` rename~~ → **Done**: `pipeline/step7_fraud_taxonomy.py`
+- ~~`enrich_fraud_labels.py` rename~~ → **Done**: `pipeline/step7b_fraud_labels.py`
 
 ### Should Stay As-Is
 - `step1_fetch_tickers.py` — clear, single-purpose, well-documented
@@ -220,22 +233,11 @@ Merges snap + prices + macro, then computes ~170 features in groups:
 - `step4_enrich_macro.py` — clean vectorised implementation
 - `step6_clean.py` — modular 5-phase pipeline, well-structured
 
-### Could Be Archived
-- `pipeline/step1_fetch_tickers_jp_free.py` — appears to be a variant of `_jp` without paid API. If unused, archive.
-
-### Could Be Merged
-- **Column aliasing in step5** (lines 778-813) → could become a standalone `pipeline/column_aliases.py` for clarity. Currently buried in the middle of the compute pipeline.
-- **`pipeline/feature_library.py`** (50 lines) → its `add_normalised_ratios` is identical to the one in `research/factor_research.py`. After session 26 IC consolidation pattern, this could follow the same "single source of truth" approach.
-
-### Could Be Renamed
+### Could Be Renamed (low priority, not yet done)
 - `step2_build_snapshots.py` → `step2_fetch_financials.py` (it fetches from EDGAR, not just "builds")
-- `pipeline/enrich_fraud_taxonomy.py` → `pipeline/step7_fraud_taxonomy.py` (it runs after step6, should be numbered)
-- `pipeline/enrich_fraud_labels.py` → `pipeline/step7b_fraud_labels.py` (same reason)
-- `pipeline/enrich_quarterly_features.py` → no rename needed (called from step6)
 
-### Should NOT Be Touched Yet
+### Should NOT Be Touched
 - The multi-market variant files (`_kr`, `_br`, `_ca`, `_eu`, `_jp`) — functional, less tested. Risk of breakage > value of cleanup.
-- The `COLUMN_ALIASES` dict in step5 — tempting to clean up but every consumer relies on both old and new names.
 - Winsorization in step5 vs step6 — they serve different purposes despite looking duplicated.
 
 ---
@@ -244,9 +246,9 @@ Merges snap + prices + macro, then computes ~170 features in groups:
 
 ### Dependency Direction
 ```
-step1 → step2 → step3 → step4 → step5 → step6
-  ↓        ↓        ↓        ↓        ↓        ↓
-tickers  snapshots  prices   macro   dataset   clean_dataset
+step1 → step2 → step3 → step4 → step5 → step6 → step7/7b (enrichment layer)
+  ↓        ↓        ↓        ↓        ↓        ↓            ↓
+tickers  snapshots  prices   macro   dataset   clean_dataset  (in-place additions)
                                                      ↓
                                               modeling/train.py
                                               research/*.py
@@ -254,7 +256,9 @@ tickers  snapshots  prices   macro   dataset   clean_dataset
                                               alpha/factors/*.py
 ```
 
-Dependencies are **strictly linear** — no cycles, no backward references. Each step reads only from its predecessor's output. This is clean and correct.
+Steps 1-6 are **strictly linear** — no cycles, no backward references. Each step reads only from its predecessor's output.
+
+Step 7/7b is an **enrichment layer** — it modifies `historical_dataset_clean.parquet` in-place (adds columns). It does NOT produce a new file. It runs via `workflows/run_dataset_enrichments.py` as a post-pipeline phase.
 
 ### Single Shared Entrypoint
 - `_root.py` defines `ROOT = Path(__file__).resolve().parent`
@@ -272,4 +276,6 @@ Dependencies are **strictly linear** — no cycles, no backward references. Each
 
 The pipeline spine is **well-architected**: linear dependency chain, checkpointed for resilience, zero-API-call feature computation, proper PIT (point-in-time) handling via filed_date, and survivorship correction. The main complexity lives in step5 (170+ features from financial theory) which is unavoidable given the domain.
 
-Primary risks are naming inconsistencies (column aliases creating duplicates) and the hardcoded -50% survivorship return assumption. Neither is urgent.
+**Session 49 updates**: Column alias duplication resolved (extracted to `pipeline/column_aliases.py`), `add_normalised_ratios` consolidated to single source in `pipeline/feature_library.py`, fraud enrichment scripts numbered as step7/7b, JP workflow fixed.
+
+Remaining risks: hardcoded -50% survivorship return assumption (214 rows affected, low impact) and 3,900 rows with revenue ≤ 0 propagating NaN through valuation ratios (intentional — kept for model robustness).

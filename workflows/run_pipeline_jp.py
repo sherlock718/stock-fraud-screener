@@ -1,15 +1,11 @@
 #!/usr/bin/env python3
 """
-Japan pipeline runner (free-data tier).
+Japan pipeline runner.
 
 Steps:
-  1. step1_fetch_tickers_jp_free   → data/tickers_jp.parquet
-  2. step2_build_snapshots_jp_free → data/snapshots_jp.parquet
+  1. step1_fetch_tickers_jp   → data/tickers_jp.parquet
+  2. step2_build_snapshots_jp → data/snapshots_jp.parquet
   3-6. Shared pipeline steps on JP snapshots → data/*_jp.parquet
-
-Free-tier coverage: ~122–130 TSE tickers via yfinance (no EDINET API key required).
-For full 3,800+ TSE coverage use step2_build_snapshots_jp.py with a free EDINET API key
-and manually swap --step2-script in this file.
 
 Usage:
   python3 scripts/run_pipeline_jp.py build              # full build
@@ -26,6 +22,9 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+from _root import ROOT
+
+BASE = ROOT
 DATA = BASE / 'data'
 
 
@@ -35,9 +34,6 @@ def fmt(path: Path) -> str:
     size_mb = path.stat().st_size / 1e6
     try:
         import pandas as pd
-from _root import ROOT
-
-BASE = ROOT
         df = pd.read_parquet(path)
         return f'  ✓ {size_mb:.1f} MB  {len(df):,} rows × {len(df.columns)} cols'
     except Exception:
@@ -76,12 +72,12 @@ def run_step(script: str, extra: list[str], label: str):
 
 
 JP_STEPS = {
-    1: ('pipeline/step1_fetch_tickers_jp_free.py',   'Step 1 — Fetch JP ticker universe (TDNET free)'),
-    2: ('pipeline/step2_build_snapshots_jp_free.py', 'Step 2 — Build JP financial snapshots (yfinance)'),
-    3: ('pipeline/step3_enrich_prices.py',            'Step 3 — Enrich with price data (yfinance)'),
-    4: ('pipeline/step4_enrich_macro.py',             'Step 4 — Enrich with macro data'),
-    5: ('pipeline/step5_compute_features.py',         'Step 5 — Compute 324 features'),
-    6: ('pipeline/step6_clean.py',                    'Step 6 — Clean and validate'),
+    1: ('pipeline/step1_fetch_tickers_jp.py',   'Step 1 — Fetch JP ticker universe'),
+    2: ('pipeline/step2_build_snapshots_jp.py', 'Step 2 — Build JP financial snapshots'),
+    3: ('pipeline/step3_enrich_prices.py',      'Step 3 — Enrich with price data (yfinance)'),
+    4: ('pipeline/step4_enrich_macro.py',       'Step 4 — Enrich with macro data'),
+    5: ('pipeline/step5_compute_features.py',   'Step 5 — Compute features'),
+    6: ('pipeline/step6_clean.py',              'Step 6 — Clean and validate'),
 }
 
 LIMIT_STEPS    = {1, 2, 3}

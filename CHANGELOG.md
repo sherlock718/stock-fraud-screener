@@ -8,6 +8,21 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Refactor — Pipeline Spine Cleanup (2026-07-14)
+
+#### Changed
+- `research/factor_research.py`: Removed duplicated `_add_normalised_ratios`, now imports from `pipeline/feature_library.py` (single source of truth)
+- `pipeline/step5_compute_features.py`: Extracted inline `COLUMN_ALIASES` block into new `pipeline/column_aliases.py` module
+- `workflows/run_pipeline_jp.py`: Fixed dead references to archived `_jp_free` scripts, updated to use standard `step1_fetch_tickers_jp.py` / `step2_build_snapshots_jp.py`; also fixed misplaced `_root` import bug
+
+#### Renamed
+- `pipeline/enrich_fraud_taxonomy.py` → `pipeline/step7_fraud_taxonomy.py` (runs after step6, now numbered)
+- `pipeline/enrich_fraud_labels.py` → `pipeline/step7b_fraud_labels.py` (same reason)
+- Updated all references in `workflows/run_dataset_enrichments.py`, `quality/validate_feature_contract.py`, `pipeline/enrich_feature_dictionary.py`, and test files
+
+#### Added
+- `pipeline/column_aliases.py`: Standalone module for step2 → step5 column name mapping (was buried inline in step5)
+
 ### Chore — Repo Cleanup (2026-07-13)
 
 #### Archived
@@ -15,7 +30,7 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 - `models/archive/feature_sets_{1y,2y,5y,6m,pruned}.json`: Superseded by canonical `feature_sets_3y.json`
 - `data_io/archive/migrate_to_db.py`: Dead migration script (never called)
 - `workflows/archive/wait_and_merge.py`: Unused orchestration script
-- `fraud/archive/taxonomy.py`: Stub (real logic in `pipeline/enrich_fraud_taxonomy.py`)
+- `fraud/archive/taxonomy.py`: Stub (real logic in `pipeline/step7_fraud_taxonomy.py`)
 - `pipeline/archive/step2_build_snapshots_jp_free.py`: Dead JP variant
 - `research/notebooks/archive/01-06`: Exploratory notebooks from early sessions
 - `data/archive/leveraged_picks_*.csv`: One-off outputs from superseded leverage experiment
