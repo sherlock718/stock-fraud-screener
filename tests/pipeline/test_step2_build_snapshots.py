@@ -232,3 +232,113 @@ class TestStep2Coverage:
         }
         snaps = build_period_snapshots(facts)
         assert len(snaps) == 0
+
+
+# ── Vintage-awareness tests (PIT integrity) ──────────────────────────────────
+
+from step2_build_snapshots import extract_concept_series
+
+
+class TestVintageAwareness:
+    """Tests that XBRL vintage selection is point-in-time correct."""
+
+    def _make_facts(self, entries):
+        """Build a minimal facts dict for testing extract_concept_series."""
+        return {
+            'facts': {
+                'us-gaap': {
+                    'Revenues': {
+                        'units': {'USD': entries}
+                    }
+                }
+            }
+        }
+
+    def test_original_filing_preferred_over_amendment(self):
+        """Original 10-K value should be selected over later 8-K amendment."""
+        entries = [
+            {'fy': 2019, 'fp': 'FY', 'val': 9614000000, 'filed': '2020-02-27', 'form': '10-K'},
+            {'fy': 2019, 'fp': 'FY', 'val': 5699000000, 'filed': '2020-05-19', 'form': '8-K'},
+        ]
+        facts = self._make_facts(entries)
+        result = extract_concept_series(facts, 'us-gaap/Revenues')
+        assert result[(2019, 'FY')] == (9614000000, '2020-02-27')
+
+    def test_amendment_unavailable_before_its_filing_date(self):
+        """The amended value must not leak into earlier snapshots."""
+        entries = [
+            {'fy': 2016, 'fp': 'FY', 'val': 3042123000, 'filed': '2017-02-15', 'form': '10-K'},
+            {'fy': 2016, 'fp': 'FY', 'val': 2858646000, 'filed': '2017-05-17', 'form': '8-K'},
+        ]
+        facts = self._make_facts(entries)
+        result = extract_concept_series(facts, 'us-gaap/Revenues')
+        val, filed = result[(2016, 'FY')]
+        assert val == 3042123000, f'Expected original 10-K value, got {val}'
+        assert filed == '2017-02-15', f'Expected original filing date, got {filed}'
+
+    def test_amendment_available_after_filing_date(self):
+        """If only an amendment exists (no primary), it should be used."""
+        entries = [
+            {'fy': 2018, 'fp': 'FY', 'val': 500000000, 'filed': '2019-04-01', 'form': '10-K/A'},
+        ]
+        facts = self._make_facts(entries)
+        result = extract_concept_series(facts, 'us-gaap/Revenues')
+        assert result[(2018, 'FY')] == (500000000, '2019-04-01')
+
+    def test_unordered_api_records(self):
+        """Records may arrive in any order — must still select earliest primary."""
+        entries = [
+            {'fy': 2020, 'fp': 'FY', 'val': 200000000, 'filed': '2021-06-15', 'form': '8-K'},
+            {'fy': 2020, 'fp': 'FY', 'val': 300000000, 'filed': '2021-03-01', 'form': '10-K'},
+            {'fy': 2020, 'fp': 'FY', 'val': 250000000, 'filed': '2021-04-10', 'form': '10-K/A'},
+        ]
+        facts = self._make_facts(entries)
+        result = extract_concept_series(facts, 'us-gaap/Revenues')
+        val, filed = result[(2020, 'FY')]
+        assert val == 300000000, 'Should pick earliest 10-K, not later 8-K or 10-K/A'
+        assert filed == '2021-03-01'
+
+    def test_multiple_concepts_different_filing_dates(self):
+        """Different concepts may have different filing dates — each picks its own earliest."""
+        facts = {
+            'facts': {
+                'us-gaap': {
+                    'Revenues': {
+                        'units': {'USD': [
+                            {'fy': 2019, 'fp': 'FY', 'val': 100, 'filed': '2020-02-15', 'form': '10-K'},
+                            {'fy': 2019, 'fp': 'FY', 'val': 90, 'filed': '2020-05-01', 'form': '8-K'},
+                        ]}
+                    },
+                    'Assets': {
+                        'units': {'USD': [
+                            {'fy': 2019, 'fp': 'FY', 'val': 500, 'filed': '2020-02-15', 'form': '10-K'},
+                            {'fy': 2019, 'fp': 'FY', 'val': 510, 'filed': '2020-05-01', 'form': '8-K'},
+                        ]}
+                    },
+                }
+            }
+        }
+        rev_result = extract_concept_series(facts, 'us-gaap/Revenues')
+        asset_result = extract_concept_series(facts, 'us-gaap/Assets')
+        assert rev_result[(2019, 'FY')][0] == 100
+        assert asset_result[(2019, 'FY')][0] == 500
+
+    def test_10k_a_not_treated_as_primary(self):
+        """10-K/A is an amendment — should not override original 10-K."""
+        entries = [
+            {'fy': 2017, 'fp': 'FY', 'val': 1000, 'filed': '2018-03-01', 'form': '10-K'},
+            {'fy': 2017, 'fp': 'FY', 'val': 1100, 'filed': '2018-06-15', 'form': '10-K/A'},
+        ]
+        facts = self._make_facts(entries)
+        result = extract_concept_series(facts, 'us-gaap/Revenues')
+        assert result[(2017, 'FY')][0] == 1000
+
+    def test_quarterly_primary_filing(self):
+        """10-Q is a primary form for quarterly periods."""
+        entries = [
+            {'fy': 2020, 'fp': 'Q1', 'val': 250, 'filed': '2020-05-01', 'form': '10-Q'},
+            {'fy': 2020, 'fp': 'Q1', 'val': 240, 'filed': '2020-08-01', 'form': '10-Q/A'},
+        ]
+        facts = self._make_facts(entries)
+        result = extract_concept_series(facts, 'us-gaap/Revenues')
+        assert result[(2020, 'Q1')][0] == 250

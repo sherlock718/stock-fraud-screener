@@ -146,6 +146,14 @@ def extract_concept_series(facts: dict, concept_path: str, is_shares=False, is_b
     """
     Extract time-series values for a single XBRL concept.
     Returns dict: {(fy, fp): (value, filed_date)}
+
+    Point-in-time policy: for each (fy, fp), keep the value from the EARLIEST
+    primary filing (10-K, 10-Q, 20-F). Later amendments (10-K/A, 8-K, etc.) are
+    ignored for the snapshot — they represent information not available at the
+    original filing date. This prevents look-ahead leakage from restatements.
+
+    Ordering note: SEC API records are NOT guaranteed chronologically ordered,
+    so we collect all entries first, then select the earliest primary filing.
     """
     namespace, concept = concept_path.split('/', 1)
     try:
@@ -155,7 +163,6 @@ def extract_concept_series(facts: dict, concept_path: str, is_shares=False, is_b
         units = ns_data[concept].get('units', {})
 
         if is_bool:
-            # Presence of any entry = True
             entries = []
             for unit_entries in units.values():
                 entries.extend(unit_entries)
@@ -167,7 +174,9 @@ def extract_concept_series(facts: dict, concept_path: str, is_shares=False, is_b
         else:
             unit_data = units.get('USD', [])
 
-        result = {}
+        # Collect all valid entries grouped by (fy, fp)
+        from collections import defaultdict
+        by_period = defaultdict(list)
         for e in unit_data:
             fy = e.get('fy')
             fp = e.get('fp', '')
@@ -175,13 +184,26 @@ def extract_concept_series(facts: dict, concept_path: str, is_shares=False, is_b
             val = e.get('val')
             if fy is None or val is None:
                 continue
-            # Validate fiscal year
             if not isinstance(fy, int) or fy < 2005 or fy > datetime.now().year + 1:
                 continue
-            key = (fy, fp)
-            # Keep the most recently filed value for this (fy, fp)
-            if key not in result or filed > result[key][1]:
-                result[key] = (val, filed)
+            by_period[(fy, fp)].append((val, filed, e.get('form', '')))
+
+        # For each period, select the PIT-correct value:
+        # 1. Prefer the earliest primary filing (10-K, 10-Q, 20-F, 10-KSB)
+        # 2. If no primary filing exists, fall back to earliest of any form
+        PRIMARY_FORMS = {'10-K', '10-Q', '20-F', '10-KSB', '10-QSB'}
+        result = {}
+        for key, entries in by_period.items():
+            primary = [(v, f, form) for v, f, form in entries if form in PRIMARY_FORMS]
+            if primary:
+                # Earliest primary filing (by filed date)
+                primary.sort(key=lambda x: x[1])
+                result[key] = (primary[0][0], primary[0][1])
+            else:
+                # No primary filing — use earliest available
+                entries.sort(key=lambda x: x[1])
+                result[key] = (entries[0][0], entries[0][1])
+
         return result
     except Exception:
         return {}
