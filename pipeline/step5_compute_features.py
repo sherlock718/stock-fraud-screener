@@ -59,10 +59,35 @@ def slog(series):
 
 
 def winsorize(series: pd.Series, lower=0.01, upper=0.99) -> pd.Series:
-    """Clip to percentile bounds to suppress outliers."""
+    """Clip to percentile bounds to suppress outliers (global — used as baseline)."""
     lo = series.quantile(lower)
     hi = series.quantile(upper)
     return series.clip(lo, hi)
+
+
+def winsorize_pit(df: pd.DataFrame, col: str, lower=0.01, upper=0.99) -> pd.Series:
+    """
+    Point-in-time winsorization using expanding window over fiscal_year.
+
+    For each year Y, bounds are computed from all observations in years <= Y.
+    Adding future-year data cannot change the clipped value for historical rows.
+    """
+    result = df[col].copy().astype(float)
+    years = sorted(df['fiscal_year'].dropna().unique())
+
+    for yr in years:
+        mask = df['fiscal_year'] == yr
+        train_mask = df['fiscal_year'] <= yr
+        train_vals = df.loc[train_mask, col].astype(float).dropna()
+
+        if len(train_vals) < 50:
+            continue
+
+        lo = train_vals.quantile(lower)
+        hi = train_vals.quantile(upper)
+        result.loc[mask] = result.loc[mask].clip(lo, hi)
+
+    return result
 
 
 # ── A. Valuation ratios ───────────────────────────────────────────────────────
@@ -851,7 +876,8 @@ def run():
     # Rule: ALL growth _yoy columns must be winsorized here (pipeline-integrity Rule 6).
     # Without winsorization, companies growing from near-zero (revenue 1 → 184,343×) or
     # extreme micro-cap EPS swings dominate LightGBM splits and inflate IC estimates.
-    print('  Winsorizing extreme values (1st-99th percentile) ...')
+    # Uses point-in-time expanding-window: bounds for year Y use only data from years <= Y.
+    print('  Winsorizing extreme values (PIT expanding window, 1st-99th) ...')
     ratio_cols = [
         # Valuation ratios
         'pe_ratio', 'pb_ratio', 'ps_ratio', 'ev_ebitda', 'ev_revenue',
@@ -885,7 +911,7 @@ def run():
     ]
     for col in ratio_cols:
         if col in df.columns:
-            df[col] = winsorize(df[col].astype(float))
+            df[col] = winsorize_pit(df, col)
 
     # ── Save ───────────────────────────────────────────────────────────────────
     print(f'  Saving {len(df):,} rows × {len(df.columns)} columns ...')
