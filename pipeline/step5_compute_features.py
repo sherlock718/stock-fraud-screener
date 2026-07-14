@@ -67,21 +67,50 @@ def winsorize(series: pd.Series, lower=0.01, upper=0.99) -> pd.Series:
 
 def winsorize_pit(df: pd.DataFrame, col: str, lower=0.01, upper=0.99) -> pd.Series:
     """
-    Point-in-time winsorization using expanding window over fiscal_year.
+    Point-in-time winsorization using filed_date as the availability gate.
 
-    For each year Y, bounds are computed from all observations in years <= Y.
-    Adding future-year data cannot change the clipped value for historical rows.
+    For each observation, bounds are computed from all observations whose
+    filed_date is strictly BEFORE this observation's filed_date. This ensures
+    that only records actually available at scoring time inform the bounds.
+
+    Implementation: group observations by filing cohort (calendar quarter of
+    filed_date), compute expanding bounds from all prior cohorts, apply to
+    current cohort. This avoids O(n²) per-observation computation while
+    respecting actual filing chronology.
     """
     result = df[col].copy().astype(float)
-    years = sorted(df['fiscal_year'].dropna().unique())
 
-    for yr in years:
-        mask = df['fiscal_year'] == yr
-        train_mask = df['fiscal_year'] <= yr
+    if 'filed_date' not in df.columns:
+        # Fallback: fiscal_year expanding window
+        years = sorted(df['fiscal_year'].dropna().unique())
+        for yr in years:
+            mask = df['fiscal_year'] == yr
+            train_mask = df['fiscal_year'] <= yr
+            train_vals = df.loc[train_mask, col].astype(float).dropna()
+            if len(train_vals) < 50:
+                continue
+            lo = train_vals.quantile(lower)
+            hi = train_vals.quantile(upper)
+            result.loc[mask] = result.loc[mask].clip(lo, hi)
+        return result
+
+    filed = pd.to_datetime(df['filed_date'], errors='coerce')
+    # Assign each row to a filing quarter (YYYY-Q#)
+    filing_qtr = filed.dt.to_period('Q')
+
+    quarters = sorted(filing_qtr.dropna().unique())
+    for qtr in quarters:
+        mask = filing_qtr == qtr
+        # Training set: all observations filed BEFORE this quarter starts
+        train_mask = filed < qtr.start_time
         train_vals = df.loc[train_mask, col].astype(float).dropna()
 
         if len(train_vals) < 50:
-            continue
+            # Insufficient history — include same quarter (bootstrapping)
+            train_mask_incl = filed <= qtr.end_time
+            train_vals = df.loc[train_mask_incl, col].astype(float).dropna()
+            if len(train_vals) < 50:
+                continue
 
         lo = train_vals.quantile(lower)
         hi = train_vals.quantile(upper)

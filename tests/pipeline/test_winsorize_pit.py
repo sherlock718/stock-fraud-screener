@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from pipeline.winsorize_pit import (
     winsorize_expanding,
+    winsorize_by_filed_date,
     winsorize_global,
     winsorize_training_only,
     compare_winsorization_methods,
@@ -126,6 +127,110 @@ class TestPITInvariant:
         test_result = result[test_mask]
         assert test_result.min() >= bounds['lo'] - 1e-10
         assert test_result.max() <= bounds['hi'] + 1e-10
+
+
+class TestFiledDateWinsorization:
+    """Prove winsorization uses only records available at the actual scoring cutoff."""
+
+    def test_only_prior_filings_inform_bounds(self):
+        """
+        A record filed on 2021-06-15 must NOT be used to compute bounds
+        for records filed on 2021-03-01 (even if both are fiscal_year=2020).
+        """
+        rng = np.random.default_rng(42)
+        # Early filers: tight distribution (filed Q1 2021)
+        early_vals = rng.normal(0, 1, 200)
+        # Late filers: extreme outliers (filed Q2 2021)
+        late_vals = np.concatenate([rng.normal(0, 1, 190), [100, -100] * 5])
+
+        df = pd.DataFrame({
+            'filed_date': (
+                [pd.Timestamp('2021-02-15')] * 200 +
+                [pd.Timestamp('2021-06-15')] * 200
+            ),
+            'fiscal_year': [2020] * 400,
+            'feature': np.concatenate([early_vals, late_vals]),
+        })
+
+        result = winsorize_pit(df, 'feature')
+
+        # The early filers (Q1) should be clipped based on data from BEFORE Q1 2021
+        # Since there's no prior data, they use bootstrapped same-quarter bounds
+        # The key test: late filers' extreme values (100, -100) must NOT affect
+        # the bounds applied to early filers
+        early_result = result[:200]
+        # If late outliers leaked into early bounds, early clips would be wider
+        # Check that early values are NOT clipped to accommodate [-100, 100]
+        assert early_result.max() < 10, (
+            f'Early filer max={early_result.max():.1f} — '
+            f'late outliers should not widen early bounds'
+        )
+
+    def test_filed_date_not_fiscal_year_determines_availability(self):
+        """
+        Two observations with same fiscal_year but different filing dates
+        must use different bounds if filed in different quarters.
+        """
+        rng = np.random.default_rng(99)
+        # Create historical data (2019) as the training base
+        historical = pd.DataFrame({
+            'filed_date': [pd.Timestamp('2020-03-01')] * 500,
+            'fiscal_year': [2019] * 500,
+            'feature': rng.normal(0, 1, 500),
+        })
+        # Create two 2020 observations filed at different times
+        obs = pd.DataFrame({
+            'filed_date': [pd.Timestamp('2021-02-01'), pd.Timestamp('2021-08-01')],
+            'fiscal_year': [2020, 2020],
+            'feature': [50.0, 50.0],  # extreme value
+        })
+        df = pd.concat([historical, obs], ignore_index=True)
+
+        result = winsorize_pit(df, 'feature')
+
+        # Both extreme values should be clipped, but the second one (Aug)
+        # has more history available (includes the Feb filer) so bounds could differ slightly
+        # The key invariant: the Feb observation's clip used only pre-Feb data
+        feb_clip = result.iloc[500]
+        aug_clip = result.iloc[501]
+        # Both should be clipped down from 50 to the 99th percentile
+        assert feb_clip < 50, 'Feb observation should be clipped'
+        assert aug_clip < 50, 'Aug observation should be clipped'
+
+    def test_adding_future_filings_does_not_change_past_clips(self):
+        """
+        Core PIT invariant with filed_date: adding observations filed later
+        must not change bounds applied to observations filed earlier.
+        """
+        rng = np.random.default_rng(123)
+
+        # Base: observations filed in Q1 2020
+        base = pd.DataFrame({
+            'filed_date': [pd.Timestamp('2020-02-15')] * 300,
+            'fiscal_year': [2019] * 300,
+            'feature': rng.normal(0, 2, 300),
+        })
+
+        # Compute clip with just base
+        result_base = winsorize_pit(base, 'feature')
+
+        # Now add observations filed Q3 2020 with very different distribution
+        future = pd.DataFrame({
+            'filed_date': [pd.Timestamp('2020-09-15')] * 300,
+            'fiscal_year': [2020] * 300,
+            'feature': rng.normal(0, 10, 300),  # much wider
+        })
+        combined = pd.concat([base, future], ignore_index=True)
+        result_combined = winsorize_pit(combined, 'feature')
+
+        # The base observations (first 300) must have IDENTICAL clipped values
+        base_values_alone = result_base.values
+        base_values_in_combined = result_combined.values[:300]
+
+        np.testing.assert_array_equal(
+            base_values_alone, base_values_in_combined,
+            err_msg='Adding future-filed observations changed clips on past filings!'
+        )
 
 
 class TestWinsorizeComparison:

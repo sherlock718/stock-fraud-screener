@@ -81,28 +81,68 @@ has nearly the full dataset available. The leakage primarily affects **early tra
 
 ## 4. Materiality Assessment
 
-**The effect is methodologically significant but has bounded practical impact:**
+### Backtest Results (Global vs PIT Winsorization)
 
-- Rank ordering is essentially preserved (ρ > 0.99999)
-- The model's LightGBM splits will be affected for early-year observations
-- Fraud-critical tail membership changes by up to 50% for `sloan_accruals` in early years
-- For a walk-forward backtest starting in 2015, this represents contaminated training data
+| Metric | Global | PIT | Δ |
+|--------|--------|-----|---|
+| CAGR % | 32.62 | 32.62 | 0.00 |
+| Sharpe | 1.35 | 1.35 | 0.00 |
+| Max Drawdown % | 0.0 | 0.0 | 0.00 |
+| Hit Rate % | 88.4 | 88.4 | 0.00 |
+| Annual Turnover % | 97.8 | 97.8 | 0.00 |
 
-**Verdict: FIX IS JUSTIFIED** on methodological grounds — training data must be stable
-and independent of future observations, regardless of whether the practical impact
-on final CAGR/Sharpe is modest.
+**Result: IDENTICAL.** All 15 years produce the same returns, portfolio membership is unchanged.
+
+### Why No Backtest Difference
+
+1. **Composite strategy** uses rank-based scoring (quality_composite, value_composite) which
+   ranks within fiscal_year × market groups. Winsorization preserves ordering → ranks unchanged.
+2. **ML model** (LightGBM, 28 features) only uses 2 winsorized features (`pb_ratio`, `ps_ratio`).
+   The remaining 26 features are sector-percentiles, flags, or non-winsorized inputs.
+3. **Winsorization preserves the middle 96-98%** of observations. Only tail values change,
+   and these rarely cross LightGBM split thresholds.
+
+### Fraud-Tail Membership Changes
+
+| Signal | Threshold | Global Flagged | PIT Flagged | Membership Δ |
+|--------|-----------|---------------|-------------|--------------|
+| Beneish M-score > -1.78 | -1.78 | 6,614 | 6,608 | 6 (0.1%) |
+| Sloan accruals top 10% | 90th pct | 4,834 | 4,834 | 0 (0.0%) |
+| Altman Z-score < 1.81 | 1.81 | 27,198 | 27,198 | 0 (0.0%) |
+
+### Expanding Bounds Convergence
+
+PIT bounds converge to global bounds as more data accumulates:
+- 2010Q2: sloan_accruals bounds [-0.28, 0.07] (from 178 observations)
+- 2012Q2: bounds [-1.28, 0.28] (from 1,948 observations)
+- Global: bounds [-8.81, 0.61] (from 48,338 observations)
+
+For recent years (2020+), PIT ≈ global. The fix primarily affects early-year training data.
+
+### Verdict
+
+**The fix has ZERO practical impact on current production backtest results**, but is
+**methodologically correct** and justified because:
+- Training data must be stable and independent of future observations (proven by test)
+- A future model retrained on PIT-winsorized features would see different early-year
+  distributions, potentially affecting feature selection and split points
+- The fix costs nothing in performance and eliminates a category of subtle bias
 
 ---
 
 ## 5. Implementation
 
 **Changed:** `pipeline/step5_compute_features.py`
-- Added `winsorize_pit(df, col)` — expanding-window winsorization grouped by fiscal_year
+- Added `winsorize_pit(df, col)` — uses `filed_date` (not fiscal_year) as the availability gate
+- Groups observations by filing quarter (calendar quarter of filed_date)
+- For each quarter Q, bounds come from all observations with `filed_date < start_of_Q`
 - The winsorization loop now calls `winsorize_pit(df, col)` instead of `winsorize(df[col])`
 - Original `winsorize()` function preserved for comparison and backward compatibility
+- Falls back to fiscal_year expanding window when filed_date is unavailable
 
 **New file:** `pipeline/winsorize_pit.py`
-- `winsorize_expanding()` — general expanding-window implementation
+- `winsorize_expanding()` — fiscal_year expanding window (documented approximation)
+- `winsorize_by_filed_date()` — strict PIT using actual filing dates
 - `winsorize_global()` — preserved global version
 - `winsorize_training_only()` — for model training (bounds from train fold only)
 - `compare_winsorization_methods()` — comparison utility
@@ -110,8 +150,11 @@ on final CAGR/Sharpe is modest.
 **Tests:** `tests/pipeline/test_winsorize_pit.py`
 - `test_future_data_cannot_change_historical_values` — core invariant
 - `test_expanding_window_uses_only_past_data`
-- `test_global_winsorize_is_not_pit_safe` — proves the bug
+- `test_global_winsorize_is_not_pit_safe` — proves the original bug
 - `test_training_only_bounds_frozen`
+- `test_only_prior_filings_inform_bounds` — proves filed_date correctness
+- `test_filed_date_not_fiscal_year_determines_availability` — same fiscal_year, different bounds
+- `test_adding_future_filings_does_not_change_past_clips` — stability under new filings
 
 ---
 

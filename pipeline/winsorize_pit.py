@@ -39,10 +39,14 @@ def winsorize_expanding(
     upper: float = 0.99,
 ) -> pd.Series:
     """
-    Walk-forward (expanding window) winsorization.
+    Walk-forward (expanding window) winsorization by fiscal_year.
 
     For each year Y, bounds are computed using observations from years <= Y.
     This means adding future-year observations CANNOT change historical values.
+
+    NOTE: This is an approximation — fiscal_year <= Y includes some observations
+    that may not have been filed at the rebalance date. For a stricter version
+    that uses actual filing dates, see winsorize_by_filed_date().
     """
     result = df[col].copy().astype(float)
     years = sorted(df[time_col].dropna().unique())
@@ -55,6 +59,43 @@ def winsorize_expanding(
 
         if len(train_vals) < 50:
             continue
+
+        lo = train_vals.quantile(lower)
+        hi = train_vals.quantile(upper)
+        result.loc[mask] = result.loc[mask].clip(lo, hi)
+
+    return result
+
+
+def winsorize_by_filed_date(
+    df: pd.DataFrame,
+    col: str,
+    filed_col: str = 'filed_date',
+    lower: float = 0.01,
+    upper: float = 0.99,
+) -> pd.Series:
+    """
+    Strictly PIT-correct winsorization using actual filing dates.
+
+    For each filing quarter Q, bounds are computed using only observations
+    with filed_date < start of Q. This ensures that only records that were
+    publicly available before the current cohort inform the clipping bounds.
+    """
+    result = df[col].copy().astype(float)
+    filed = pd.to_datetime(df[filed_col], errors='coerce')
+    filing_qtr = filed.dt.to_period('Q')
+
+    quarters = sorted(filing_qtr.dropna().unique())
+    for qtr in quarters:
+        mask = filing_qtr == qtr
+        train_mask = filed < qtr.start_time
+        train_vals = df.loc[train_mask, col].astype(float).dropna()
+
+        if len(train_vals) < 50:
+            train_mask_incl = filed <= qtr.end_time
+            train_vals = df.loc[train_mask_incl, col].astype(float).dropna()
+            if len(train_vals) < 50:
+                continue
 
         lo = train_vals.quantile(lower)
         hi = train_vals.quantile(upper)
