@@ -147,10 +147,15 @@ def extract_concept_series(facts: dict, concept_path: str, is_shares=False, is_b
     Extract time-series values for a single XBRL concept.
     Returns dict: {(fy, fp): (value, filed_date)}
 
-    Point-in-time policy: for each (fy, fp), keep the value from the EARLIEST
+    XBRL amendment handling: for each (fy, fp), keep the value from the EARLIEST
     primary filing (10-K, 10-Q, 20-F). Later amendments (10-K/A, 8-K, etc.) are
-    ignored for the snapshot — they represent information not available at the
-    original filing date. This prevents look-ahead leakage from restatements.
+    ignored — selecting them would discard the original vintage and shift the
+    snapshot's availability date forward, creating a gap where no data exists.
+
+    This is an interim approximation (earliest-primary), not full as-of vintage
+    reconstruction. Limitation: after an amendment is published, a true as-of
+    system would switch to the amended value; this implementation permanently
+    uses the original.
 
     Ordering note: SEC API records are NOT guaranteed chronologically ordered,
     so we collect all entries first, then select the earliest primary filing.

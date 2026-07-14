@@ -240,7 +240,7 @@ from step2_build_snapshots import extract_concept_series
 
 
 class TestVintageAwareness:
-    """Tests that XBRL vintage selection is point-in-time correct."""
+    """Tests XBRL amendment handling — earliest primary filing preserved."""
 
     def _make_facts(self, entries):
         """Build a minimal facts dict for testing extract_concept_series."""
