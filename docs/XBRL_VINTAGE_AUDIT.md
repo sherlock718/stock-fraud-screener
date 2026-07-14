@@ -1,7 +1,13 @@
 # XBRL Fact Vintage Audit — Evidence Table
 
 **Date:** 2026-07-14  
-**Scope:** Issue 2 — Look-ahead leakage from XBRL amendments and restatements
+**Scope:** Issue 2 — Loss of historical XBRL vintages / amendment handling
+
+**Reclassification:** This issue was initially characterized as "look-ahead leakage."
+After verification, it is more accurately described as **loss of historical vintages
+with timing distortion**. The amendment values were never used before their filing
+dates — they were correctly dated to the amendment date. The problem is that the
+original filing's data was discarded entirely, creating an availability gap.
 
 ---
 
@@ -86,24 +92,45 @@ Most severe case: nearly halving revenue through a later reclassification.
 
 ## 3. Conclusion
 
-**The leakage is confirmed and material.**
+**The issue is confirmed as LOSS OF HISTORICAL VINTAGES, not look-ahead leakage.**
 
-- **All 5 cases** show the pipeline selecting the later-filed amendment value.
-- The `filed_date` in the snapshot was set to the amendment date, meaning:
-  - The snapshot was unavailable for 3 months after the original 10-K was filed
-  - Any rebalance during those 3 months had no data for that company
-- Revenue differences range from -6% to -41% — sufficient to change model predictions
-- This particularly affects fraud/quality signals since companies under investigation
-  are disproportionately likely to restate
+### Was the amendment value ever usable before its filing date?
 
-**Nature of the failure:**
-- It is NOT that the original vintage "disappears from earlier snapshots" (the pipeline only produces one row per period)
-- It IS that the single row uses future information and sets a later availability date
-- The combined effect is: wrong value AND delayed availability
+**No.** The pipeline set `filed_date` to the amendment's actual filing date (e.g., 2020-05-19
+for Overstock). Step 3 then uses `filed_date` as the entry date for price lookup and
+forward-return measurement (line 355: `entry_date = pd.Timestamp(row['filed_date'])`).
+The amendment value was never scored before its own publication date.
+
+### What actually went wrong?
+
+1. **Original vintage lost:** The 10-K filed 2020-02-27 with revenue $9.6B was discarded.
+   The model never saw this company's FY2019 data until May 2020.
+2. **Availability gap:** Between Feb 27 and May 19, the company was invisible to the model
+   despite having publicly filed financial statements.
+3. **Timing distortion:** Entry price was set at May 2020 (post-COVID recovery), not
+   Feb 2020 (pre-crash). Forward returns measured from the wrong date.
+4. **Value distortion:** The snapshot contains the restated value ($5.7B), not what the
+   market knew in Feb 2020 ($9.6B). Feature ratios like P/S, revenue growth, etc. are
+   computed from the restated figure.
+
+### Scale
+
+4.6% of annual rows (2,681/58,190) have filing lags > 120 days, suggesting they may be
+amendments rather than original filings. These represent cases where the original 10-K
+was available months earlier but was discarded in favor of a later revision.
+
+### Distinction from leakage
+
+| Attribute | True Leakage | What Actually Happened |
+|-----------|-------------|----------------------|
+| Value used before available? | Yes | **No** — correctly dated to amendment |
+| Original vintage preserved? | N/A | **No** — discarded |
+| Forward return timing? | Wrong | Wrong (measured from late date) |
+| Model score before filing? | Yes | **No** — gap instead |
 
 ---
 
-## 4. Fix Implemented
+## 4. Earliest-Primary Fix (Interim)
 
 **File:** `pipeline/step2_build_snapshots.py` → `extract_concept_series()`
 
@@ -123,6 +150,28 @@ by filed_date. The earliest primary filing wins regardless of API record order.
 - Multiple concepts with different dates
 - 10-K/A not treated as primary
 - Quarterly primary (10-Q)
+
+### Earliest-Primary vs True As-Of Selection
+
+| Scenario | Earliest-Primary | True As-Of | Winner |
+|----------|-----------------|------------|--------|
+| Rebalance before amendment filed | Original 10-K ✓ | Original 10-K ✓ | Tie |
+| Rebalance after amendment filed | Original 10-K (stale) | Amendment ✓ | As-Of |
+| No primary filing exists | Fallback to earliest any | Latest before cutoff | As-Of |
+| Mid-year scoring refresh | Original (frozen) | Amendment if available | As-Of |
+
+**Interim limitation:** Earliest-primary permanently freezes the snapshot at the original
+value. A true as-of system would store ALL vintages and select the latest available
+at each scoring date. For an annual-rebalance strategy with March 31 cutoff:
+- ~95% of 10-K filings occur Jan–Mar → earliest-primary is correct at rebalance
+- ~5% of amendments file before next rebalance → earliest-primary uses stale data
+- This is acceptable for the annual model but would be incorrect for quarterly scoring
+
+**Full vintage storage (not implemented):** Would require:
+- Storing all (fy, fp, filed_date, val, form, accn) tuples per concept
+- An `as_of(date)` function that filters to `filed_date <= date` then picks latest
+- Re-running snapshot construction at each rebalance date
+- Significant storage and compute overhead
 
 ---
 
