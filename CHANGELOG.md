@@ -8,6 +8,17 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+- Pivot the active roadmap from audit-grade historical validation to a simple,
+  workable product path; archive the V3 roadmap, handoff, legacy FAQ, and
+  legacy production configuration; replace product-facing onboarding with one
+  read-only readiness session; and withdraw legacy backtest metrics as current
+  product claims.
+- Resolve all three pre-V3.4 blockers by accepting a flat 25 bps-per-side
+  actual-traded-notional cost policy, the immutable 2026-07-17 Federal Reserve
+  H.15 `DGS1MO` risk-free policy and exact interval conversion, and a bounded
+  329-request Sharadar/SEC/ALFRED collection plan for the 90 accepted holdings
+  and required IWC/IWM/MDY instruments; no collection or V3.4 execution was
+  performed.
 - Clarify the pre-V3.4 canonical-ledger contract by pinning the accepted V3.3
   manifest, exact July vintage clocks, unsupported-period and common-session
   valuation behavior, decision-time benchmark mapping, total-return/event
