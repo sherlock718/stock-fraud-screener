@@ -8,6 +8,19 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Planning — Linear Production Validation Reset (2026-07-16)
+
+#### Changed
+- Replaced the historical numbered and lettered recovery chain with five linear
+  V3 sessions for one observed-only US annual three-year production `ml_gates`
+  path: production table, exact OOS models, liquidity-qualified holdings,
+  canonical ledger inputs, and one controlled backtest.
+- Made the checkpoint commit and frozen PIT reports the historical record while
+  excluding five-horizon retraining, alternate strategies, stale comparisons,
+  threshold optimization, and legacy-result reproduction from active scope.
+- Added a strict no-proliferation rule: a blocker stops its current V3 session
+  instead of creating another lettered recovery session.
+
 ### Planning — Post-Session-9B Production Dependency Contract (2026-07-16)
 
 #### Changed
