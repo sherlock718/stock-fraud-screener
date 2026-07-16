@@ -2,62 +2,62 @@
 
 ## Current state
 
-Session V3.1 is accepted and V3.2 is unblocked. The manifest-backed artifact is
-under `artifacts/pit_validation/session_v3_1_production_contract/`; its manifest
-SHA-256 is `2b5249cdb05c7bad1759abbd281ec1c90a8a9ce2fbd72973cd4dc905c8a86e5a`.
-The artifact payload is Git-ignored.
+Sessions V3.1 and V3.2 are accepted. The V3.2 manifest-backed artifact is under
+`artifacts/pit_validation/session_v3_2_oos_predictions/`; its manifest SHA-256
+is `ba0e3b2d850af113c26306dbec1d9d5cab7a58aa78cafd40cefac31059899912`.
+The generated model and prediction payload is Git-ignored.
 
-The observed-only US annual three-year table contains 43,806 stable rows,
-19,025 observed targets and certified entry timestamps, 119 frozen feature
-candidates, and row-level values/status/provenance/pass results for all eight
-non-model production hard gates. Fold-local feature selection is capped at 28.
-Decision and prediction timestamps are present for every row; 4,503 rows pass
-all non-model gates before OOS model and liquidity roles.
+V3.2 revalidated the exact accepted V3.1 manifest SHA-256 plus only its consumed
+table and configuration records. The row-complete output contains 87,612
+row-role records for the two required `production_v3_ml_gates` roles. It has
+78,492 finite OOS predictions from 26 fitted models, covering 39,246 rows per
+role across decision folds 2014–2026. The eight 2010–2013 role-folds failed
+closed as `fold_no_eligible_training_history` for 4,302 rows per role.
 
-The accepted corrected strategy is `production_v3_ml_gates`:
+Every fitted fold uses only labels with `label_end_date < decision_timestamp`,
+the certified clean-training filter, separate role-specific selection from the
+frozen 119 candidates, at most 28 selected features, fold-local medians, and the
+exact frozen tree or LightGBM parameters and seed. The frozen candidate pool
+contains `observed_excess_return_3y`; V3.2 preserves it as a candidate but masks
+its score-row value until its certified label end date, preventing future
+observed outcomes from entering OOS scoring. All feature, preprocessing, model
+configuration/model, target, fold, row, and prediction lineage is persisted.
 
-- decision tree target: observed three-year local-benchmark outperformance;
-- LightGBM target: observed three-year stock return, clipped to `[-1, 5]` for fit;
-- clean training: certified positive ROA and Beneish below `-1.78`;
-- `fraud_suspect`: excluded because it is not a certified V3 field;
-- tree threshold `0.55`: fixed policy parameter, not a newly optimized claim;
-- top 15, full target required, equal weights, $200,000 AUM, and 1%-ADTV;
-- legacy performance claims do not transfer to this corrected strategy.
-
-V3.1 revalidated only the two exact Session 8F records it consumed and
-rematerialized Beneish, Altman, and sector-relative P/S from certified
-components under the SEC-primary availability clock. No model, prediction,
-holding, external data, or backtest was produced.
+The 258 source rows in 2027/2028 are retained for each role, producing 516
+explicit `future_decision_after_v3_1_freeze` exclusions. V3.2 did not read
+Session 9 predictions, use fallbacks, optimize parameters or thresholds, select
+holdings, source market data, calculate ADTV, run a backtest, or begin V3.3.
 
 ## Commit cadence
 
-The roadmap now requires one conventional commit after every verified V3
-session. Each checkpoint includes code, tests, docs, changelog, and handoff, but
-never generated artifact payloads. Do not combine multiple completed sessions
-into one commit and do not create lettered blocker sessions.
+The roadmap requires one conventional commit after every verified V3 session.
+Each checkpoint includes code, tests, docs, changelog, and handoff, but never
+generated artifact payloads. Do not combine multiple completed sessions into
+one commit and do not create lettered blocker sessions.
 
-## Files changed in V3.1
+## Files changed in V3.2
 
-- `modeling/freeze_session_v3_1.py`
-- `tests/modeling/test_freeze_session_v3_1.py`
-- `reports/pit_validation/v3_1_production_table_contract.md`
-- `docs/CODEX_ROADMAP.md`
-- `docs/PRODUCTION_CONFIG.md`
+- `modeling/build_session_v3_2_oos.py`
+- `tests/modeling/test_build_session_v3_2_oos.py`
+- `reports/pit_validation/v3_2_oos_predictions.md`
 - `CHANGELOG.md`
 - `docs/CODEX_HANDOFF.md`
 
 ## Verification
 
-- Focused V3.1 contract tests passed.
-- Independent validation matched all 14 manifest input, record, code, and report
-  hashes; table identity and observed-only assertions passed.
-- No external data, model training, holdings selection, optimization, or
-  backtest occurred.
+- Focused V3.2/V3.1/fold-lineage boundary: 20 passed.
+- Full suite: 669 passed, 4 skipped, 78 warnings.
+- Independent artifact verification matched all 147 manifest input, artifact,
+  code, and report records; row-role uniqueness, strict training clocks, finite
+  predictions, feature caps, exact model parameters, complete lineage, and
+  future exclusions passed.
+- Generated payload: 147 artifact records, 26 model payloads, one row-complete
+  prediction table, fold coverage, exclusions, configuration, and lineage.
 
 ## Exact next task
 
-Execute Session V3.2 only, using the accepted V3.1 table and configuration to
-generate fold-local OOS decision-tree probabilities and LightGBM three-year
-regression predictions with complete lineage. Do not select holdings, collect
-market data, or begin V3.3. V3.3 will require explicit approval because the
-certified Session 8E normalized price records contain no volume.
+Do not begin V3.3 without explicit approval. If approved, execute only Session
+V3.3 from the roadmap: apply the frozen non-liquidity and model roles, then
+obtain or validate candidate-wide pre-prediction ADTV evidence before ranking.
+The certified Session 8E normalized price records contain no volume, so any
+external market-data collection requires explicit approval first.

@@ -8,6 +8,11 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+- Generate Session V3.2's manifest-backed, row-complete OOS decision-tree and
+  LightGBM predictions for `production_v3_ml_gates`, with separate fold-local
+  feature selection, median preprocessing, exact target/model lineage,
+  decision-time masking of the frozen pool's label-derived excess-return
+  candidate, explicit fail-closed folds, and 2027/2028 freeze exclusions.
 - Freeze Session V3.1's manifest-backed observed-only US annual three-year
   production table and exact tree, LightGBM, hard-gate, portfolio, and ADTV
   contracts; adopt the corrected `production_v3_ml_gates` contract and add one
