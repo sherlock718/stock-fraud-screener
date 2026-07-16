@@ -6,6 +6,15 @@ Sessions V3.1 through V3.3 are accepted. The V3.3 manifest-backed artifact is
 under `artifacts/pit_validation/session_v3_3_liquidity_holdings/`; generated
 market evidence and selection payloads are Git-ignored.
 
+A bounded pre-V3.4 documentation clarification revalidated the accepted V3.3
+manifest SHA-256
+`8bf4cf867e883764d4e25c0d61a755c02443196ceac76be2843f7ff3ebf7bea3`
+without altering any accepted artifact. The V3.4 roadmap contract now pins the
+accepted July entry/rebalance/three-year exit clocks, the unsupported-period
+gap behavior, exact common-session month-end valuation, decision-time
+IWC/IWM/MDY/SPY mapping and clocks, adjustment/event double-counting controls,
+and evidence-backed security/event resolution.
+
 V3.3 revalidated the exact accepted V3.1 manifest SHA-256
 `2b5249cdb05c7bad1759abbd281ec1c90a8a9ce2fbd72973cd4dc905c8a86e5a`
 and V3.2 manifest SHA-256
@@ -43,6 +52,12 @@ combine multiple completed sessions or create lettered blocker sessions.
 - `CHANGELOG.md`
 - `docs/CODEX_HANDOFF.md`
 
+## Files changed in the pre-V3.4 clarification
+
+- `docs/CODEX_ROADMAP.md`
+- `CHANGELOG.md`
+- `docs/CODEX_HANDOFF.md`
+
 ## Verification
 
 - Focused V3.1–V3.3 selection boundary: 15 passed.
@@ -51,10 +66,20 @@ combine multiple completed sessions or create lettered blocker sessions.
   candidate-wide gate ordering, exclusions, deterministic ranks, 15 equal
   weights per supported period, incomplete-period closure, and scope claims.
 
+Pre-V3.4 documentation clarification verification:
+
+- Accepted V3.3 manifest SHA-256 and 11 required roadmap clauses revalidated.
+- Focused V3.1–V3.3 plus canonical monthly-NAV contract suite: 25 passed, 13
+  existing dependency deprecation warnings.
+- Warn-only architecture sync and `git diff --check`: passed.
+
 ## Exact next task
 
-Do not begin V3.4 without explicit approval. If approved, execute only Session
-V3.4 from the roadmap using the accepted V3.3 holdings: freeze adjusted-price/
-total-return, benchmark, risk-free, cost, mapping, and corporate-action evidence
-for those holdings only, build the security-level monthly ledger inputs, and do
-not calculate performance.
+Do not begin V3.4. First obtain explicit user decisions for the three named
+roadmap blockers: `V3_4_TRANSACTION_COST_POLICY` (rate, components, per-side or
+round-trip meaning, turnover basis, and charge clocks),
+`V3_4_RISK_FREE_POLICY` (source/instrument, immutable vintage, availability,
+frequency conversion, and missingness), and `V3_4_EXTERNAL_DATA_APPROVAL`
+(bounded holdings/benchmark/event/rate collection plan). After all three are
+approved, execute only V3.4 using the accepted V3.3 holdings and contract; do
+not calculate performance or begin V3.5.

@@ -90,11 +90,113 @@ lineage, manifest, and report.
 
 ## Session V3.4 — Freeze the canonical market ledger inputs
 
-For the V3.3 holdings only, freeze complete adjusted-price/total-return,
-benchmark, risk-free, transaction-cost, security-mapping, and corporate-action
-evidence. Prove adjustments and event cash flows are not double counted. Build
-the security-level monthly ledger and fail closed on unresolved coverage. Do
-not calculate performance metrics.
+The only admissible selection input is the accepted V3.3 manifest with SHA-256
+`8bf4cf867e883764d4e25c0d61a755c02443196ceac76be2843f7ff3ebf7bea3`.
+Revalidate that file and every consumed record before execution. V3.4 must not
+alter V3.1–V3.3 artifacts or reinterpret their holdings, weights, mappings, or
+timestamps.
+
+### Frozen calendar and unsupported-period behavior
+
+- Each decision year is a separate three-year vintage. Decision is July 2 at
+  00:00 UTC, prediction is July 2 at 00:01 UTC, and entry is the accepted first
+  common regular-session close strictly after prediction: 2015-07-02 20:00
+  UTC, 2016-07-05 20:00 UTC, 2017-07-03 17:00 UTC, 2018-07-02 20:00 UTC,
+  2019-07-02 20:00 UTC, and 2020-07-02 20:00 UTC.
+- The annual schedule creates overlapping vintages; it does not shorten the
+  accepted three-year holding horizon. A vintage's target exit is its accepted
+  entry timestamp plus exactly 36 calendar months. Exit is the first common
+  regular-session total-return close on or after that target, within ten
+  calendar days. No fiscal-year, December-to-December, fixed-day-count, or
+  independently chosen stock/benchmark date may replace this clock.
+- A later supported vintage enters only at its own accepted entry timestamp;
+  this is the only permitted annual rebalance clock. It does not sell, resize,
+  or relabel an earlier overlapping vintage. A combined capital-allocation rule
+  across overlapping vintages is not inferred in V3.4.
+- The supported 2020 vintage may continue to its own evidence-backed target
+  exit even though 2021 is unsupported. The unsupported 2021 period forms no
+  new portfolio and is not cash-filled, carried forward, reduced below 15,
+  replaced, or bridged into a continuous strategy NAV. Any combined-series
+  treatment of the resulting gap is a named blocker requiring user approval.
+
+### Frozen valuation and benchmark contract
+
+- Entry, every month-end, and exit valuation use total-return closes on the
+  same frozen US regular-session calendar. For each vintage, the valuation
+  clock is the calendar-designated final common XNYS/XNAS regular session on or
+  before calendar month-end; every active security and required benchmark must
+  have a valid close for that exact session. Do not step backward to a stale
+  security-specific date, mix timestamps, forward-fill, use a month label as a
+  price, or treat absence as zero return. A sourced event may replace only the
+  economic value it explicitly resolves; otherwise the full vintage fails
+  closed. Entry and exit retain the stricter common-session rules above.
+- Freeze each holding's benchmark at its decision timestamp from the V3.1
+  decision-available market cap: IWC below $300 million, IWM from $300 million
+  to below $2 billion, MDY from $2 billion to below $10 billion, and SPY at $10
+  billion or above. Missing cap, mapping, or validated benchmark coverage fails
+  closed; no proxy or later remapping is allowed.
+- Each holding's benchmark sleeve starts with the same vintage weight and uses
+  that holding's exact entry, month-end, and exit clocks. The vintage benchmark
+  is the sum of those sleeves; it is not indexed by fiscal year and is not an
+  independently dated annual-return series.
+
+### Frozen price, event, cost, and risk-free boundary
+
+- The primary path is observed-only adjusted-price/total-return evidence with
+  source, field semantics, retrieval time, release/adjustment vintage, raw
+  payload hash, currency, exchange calendar, and availability timestamp. For
+  every split, dividend, distribution, conversion, cash consideration, or
+  replacement security, record whether the accepted price field already
+  embeds it. An embedded component is not posted again to the event ledger;
+  an unembedded component requires dated sourced terms and reconciliation.
+  Ambiguous adjustment behavior fails closed.
+- Dated entity/security/ticker/exchange mappings must preserve the same
+  economic holding. A migration continues only through proven mapping terms; a
+  stock merger or reorganization uses sourced conversion terms; a cash
+  acquisition moves sourced consideration and distributions to 0%-earning
+  cash; and bankruptcy/liquidation uses observed prices, distributions,
+  recoveries, and cancellation terms, reaching zero only with evidence of zero
+  recovery. Delisting without complete continuation evidence, acquisition with
+  incomplete terms, ambiguous mapping, or unexplained source disappearance
+  invalidates the observed-only vintage. Policy-imputed disappearance outcomes
+  are outside V3.4.
+- Before collection or ledger construction, user approval must freeze one
+  transaction-cost rate and identify its components, whether the quoted rate is
+  per side or round trip, the exact turnover denominator, and the entry,
+  rebalance, exit, and event-trade charging timestamps. Costs are charged only
+  on actual traded notional at those accepted timestamps and paid from cash.
+  The legacy market-cap tiers, 30/60 bps defaults, and any annual-label cost
+  subtraction are prohibited. **Blocker `V3_4_TRANSACTION_COST_POLICY`: no
+  accepted rate or interpretation currently exists.**
+- Before collection or ledger construction, user approval must freeze the
+  risk-free instrument/source, immutable vintage, observation release and
+  availability timestamp, source frequency, exact conversion to each ledger
+  month, and missing/revision behavior. Only rates available by the applicable
+  valuation timestamp may be used; incomplete coverage makes Sharpe/Sortino
+  unavailable and is never filled, carried, interpolated, or replaced. The
+  fixed 3% constant is prohibited. **Blocker `V3_4_RISK_FREE_POLICY`: no
+  accepted source, vintage, or conversion currently exists.**
+
+### Approval and execution boundary
+
+No external request is authorized by this contract clarification. Before V3.4
+may collect anything, the user must approve a bounded collection plan naming
+the holdings and benchmark instruments, security/event/risk-free sources,
+endpoints, date ranges, expected request count, fields, adjustment semantics,
+retrieval/vintage timestamps, and destination. Approval authorizes only that
+collection; it does not authorize a substitute vendor, proxy, refresh,
+performance calculation, or fallback. **Blocker `V3_4_EXTERNAL_DATA_APPROVAL`
+remains open.**
+
+The legacy December-to-December calendar, fixed 3% risk-free constant, legacy
+tiered cost assumptions, annual labels used as returns, policy-imputed
+disappearance outcomes, and every unsupported fallback are explicitly
+inadmissible. Any policy not fixed above remains a named blocker requiring user
+approval; implementation must not guess it. Once all blockers are resolved,
+V3.4 may freeze complete adjusted-price/total-return, benchmark, risk-free,
+cost, mapping, and corporate-action evidence for the V3.3 holdings only and
+build security-level monthly ledger inputs. It must not calculate performance
+metrics or begin V3.5.
 
 **Deliverable:** canonical input manifest, coverage tables, security ledger,
 monthly NAV inputs, and report.

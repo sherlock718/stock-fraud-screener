@@ -8,6 +8,13 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+- Clarify the pre-V3.4 canonical-ledger contract by pinning the accepted V3.3
+  manifest, exact July vintage clocks, unsupported-period and common-session
+  valuation behavior, decision-time benchmark mapping, total-return/event
+  double-counting controls, and fail-closed security-event resolution; prohibit
+  legacy calendars, rates, costs, labels-as-returns, policy imputations, and
+  fallbacks while retaining cost, risk-free, and external collection choices
+  as named user-approval blockers.
 - Freeze Session V3.3's manifest-backed `production_v3_ml_gates` selection:
   revalidate both accepted manifests and all referenced records, apply the
   fixed hard/model gates, validate exact candidate-wide 30-session
