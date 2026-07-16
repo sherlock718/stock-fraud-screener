@@ -8,6 +8,13 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+- Freeze Session V3.3's manifest-backed `production_v3_ml_gates` selection:
+  revalidate both accepted manifests and all referenced records, apply the
+  fixed hard/model gates, validate exact candidate-wide 30-session
+  pre-prediction dollar volume from source-preserved close/volume evidence,
+  rank only liquidity-qualified rows, and freeze 15 equal-weight holdings in
+  each of six supported 2015–2020 decision periods with exact fail-closed
+  candidate, gate, exclusion, liquidity, ranking, and lineage tables.
 - Generate Session V3.2's manifest-backed, row-complete OOS decision-tree and
   LightGBM predictions for `production_v3_ml_gates`, with separate fold-local
   feature selection, median preprocessing, exact target/model lineage,
