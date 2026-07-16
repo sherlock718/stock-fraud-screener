@@ -1,63 +1,82 @@
-# Codex Roadmap — Workable Product
+# Codex Roadmap — Canonical Product Consolidation
 
 ## Purpose
 
-Turn the existing repository into one understandable, reproducible stock
-screener. Product usability comes before additional research or historical
-performance certification.
+Consolidate the repository's existing work into one understandable,
+reproducible dataset-to-screening product. Do not rebuild what already exists
+or resume historical-performance certification.
 
 ## Product boundary
 
-- One supported entrypoint.
-- One documented input dataset and model/factor path.
-- One explainable ranked shortlist.
-- Clear input date, eligibility rules, scores, and exclusions.
-- Fraud risk remains one factor or safety gate, not the product identity.
-- No performance claim unless it is separately validated later.
+- One manifest-backed bronze/source layer.
+- One cleaned longitudinal point-in-time dataset contract.
+- One leakage-safe temporal research and model-evaluation route.
+- Interpretable and sophisticated model options under the same split contract.
+- One out-of-sample backtest and portfolio route with small-cap, liquidity,
+  cost, and survivorship limitations explicit.
+- One explainable ranked shortlist and report.
+- Fraud risk remains one factor or safety gate.
 
-## Session P1 — Read-only product readiness
+## Session P1 — Read-only canonicalization decision
 
-Inspect the existing notebook, application, portfolio, model, and data paths.
-Identify the smallest route that is closest to producing a real shortlist.
-Verify file presence, loadability, input dates, dependencies, and expected
-outputs without changing repository or external state.
+Map the existing implementation before changing it:
 
-Do not download data, call external services, retrain models, edit files, run a
-new backtest, or revive the V3 validation program.
+1. Identify canonical bronze/source artifacts and their manifests.
+2. Trace the six-stage pipeline to cleaned-dataset outputs.
+3. Map later PIT corrections against the main pipeline and identify true
+   supersession, duplication, or unresolved conflicts.
+4. Compare existing cleaned-dataset candidates on schema, time semantics,
+   coverage, targets, provenance, and downstream compatibility.
+5. Identify the single best existing temporal split, fold-local feature
+   selection, model, backtest, liquidity, portfolio, and reporting route.
+6. Classify relevant paths as canonical candidates, required dependencies,
+   historical evidence, duplicates, unknowns, or future archive candidates.
+7. Recommend exactly one bounded implementation task for P2.
 
-**Deliverable:** a short readiness report containing confirmed facts, blockers,
-and exactly one recommended implementation task.
+Do not download or refresh data, call external services, edit or archive files,
+retrain models, calculate performance, or revive V3.4.
 
-## Session P2 — Make one path run
+**Deliverable:** a concise dependency/canonical-path map, evidence-backed
+recommendation, blockers, archive candidates that require later confirmation,
+and exactly one P2 implementation task.
 
-Implement only the task selected by P1. Establish one reproducible command or
-notebook flow, explicit validation errors, and focused tests. Retire competing
-entrypoints only after their useful behavior is accounted for.
+## Session P2 — Establish one canonical data route
 
-**Deliverable:** one locally runnable screener path and usage instructions.
+Implement only the task selected by P1. Prefer connecting or promoting existing
+corrected components over creating new versions. Establish one canonical
+source-to-cleaned-dataset command or contract, explicit validation failures,
+lineage, and focused tests.
 
-## Session P3 — Make inputs current enough
+No model training or performance calculation unless P1 proves that the only P2
+blocker belongs at that boundary.
 
-Define the minimum freshness contract for the supported product. Refresh only
-the sources required by the P2 path, with bounded scope and clear provenance.
-Do not rebuild unrelated markets, datasets, or research artifacts.
+**Deliverable:** one reproducible, documented canonical data route and an exact
+statement of its coverage and remaining survivorship limitations.
 
-**Deliverable:** dated inputs, freshness checks, and a reproducible refresh
-command.
+## Session P3 — Establish one leakage-safe research/model route
 
-## Session P4 — Product release boundary
+Use the canonical dataset contract. Confirm target availability, temporal
+splits, fold-local preprocessing and feature selection, and comparable
+interpretable/sophisticated model interfaces. Reuse existing implementations.
 
-Run the supported path, review the shortlist and explanations, execute focused
-and full verification as justified, and remove or archive obsolete active
-instructions. Historical research remains available but cannot compete with
-the product entrypoint.
+**Deliverable:** one reproducible research/model command with OOS-only outputs
+and focused leakage tests.
 
-**Deliverable:** a usable screener, concise documentation, and an honest list of
-limitations.
+## Session P4 — Establish one product route
+
+Connect OOS predictions to the existing backtest, small-cap/liquidity gates,
+portfolio construction, and explainable report. Make costs and unresolved
+survivorship boundaries visible. Do not claim future performance.
+
+Only after the route is confirmed may clearly superseded files be archived in
+one reviewed, dependency-safe change.
+
+**Deliverable:** one usable dataset-to-shortlist product path, concise usage
+documentation, and an honest limitations section.
 
 ## Deferred work
 
-The archived V3.4/V3.5 canonical-ledger and backtest program is not an active
-dependency. Multi-market expansion, strategy comparison, parameter tuning,
-new performance claims, and broad repository reorganization remain deferred
-until the product works.
+The archived V3.4/V3.5 canonical-market-ledger program is not an active
+dependency. New data vendors, multi-market expansion, strategy proliferation,
+threshold tuning, new feature families, new fraud models, and broad repository
+reorganization remain deferred until the canonical product path works.

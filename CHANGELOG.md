@@ -8,6 +8,12 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+- Correct the simplified product framing to preserve the original
+  dataset-first research objective; document the verified Hugging Face source
+  Parquets, HTML feature dictionary, extensive survivorship/PIT work and its
+  remaining free-source boundary; and replace generic product readiness with a
+  read-only canonicalization session that must precede implementation or
+  archival.
 - Pivot the active roadmap from audit-grade historical validation to a simple,
   workable product path; archive the V3 roadmap, handoff, legacy FAQ, and
   legacy production configuration; replace product-facing onboarding with one
