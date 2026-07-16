@@ -41,6 +41,8 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
+from modeling.label_eligibility import LABEL_POLICIES, OBSERVED_ONLY, training_label_eligible
+from modeling.fold_lineage import LineageError, dataframe_fingerprint, validate_lineage
 
 try:
     import optuna
@@ -74,9 +76,11 @@ def _load_meta() -> dict:
     return json.loads(META_PATH.read_text())
 
 
-def _load_data_for_horizon(meta: dict, h: str) -> tuple:
+def _load_data_for_horizon(
+    meta: dict, h: str, label_policy: str = OBSERVED_ONLY
+) -> tuple:
     """Return (df_train, df_val, df_test, features, beat_col, train_medians)."""
-    from modeling.train import load_data  # reuse loader
+    from modeling.train import apply_sector_zscore_params, load_data  # reuse loader
 
     m = meta[h]
     df = load_data()
@@ -90,10 +94,71 @@ def _load_data_for_horizon(meta: dict, h: str) -> tuple:
     cutoff_date = pd.Timestamp(f'{train_cutoff + 1}-01-01')
     df_train = df[
         (df['fiscal_year'] <= train_cutoff) &
-        (filed.isna() | (filed < cutoff_date))
+        (filed.isna() | (filed < cutoff_date)) &
+        training_label_eligible(df, beat_col, cutoff_date, label_policy)
     ].copy()
+    if m.get('training_filter'):
+        if m['training_filter'] != 'fraud_suspect==0 & piotroski_roa_pos==1 & beneish_m_score<-1.78':
+            raise ValueError(f'{h} has unsupported training_filter lineage')
+        clean = pd.Series(True, index=df_train.index)
+        if 'fraud_suspect' in df_train:
+            clean &= df_train['fraud_suspect'].eq(0)
+        if 'piotroski_roa_pos' in df_train:
+            clean &= df_train['piotroski_roa_pos'].eq(1)
+        if 'beneish_m_score' in df_train:
+            clean &= df_train['beneish_m_score'].lt(-1.78)
+        df_train = df_train[clean].copy()
     df_val   = df[(df['fiscal_year'] > train_cutoff) & (df['fiscal_year'] <= val_end)].copy()
     df_test  = df[df['fiscal_year'] > val_end].copy()
+    selection_target = m.get('ret_col')
+    if not selection_target:
+        raise ValueError(f'{h} metadata has no selection target')
+    selection_population = df[
+        (df['fiscal_year'] <= train_cutoff)
+        & (filed.isna() | (filed < cutoff_date))
+        & training_label_eligible(df, selection_target, cutoff_date, label_policy)
+    ].copy()
+    if m.get('training_filter'):
+        clean = pd.Series(True, index=selection_population.index)
+        if 'fraud_suspect' in selection_population:
+            clean &= selection_population['fraud_suspect'].eq(0)
+        if 'piotroski_roa_pos' in selection_population:
+            clean &= selection_population['piotroski_roa_pos'].eq(1)
+        if 'beneish_m_score' in selection_population:
+            clean &= selection_population['beneish_m_score'].lt(-1.78)
+        selection_population = selection_population[clean].copy()
+    recorded_lineage = m.get('lineage')
+    validate_lineage(recorded_lineage, {
+        'schema_version': 1,
+        'dataset_fingerprint': dataframe_fingerprint(df),
+        'training_population_fingerprint': dataframe_fingerprint(df_train),
+        'selection_population_fingerprint': dataframe_fingerprint(selection_population),
+        'development_population_fingerprint': dataframe_fingerprint(df_val),
+        'horizon': h,
+        'target_col': beat_col,
+        'label_policy': label_policy,
+        'cutoff': cutoff_date.isoformat(),
+        'selector_config': recorded_lineage.get('selector_config') if isinstance(recorded_lineage, dict) else None,
+        'features': features,
+    })
+    sector_params = m.get('sector_zscore_params', {})
+    if sector_params:
+        df_train = apply_sector_zscore_params(df_train, features, sector_params)
+        df_val = apply_sector_zscore_params(df_val, features, sector_params)
+        df_test = apply_sector_zscore_params(df_test, features, sector_params)
+    expected_medians = df_train[features].median().to_dict()
+    for feature in features:
+        recorded = train_medians.get(feature)
+        expected = expected_medians.get(feature)
+        both_missing = bool(pd.isna(recorded) and pd.isna(expected))
+        try:
+            matches = both_missing or bool(np.isclose(
+                float(recorded), float(expected), rtol=0, atol=1e-12
+            ))
+        except (TypeError, ValueError):
+            matches = False
+        if not matches:
+            raise LineageError(f'{h} stale train median for {feature}')
     return df_train, df_val, df_test, features, beat_col, train_medians
 
 
@@ -239,6 +304,8 @@ def main() -> None:
                         help=f'Optuna trials per horizon (default: {N_OPTUNA_TRIALS})')
     parser.add_argument('--no-catboost', action='store_true',
                         help='Skip CatBoost comparison')
+    parser.add_argument('--label-policy', choices=LABEL_POLICIES, default=OBSERVED_ONLY,
+                        help='Observed-only primary labels or explicit policy-imputed sensitivity')
     args = parser.parse_args()
 
     meta = _load_meta()
@@ -255,12 +322,9 @@ def main() -> None:
         features, beat_col = m['features'], m['beat_col']
         train_medians = m['train_medians']
 
-        from modeling.train import load_data
-        df = load_data()
-        df_train = df[df['fiscal_year'] <= m['train_cutoff']].copy()
-        df_val   = df[(df['fiscal_year'] > m['train_cutoff']) &
-                      (df['fiscal_year'] <= m['val_end'])].copy()
-        df_test  = df[df['fiscal_year'] > m['val_end']].copy()
+        df_train, df_val, df_test, _, _, _ = _load_data_for_horizon(
+            meta, h, args.label_policy
+        )
 
         X_train, y_train = _prep_split(df_train, features, beat_col, train_medians)
         X_val,   y_val   = _prep_split(df_val,   features, beat_col, train_medians)
@@ -324,6 +388,7 @@ def main() -> None:
             'ensemble_test_auc':round(ens_test, 4),
             'n_ensemble_models':len(base_models),
             'best_params':      best_params,
+            'label_policy':     args.label_policy,
         }
 
     META_PATH.write_text(json.dumps(updated_meta, indent=2))

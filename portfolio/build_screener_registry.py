@@ -33,6 +33,14 @@ from backtest.engine import (
     load_spy_returns,
     run_backtest,
 )
+from modeling.prediction_lineage import (
+    SCORE_ELIGIBLE_COL,
+    SCORE_EXCLUSION_COL,
+    SCORE_SOURCE_COL,
+    complete_top_n,
+    requirements_for_signals,
+    validate_historical_scores,
+)
 
 BASE = ROOT
 
@@ -46,9 +54,8 @@ FULL_DATA = BASE / "data" / "historical_dataset_clean.parquet"
 
 
 def _ml(s: pd.DataFrame, horizon: str) -> str:
-    """Return the unbiased OOF ML column name for a given horizon (e.g. '1y' → 'ml_1y_oof')."""
-    col = f"ml_{horizon}_oof"
-    return col if col in s.columns else f"ml_{horizon}"
+    """Return the sole permitted historical OOS column for a horizon."""
+    return f"ml_{horizon}_oof"
 
 
 def _rank_blend(s: pd.DataFrame, weights: list[tuple[str, float]]) -> pd.Series:
@@ -56,18 +63,51 @@ def _rank_blend(s: pd.DataFrame, weights: list[tuple[str, float]]) -> pd.Series:
     score = pd.Series(0.0, index=s.index)
     total_w = 0.0
     for col, w in weights:
-        if col in s.columns and s[col].notna().sum() > 5:
+        if col in s.columns and s[col].notna().any():
             score += s[col].rank(pct=True) * w
             total_w += w
     return score / max(total_w, 1e-9)
+
+
+def _select_blend(
+    source_df: pd.DataFrame,
+    candidates: pd.DataFrame,
+    weights: list[tuple[str, float]],
+    top_n: int,
+) -> pd.Index:
+    """Validate all direct/indirect ML roles, then require a full portfolio."""
+    requirements = requirements_for_signals(col for col, _ in weights)
+    eligible = validate_historical_scores(candidates, requirements)
+    ml_dependent_cols = {
+        col for col, _ in weights
+        if col.startswith("ml_") or col in {"alpha_fraud_risk", "alpha_composite"}
+    }
+    for col in ml_dependent_cols:
+        missing = pd.Series(True, index=candidates.index)
+        if col in candidates:
+            missing = candidates[col].isna()
+        eligible &= ~missing
+        candidates.loc[missing, SCORE_ELIGIBLE_COL] = False
+        suffix = f"{col}:missing_required_ml_factor"
+        candidates.loc[missing, SCORE_EXCLUSION_COL] = candidates.loc[
+            missing, SCORE_EXCLUSION_COL
+        ].apply(lambda value: f"{value};{suffix}".strip(";"))
+    source_df.attrs["historical_score_role_coverage"] = candidates.attrs.get(
+        "historical_score_role_coverage", {}
+    )
+    for col in (SCORE_ELIGIBLE_COL, SCORE_SOURCE_COL, SCORE_EXCLUSION_COL):
+        if col not in source_df:
+            source_df[col] = False if col == SCORE_ELIGIBLE_COL else ""
+        source_df.loc[candidates.index, col] = candidates[col]
+    scored = candidates.loc[eligible].copy()
+    scored["_score"] = _rank_blend(scored, weights)
+    return complete_top_n(source_df, scored, score_col="_score", target_n=top_n)
 
 
 def _quality_gate(s: pd.DataFrame, min_fscore: int = 6) -> pd.DataFrame:
     """Remove likely fraudsters + low Piotroski quality floor."""
     if "beneish_m_score" in s.columns:
         s = s[s["beneish_m_score"].fillna(0) < -1.78]
-    if "likely_delisted" in s.columns:
-        s = s[s["likely_delisted"].fillna(1) == 0]
     s = s[s["piotroski_f_score"].fillna(0) >= min_fscore]
     return s
 
@@ -79,33 +119,29 @@ def filter_composite_us(yr_df: pd.DataFrame, top_n: int, market: str | None) -> 
     """Composite alpha, US only, all sizes."""
     s = yr_df[yr_df["market"] == "US"].copy()
     s = _quality_gate(s, min_fscore=5)
-    s["_score"] = _rank_blend(
-        s,
-        [
+    return _select_blend(
+        yr_df, s, [
             ("alpha_composite", 0.30),
             (_ml(s, "1y"), 0.25),
             (_ml(s, "3y"), 0.20),
             ("value_composite", 0.15),
             ("quality_composite", 0.10),
-        ],
+        ], top_n,
     )
-    return s.nlargest(top_n, "_score").index
 
 
 def filter_composite_intl(yr_df: pd.DataFrame, top_n: int, market: str | None) -> pd.Index:
     """Composite alpha, international (non-US) markets."""
     s = yr_df[yr_df["market"] != "US"].copy()
     s = _quality_gate(s, min_fscore=5)
-    s["_score"] = _rank_blend(
-        s,
-        [
+    return _select_blend(
+        yr_df, s, [
             ("alpha_composite", 0.30),
             (_ml(s, "3y"), 0.25),
             ("value_composite", 0.25),
             ("quality_composite", 0.20),
-        ],
+        ], top_n,
     )
-    return s.nlargest(top_n, "_score").index
 
 
 def filter_composite_micro(yr_df: pd.DataFrame, top_n: int, market: str | None) -> pd.Index:
@@ -118,16 +154,14 @@ def filter_composite_micro(yr_df: pd.DataFrame, top_n: int, market: str | None) 
     if "market_cap_at_filing" in s.columns:
         s = s[s["market_cap_at_filing"].fillna(0) >= 10_000_000]  # $10M floor
     s = _quality_gate(s, min_fscore=6)
-    s["_score"] = _rank_blend(
-        s,
-        [
+    return _select_blend(
+        yr_df, s, [
             ("value_composite", 0.30),
             ("quality_composite", 0.25),
             (_ml(s, "3y"), 0.25),
             ("alpha_growth", 0.20),
-        ],
+        ], top_n,
     )
-    return s.nlargest(top_n, "_score").index
 
 
 def filter_value_quality(yr_df: pd.DataFrame, top_n: int, market: str | None) -> pd.Index:
@@ -138,16 +172,14 @@ def filter_value_quality(yr_df: pd.DataFrame, top_n: int, market: str | None) ->
     s = _quality_gate(s, min_fscore=7)
     if "altman_z_score" in s.columns:
         s = s[s["altman_z_score"].fillna(0) > 1.81]  # above distress zone
-    s["_score"] = _rank_blend(
-        s,
-        [
+    return _select_blend(
+        yr_df, s, [
             ("value_composite", 0.40),
             ("quality_composite", 0.35),
             ("alpha_value", 0.15),
             ("alpha_quality", 0.10),
-        ],
+        ], top_n,
     )
-    return s.nlargest(top_n, "_score").index
 
 
 def filter_momentum_growth(yr_df: pd.DataFrame, top_n: int, market: str | None) -> pd.Index:
@@ -162,16 +194,14 @@ def filter_momentum_growth(yr_df: pd.DataFrame, top_n: int, market: str | None) 
     s = s[s["piotroski_f_score"].fillna(0) >= 5]  # relaxed quality floor
     if "beneish_m_score" in s.columns:
         s = s[s["beneish_m_score"].fillna(0) < -1.78]
-    s["_score"] = _rank_blend(
-        s,
-        [
+    return _select_blend(
+        yr_df, s, [
             ("alpha_momentum", 0.35),
             ("alpha_growth", 0.30),
             (_ml(s, "1y"), 0.20),
             ("quality_composite", 0.15),
-        ],
+        ], top_n,
     )
-    return s.nlargest(top_n, "_score").index
 
 
 def filter_fraud_avoid(yr_df: pd.DataFrame, top_n: int, market: str | None) -> pd.Index:
@@ -189,17 +219,15 @@ def filter_fraud_avoid(yr_df: pd.DataFrame, top_n: int, market: str | None) -> p
     if "altman_z_score" in s.columns:
         s = s[s["altman_z_score"].fillna(0) > 1.81]
     s = s[s["piotroski_f_score"].fillna(0) >= 5]
-    s["_score"] = _rank_blend(
-        s,
-        [
+    return _select_blend(
+        yr_df, s, [
             ("alpha_fraud_risk", 0.25),
             ("alpha_composite", 0.25),
             (_ml(s, "1y"), 0.25),
             ("value_composite", 0.15),
             ("quality_composite", 0.10),
-        ],
+        ], top_n,
     )
-    return s.nlargest(top_n, "_score").index
 
 
 def filter_wide_universe(yr_df: pd.DataFrame, top_n: int, market: str | None) -> pd.Index:
@@ -207,20 +235,16 @@ def filter_wide_universe(yr_df: pd.DataFrame, top_n: int, market: str | None) ->
     s = yr_df.copy()
     if market:
         s = s[s["market"] == market]
-    if "likely_delisted" in s.columns:
-        s = s[s["likely_delisted"].fillna(1) == 0]
     if "beneish_m_score" in s.columns:
         s = s[s["beneish_m_score"].fillna(0) < -1.78]
     s = s[s["piotroski_f_score"].fillna(0) >= 4]  # minimal quality floor
-    s["_score"] = _rank_blend(
-        s,
-        [
+    return _select_blend(
+        yr_df, s, [
             ("alpha_composite", 0.40),
             (_ml(s, "1y"), 0.30),
             (_ml(s, "3y"), 0.30),
-        ],
+        ], top_n,
     )
-    return s.nlargest(top_n, "_score").index
 
 
 # ── Registry spec: each entry names a screener and its backtest params ────────

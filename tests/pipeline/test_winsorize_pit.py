@@ -23,6 +23,20 @@ from pipeline.winsorize_pit import (
 from pipeline.step5_compute_features import winsorize_pit
 
 
+def _with_provenance(df):
+    df = df.copy()
+    if 'filed_date' not in df:
+        df['filed_date'] = pd.to_datetime(
+            (df['fiscal_year'] + 1).astype(str) + '-03-01'
+        )
+    df['availability_timestamp'] = df['filed_date']
+    df['availability_provenance'] = 'sec_primary_filing'
+    df['market'] = 'US'
+    df['period_type'] = 'annual'
+    df['entity_id'] = ['US:test-' + str(i) for i in range(len(df))]
+    return df
+
+
 class TestPITInvariant:
     """Adding future observations cannot change historical transformed values."""
 
@@ -36,7 +50,7 @@ class TestPITInvariant:
             vals = rng.normal(0, scale, n_per_year)
             for v in vals:
                 rows.append({'fiscal_year': yr, 'feature': v})
-        return pd.DataFrame(rows)
+        return _with_provenance(pd.DataFrame(rows))
 
     def test_future_data_cannot_change_historical_values(self):
         """Core invariant: historical values must be stable when future data is added."""
@@ -152,7 +166,7 @@ class TestFiledDateWinsorization:
             'feature': np.concatenate([early_vals, late_vals]),
         })
 
-        result = winsorize_pit(df, 'feature')
+        result = winsorize_pit(_with_provenance(df), 'feature')
 
         # The early filers (Q1) should be clipped based on data from BEFORE Q1 2021
         # Since there's no prior data, they use bootstrapped same-quarter bounds
@@ -186,7 +200,7 @@ class TestFiledDateWinsorization:
         })
         df = pd.concat([historical, obs], ignore_index=True)
 
-        result = winsorize_pit(df, 'feature')
+        result = winsorize_pit(_with_provenance(df), 'feature')
 
         # Both extreme values should be clipped, but the second one (Aug)
         # has more history available (includes the Feb filer) so bounds could differ slightly
@@ -212,7 +226,7 @@ class TestFiledDateWinsorization:
         })
 
         # Compute clip with just base
-        result_base = winsorize_pit(base, 'feature')
+        result_base = winsorize_pit(_with_provenance(base), 'feature')
 
         # Now add observations filed Q3 2020 with very different distribution
         future = pd.DataFrame({
@@ -221,7 +235,7 @@ class TestFiledDateWinsorization:
             'feature': rng.normal(0, 10, 300),  # much wider
         })
         combined = pd.concat([base, future], ignore_index=True)
-        result_combined = winsorize_pit(combined, 'feature')
+        result_combined = winsorize_pit(_with_provenance(combined), 'feature')
 
         # The base observations (first 300) must have IDENTICAL clipped values
         base_values_alone = result_base.values

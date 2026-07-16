@@ -5,13 +5,26 @@ import pandas as pd
 import pytest
 
 from backtest.engine import (
+    load_and_score,
     run_backtest,
     bootstrap_ci,
     _apply_filing_lag_filter,
     _sic_to_sector,
     _apply_sector_cap,
+    adtv_filter,
     filter_composite,
 )
+
+
+def test_policy_sensitivity_does_not_reuse_static_model_scores():
+    df = pd.DataFrame({
+        "fiscal_year": [2018, 2019],
+        "ml_1y": [0.8, 0.7],
+        "ml_3y": [0.9, 0.6],
+        "ml_5y": [0.7, 0.5],
+    })
+    result = load_and_score(df, label_policy="include_policy_imputed")
+    assert not {"ml_1y", "ml_3y", "ml_5y"} & set(result.columns)
 
 
 @pytest.fixture
@@ -49,6 +62,23 @@ def _top_n_filter(yr_df, top_n, market):
     return s.nlargest(top_n, "forward_return_1y").index
 
 
+def _monthly_prices_for(df):
+    rows = []
+    for row in df.itertuples():
+        dates = pd.date_range(
+            f"{int(row.fiscal_year)}-12-31",
+            f"{int(row.fiscal_year) + 1}-12-31",
+            freq="ME",
+        )
+        terminal = max(1.0 + float(row.forward_return_1y), 0.01)
+        prices = 100 * np.power(terminal, np.arange(13) / 12)
+        rows.extend(
+            {"ticker": row.ticker, "date": date, "adj_close": price}
+            for date, price in zip(dates, prices)
+        )
+    return pd.DataFrame(rows)
+
+
 class TestRunBacktest:
     def test_returns_dict_with_required_keys(self, backtest_df):
         result = run_backtest(
@@ -59,15 +89,14 @@ class TestRunBacktest:
         assert isinstance(result, dict)
         assert "label" in result
         assert "n_years" in result
-        assert "cagr_pct" in result
-        assert "sharpe" in result
-        assert "annual_returns" in result
+        assert result["official_performance_available"] is False
+        assert result["nav_exclusions"][0]["code"] == "missing_monthly_price_schema"
 
     def test_n_years_matches_data(self, backtest_df):
         result = run_backtest(
             backtest_df, _top_n_filter, "test", top_n=10,
             market=None, cost_bps=30, smallcap_cost_bps=60,
-            spy_returns=None, monthly_px=None, use_adtv_filter=False,
+            spy_returns=None, monthly_px=_monthly_prices_for(backtest_df), use_adtv_filter=False,
         )
         # Data goes 2010-2020, engine filters <=2023 so all 11 years used
         assert result["n_years"] == 11
@@ -77,7 +106,7 @@ class TestRunBacktest:
         result = run_backtest(
             backtest_df, _top_n_filter, "test", top_n=10,
             market=None, cost_bps=30, smallcap_cost_bps=60,
-            spy_returns=None, monthly_px=None, use_adtv_filter=False,
+            spy_returns=None, monthly_px=_monthly_prices_for(backtest_df), use_adtv_filter=False,
         )
         row = result["annual_returns"][0]
         assert "year" in row
@@ -88,7 +117,7 @@ class TestRunBacktest:
         result = run_backtest(
             backtest_df, _top_n_filter, "test", top_n=5,
             market=None, cost_bps=30, smallcap_cost_bps=60,
-            spy_returns=None, monthly_px=None, use_adtv_filter=False,
+            spy_returns=None, monthly_px=_monthly_prices_for(backtest_df), use_adtv_filter=False,
         )
         for row in result["annual_returns"]:
             assert row["n_picks"] <= 5
@@ -97,7 +126,7 @@ class TestRunBacktest:
         result = run_backtest(
             backtest_df, _top_n_filter, "test", top_n=10,
             market=None, cost_bps=50, smallcap_cost_bps=80,
-            spy_returns=None, monthly_px=None, use_adtv_filter=False,
+            spy_returns=None, monthly_px=_monthly_prices_for(backtest_df), use_adtv_filter=False,
         )
         assert result["avg_cost_drag_bps"] > 0
 
@@ -107,9 +136,11 @@ class TestRunBacktest:
         result = run_backtest(
             df, _top_n_filter, "test", top_n=10,
             market="US", cost_bps=30, smallcap_cost_bps=60,
-            spy_returns=None, monthly_px=None, use_adtv_filter=False,
+            spy_returns=None, monthly_px=_monthly_prices_for(df), use_adtv_filter=False,
         )
-        assert result["n_years"] > 0
+        assert result["n_years"] == 0
+        assert result["official_performance_available"] is False
+        assert result["unavailable_years"] == [2010, 2011]
 
     def test_empty_universe_returns_error(self):
         df = pd.DataFrame({
@@ -146,7 +177,7 @@ class TestRunBacktest:
         result = run_backtest(
             df, _top_n_filter, "single", top_n=10,
             market=None, cost_bps=30, smallcap_cost_bps=60,
-            spy_returns=None, monthly_px=None, use_adtv_filter=False,
+            spy_returns=None, monthly_px=_monthly_prices_for(df), use_adtv_filter=False,
         )
         assert result["n_years"] == 1
 
@@ -155,7 +186,7 @@ class TestRunBacktest:
             backtest_df, _top_n_filter, "ew", top_n=10,
             market=None, cost_bps=30, smallcap_cost_bps=60,
             vol_weighted=False,
-            spy_returns=None, monthly_px=None, use_adtv_filter=False,
+            spy_returns=None, monthly_px=_monthly_prices_for(backtest_df), use_adtv_filter=False,
         )
         assert result["n_years"] > 0
 
@@ -165,21 +196,21 @@ class TestRunBacktest:
         result = run_backtest(
             backtest_df, _top_n_filter, "spy", top_n=10,
             market=None, cost_bps=30, smallcap_cost_bps=60,
-            spy_returns=spy, monthly_px=None, use_adtv_filter=False,
+            spy_returns=spy, monthly_px=_monthly_prices_for(backtest_df), use_adtv_filter=False,
         )
-        assert result["benchmark_source"] == "SPY"
-        assert result["spy_cagr_pct"] is not None
+        assert result["benchmark_source"] is None
+        assert result["spy_cagr_pct"] is None
 
     def test_fill_missing_return(self, backtest_df):
         df = backtest_df.copy()
         df.loc[df.index[:20], "forward_return_1y"] = np.nan
-        result = run_backtest(
-            df, _top_n_filter, "fill", top_n=10,
-            market=None, cost_bps=30, smallcap_cost_bps=60,
-            fill_missing_return=-0.5,
-            spy_returns=None, monthly_px=None, use_adtv_filter=False,
-        )
-        assert result["n_years"] > 0
+        with pytest.raises(ValueError, match="explicit return_policy"):
+            run_backtest(
+                df, _top_n_filter, "fill", top_n=10,
+                market=None, cost_bps=30, smallcap_cost_bps=60,
+                fill_missing_return=-0.5,
+                spy_returns=None, monthly_px=None, use_adtv_filter=False,
+            )
 
 
 class TestBootstrapCI:
@@ -218,6 +249,29 @@ class TestFilingLagFilter:
         result = _apply_filing_lag_filter(df, 2020, max_lag_months=18)
         assert len(result) == 2
 
+
+def test_adtv_gate_requires_decision_time_evidence():
+    candidates = pd.DataFrame({"ticker": ["COVERED", "TOO_SMALL", "MISSING"]})
+    evidence = pd.DataFrame({
+        "ticker": ["COVERED", "TOO_SMALL"],
+        "date": [pd.Timestamp("2020-12-15"), pd.Timestamp("2020-12-15")],
+        "adtv_30d": [1_400_000.0, 1_300_000.0],
+    })
+    result = adtv_filter(
+        candidates, evidence, 2020, max_pct_adtv=0.01,
+        aum_target=200_000, target_n=15,
+    )
+    assert result["ticker"].tolist() == ["COVERED"]
+
+
+def test_adtv_gate_rejects_invalid_position_contract():
+    candidates = pd.DataFrame({"ticker": ["A"]})
+    evidence = pd.DataFrame({
+        "ticker": ["A"], "date": [pd.Timestamp("2020-12-15")],
+        "adtv_30d": [2_000_000.0],
+    })
+    with pytest.raises(ValueError, match="target_n > 0"):
+        adtv_filter(candidates, evidence, 2020, target_n=0)
 
 class TestSicToSector:
     def test_known_mappings(self):

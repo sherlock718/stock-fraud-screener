@@ -8,6 +8,467 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+### Planning — Post-Session-9B Production Dependency Contract (2026-07-16)
+
+#### Changed
+- Revalidated and preserved the frozen Session 9B unavailable verdict, then
+  replaced the invalid direct 9B→9C dependency with ordered Sessions 9B.1
+  (entry-timestamp lineage and hard-gate inputs), 9B.2 (frozen fold-local tree
+  role), 9B.3 (candidate-wide liquidity evidence), 9B-R (final holdings), and
+  only then Session 9C.
+- Froze the exact fold-local 3y decision-tree model specification before any
+  fit and mapped every production gate/ranking input to a certified corrected
+  field or explicit blocker, including the unresolved Ridge-versus-LightGBM
+  production-ranker conflict.
+- Corrected the ADTV contract to use `$200,000 / 15` position size and a 1%
+  position/ADTV limit, requiring median 30-session dollar volume of at least
+  `$1,333,333.333333...` for every eligible candidate before ranking. Missing
+  or ambiguous decision-time evidence now fails closed by contract.
+- Recorded that Session 8E already has a unique accepted entry timestamp for
+  every supported entity/year; successor lineage must preserve it without
+  recomputing market outcomes.
+
+### Modeling — Session 9B Selection Freeze (2026-07-16)
+
+#### Added
+- Added the bounded Session 9B freeze builder and focused tests for complete
+  Session 9 manifest validation, strategy-role reconciliation, physically
+  separate row-level candidate exclusions, and fail-closed zero-row holdings.
+- Froze 438,060 candidate-strategy records across the two population
+  namespaces, an explicit five-path compatibility inventory, empty holding and
+  weight tables, code/dirty lineage, a manifest, and the Session 9B report.
+
+#### Changed
+- Marked every current `CORRECTED_8F` selection path unavailable. Production
+  `ml_gates` lacks the required OOS tree-agreement role; alternate engine paths
+  lack complete compatible ranking/gate/liquidity inputs or population support.
+- Kept Session 9C blocked. No logistic-for-tree substitution, new threshold,
+  model fit, market input, backtest, portfolio, commit, or push was performed.
+
+### Planning — Post-Session-9 Evaluation Path (2026-07-16)
+
+#### Changed
+- Added Session 9B as a bounded selection-freeze gate between explicit Session
+  9 predictions and selected-holding market evidence. It prohibits substituting
+  the calibrated logistic classifier for the production tree-agreement role and
+  fails closed when no already-accepted compatible selection rule exists.
+- Reframed Session 9C around physically separate `CORRECTED_8F` selection paths
+  and made complete Session 9B holdings, weights, and exclusions a prerequisite.
+- Replaced the impossible `OLD_RECONSTRUCTED`/`CORRECTED_PARTIAL` Session 10
+  comparison with a controlled `CORRECTED_8F` evaluation. Updated downstream
+  FULL-PIT comparisons and completion criteria so stale, unavailable, and saved
+  legacy paths remain reference-only.
+
+### Modeling — CORRECTED_8F Explicit OOS Predictions (2026-07-16)
+
+#### Added
+- Added the bounded Session 9 builder and focused tests for complete Session 8F
+  manifest validation, price/label intersections, strict historical label-end
+  eligibility, outcome-safe fold-local feature selection, preprocessing,
+  calibration, models, and row-complete OOS prediction lineage.
+- Froze physically separate `observed_only` and `include_policy_imputed`
+  checkpoints, 208 fitted fold models, two 438,060-row prediction tables,
+  supported/unavailable/excluded counts, code/dirty lineage, and manifest under
+  `artifacts/pit_validation/session9_corrected_8f/`.
+- Added the Session 9 report with descriptive OOS diagnostics and explicit
+  non-backtest limitations.
+
+#### Changed
+- Corrected the Session 9 roadmap contract to name the certified path
+  `CORRECTED_8F`, prohibit stale corrected-partial inputs, keep macro excluded,
+  and make `OLD_RECONSTRUCTED` unavailable rather than constructing it ad hoc.
+- Kept both certified population namespaces physically separate while recording
+  their identical feature identities, horizon gates, labels, eligibility,
+  predictions, and descriptive diagnostics.
+
+### Data — Corrected Feature Populations (2026-07-16)
+
+#### Added
+- Added the bounded Session 8F builder and focused tests for stable row identity,
+  complete 8E-chain validation, strict pre-decision price features, population-
+  separated labels, checkpoints, configuration, dirty state, and manifests.
+- Added physically separate 43,806-row `observed_only` and
+  `include_policy_imputed` Step 5, Step 6, and fraud-taxonomy lineages plus
+  explicit supported/unavailable/excluded feature-family counts.
+
+#### Changed
+- Made Step 5 consume an explicitly provenance-bearing feature market cap and
+  leave macro interactions null when macro evidence is absent.
+- Added fail-closed Step 6 controls that disable unproven imputation and inferred
+  survivorship outcomes, preserve stable row IDs, and made taxonomy transforms
+  prefer proven SEC-primary availability timestamps.
+- Certified 26,232 rows with the complete required price-feature family,
+  retained 11,857 as unavailable and 5,717 as excluded, and left all macro
+  features unavailable. No stale corrected-partial feature was reused.
+
+### Data — Contract-Aligned Label Market Inputs (2026-07-16)
+
+#### Added
+- Added an artifact-scoped Session 8E builder with immutable stock/benchmark
+  chart payloads, XNYS/XNAS calendar evidence, common-session labels, separate
+  population gates, complete raw/normalized inventories, and frozen lineage.
+- Added the superseding support manifest and Session 8E report for the 43,806
+  certified US annual rows across the accepted 6m/1y/2y/3y/5y horizons.
+
+#### Changed
+- Replaced the Session 8C zero-support verdict with nonzero certified support
+  at all accepted horizons while keeping missing shares, prices, sessions,
+  mappings, adjustments, and provenance fail closed.
+- Kept `observed_only` and `include_policy_imputed` artifacts separate; no
+  unsupported policy outcome was inferred. Session 9 is eligible under its
+  minimum support prerequisite but was not started.
+
+### Data — Provenance-Preserving US Step 2 Rebuild (2026-07-16)
+
+#### Added
+- Added an artifact-scoped SEC Company Facts runner with immutable compressed
+  raw responses, per-request streaming hashes, resumable checkpoints, explicit
+  failures, transient retry, and isolated partial-response evidence.
+- Added a frozen corrected Step 2 evidence set for the exact 8,021-CIK US
+  universe, an independent validator/manifest, focused synthetic tests, and the
+  Session 8D validation report.
+
+#### Changed
+- Certified only supported earliest-primary SEC facts with stable entity IDs
+  and end-of-local-date filing availability; missing required facts, later
+  amendments, unsupported sources, and unresolved equal-time accession
+  collisions now fail closed into separate diagnostics.
+- Marked Session 8D complete while keeping its label-market-input work separate;
+  Session 8E is completed by the later entry above.
+
+### Docs — Post-8C Recovery Sequence (2026-07-16)
+
+#### Changed
+- Added bounded Session 8D for an artifact-scoped, raw-response-manifested US
+  Step 2 provenance rebuild and Session 8E for the separate contract-aligned
+  label-market-input correction and support revalidation.
+- Kept Session 9 blocked until both stages are accepted and at least one modeled
+  horizon has nonzero certified support.
+
+### Quality — Training-Label Market-Input Gate (2026-07-15)
+
+#### Added
+- A frozen Session 8C validation manifest and report with explicit US row- and
+  horizon-level supported, unavailable, and excluded counts for both label
+  populations.
+
+#### Changed
+- Excluded all five accepted horizons from Session 9: current artifacts have
+  zero rows with proven entity/filing availability and cannot certify the
+  accepted common-session, benchmark, trading-calendar, or adjustment-vintage
+  semantics. The next task is a bounded provenance-preserving Step 2 rebuild.
+
+### Quality — Horizon Calendar Contract (2026-07-15)
+
+#### Added
+- A frozen Session 8B calendar configuration and validation report defining
+  decision, prediction, holding, return, benchmark, filing-provenance, and
+  strict label-availability rules for every materialized horizon.
+
+#### Changed
+- Accepted `6m`, `1y`, `2y`, `3y`, and `5y` calendar policies; excluded the six
+  non-modeled horizons; and kept observed-only eligibility separate from the
+  explicitly named policy-imputed sensitivity.
+- Marked Session 8B complete while blocking Session 9: current
+  corrected-partial artifacts omit required filing provenance/entity identity,
+  and their filing-date-start labels are incompatible with the frozen calendar.
+
+### Quality — CORRECTED_PARTIAL Dataset Build (2026-07-15)
+
+#### Added
+- A strictly offline/read-only Step 3 cache path with explicit cache/input/output
+  arguments, null-preserving missing/empty series behavior, and focused tests.
+- Separate corrected-partial price, feature, pre-taxonomy, and taxonomy-enriched
+  datasets plus streaming-hash lineage and exhaustive machine-readable data
+  comparisons under `artifacts/pit_validation/corrected_partial/`.
+- `reports/pit_validation/08_data_comparison.md`, documenting schema, key,
+  missingness, label/provenance, class-balance, value-change, and universe
+  differences against frozen `LEGACY_SAVED` evidence.
+
+#### Changed
+- Added explicit artifact-scoped input/output CLI arguments to Steps 5–6 and
+  fraud-taxonomy enrichment so the audited run cannot overwrite the only copy
+  of an intermediate or write outside the corrected-partial artifact root.
+- Marked roadmap Session 8 complete while retaining the stale-Step-2,
+  incomplete-cache, and non-reproducible-legacy limitations.
+
+### Quality — Corrected-Partial Input Freeze (2026-07-15)
+
+#### Added
+- Frozen read-only local snapshots, daily price cache, and macro inputs for the
+  audited offline Session 8 lineage, with streaming hashes and corrected-code
+  lineage in `artifacts/pit_validation/corrected_partial_inputs/manifest.json`.
+- Documented the incomplete-cache boundary and null-preserving offline contract
+  in `reports/pit_validation/08_preflight_input_freeze.md`; Session 8 remains
+  unstarted and `LEGACY_SAVED` remains unchanged.
+
+#### Changed
+- Formalized the completed freeze as roadmap Session 7A and tightened Session 8
+  to require reference-only legacy price-stage evidence, a tested offline and
+  read-only Step 3 path, artifact-scoped intermediates, and separate pre-taxonomy
+  and final datasets.
+- Added Session 8C as a pre-training gate for selection-independent target-price,
+  benchmark, trading-date, adjustment, availability, and horizon coverage;
+  retained Session 9C for selected-holding backtest market evidence.
+
+### Quality — Frozen Legacy Evidence and Compatibility Validation (2026-07-15)
+
+#### Added
+- A streaming-hash `LEGACY_SAVED` freezer and compatibility validator that
+  verifies frozen payloads, dirty-state patches, required missing-evidence
+  records, and strict separation of legacy inputs from corrected-code evidence.
+- Focused synthetic tests for hash/size drift, missing required records,
+  corrected-code role misuse, non-reproducibility enforcement, and later commit
+  compatibility.
+- `reports/pit_validation/07_legacy_evidence_freeze.md` and a frozen
+  `artifacts/pit_validation/legacy_saved/` evidence set with a limitations
+  manifest, complete pre-Session-7 dirty state, and reserved but unpopulated
+  `OLD_RECONSTRUCTED` state.
+
+#### Changed
+- Marked roadmap Session 7 complete without rebuilding data/prices,
+  reconstructing predictions, retraining, backtesting, or running a production
+  comparison.
+
+### Docs — Token-Efficient Evidence and Backtest Gates (2026-07-15)
+
+#### Changed
+- Added durable low-token roadmap/workflow controls: reuse handoff evidence,
+  batch bounded reads, keep large output in `/tmp`, use path-scoped diffs,
+  prefer focused tests, and run the full suite only once after code stabilizes.
+- Tightened Session 7 to preserve the baseline commit, complete dirty patch,
+  legacy-artifact timing, and missing canonical market-input evidence.
+- Expanded Session 9C to require monthly benchmark and risk-free series,
+  adjusted-price/event double-counting validation, sourced event terms,
+  turnover, and trade-level cost evidence.
+- Added Session 10 per-metric stop conditions for incomplete risk-free,
+  benchmark, selected-holding price, or corporate-action evidence while keeping
+  observed-only, policy-50, and policy-100 results separate.
+
+### Fix — Canonical Monthly NAV and Historical Disappearance Gates (2026-07-15)
+
+#### Added
+- A fail-closed security-level month-end net total-return NAV ledger with dated
+  corporate-action resolution evidence, explicit observed-only/`-50%`/`-100%`
+  return policies, monthly risk-free alignment, and annual reconciliation.
+- Synthetic coverage for monotonic NAV, known intra-year drawdown, missing and
+  partial prices, mid-year disappearance, total loss, costs, future invariance,
+  annual/monthly reconciliation, and canonical metric consistency.
+- `reports/pit_validation/06b_monthly_nav_correction.md` documenting the bounded
+  Session 6B implementation and remaining market-input/calendar boundary.
+
+#### Changed
+- Removed future-derived `likely_delisted` behavior from historical engine,
+  screener-registry, and leverage eligibility; separately named, sourced
+  decision-time listing, filing-staleness, delisting-notice, quote-recency, and
+  ADTV evidence may gate historical rows and fails closed when incomplete.
+- Historical performance no longer substitutes annual forward labels, zero
+  monthly returns, or annual drawdown proxies for missing price/event evidence.
+- CAGR, volatility, Sharpe/Sortino, drawdown, Calmar, and monthly tail metrics
+  now consume one canonical net monthly NAV. Sharpe/Sortino are unavailable
+  without a complete frozen monthly risk-free series.
+- Annual returns are reporting aggregations of monthly NAV and must reconcile
+  within `1e-10`; unsupported long/short financing and unresolved observed-only
+  holdings produce no official performance.
+- Marked roadmap Session 6B complete after focused and full verification.
+
+### Fix — Manifest-Backed Historical Score Consumption (2026-07-15)
+
+#### Added
+- Shared row-level prediction-manifest validation, OOS source enforcement,
+  exclusion codes, required-role coverage reporting, and synthetic final-model/
+  later-filing invariance tests.
+- `reports/pit_validation/06a_prediction_consumption_correction.md` documenting
+  the bounded Session 6A correction and its fail-closed legacy-data boundary.
+
+#### Changed
+- `ml_gates`, engine composite, QEM, SCDV, IARB, alpha composite, screener/
+  alpha registries, and the IC-weighted portfolio registry now require every
+  declared direct and indirect OOS ML role for every selected row.
+- Historical portfolios now require complete `target_n` coverage and persist
+  per-period role counts plus row-level score sources and exclusion reasons.
+- Removed final/static historical score fallback and score-count-driven ML
+  weight omission; unmanifested legacy scores remain explicitly ineligible.
+- Removed the remaining private in-engine walk-forward training generator and
+  made PIT validation Markdown deliverables trackable under `reports/`.
+- Marked roadmap Session 6A complete with its final verification result.
+
+### Docs — Accepted Session 5A Backtest Contract (2026-07-15)
+
+#### Added
+- `reports/pit_validation/05a_backtest_contract.md`: proposed row-level OOS
+  prediction-lineage, fail-closed missing-score, evidence-backed corporate-
+  action/disappearance, and canonical monthly-NAV contracts.
+
+#### Changed
+- Recorded explicit user acceptance of all four Session 5A contracts. Session
+  6A/6B are authorized only as later separate bounded implementation tasks.
+- Amended the proposed corporate-action contract for personal small-cap use:
+  live screening may use current tradability/filing/liquidity evidence, while
+  unresolved historical disappearances receive separate `-50%` and `-100%`
+  portfolio sensitivities without changing the observed primary path or model
+  training labels.
+- Clarified that full-panel/eventual disappearance status is prohibited in
+  historical selection, while separately named point-in-time listing,
+  filing-staleness, delisting-notice, quote-recency, and ADTV gates are permitted
+  when based exclusively on information available at the decision timestamp.
+
+### Docs — Post-Session-5 Roadmap Safety Gates (2026-07-15)
+
+#### Changed
+- Added Session 5A to require explicit prediction-lineage, missing-score,
+  corporate-action/disappearance, and canonical-return contracts before any
+  backtest correction.
+- Split Session 6 into independent OOS prediction-consumption and monthly-NAV/
+  historical-gate corrections with separate prerequisites and stop conditions.
+- Reclassified the saved headline result as non-reproducible `LEGACY_SAVED`
+  evidence and reserved `OLD_RECONSTRUCTED` for a new controlled rerun.
+- Moved horizon-specific calendar acceptance before retraining/prediction and
+  added a canonical market-input/selected-holding coverage gate before controlled
+  performance comparisons.
+
+### Docs — Backtest Prediction and Monthly-NAV Path Audit (2026-07-15)
+
+#### Added
+- `reports/pit_validation/05_backtest_path_audit.md`: read-only T11/T31 trace
+  of static, walk-forward, OOF, regression, delisting-gate, missing-return, and
+  monthly metric paths, with exact frozen-artifact boundaries and required
+  future-invariance tests.
+
+#### Changed
+- Recorded that the saved FY2013–FY2023 `ml_gates` result has no row-level
+  score/fold lineage, the frozen legacy parquet cannot produce current strict
+  walk-forward scores, its conditional `likely_delisted` gate was inactive,
+  and only drawdown uses the unreconciled monthly NAV path.
+
+### Fix — Filing-Time Cohort Transform Invariance (2026-07-15)
+
+#### Added
+- Shared proven-publication cohort enforcement with explicit issuer identity,
+  timestamp/source provenance, equal-time batching, sparse-policy metadata, and
+  fail-closed legacy/estimated dates.
+- Future-, row-order-, sparse-group-, early/late-filer-, duplicate-version-, and
+  cross-module invariance tests for Step 5, Step 6, and alpha materialization.
+- `reports/pit_validation/04c_cohort_transform_correction.md` documenting the
+  bounded T05–T09/T16 correction and deferred calendar boundary.
+
+#### Changed
+- Step 5 winsorization, market/sector ranks, percentiles, and rank interactions
+  now use only proven peers available at each row's publication timestamp.
+- Step 6 accrual winsorization and size imputation now follow the accepted
+  cohort/history minimums without full-data or later-filing fallbacks.
+- Filing-time alpha ranks use the same eligible cohorts; value and growth rank
+  the cohort-winsorized signal as intended.
+- SEC, EDINET, DART, statement-date, and estimated-date producers now emit only
+  the minimal row-level availability provenance needed for fail-closed use.
+
+### Docs — Session 4C Calendar and Cohort Contract Proposal (2026-07-15)
+
+#### Added
+- `reports/pit_validation/04c_calendar_contract_proposal.md` defining separate
+  filing-materialization and decision-snapshot clocks, exact market/sector
+  cohorts, sparse-group behavior, timestamp provenance, late-filing, and
+  amendment policies for explicit acceptance before Session 4C.
+
+#### Changed
+- Split contract acceptance into roadmap Session 4C0 so Session 4C corrective
+  code cannot begin in the same step that chooses its calendar semantics.
+- Deferred rebalance calendars by investment horizon instead of imposing one
+  annual/semiannual schedule; added Session 8B to freeze horizon-specific
+  calendars before controlled official backtests.
+- Recorded user acceptance of the horizon-neutral filing-materialization
+  contract while keeping every rebalance calendar explicitly deferred.
+
+### Fix — Fold-Local Feature and Preprocessing Lineage (2026-07-15)
+
+#### Added
+- Deterministic dataset/training/development fingerprints and strict feature-
+  artifact lineage validation for horizon, cutoff, label policy, selector
+  configuration, population, and feature compatibility.
+- Synthetic future-invariance and fail-closed tests for held-out coverage,
+  appended rows, fold predictions, medians, scalers, sector parameters,
+  regression target bounds, and legacy/cross-policy artifacts.
+- `reports/pit_validation/04b_fold_lineage_correction.md` documenting the
+  bounded Session 4B correction and immutable-artifact boundary.
+
+#### Changed
+- Static PSI filtering now uses the declared validation population; untouched
+  test rows cannot choose features.
+- OOF, classifier/regression walk-forward, backtest, and proper-split paths now
+  derive candidate fill rates and feature choices inside eligible training folds.
+- Tuning fails closed unless model metadata proves exact lineage and reuses
+  frozen training medians and sector-normalization parameters.
+- Standalone regression selects features and fits medians/target bounds on its
+  eligible training population instead of consuming unproven feature JSON.
+
+### Fix — PIT Global Transformation Invariance (2026-07-15)
+
+#### Added
+- Future- and order-invariance tests for shared growth loaders, fraud-taxonomy
+  as-of ranks, and ticker-local dilution history.
+- `reports/pit_validation/04a_global_transform_correction.md` documenting the
+  bounded Session 4A correction and immutable artifact boundary.
+
+#### Changed
+- Shared modeling and factor-research loaders now preserve pipeline-materialized
+  growth values instead of fitting new full-panel clipping bounds.
+- Fraud-taxonomy clipping and ranks now use expanding `filed_date` populations,
+  fail closed without timestamps, and admit equal-timestamp rows as one batch.
+- Dilution EPS changes are ticker-local, chronologically ordered, and dataframe-
+  order invariant.
+
+### Docs — PIT Correction Session Boundaries (2026-07-15)
+
+#### Changed
+- Split roadmap Session 4 into bounded corrections for confirmed global
+  downstream transformations, fold-local feature/preprocessing lineage, and
+  calendar-dependent cohort transformations, each with explicit prerequisites,
+  future-invariance tests, stop conditions, and deferred questions.
+- Moved the future-derived historical `likely_delisted` gate and static/final-model
+  backtest fallbacks into the Session 5 audit and Session 6 correction boundary.
+- Updated the Codex handoff to make Session 4A the exact next task and to require
+  an accepted scoring-calendar contract before Session 4C.
+
+### Docs — Fitted-Transformation Audit (2026-07-15)
+
+#### Added
+- `reports/pit_validation/03_transformation_audit.md`: read-only inventory and
+  classification of fixed, as-of cross-sectional, training-fitted, and
+  potentially global/future-aware transformations, with empirical invariance
+  evidence and no production fixes.
+
+### Fix — PIT Horizon and Survivorship Sensitivity Generalization (2026-07-15)
+
+#### Added
+- Horizon-qualified actual label dates and provenance for every Step 3 return horizon.
+- Explicit `observed_only` and `include_policy_imputed` model-label modes; observed-only remains the default.
+- Dated `-50%` likely-delisted sensitivity labels for every trained horizon, eligible only after both the target horizon and no-filing detection lag have elapsed.
+- `reports/pit_validation/02b_horizon_survivorship_summary.md` documenting the revised contract and remaining corporate-action limitations.
+
+#### Changed
+- Purged eligibility now covers 6m, 1y, 2y, 3y, and 5y static, OOF, tuning, regression, walk-forward, and backtest training paths.
+- The roadmap now rebuilds, retrains, and compares all trained horizons with observed-only and policy-sensitivity artifacts kept separate.
+- Policy-sensitivity OOF/backtest outputs use distinct names and cannot fall back to legacy static model scores from an unknown label population.
+
+### Fix — PIT Three-Year Label Eligibility (2026-07-15)
+
+#### Added
+- Canonical three-year label start/end trading dates and observed-price provenance in Step 3.
+- A shared strict pre-score eligibility rule plus synthetic boundary, missing-date, provenance, future-invariance, and fold-maximum tests.
+- `reports/pit_validation/02_fold_purge_summary.md` documenting all corrected training paths and the immutable legacy-dataset boundary.
+
+#### Changed
+- Three-year static, walk-forward, OOF, tuning, regression, and backtest training paths now require an observed complete label strictly before the January 1 scoring date.
+- Step 6 policy-imputed likely-delisted labels now carry explicit policy provenance and no observed availability date, so they cannot enter training.
+
+### Docs — PIT Label-Availability Audit (2026-07-15)
+
+#### Added
+- `reports/pit_validation/01_label_availability_audit.md`: Read-only evidence report confirming that all audited three-year walk-forward paths admit outcomes that were not observable at their fold scoring dates, with per-fold lower-bound counts and exit-date reconstruction limits.
+
+#### Changed
+- Accepted the Session 2 implementation contract: strict pre-score label availability, actual exit-date provenance, training exclusion for unknown/policy-imputed labels, and no dataset rebuild or retraining during the code-fix session.
+
 ### Refactor — Pipeline Spine Cleanup (2026-07-14)
 
 #### Changed

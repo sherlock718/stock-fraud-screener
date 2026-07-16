@@ -2,7 +2,7 @@
 Walk-forward backtester with transaction costs and slippage.
 
 Improvements over v1:
-  - Expanding-window median imputation in ML scoring (removes look-ahead bias)
+  - Manifest-backed OOS-only historical score consumption
   - Fixed per-pick cost alignment with NaN-dropped return rows
   - Calmar ratio, Sortino ratio
   - Rolling 3y Sharpe per year in output
@@ -21,26 +21,34 @@ import json
 import warnings
 warnings.filterwarnings('ignore')
 
-import joblib
-import lightgbm as lgb
 import numpy as np
 import pandas as pd
 from pathlib import Path
-from scipy import stats
 
 import sys
 from pipeline.feature_library import add_normalised_ratios, add_piotroski_ext
 from _root import ROOT
 from modeling.constants import (
-    EXCLUDE_COLS, EXCLUDE_PATTERNS,
     BENEISH_THRESHOLD, TREE_THRESHOLD, PIOTROSKI_MIN,
     VALUE_GATE_PCT, ALTMAN_Z_MIN, MOMENTUM_12M_MIN,
+)
+from modeling.label_eligibility import LABEL_POLICIES, OBSERVED_ONLY
+from modeling.prediction_lineage import (
+    ScoreRequirement,
+    complete_top_n,
+    validate_historical_scores,
+)
+from backtest.monthly_nav import (
+    OBSERVED_ONLY as OBSERVED_RETURN_ONLY,
+    RETURN_POLICIES,
+    annual_returns_from_nav,
+    build_monthly_nav,
+    compute_nav_metrics,
 )
 
 BASE = ROOT
 
 FULL_DATA         = BASE / 'data' / 'historical_dataset_clean.parquet'
-MODELS_DIR        = BASE / 'models'
 OUT_PATH          = BASE / 'data' / 'backtest_results.json'
 SPY_PATH          = BASE / 'data' / 'spy_returns.csv'
 ACWI_EXUS_PATH    = BASE / 'data' / 'acwi_exus_returns.csv'
@@ -89,92 +97,27 @@ def load_monthly_prices() -> pd.DataFrame | None:
 
 
 def compute_monthly_nav(annual_rows: list[dict], monthly_px: pd.DataFrame) -> tuple[float, int]:
-    """Build a monthly portfolio NAV and return (max_drawdown, max_dd_months).
-
-    For each backtest year, reconstruct the portfolio's monthly return path
-    by weighting each pick's monthly return by its allocation weight, then
-    chain these into a single continuous NAV series.
-
-    Falls back to annual-frequency drawdown if monthly data is missing.
-    """
-    nav_monthly: list[float] = [1.0]
-
-    for row in annual_rows:
-        yr   = int(row['year'])
-        # Portfolio holds stocks selected from fiscal_year=yr filings,
-        # held for calendar year yr+1 (Jan–Dec of the following year).
-        hold_start = pd.Timestamp(f'{yr+1}-01-01')
-        hold_end   = pd.Timestamp(f'{yr+1}-12-31')
-
-        picks     = row.get('_picks_valid')
-        weights   = row.get('_weights')
-        if picks is None or weights is None:
-            # Fallback: advance NAV by the known annual return
-            nav_monthly.append(nav_monthly[-1] * (1 + row['port_ret']))
-            continue
-
-        # Get monthly price data for each pick over the holding period
-        tickers = picks['ticker'].tolist()
-        mask = (
-            (monthly_px['ticker'].isin(tickers)) &
-            (monthly_px['date'] >= hold_start) &
-            (monthly_px['date'] <= hold_end)
-        )
-        sub = monthly_px[mask].copy()
-
-        if sub.empty:
-            nav_monthly.append(nav_monthly[-1] * (1 + row['port_ret']))
-            continue
-
-        # Compute monthly returns per ticker
-        sub = sub.sort_values(['ticker', 'date'])
-        sub['monthly_ret'] = sub.groupby('ticker')['adj_close'].pct_change()
-
-        # Pivot to (date × ticker) matrix, fill with 0 for missing months
-        ret_matrix = sub.pivot_table(
-            index='date', columns='ticker', values='monthly_ret'
-        ).reindex(columns=tickers).fillna(0.0)
-
-        if ret_matrix.empty:
-            nav_monthly.append(nav_monthly[-1] * (1 + row['port_ret']))
-            continue
-
-        # Weight vector aligned to tickers order
-        ticker_to_weight = dict(zip(tickers, weights))
-        w = np.array([ticker_to_weight.get(t, 0.0) for t in ret_matrix.columns])
-        w = w / w.sum() if w.sum() > 0 else np.ones(len(w)) / len(w)
-
-        # Monthly portfolio returns; accumulate into NAV
-        port_monthly_rets = ret_matrix.values @ w
-        nav_segment = nav_monthly[-1] * np.cumprod(1 + port_monthly_rets)
-        nav_monthly.extend(nav_segment.tolist())
-
-    nav = np.array(nav_monthly)
-    peak = np.maximum.accumulate(nav)
-    drawdowns = (nav - peak) / np.where(peak > 0, peak, 1)
-    max_dd = float(drawdowns.min())
-
-    # Drawdown duration in months
-    in_dd = drawdowns < 0
-    dd_months = 0
-    cur = 0
-    for d in in_dd:
-        cur = cur + 1 if d else 0
-        dd_months = max(dd_months, cur)
-
-    return max_dd, dd_months
+    """Compatibility wrapper around the fail-closed canonical NAV builder."""
+    result = build_monthly_nav(annual_rows, monthly_px)
+    if not result["available"]:
+        raise ValueError(result["exclusions"])
+    metrics = compute_nav_metrics(result["nav"])
+    return metrics["max_drawdown"], metrics["max_drawdown_duration_months"]
 
 
 def adtv_filter(yr_df: pd.DataFrame, monthly_px: pd.DataFrame | None,
                 yr: int, max_pct_adtv: float = 0.01,
-                aum_target: float = 200_000) -> pd.DataFrame:
+                aum_target: float = 200_000,
+                target_n: int = 15) -> pd.DataFrame:
     """Remove picks whose position would exceed max_pct_adtv of trailing 30d median ADTV.
 
     Args:
         max_pct_adtv: Max fraction of ADTV a single position may represent.
             Default 1% — retail-friendly constraint.
         aum_target: Portfolio AUM in dollars. Default $200K (retail).
-            min_adtv = aum_target * max_pct_adtv.
+        target_n: Equal-weight portfolio target size. Planned position is
+            ``aum_target / target_n`` and minimum ADTV is that position divided
+            by ``max_pct_adtv``.
     """
     if monthly_px is None or yr_df.empty:
         return yr_df
@@ -187,10 +130,15 @@ def adtv_filter(yr_df: pd.DataFrame, monthly_px: pd.DataFrame | None,
     ].groupby('ticker')['adtv_30d'].median().reset_index()
     sub.columns = ['ticker', 'adtv_est']
 
+    if max_pct_adtv <= 0 or target_n <= 0 or aum_target < 0:
+        raise ValueError(
+            "ADTV inputs require max_pct_adtv > 0, target_n > 0, and aum_target >= 0"
+        )
+
     merged = yr_df.merge(sub, on='ticker', how='left')
     # Position can't exceed max_pct_adtv of daily volume
-    min_adtv = aum_target * max_pct_adtv
-    keep = merged['adtv_est'].isna() | (merged['adtv_est'] >= min_adtv)
+    min_adtv = (aum_target / target_n) / max_pct_adtv
+    keep = merged['adtv_est'].notna() & (merged['adtv_est'] >= min_adtv)
     return yr_df[keep.values]
 
 
@@ -203,249 +151,55 @@ def load_full_hist() -> pd.DataFrame:
     df = add_normalised_ratios(df)
     return df.reset_index(drop=True)
 
+def load_and_score(
+    df: pd.DataFrame, label_policy: str = OBSERVED_ONLY
+) -> pd.DataFrame:
+    """Load already-generated manifest-backed OOS scores without fitting models.
 
-
-
-def _select_features(df: pd.DataFrame) -> list[str]:
-    return [
-        c for c in df.columns
-        if c not in EXCLUDE_COLS
-        and not any(p in c for p in EXCLUDE_PATTERNS)
-        and df[c].dtype in [np.float64, np.float32, np.int64, np.int32, 'Int64']
-        and df[c].notna().mean() > 0.10
-    ]
-
-
-def _ic_rank(df: pd.DataFrame, features: list[str], ret_col: str, top_n: int = 35) -> list[str]:
-    """Return top features by |ICIR| computed on df."""
-    sub = df[df[ret_col].notna()]
-    years = sorted(sub['fiscal_year'].unique())
-    records = []
-    for feat in features:
-        sub2 = sub[sub[feat].notna()]
-        ics = []
-        for yr in years:
-            g = sub2[sub2['fiscal_year'] == yr]
-            if len(g) < 30:
-                continue
-            c, _ = stats.spearmanr(g[feat], g[ret_col])
-            if not np.isnan(c):
-                ics.append(c)
-        if len(ics) < 3:
-            continue
-        mean_ic = np.mean(ics)
-        std_ic  = np.std(ics) + 1e-8
-        records.append((feat, abs(mean_ic / std_ic)))
-    records.sort(key=lambda x: x[1], reverse=True)
-    return [r[0] for r in records[:top_n]]
-
-
-def load_and_score(df: pd.DataFrame) -> pd.DataFrame:
-    """Walk-forward ML scoring: for each year Y, retrain on data ≤ Y-1, score year Y.
-
-    This is the only unbiased way to use ML scores in a backtest.
-    Falls back to pre-trained static models if walk-forward fails.
-    Adds columns: ml_1y_wf, ml_3y_wf, ml_5y_wf.
+    Session 6A removes the historical scorer's implicit training/final-model
+    path.  Strategy filters validate the row manifests for the exact roles they
+    consume.  Unmanifested legacy/static values remain ineligible evidence and
+    are never used as a fallback.
     """
-    HORIZONS_WF = {
-        '1y': ('forward_return_1y', 'beat_local_market_1y'),
-        '3y': ('forward_return_3y', 'beat_local_market_3y'),
-        '5y': ('forward_return_5y', 'beat_local_market_5y'),
-    }
-
-    all_features = _select_features(df)
-    years = sorted(y for y in df['fiscal_year'].unique() if y <= 2024)
-
-    # Need at least 5 years of history before first score
-    min_train_years = 5
-
-    # PIT: precompute filed_date as datetime once
-    _filed = pd.to_datetime(df.get('filed_date', pd.NaT), errors='coerce')
-
-    for h, (ret_col, beat_col) in HORIZONS_WF.items():
-        if beat_col not in df.columns or ret_col not in df.columns:
-            continue
-
-        scores = np.full(len(df), np.nan)
-        print(f'    WF-ML {h}: training year by year...', flush=True)
-
-        for i, score_yr in enumerate(years):
-            # PIT: only include filings available before score_yr starts
-            _cutoff = pd.Timestamp(f'{score_yr}-01-01')
-            _pit_mask = _filed.isna() | (_filed < _cutoff)
-            train_df = df[
-                (df['fiscal_year'] < score_yr) & df[beat_col].notna() & _pit_mask
-            ].copy()
-            if train_df['fiscal_year'].nunique() < min_train_years:
-                continue
-
-            feats = _ic_rank(train_df, all_features, ret_col, top_n=35)
-            feats = [f for f in feats if f in train_df.columns]
-            if len(feats) < 5:
-                continue
-
-            # Expanding-window median imputation on training set
-            train_med = train_df[feats].median()
-            X_train = train_df[feats].fillna(train_med)
-            y_train  = train_df[beat_col].astype(int)
-
-            pos = int((y_train == 1).sum())
-            neg = int((y_train == 0).sum())
-            clf = lgb.LGBMClassifier(
-                n_estimators=200, max_depth=4, learning_rate=0.05,
-                num_leaves=20, subsample=0.8, colsample_bytree=0.7,
-                min_child_samples=30, scale_pos_weight=neg / max(pos, 1),
-                random_state=42, n_jobs=-1, verbose=-1,
-            )
-            clf.fit(X_train, y_train)
-
-            # Score hold-out year using training medians for imputation
-            score_mask = (df['fiscal_year'] == score_yr).values
-            if score_mask.sum() == 0:
-                continue
-            X_score = df.loc[score_mask, feats].fillna(train_med)
-            scores[score_mask] = clf.predict_proba(X_score)[:, 1]
-
-        df[f'ml_{h}_wf'] = scores
-        n_scored = (~np.isnan(scores)).sum()
-        print(f'      {h}: {n_scored:,} rows scored walk-forward', flush=True)
-
-    # ── Walk-forward decision tree (agreement gate) ────────────────────────────
-    # Depth-4 tree trained on same data as LightGBM, provides tree_prob for ml_gates
-    beat_col_3y = 'beat_local_market_3y'
-    if beat_col_3y in df.columns:
-        from sklearn.tree import DecisionTreeClassifier
-        tree_probs = np.full(len(df), np.nan)
-        print('    WF-Tree: training year by year...', flush=True)
-        for score_yr in years:
-            _cutoff = pd.Timestamp(f'{score_yr}-01-01')
-            _pit_mask = _filed.isna() | (_filed < _cutoff)
-            train_df = df[
-                (df['fiscal_year'] < score_yr) & df[beat_col_3y].notna() & _pit_mask
-            ].copy()
-            if train_df['fiscal_year'].nunique() < min_train_years:
-                continue
-            feats = _ic_rank(train_df, all_features, 'forward_return_3y', top_n=35)
-            feats = [f for f in feats if f in train_df.columns]
-            if len(feats) < 5:
-                continue
-            train_med = train_df[feats].median()
-            X_train = train_df[feats].fillna(train_med)
-            y_train = train_df[beat_col_3y].astype(int)
-            tree_clf = DecisionTreeClassifier(
-                max_depth=4, min_samples_leaf=30, random_state=42
-            )
-            tree_clf.fit(X_train, y_train)
-            score_mask = (df['fiscal_year'] == score_yr).values
-            if score_mask.sum() == 0:
-                continue
-            X_score = df.loc[score_mask, feats].fillna(train_med)
-            tree_probs[score_mask] = tree_clf.predict_proba(X_score)[:, 1]
-        df['tree_prob'] = tree_probs
-        n_tree = (~np.isnan(tree_probs)).sum()
-        print(f'      tree: {n_tree:,} rows scored walk-forward', flush=True)
-
-    # ── Walk-forward regression (3y return magnitude) ─────────────────────────
-    ret_col_3y = 'forward_return_3y'
-    if ret_col_3y in df.columns:
-        reg_scores = np.full(len(df), np.nan)
-        print('    WF-Reg 3y: training year by year...', flush=True)
-        for score_yr in years:
-            _cutoff = pd.Timestamp(f'{score_yr}-01-01')
-            _pit_mask = _filed.isna() | (_filed < _cutoff)
-            train_df = df[
-                (df['fiscal_year'] < score_yr) & df[ret_col_3y].notna() & _pit_mask
-            ].copy()
-            if train_df['fiscal_year'].nunique() < min_train_years:
-                continue
-            # Clean training data for regression too
-            clean_mask = (
-                (train_df.get('fraud_suspect', pd.Series(0, index=train_df.index)) == 0) &
-                (train_df.get('piotroski_roa_pos', pd.Series(1, index=train_df.index)) == 1) &
-                (train_df.get('beneish_m_score', pd.Series(-3, index=train_df.index)) < -1.78)
-            )
-            train_df = train_df[clean_mask]
-            if len(train_df) < 100:
-                continue
-            feats = _ic_rank(train_df, all_features, ret_col_3y, top_n=35)
-            feats = [f for f in feats if f in train_df.columns]
-            if len(feats) < 5:
-                continue
-            train_med = train_df[feats].median()
-            X_train = train_df[feats].fillna(train_med)
-            y_train = train_df[ret_col_3y].clip(-1, 5)
-            reg = lgb.LGBMRegressor(
-                n_estimators=600, max_depth=6, learning_rate=0.03,
-                num_leaves=63, subsample=0.8, colsample_bytree=0.7,
-                min_child_samples=20, random_state=42, n_jobs=-1, verbose=-1,
-            )
-            reg.fit(X_train, y_train)
-            score_mask = (df['fiscal_year'] == score_yr).values
-            if score_mask.sum() == 0:
-                continue
-            X_score = df.loc[score_mask, feats].fillna(train_med)
-            reg_scores[score_mask] = reg.predict(X_score)
-        df['reg_3y_wf'] = reg_scores
-        n_reg = (~np.isnan(reg_scores)).sum()
-        print(f'      reg_3y: {n_reg:,} rows scored walk-forward', flush=True)
-
-    # Also keep static model scores as fallback (for years before walk-forward kicks in)
-    meta_path = MODELS_DIR / 'model_meta.json'
-    if meta_path.exists():
-        meta = json.loads(meta_path.read_text())
-        loaded: dict[str, tuple] = {}
-        all_feats_set: set[str] = set()
-        for h in ['1y', '3y', '5y']:
-            p = MODELS_DIR / f'model_{h}.joblib'
-            if not p.exists():
-                continue
-            clf = joblib.load(p)
-            feats = [f for f in meta[h]['features'] if f in df.columns]
-            loaded[h] = (clf, feats)
-            all_feats_set.update(feats)
-
-        all_feats_list = sorted(all_feats_set)
-        all_years = sorted(df['fiscal_year'].unique())
-        exp_med: dict[int, pd.Series] = {}
-        for yr in all_years:
-            exp_med[yr] = df.loc[df['fiscal_year'] <= yr, all_feats_list].median()
-
-        for h, (clf, feats) in loaded.items():
-            static_scores = np.full(len(df), np.nan)
-            for yr in all_years:
-                mask = (df['fiscal_year'] == yr).values
-                if mask.sum() == 0:
-                    continue
-                X = df.loc[mask, feats].fillna(exp_med[yr][feats])
-                static_scores[mask] = clf.predict_proba(X)[:, 1]
-            df[f'ml_{h}'] = static_scores
-
-    return df
+    if label_policy not in LABEL_POLICIES:
+        raise ValueError(f"Unknown label policy: {label_policy}")
+    return df.drop(columns=["ml_1y", "ml_3y", "ml_5y"], errors="ignore").copy()
 
 
 # ── Strategy filter functions ─────────────────────────────────────────────────
 
-def _ml(s: pd.DataFrame, horizon: str) -> str:
-    """Return the best available ML column name for a given horizon."""
-    wf = f'ml_{horizon}_wf'
-    st = f'ml_{horizon}'
-    if wf in s.columns and s[wf].notna().sum() > 5:
-        return wf
-    return st
+ENGINE_REQUIREMENTS = {
+    "composite": (
+        ScoreRequirement("ml_1y_wf", "classifier_ranker", "1y"),
+        ScoreRequirement("ml_3y_wf", "classifier_ranker", "3y"),
+    ),
+    "ml_gates": (
+        ScoreRequirement("tree_prob", "tree_agreement_gate", "3y"),
+        ScoreRequirement("reg_3y_wf", "regression_ranker", "3y"),
+    ),
+    "qem": (ScoreRequirement("ml_1y_wf", "classifier_ranker", "1y"),),
+    "scdv": (ScoreRequirement("ml_3y_wf", "classifier_ranker", "3y"),),
+    "iarb": (ScoreRequirement("ml_3y_wf", "classifier_ranker", "3y"),),
+}
+
+
+def _score_eligible(
+    yr_df: pd.DataFrame, requirements: tuple[ScoreRequirement, ...]
+) -> pd.DataFrame:
+    mask = validate_historical_scores(yr_df, requirements)
+    return yr_df.loc[mask].copy()
 
 
 def filter_composite(yr_df: pd.DataFrame, top_n: int, market: str | None,
                      mode: str = 'blended') -> pd.Index:
-    s = yr_df.copy()
+    strategy = "ml_gates" if mode == "ml_gates" else "composite"
+    s = _score_eligible(yr_df, ENGINE_REQUIREMENTS[strategy])
     if market:
         s = s[s['market'] == market]
 
     # ── Hard gates (both modes) ──────────────────────────────────────────────
     if 'beneish_m_score' in s.columns:
         s = s[s['beneish_m_score'].fillna(0) < BENEISH_THRESHOLD]
-    if 'likely_delisted' in s.columns:
-        s = s[s['likely_delisted'].fillna(1) == 0]
-
     if mode == 'ml_gates':
         # Quality gate: Piotroski >= MIN + ROA positive (filters value traps)
         if 'piotroski_f_score' in s.columns:
@@ -464,30 +218,27 @@ def filter_composite(yr_df: pd.DataFrame, top_n: int, market: str | None,
         # Momentum gate: exclude structural decliners
         if 'momentum_12m_prior' in s.columns:
             s = s[s['momentum_12m_prior'].fillna(0) > MOMENTUM_12M_MIN]
-        # Rank by regression 3y (return magnitude), fallback to classification
-        if 'reg_3y_wf' in s.columns and s['reg_3y_wf'].notna().sum() > 5:
-            return s.nlargest(top_n, 'reg_3y_wf').index
-        ml_col = _ml(s, '3y')
-        if ml_col not in s.columns or s[ml_col].notna().sum() == 0:
-            return pd.Index([])
-        return s.nlargest(top_n, ml_col).index
+        return complete_top_n(
+            yr_df, s, score_col="reg_3y_wf", target_n=top_n
+        )
 
     # ── Blended mode (legacy default) ────────────────────────────────────────
     score = pd.Series(0.0, index=s.index)
     total_w = 0.0
+    required_cols = {req.score_col for req in ENGINE_REQUIREMENTS["composite"]}
     for col, w in [('value_composite', 0.25), ('quality_composite', 0.20),
-                   (_ml(s, '1y'), 0.30), (_ml(s, '3y'), 0.15), ('piotroski_f_score', 0.10)]:
-        if col in s.columns and s[col].notna().sum() > 5:
+                   ('ml_1y_wf', 0.30), ('ml_3y_wf', 0.15), ('piotroski_f_score', 0.10)]:
+        if col in s.columns and (col in required_cols or s[col].notna().sum() > 5):
             score += s[col].rank(pct=True) * w
             total_w += w
     if total_w == 0:
         return pd.Index([])
     s['_score'] = score / total_w
-    return s.nlargest(top_n, '_score').index
+    return complete_top_n(yr_df, s, score_col="_score", target_n=top_n)
 
 
 def filter_qem(yr_df: pd.DataFrame, top_n: int, market: str | None) -> pd.Index:
-    s = yr_df.copy()
+    s = _score_eligible(yr_df, ENGINE_REQUIREMENTS["qem"])
     if market:
         s = s[s['market'] == market]
     s = s[s['piotroski_f_score'].fillna(0) >= 7]
@@ -502,20 +253,21 @@ def filter_qem(yr_df: pd.DataFrame, top_n: int, market: str | None) -> pd.Index:
         s = s[s['earnings_yield'].fillna(-99) > 0]
     score = pd.Series(0.0, index=s.index)
     total_w = 0.0
+    required_cols = {req.score_col for req in ENGINE_REQUIREMENTS["qem"]}
     for col, w in [('eps_growth_yoy', 0.20), ('quality_composite', 0.25),
-                   (_ml(s, '1y'), 0.25), ('momentum_12m_prior', 0.15),
+                   ('ml_1y_wf', 0.25), ('momentum_12m_prior', 0.15),
                    ('value_composite', 0.15)]:
-        if col in s.columns and s[col].notna().sum() > 3:
+        if col in s.columns and (col in required_cols or s[col].notna().sum() > 3):
             score += s[col].rank(pct=True) * w
             total_w += w
     if total_w == 0:
         return pd.Index([])
     s['_score'] = score / total_w
-    return s.nlargest(top_n, '_score').index
+    return complete_top_n(yr_df, s, score_col="_score", target_n=top_n)
 
 
 def filter_scdv(yr_df: pd.DataFrame, top_n: int, market: str | None) -> pd.Index:
-    s = yr_df.copy()
+    s = _score_eligible(yr_df, ENGINE_REQUIREMENTS["scdv"])
     if market:
         s = s[s['market'] == market]
     if 'size_category_label' in s.columns:
@@ -529,9 +281,10 @@ def filter_scdv(yr_df: pd.DataFrame, top_n: int, market: str | None) -> pd.Index
         s = s[s['altman_z_score'].fillna(0) > 1.81]
     score = pd.Series(0.0, index=s.index)
     total_w = 0.0
+    required_cols = {req.score_col for req in ENGINE_REQUIREMENTS["scdv"]}
     for col, w in [('value_composite', 0.35), ('quality_composite', 0.25),
-                   (_ml(s, '3y'), 0.25), ('piotroski_f_score', 0.15)]:
-        if col in s.columns and s[col].notna().sum() > 3:
+                   ('ml_3y_wf', 0.25), ('piotroski_f_score', 0.15)]:
+        if col in s.columns and (col in required_cols or s[col].notna().sum() > 3):
             score += s[col].rank(pct=True) * w
             total_w += w
     if total_w == 0:
@@ -540,11 +293,11 @@ def filter_scdv(yr_df: pd.DataFrame, top_n: int, market: str | None) -> pd.Index
     if 'debt_to_equity' in s.columns:
         penalty = s['debt_to_equity'].fillna(0).clip(0, 2) * 0.05
         s['_score'] = s['_score'] - penalty
-    return s.nlargest(top_n, '_score').index
+    return complete_top_n(yr_df, s, score_col="_score", target_n=top_n)
 
 
 def filter_iarb(yr_df: pd.DataFrame, top_n: int, market: str | None) -> pd.Index:
-    s = yr_df.copy()
+    s = _score_eligible(yr_df, ENGINE_REQUIREMENTS["iarb"])
     if market:
         s = s[s['market'] == market]
     s = s[s['market'] != 'US']
@@ -555,16 +308,17 @@ def filter_iarb(yr_df: pd.DataFrame, top_n: int, market: str | None) -> pd.Index
         s = s[s['beneish_m_score'].fillna(0) < -1.78]
     score = pd.Series(0.0, index=s.index)
     total_w = 0.0
+    required_cols = {req.score_col for req in ENGINE_REQUIREMENTS["iarb"]}
     for col, w in [('value_composite', 0.30), ('quality_composite', 0.25),
-                   (_ml(s, '3y'), 0.25), ('momentum_12m_prior', 0.20)]:
-        if col in s.columns and s[col].notna().sum() > 3:
+                   ('ml_3y_wf', 0.25), ('momentum_12m_prior', 0.20)]:
+        if col in s.columns and (col in required_cols or s[col].notna().sum() > 3):
             score += s[col].rank(pct=True) * w
             total_w += w
     if total_w == 0:
         return pd.Index([])
     market_boost = {'KR': 0.05, 'BR': 0.03, 'CA': 0.02}
     s['_score'] = (score / total_w if total_w > 0 else score) + s['market'].map(market_boost).fillna(0)
-    return s.nlargest(top_n, '_score').index
+    return complete_top_n(yr_df, s, score_col="_score", target_n=top_n)
 
 
 STRATEGIES = {
@@ -579,6 +333,51 @@ STRATEGIES = {
 # ── Walk-forward engine ───────────────────────────────────────────────────────
 
 MAX_FILING_LAG_MONTHS = 18   # reject filings > 18 months after fiscal year-end
+
+ASOF_HISTORICAL_GATES = {
+    "asof_listing_eligible": True,
+    "asof_filing_stale": False,
+    "asof_delisting_notice_known": False,
+    "asof_quote_recent": True,
+    "asof_adtv_eligible": True,
+}
+
+
+def _apply_asof_historical_gates(
+    yr_df: pd.DataFrame, decision_timestamp: pd.Timestamp
+) -> pd.DataFrame:
+    """Apply only separately named, provenance-backed decision-time gates.
+
+    The future-derived ``likely_delisted`` annotation is deliberately ignored.
+    When an as-of gate is supplied, its value, timestamp, and source must all be
+    present; incomplete evidence fails closed for that row.
+    """
+    eligible = pd.Series(True, index=yr_df.index)
+    exclusions: dict[object, list[str]] = {}
+    for field, required_value in ASOF_HISTORICAL_GATES.items():
+        if field not in yr_df.columns:
+            continue
+        timestamp_col = f"{field}_timestamp"
+        source_col = f"{field}_source"
+        if timestamp_col not in yr_df.columns or source_col not in yr_df.columns:
+            valid = pd.Series(False, index=yr_df.index)
+        else:
+            timestamps = pd.to_datetime(yr_df[timestamp_col], errors="coerce")
+            sources = yr_df[source_col].fillna("").astype(str).str.strip()
+            valid = (
+                yr_df[field].notna()
+                & timestamps.notna()
+                & (timestamps <= decision_timestamp)
+                & sources.ne("")
+                & yr_df[field].eq(required_value)
+            )
+        for idx in yr_df.index[~valid]:
+            exclusions.setdefault(idx, []).append(f"{field}:ineligible_or_unproven")
+        eligible &= valid
+    result = yr_df.loc[eligible].copy()
+    result.attrs.update(yr_df.attrs)
+    result.attrs["asof_gate_exclusions"] = exclusions
+    return result
 
 
 def _apply_filing_lag_filter(yr_df: pd.DataFrame, yr: int,
@@ -649,25 +448,28 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
                  max_market_cap: int = MAX_MARKET_CAP,
                  vol_weighted: bool = True,
                  fill_missing_return: float | None = None,
-                 survivorship_mode: str = 'impute',
+                 survivorship_mode: str = OBSERVED_RETURN_ONLY,
+                 return_policy: str | None = None,
                  max_filing_lag_months: int = MAX_FILING_LAG_MONTHS,
                  filing_date_gate: bool = True,
                  spy_returns: dict | None = None,
                  acwi_exus_returns: dict | None = None,
                  is_non_us: bool = False,
                  monthly_px: pd.DataFrame | None = None,
+                 corporate_actions: pd.DataFrame | None = None,
+                 monthly_risk_free: pd.Series | pd.DataFrame | dict | None = None,
                  use_adtv_filter: bool = True,
                  max_pct_adtv: float = 0.01,
                  aum_target: float = 200_000) -> dict:
     """Walk-forward backtest engine.
 
     Args:
-        fill_missing_return: If set, overrides the survivorship_mode imputation
-            value. Default None means survivorship_mode controls behavior.
-        survivorship_mode: How to handle stocks with NaN forward_return_1y.
-            'impute' (default): impute -0.5 return (missing ~ delisted).
-            'drop': drop rows (optimistic, old behavior).
-            'flag_only': drop but log count per year.
+        fill_missing_return: Deprecated and rejected. Missing labels/prices may
+            not select an implicit return policy.
+        survivorship_mode: Backward-compatible name for one of the three
+            explicit return policies. Prefer ``return_policy``.
+        return_policy: ``observed_only``, ``include_policy_imputed_50``, or
+            ``include_policy_imputed_100``.
         max_filing_lag_months: Drop filings received more than N months after
             fiscal year-end (look-ahead protection). Default 18.
         filing_date_gate: When True, only include stocks whose filed_date
@@ -679,29 +481,30 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
             benchmark. Used as primary benchmark when is_non_us=True.
         is_non_us: When True, use ACWI ex-US (or equal-weight non-US universe)
             as primary benchmark instead of SPY. SPY remains informational.
-        monthly_px: Monthly price cache from build_monthly_price_cache.py.
-            When provided, MaxDD is computed from a monthly NAV curve instead
-            of the annual wealth index (fixes the MaxDD=0% bug).
+        monthly_px: Frozen monthly total-return price evidence. Complete
+            selected-holding coverage is required for official performance.
+        corporate_actions: Dated resolution/unresolved-event evidence used only
+            when selected-holding price coverage ends.
+        monthly_risk_free: Frozen, time-aligned monthly risk-free returns.
+            Sharpe and Sortino are unavailable when coverage is incomplete.
         use_adtv_filter: When True and monthly_px is available, remove picks
             that would require trading > max_pct_adtv of 30d median ADTV.
         max_pct_adtv: Max fraction of ADTV per position (default 1%).
         aum_target: Portfolio AUM in dollars (default $200K for retail).
     """
-    # Resolve effective imputation value from survivorship_mode
     if fill_missing_return is not None:
-        _impute_val = fill_missing_return
-        _do_impute = True
-    elif survivorship_mode == 'impute':
-        _impute_val = -0.5
-        _do_impute = True
-    else:
-        _impute_val = None
-        _do_impute = False
+        raise ValueError(
+            "fill_missing_return is prohibited; select an explicit return_policy"
+        )
+    effective_return_policy = return_policy or survivorship_mode
+    if effective_return_policy not in RETURN_POLICIES:
+        raise ValueError(
+            f"return_policy must be one of {RETURN_POLICIES}; got {effective_return_policy!r}"
+        )
 
     years = sorted(y for y in df['fiscal_year'].unique() if y <= 2023)
     annual_rows = []
-    total_survivorship_dropped = 0
-    total_picks_attempted = 0
+    score_coverage: list[dict] = []
 
     for yr in years:
         yr_df = df[df['fiscal_year'] == yr].copy()
@@ -715,6 +518,10 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
             holding_start = pd.Timestamp(f'{yr + 1}-01-01')
             yr_df = yr_df[filed.isna() | (filed < holding_start)]
 
+        yr_df = _apply_asof_historical_gates(
+            yr_df, pd.Timestamp(f'{yr + 1}-01-01')
+        )
+
         # Liquidity pre-filter: remove stocks outside market cap range
         if 'market_cap_at_filing' in yr_df.columns:
             if min_market_cap > 0:
@@ -722,34 +529,28 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
             if max_market_cap > 0:
                 yr_df = yr_df[yr_df['market_cap_at_filing'].fillna(0) <= max_market_cap]
 
-        # ADTV liquidity filter: remove tickers too illiquid for a 5%-ADTV position
+        # Planned equal-weight position must stay within the configured ADTV share.
         if use_adtv_filter and monthly_px is not None:
-            yr_df = adtv_filter(yr_df, monthly_px, yr, max_pct_adtv, aum_target)
+            yr_df = adtv_filter(
+                yr_df, monthly_px, yr, max_pct_adtv, aum_target, target_n=top_n
+            )
 
         idx = filter_fn(yr_df, top_n, market)
+        coverage = dict(yr_df.attrs.get("historical_score_coverage", {}))
+        coverage.setdefault("target_n", int(top_n))
+        coverage.setdefault("selected_count", int(len(idx)))
+        if len(idx) != top_n:
+            coverage["selected_count"] = int(len(idx))
+            coverage["period_exclusion_reason"] = (
+                coverage.get("period_exclusion_reason")
+                or "insufficient_target_n_coverage"
+            )
+            score_coverage.append({"year": int(yr), **coverage})
+            continue
+        score_coverage.append({"year": int(yr), **coverage})
         picks = yr_df.loc[idx]
 
-        if 'forward_return_1y' not in picks.columns:
-            continue
-
-        n_picks_raw = len(picks)
-        total_picks_attempted += n_picks_raw
-
-        # ── Survivorship bias handling ────────────────────────────────────────
-        missing_mask = picks['forward_return_1y'].isna()
-        n_missing = int(missing_mask.sum())
-        total_survivorship_dropped += n_missing
-
-        if _do_impute and n_missing > 0:
-            picks = picks.copy()
-            picks.loc[missing_mask, 'forward_return_1y'] = _impute_val
-            picks_valid = picks
-        else:
-            picks_valid = picks[~missing_mask]
-
-        rets = picks_valid['forward_return_1y']
-        if len(rets) < 3:
-            continue
+        picks_valid = picks.copy()
 
         # Per-pick cost: tiered by market_cap_at_filing if available, else legacy flags
         if 'market_cap_at_filing' in picks_valid.columns:
@@ -764,9 +565,7 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
                                      smallcap_cost_bps / 10000,
                                      cost_bps / 10000)
         else:
-            per_pick_cost = np.full(len(rets), cost_bps / 10000)
-
-        net_rets = rets.values - per_pick_cost
+            per_pick_cost = np.full(len(picks_valid), cost_bps / 10000)
 
         # Inverse-volatility weighting (falls back to equal-weight if vol unavailable)
         if vol_weighted and 'vol_prior_12m' in picks_valid.columns:
@@ -781,194 +580,117 @@ def run_backtest(df: pd.DataFrame, filter_fn, label: str,
             weights = _apply_sector_cap(weights, picks_valid.reset_index(drop=True),
                                         MAX_SECTOR_WEIGHT)
         else:
-            weights = np.ones(len(net_rets)) / len(net_rets)
+            weights = np.ones(len(picks_valid)) / len(picks_valid)
 
-        port_ret = float(np.dot(weights, net_rets))
         cost_drag = float(np.dot(weights, per_pick_cost))
-
-        # ── Benchmark: primary depends on US vs non-US ──────────────────────
-        # Non-US strategies: ACWI ex-US (primary) or equal-weight non-US universe
-        # US strategies: SPY (primary) or equal-weight universe
-        # SPY always tracked as informational for all strategies
-        bench_df = yr_df.copy()
-        if market:
-            bench_df = bench_df[bench_df['market'] == market]
-        if _do_impute:
-            bench_df['forward_return_1y'] = bench_df['forward_return_1y'].fillna(_impute_val)
-        bench_rets_s = bench_df['forward_return_1y'].dropna()
-        universe_ret = bench_rets_s.mean() if len(bench_rets_s) > 5 else np.nan
-        bench_coverage = len(bench_rets_s) / max(len(bench_df), 1)
-
-        spy_ret = spy_returns.get(int(yr)) if spy_returns else None
-        acwi_ret = acwi_exus_returns.get(int(yr)) if acwi_exus_returns else None
-
-        if is_non_us:
-            bench_ret = acwi_ret if acwi_ret is not None else universe_ret
-        else:
-            bench_ret = spy_ret if spy_ret is not None else universe_ret
 
         annual_rows.append({
             'year':            yr,
-            'port_ret':        port_ret,
-            'bench_ret':       bench_ret,
-            'spy_ret':         spy_ret,
-            'acwi_ret':        acwi_ret,
-            'universe_ret':    universe_ret,
-            'excess':          port_ret - bench_ret if pd.notna(bench_ret) else np.nan,
-            'excess_vs_spy':   port_ret - spy_ret if spy_ret is not None else np.nan,
-            'excess_vs_univ':  port_ret - universe_ret if pd.notna(universe_ret) else np.nan,
             'cost_drag':       cost_drag,
-            'n_picks':         len(rets),
-            'hit_rate':        (rets.values > 0).mean(),
-            'n_missing_ret':   n_missing,
-            'bench_coverage':  round(bench_coverage, 3),
-            # Stored for monthly NAV reconstruction; not serialised to JSON
-            '_picks_valid':    picks_valid if monthly_px is not None else None,
-            '_weights':        weights.tolist() if monthly_px is not None else None,
+            'n_picks':         len(picks_valid),
+            '_picks_valid':    picks_valid,
+            '_weights':        weights.tolist(),
+            '_per_pick_cost':  per_pick_cost.tolist(),
         })
 
+    coverage_gaps = [
+        row for row in score_coverage if row.get("period_exclusion_reason")
+    ]
+    if coverage_gaps:
+        return {
+            'label': label,
+            'n_years': 0,
+            'error': 'incomplete official score coverage',
+            'official_performance_available': False,
+            'unavailable_years': [int(row['year']) for row in coverage_gaps],
+            'score_coverage': score_coverage,
+        }
+
     if not annual_rows:
-        return {'label': label, 'n_years': 0, 'error': 'insufficient data'}
+        return {
+            'label': label,
+            'n_years': 0,
+            'error': 'insufficient data',
+            'official_performance_available': False,
+            'score_coverage': score_coverage,
+        }
+    nav_result = build_monthly_nav(
+        annual_rows,
+        monthly_px,
+        return_policy=effective_return_policy,
+        corporate_actions=corporate_actions,
+    )
+    if not nav_result["available"]:
+        return {
+            "label": label,
+            "n_years": 0,
+            "error": "incomplete canonical monthly NAV evidence",
+            "official_performance_available": False,
+            "return_policy": effective_return_policy,
+            "nav_exclusions": nav_result["exclusions"],
+            "score_coverage": score_coverage,
+        }
 
-    res = pd.DataFrame(annual_rows)
-    n = len(res)
-
-    # Cumulative wealth index
-    wealth       = np.cumprod(1 + res['port_ret'].values)
-    bench_wealth = np.cumprod(1 + res['bench_ret'].fillna(0).values)
-    spy_vec      = res['spy_ret'].fillna(res['universe_ret'].fillna(0)).values
-    spy_wealth   = np.cumprod(1 + spy_vec)
-
-    # Max drawdown — use monthly NAV curve when price cache is available
-    if monthly_px is not None:
-        max_dd, dd_dur_months = compute_monthly_nav(annual_rows, monthly_px)
-    else:
-        # Fallback: annual-frequency drawdown (understates true intra-year drawdowns)
-        peak      = np.maximum.accumulate(wealth)
-        drawdowns = (wealth - peak) / peak
-        max_dd    = float(drawdowns.min())
-        in_dd = drawdowns < 0
-        dd_dur_months = 0
-        cur_dur = 0
-        for in_d in in_dd:
-            cur_dur = cur_dur + 12 if in_d else 0
-            dd_dur_months = max(dd_dur_months, cur_dur)
-
-    cagr       = float(wealth[-1] ** (1 / n) - 1)
-    bench_cagr = float(bench_wealth[-1] ** (1 / n) - 1)
-    spy_cagr   = float(spy_wealth[-1] ** (1 / n) - 1)
-    vol        = float(res['port_ret'].std())
-    sharpe     = float((cagr - RISK_FREE) / vol) if vol > 0 else np.nan
-
-    # Sortino ratio — downside deviation below zero (annual frequency)
-    # When all years are positive downside_vol = 0; fall back to Sharpe as an approximation.
-    n_negative = int((res['port_ret'] < 0).sum())
-    downside_vol = float(np.sqrt((res['port_ret'].clip(upper=0) ** 2).mean()))
-    if downside_vol > 0:
-        sortino = float((cagr - RISK_FREE) / downside_vol)
-    elif vol > 0:
-        sortino = float(sharpe)  # all years positive: sortino >= sharpe, use sharpe as lower bound
-    else:
-        sortino = np.nan
-
-    # Calmar ratio — when MaxDD < 2% (e.g. all positive annual years), use 2σ as proxy.
-    # Annual MaxDD ≈ 2σ is a common conservative approximation for annual-frequency data.
-    effective_dd = abs(max_dd) if abs(max_dd) >= 0.02 else max(2 * vol, 0.01)
-    calmar = float(cagr / effective_dd) if effective_dd > 0 else np.nan
-
-    # Information ratio
-    excess_std = float(res['excess'].std())
-    info_ratio = float(res['excess'].mean() / excess_std) if excess_std > 0 else np.nan
-
-    # Beta vs SPY (OLS regression of port returns on SPY returns)
-    spy_aligned = res['spy_ret'].dropna()
-    port_aligned = res.loc[spy_aligned.index, 'port_ret']
-    if len(spy_aligned) >= 5:
-        slope, intercept, r_val, _, _ = stats.linregress(spy_aligned, port_aligned)
-        beta_vs_spy = round(float(slope), 3)
-        alpha_vs_spy = round(float(intercept), 4)
-        r_squared = round(float(r_val ** 2), 3)
-    else:
-        beta_vs_spy = alpha_vs_spy = r_squared = None
-
-    # Tracking error vs SPY
-    excess_vs_spy = res['excess_vs_spy'].dropna()
-    tracking_error = round(float(excess_vs_spy.std()), 4) if len(excess_vs_spy) >= 3 else None
-
-    # Annual turnover — approximate from n_picks and top_n
-    avg_picks = float(res['n_picks'].mean())
-    annual_turnover_pct = round(avg_picks / max(top_n, 1) * 100, 1)
-
-    # VaR 95% (historical simulation, annual)
-    rets_arr = res['port_ret'].values
-    var_95 = round(float(np.percentile(rets_arr, 5)) * 100, 2)
-
-    # CVaR 99% / Expected Shortfall — mean return in the worst 1% of annual outcomes
-    _tail = rets_arr[rets_arr <= np.percentile(rets_arr, 1)]
-    cvar_99 = round(float(_tail.mean()) * 100, 2) if len(_tail) > 0 else var_95
-
-    # Rolling 3y Sharpe appended to each annual row
-    rolling_sharpe_3y: list[float | None] = []
-    for i in range(n):
-        if i < 2:
-            rolling_sharpe_3y.append(None)
-        else:
-            w = rets_arr[i - 2:i + 1]
-            rs = (w.mean() - RISK_FREE / 3) / w.std() if w.std() > 0 else None
-            rolling_sharpe_3y.append(round(float(rs), 3) if rs is not None else None)
-
-    # Bootstrap CIs (block bootstrap, 2000 samples)
-    boot = bootstrap_ci(rets_arr)
-
+    nav = nav_result["nav"]
+    metrics = compute_nav_metrics(nav, monthly_risk_free=monthly_risk_free)
+    annual = annual_returns_from_nav(nav)
+    annual_by_holding_year = {int(row["year"]) + 1: row for row in annual_rows}
+    annual_output = []
+    for row in annual:
+        source = annual_by_holding_year[row["year"]]
+        annual_output.append({
+            "year": row["year"] - 1,
+            "holding_year": row["year"],
+            "port_pct": round(row["net_return"] * 100, 2),
+            "monthly_product_pct": round(row["monthly_product_return"] * 100, 12),
+            "reconciliation_error": row["reconciliation_error"],
+            "n_picks": int(source["n_picks"]),
+            "cost_drag_bps": round(float(source["cost_drag"]) * 10000, 2),
+        })
+    annual_returns = np.array([row["net_return"] for row in annual], dtype=float)
+    monthly_returns = nav["monthly_net_return"].dropna().to_numpy(dtype=float)
+    avg_picks = float(np.mean([row["n_picks"] for row in annual_rows]))
     return {
-        'label':                label,
-        'n_years':              n,
-        'cagr_pct':             round(cagr * 100, 2),
-        'bench_cagr_pct':       round(bench_cagr * 100, 2),
-        'excess_cagr_pct':      round((cagr - bench_cagr) * 100, 2),
-        'benchmark_source':     ('ACWI_exUS' if is_non_us and acwi_exus_returns
-                                 else 'SPY' if spy_returns and not is_non_us
-                                 else 'equal_weight_universe'),
-        'spy_cagr_pct':         round(spy_cagr * 100, 2),
-        'excess_cagr_vs_spy':   round((cagr - spy_cagr) * 100, 2),
-        'beta_vs_spy':          beta_vs_spy,
-        'alpha_vs_spy':         alpha_vs_spy,
-        'r_squared_vs_spy':     r_squared,
-        'tracking_error':       tracking_error,
-        'annual_turnover_pct':  annual_turnover_pct,
-        'var_95_pct':           var_95,
-        'cvar_99_pct':          cvar_99,
-        'max_drawdown_pct':     round(max_dd * 100, 2),
-        'max_drawdown_duration_months': dd_dur_months,
-        'sharpe':               round(sharpe, 3) if pd.notna(sharpe) else None,
-        'sortino':              round(sortino, 3) if pd.notna(sortino) else None,
-        'calmar':               round(calmar, 3) if pd.notna(calmar) else None,
-        'info_ratio':           round(info_ratio, 3) if pd.notna(info_ratio) else None,
-        'hit_rate_pct':         round(res['hit_rate'].mean() * 100, 1),
-        'avg_cost_drag_bps':    round(res['cost_drag'].mean() * 10000, 1),
-        'best_year_pct':        round(res['port_ret'].max() * 100, 2),
-        'worst_year_pct':       round(res['port_ret'].min() * 100, 2),
-        'survivorship_mode':    survivorship_mode,
-        'survivorship_pct':     round(total_survivorship_dropped / max(total_picks_attempted, 1) * 100, 1),
-        'cagr_bootstrap_mean_pct':   boot.get('cagr_bootstrap_mean_pct'),
-        'cagr_bootstrap_1sigma_pct': boot.get('cagr_bootstrap_1sigma_pct'),
-        'sharpe_bootstrap_mean':     boot.get('sharpe_bootstrap_mean'),
-        'sharpe_bootstrap_1sigma':   boot.get('sharpe_bootstrap_1sigma'),
-        'annual_returns': [
-            {
-                'year':            int(r['year']),
-                'port_pct':        round(r['port_ret'] * 100, 2),
-                'bench_pct':       round(r['bench_ret'] * 100, 2) if pd.notna(r['bench_ret']) else None,
-                'spy_pct':         round(r['spy_ret'] * 100, 2) if pd.notna(r.get('spy_ret', np.nan)) else None,
-                'excess_pct':      round(r['excess'] * 100, 2) if pd.notna(r['excess']) else None,
-                'excess_vs_spy':   round(r['excess_vs_spy'] * 100, 2) if pd.notna(r.get('excess_vs_spy', np.nan)) else None,
-                'n_picks':         int(r['n_picks']),
-                'n_missing_ret':   int(r['n_missing_ret']),
-                'bench_coverage':  r['bench_coverage'],
-                'rolling_sharpe':  rolling_sharpe_3y[i],
-            }
-            for i, (_, r) in enumerate(res.iterrows())
-        ],
+        "label": label,
+        "n_years": len(annual),
+        "official_performance_available": True,
+        "return_policy": effective_return_policy,
+        "metric_nav_column": metrics["metric_nav_column"],
+        "cagr_pct": round(metrics["cagr"] * 100, 2) if pd.notna(metrics["cagr"]) else None,
+        "bench_cagr_pct": None,
+        "excess_cagr_pct": None,
+        "benchmark_source": None,
+        "spy_cagr_pct": None,
+        "excess_cagr_vs_spy": None,
+        "beta_vs_spy": None,
+        "alpha_vs_spy": None,
+        "r_squared_vs_spy": None,
+        "tracking_error": None,
+        "annual_turnover_pct": round(avg_picks / max(top_n, 1) * 100, 1),
+        "var_95_pct": round(float(np.percentile(monthly_returns, 5)) * 100, 2),
+        "cvar_99_pct": round(float(monthly_returns[monthly_returns <= np.percentile(monthly_returns, 1)].mean()) * 100, 2),
+        "max_drawdown_pct": round(metrics["max_drawdown"] * 100, 2),
+        "max_drawdown_duration_months": metrics["max_drawdown_duration_months"],
+        "sharpe": round(metrics["sharpe"], 3) if pd.notna(metrics["sharpe"]) else None,
+        "sortino": round(metrics["sortino"], 3) if pd.notna(metrics["sortino"]) else None,
+        "calmar": round(metrics["calmar"], 3) if pd.notna(metrics["calmar"]) else None,
+        "info_ratio": None,
+        "hit_rate_pct": round(float((annual_returns > 0).mean()) * 100, 1),
+        "avg_cost_drag_bps": round(float(np.mean([row["cost_drag"] for row in annual_rows])) * 10000, 1),
+        "best_year_pct": round(float(annual_returns.max()) * 100, 2),
+        "worst_year_pct": round(float(annual_returns.min()) * 100, 2),
+        "best_month_pct": round(metrics["best_month"] * 100, 2),
+        "worst_month_pct": round(metrics["worst_month"] * 100, 2),
+        "negative_months": metrics["negative_months"],
+        "score_coverage": score_coverage,
+        "nav_exclusions": [],
+        "monthly_nav": nav.to_dict("records"),
+        "corporate_action_ledger": nav_result["ledger"].to_dict("records"),
+        "cagr_bootstrap_mean_pct": None,
+        "cagr_bootstrap_1sigma_pct": None,
+        "sharpe_bootstrap_mean": None,
+        "sharpe_bootstrap_1sigma": None,
+        "annual_returns": annual_output,
     }
 
 
@@ -1022,9 +744,8 @@ def print_tearsheet(result: dict) -> None:
     print(f'\n{sep}')
     print(f'  {result["label"]}')
     print(sep)
-    print(f'  Period:          {result["n_years"]} years  |  benchmark: {bench_src}')
-    print(f'  CAGR:            {result["cagr_pct"]:+.1f}%  '
-          f'(bench {result["bench_cagr_pct"]:+.1f}%  |  excess {result["excess_cagr_pct"]:+.1f}%)')
+    print(f'  Period:          {result["n_years"]} years  |  return policy: {result.get("return_policy")}')
+    print(f'  CAGR:            {result["cagr_pct"]:+.1f}%')
     if spy_cagr is not None:
         print(f'  vs SPY:          SPY {spy_cagr:+.1f}%  |  excess vs SPY {exc_spy:+.1f}%')
     beta = result.get('beta_vs_spy')
@@ -1051,20 +772,19 @@ def print_tearsheet(result: dict) -> None:
     print(f'  Info Ratio:      {result["info_ratio"]}')
     print(f'  Max Drawdown:    {result["max_drawdown_pct"]:.1f}%  '
           f'(duration {result.get("max_drawdown_duration_months", 0)} months)')
-    print(f'  VaR 95%:         {result.get("var_95_pct", "N/A")}%  (annual)')
-    print(f'  CVaR 99%:        {result.get("cvar_99_pct", "N/A")}%  (expected shortfall)')
+    print(f'  VaR 95%:         {result.get("var_95_pct", "N/A")}%  (monthly)')
+    print(f'  CVaR 99%:        {result.get("cvar_99_pct", "N/A")}%  (monthly expected shortfall)')
     print(f'  Turnover:        ~{result.get("annual_turnover_pct", "N/A")}% annual')
     print(f'  Hit Rate:        {result["hit_rate_pct"]:.0f}%')
     print(f'  Avg Cost Drag:   {result["avg_cost_drag_bps"]:.0f} bps')
-    print(f'  Survivorship:    {result.get("survivorship_pct", 0):.1f}% picks had missing return')
     print(f'  Best / Worst:    {result["best_year_pct"]:+.1f}% / {result["worst_year_pct"]:+.1f}%')
-    print(f'\n  Year  Port%   SPY%   Exc-SPY%  Picks  Missing  Roll3ySharpe')
+    print(f'\n  Fiscal  Holding  Port%   Picks  Cost bps  Reconciliation error')
     for row in result['annual_returns']:
-        spy_p = f'{row["spy_pct"]:+.1f}' if row.get('spy_pct') is not None else '  N/A '
-        exc_p = f'{row.get("excess_vs_spy"):+.1f}' if row.get('excess_vs_spy') is not None else '  N/A '
-        rs    = f'{row["rolling_sharpe"]:.2f}' if row['rolling_sharpe'] is not None else '  — '
-        mis   = row.get('n_missing_ret', 0)
-        print(f'  {row["year"]}  {row["port_pct"]:+5.1f}  {spy_p:>6}  {exc_p:>8}   {row["n_picks"]:3d}      {mis:3d}    {rs}')
+        print(
+            f'  {row["year"]:6d}  {row["holding_year"]:7d}  '
+            f'{row["port_pct"]:+5.1f}   {row["n_picks"]:3d}  '
+            f'{row["cost_drag_bps"]:8.1f}  {row["reconciliation_error"]:+.3e}'
+        )
     print(sep)
 
 
@@ -1086,13 +806,9 @@ def main():
                         help=f'Max market cap filter in USD (default {MAX_MARKET_CAP} = no ceiling)')
     parser.add_argument('--equal-weight', action='store_true',
                         help='Use equal-weight instead of inverse-volatility weighting')
-    parser.add_argument('--fill-missing', type=float, default=None, metavar='RETURN',
-                        help='Override survivorship imputation value '
-                             '(e.g. -0.5 for worst-case survivorship bias)')
-    parser.add_argument('--survivorship-mode', choices=['impute', 'drop', 'flag_only'],
-                        default='impute',
-                        help='How to handle missing forward returns: impute -50%% (default), '
-                             'drop (optimistic), or flag_only (drop + log)')
+    parser.add_argument('--return-policy', choices=RETURN_POLICIES,
+                        default=OBSERVED_RETURN_ONLY,
+                        help='Observed-only NAV or an explicit unresolved-event sensitivity')
     parser.add_argument('--max-filing-lag', type=int, default=MAX_FILING_LAG_MONTHS,
                         help=f'Max months between fiscal year-end and filed_date '
                              f'(look-ahead filter, default {MAX_FILING_LAG_MONTHS})')
@@ -1104,11 +820,13 @@ def main():
                         help='Disable ADTV liquidity filter (use if monthly_prices.parquet not built)')
     parser.add_argument('--aum-target', type=float, default=200_000,
                         help='Portfolio AUM in dollars for ADTV filter (default $200K retail)')
+    parser.add_argument('--label-policy', choices=LABEL_POLICIES, default=OBSERVED_ONLY,
+                        help='Observed-only model labels or explicit policy-imputed sensitivity')
     args = parser.parse_args()
 
     print('Loading + scoring full historical data...')
     df = load_full_hist()
-    df = load_and_score(df)
+    df = load_and_score(df, label_policy=args.label_policy)
     print(f'  {len(df):,} annual rows across {df["fiscal_year"].nunique()} years')
 
     # Load SPY benchmark data
@@ -1135,9 +853,7 @@ def main():
               f'({monthly_px["ticker"].nunique()} tickers, '
               f'{monthly_px["date"].min().date()} – {monthly_px["date"].max().date()})')
     else:
-        print('  Monthly price cache not found (data/monthly_prices.parquet) — '
-              'MaxDD will use annual approximation, ADTV filter disabled. '
-              'Run python3 -m pipeline.build_monthly_price_cache to build it.')
+        print('  Monthly price cache not found — official performance will fail closed.')
 
     to_run = list(STRATEGIES.keys()) if args.strategy == 'all' else [args.strategy]
     results = {}
@@ -1154,8 +870,7 @@ def main():
                               min_market_cap=args.min_cap,
                               max_market_cap=args.max_cap,
                               vol_weighted=not args.equal_weight,
-                              fill_missing_return=args.fill_missing,
-                              survivorship_mode=args.survivorship_mode,
+                              return_policy=args.return_policy,
                               max_filing_lag_months=args.max_filing_lag,
                               filing_date_gate=not args.no_filing_gate,
                               spy_returns=spy_returns,
@@ -1167,12 +882,8 @@ def main():
         results[key] = result
 
         if result.get('n_years', 0) > 0:
-            bench_str = f'SPY={result.get("spy_cagr_pct", "N/A"):+.1f}%' if spy_returns else f'bench={result["bench_cagr_pct"]:+.1f}%'
             print(
                 f'CAGR={result["cagr_pct"]:+.1f}%  '
-                f'{bench_str}  '
-                f'excess_vs_SPY={result.get("excess_cagr_vs_spy", "N/A"):+.1f}%  '
-                f'beta={result.get("beta_vs_spy", "N/A")}  '
                 f'Sharpe={result.get("sharpe","N/A")}  '
                 f'MaxDD={result["max_drawdown_pct"]:.1f}%'
             )
@@ -1187,17 +898,19 @@ def main():
         'min_market_cap':    args.min_cap,
         'max_market_cap':    args.max_cap,
         'vol_weighted':      not args.equal_weight,
-        'fill_missing':      args.fill_missing,
-        'survivorship_mode': args.survivorship_mode,
+        'return_policy':     args.return_policy,
+        'model_label_policy': args.label_policy,
         'max_filing_lag':    args.max_filing_lag,
         'filing_date_gate':  not args.no_filing_gate,
         'adtv_filter':       not args.no_adtv and monthly_px is not None,
         'aum_target':        args.aum_target,
-        'monthly_nav_maxdd': monthly_px is not None,
+        'canonical_monthly_nav': monthly_px is not None,
         'strategies':        results,
     }
-    OUT_PATH.write_text(json.dumps(out, indent=2, default=str))
-    print(f'\nSaved: {OUT_PATH}')
+    suffix = "" if args.return_policy == OBSERVED_RETURN_ONLY else f"_{args.return_policy}"
+    out_path = (OUT_PATH if not suffix else OUT_PATH.with_name(f'{OUT_PATH.stem}{suffix}{OUT_PATH.suffix}'))
+    out_path.write_text(json.dumps(out, indent=2, default=str))
+    print(f'\nSaved: {out_path}')
 
 
 if __name__ == '__main__':

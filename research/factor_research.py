@@ -60,9 +60,6 @@ def load_data() -> pd.DataFrame:
     df = df[df['fiscal_year'].between(2008, 2025)].copy()
     df = df.sort_values('total_assets', ascending=False, na_position='last')
     df = df.drop_duplicates(subset=['ticker', 'fiscal_year'], keep='first')
-    for col in [c for c in df.columns if 'growth_yoy' in c]:
-        lo, hi = df[col].quantile(0.01), df[col].quantile(0.99)
-        df[col] = df[col].clip(lo, hi)
     df = _add_normalised_ratios(df)
     return df.reset_index(drop=True)
 

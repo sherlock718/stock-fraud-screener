@@ -58,6 +58,9 @@ def base_df():
         'fiscal_quarter': [4] * n,
         'period_type': ['annual'] * n,
         'filed_date': pd.date_range('2016-02-01', periods=n, freq='365D'),
+        'availability_timestamp': pd.date_range('2016-02-01', periods=n, freq='365D'),
+        'availability_provenance': ['sec_primary_filing'] * n,
+        'entity_id': ['US:320193'] * 10 + ['US:789019'] * 10,
         'market': ['US'] * n,
         'sic_code': ['7372'] * n,
         # Financials
@@ -233,8 +236,8 @@ class TestRankLeakage:
         df = add_composite_scores(df)
 
         src = inspect.getsource(add_composite_scores)
-        assert 'groupby' in src and 'fiscal_year' in src, (
-            "add_composite_scores must rank within fiscal_year groups"
+        assert 'event_time_rank' in src and 'fiscal_year' in src, (
+            "add_composite_scores must use filing-time fiscal-year cohorts"
         )
 
     def test_composite_future_year_isolation(self):

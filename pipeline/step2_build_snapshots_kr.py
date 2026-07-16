@@ -416,8 +416,12 @@ def run(limit: int | None = None):
                 accounts   = extract_accounts(items)
                 rcept_no   = get_rcept_no(items)
                 filed_date = rcept_to_date(rcept_no)
+                availability_timestamp = filed_date
+                availability_provenance = 'dart_receipt'
                 if not filed_date:
                     filed_date = f'{year}-04-01'   # fallback estimate
+                    availability_timestamp = None
+                    availability_provenance = 'estimated_filing_date'
 
                 row = {
                     'cik':           corp_code,
@@ -429,7 +433,10 @@ def run(limit: int | None = None):
                     'fiscal_quarter': fp,
                     'period_type':   period_type,
                     'filed_date':    filed_date,
+                    'availability_timestamp': availability_timestamp,
+                    'availability_provenance': availability_provenance,
                     'market':        'KR',
+                    'entity_id':     f'KR:{corp_code}',
                     'country':       'KR',
                     'accounting_std': company.get('accounting_std', 'K-IFRS'),
                     'acc_mt':        acc_mt,

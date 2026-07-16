@@ -26,6 +26,15 @@ import pandas as pd
 from pathlib import Path
 from datetime import datetime
 from _root import ROOT
+from modeling.prediction_lineage import (
+    requirements_for_signals,
+    validate_historical_scores,
+)
+from backtest.monthly_nav import (
+    annual_returns_from_nav,
+    build_monthly_nav,
+    compute_nav_metrics,
+)
 
 BASE = ROOT
 
@@ -33,9 +42,8 @@ FULL_DATA    = BASE / 'data' / 'historical_dataset_clean.parquet'
 REGISTRY     = BASE / 'data' / 'alpha_registry.json'
 HOLDINGS_OUT = BASE / 'data' / 'portfolio_holdings.json'
 BACKTEST_OUT = BASE / 'data' / 'portfolio_backtest.json'
-SPY_PATH     = BASE / 'data' / 'spy_returns.csv'
+MONTHLY_CACHE = BASE / 'data' / 'monthly_prices.parquet'
 
-RISK_FREE      = 0.03
 MIN_MARKET_CAP = 10_000_000  # $10M floor — micro-cap / institution-avoidance niche
 
 
@@ -69,6 +77,9 @@ def load_registry(horizon_filter: str) -> tuple[list[str], dict[str, float]]:
 def compute_composite(df: pd.DataFrame, signal_cols: list[str],
                       ic_weights: dict[str, float]) -> pd.Series:
     """IC-weighted composite: percentile-rank each signal then weight-average."""
+    ml_eligible = validate_historical_scores(
+        df, requirements_for_signals(signal_cols)
+    )
     ranks: dict[str, pd.Series] = {}
     for col in signal_cols:
         if col in df.columns:
@@ -82,7 +93,15 @@ def compute_composite(df: pd.DataFrame, signal_cols: list[str],
             composite[valid] += ranks[col][valid] * w
             weight_sum[valid] += w
 
-    return composite / weight_sum.clip(lower=1e-9)
+    result = composite / weight_sum.clip(lower=1e-9)
+    declared_complete = pd.Series(True, index=df.index)
+    for col in signal_cols:
+        if col not in df.columns:
+            declared_complete &= False
+        else:
+            declared_complete &= df[col].notna()
+    result.loc[~(ml_eligible & declared_complete)] = np.nan
+    return result
 
 
 # ── Sizing ────────────────────────────────────────────────────────────────────
@@ -121,27 +140,19 @@ def apply_constraints(weights: pd.Series, df_slice: pd.DataFrame,
 
 # ── Backtest ──────────────────────────────────────────────────────────────────
 
-def _horizon_return_col(horizon: str, df_cols: list[str]) -> str:
-    """Map horizon string to the best available forward_return column."""
-    candidate = f'forward_return_{horizon}'
-    if candidate in df_cols:
-        return candidate
-    return 'forward_return_1y'
-
-
 def run_backtest(df: pd.DataFrame, signal_cols: list[str],
                  ic_weights: dict[str, float],
                  args: argparse.Namespace) -> dict:
-    spy_returns: dict[int, float] = {}
-    if SPY_PATH.exists():
-        spy_df = pd.read_csv(SPY_PATH)
-        spy_returns = dict(zip(spy_df['year'].astype(int), spy_df['spy_return'].astype(float)))
-
-    ret_col = _horizon_return_col(args.horizon, list(df.columns))
     years = sorted(df['fiscal_year'].dropna().unique().astype(int))
 
-    annual_returns: list[float] = []
-    annual_details: list[dict] = []
+    if args.strategy != 'long_only':
+        return {
+            'strategy': args.strategy,
+            'n_years': 0,
+            'official_performance_available': False,
+            'error': 'long/short financing and monthly ledger contract is not accepted',
+        }
+    annual_rows: list[dict] = []
 
     for year in years:
         yr = df[df['fiscal_year'] == year].copy()
@@ -154,67 +165,40 @@ def run_backtest(df: pd.DataFrame, signal_cols: list[str],
         if getattr(args, 'low_vol_only', False) and 'vol_prior_12m' in yr.columns:
             vol_median = yr['vol_prior_12m'].median()
             yr = yr[yr['vol_prior_12m'] <= vol_median]
-        if len(yr) < args.top_n or ret_col not in yr.columns:
-            continue
-        yr = yr.dropna(subset=[ret_col])
         if len(yr) < args.top_n:
             continue
 
         composite = compute_composite(yr, signal_cols, ic_weights)
         yr = yr.assign(_composite=composite)
+        yr = yr[yr['_composite'].notna()]
+        if len(yr) < args.top_n:
+            continue
 
-        if args.strategy == 'long_only':
-            top = yr.nlargest(args.top_n, '_composite')
-            w = kelly_weights(top['_composite'], args.kelly_fraction)
-            w = apply_constraints(w, top, args.position_cap, args.sector_cap)
-            port_ret = float((top[ret_col].values * w.values).sum())
-        else:
-            top = yr.nlargest(args.top_n, '_composite')
-            bot = yr.nsmallest(args.top_n, '_composite')
-            w_long = kelly_weights(top['_composite'], args.kelly_fraction)
-            w_long = apply_constraints(w_long, top, args.position_cap, args.sector_cap)
-            w_short = pd.Series(1.0 / len(bot), index=bot.index)
-            long_ret = float((top[ret_col].values * w_long.values).sum())
-            short_ret = float((bot[ret_col].values * w_short.values).sum())
-            port_ret = 0.5 * long_ret - 0.5 * short_ret
-
-        annual_returns.append(port_ret)
-        annual_details.append({
+        top = yr.nlargest(args.top_n, '_composite')
+        w = kelly_weights(top['_composite'], args.kelly_fraction)
+        w = apply_constraints(w, top, args.position_cap, args.sector_cap)
+        annual_rows.append({
             'year': int(year),
-            'return_pct': round(port_ret * 100, 2),
-            'spy_return_pct': round(spy_returns[year] * 100, 2) if year in spy_returns else None,
-            'n_stocks': len(top),
+            '_picks_valid': top,
+            '_weights': w.to_numpy().tolist(),
+            '_per_pick_cost': [0.0] * len(top),
+            'n_picks': len(top),
         })
 
-    if not annual_returns:
+    if not annual_rows:
         return {}
-
-    arr = np.array(annual_returns)
-    n = len(arr)
-    cagr = float(np.prod(1 + arr) ** (1 / n) - 1)
-    vol = float(arr.std(ddof=1)) if n > 1 else 0.0
-    sharpe = float((cagr - RISK_FREE) / vol) if vol > 0 else None
-    neg = arr[arr < RISK_FREE]
-    downside = float(neg.std(ddof=1)) if len(neg) > 1 else None
-    sortino = float((cagr - RISK_FREE) / downside) if downside and downside > 0 else None
-    cum = np.cumprod(1 + arr)
-    peak = np.maximum.accumulate(cum)
-    max_dd = float(((cum - peak) / peak).min())
-    implied_max_dd = -max(abs(max_dd), 2 * vol)  # annual sampling understates true dd; 2σ floor
-    var_95 = round(float(np.percentile(arr, 5)) * 100, 2)
-    _tail = arr[arr <= np.percentile(arr, 1)]
-    cvar_99 = round(float(_tail.mean()) * 100, 2) if len(_tail) > 0 else var_95
-
-    spy_overlap = [(arr[i], spy_returns[d['year']])
-                   for i, d in enumerate(annual_details) if d['year'] in spy_returns]
-    beta = alpha_ann = spy_cagr = excess = None
-    if len(spy_overlap) >= 3:
-        p_arr = np.array([x[0] for x in spy_overlap])
-        s_arr = np.array([x[1] for x in spy_overlap])
-        beta = float(np.cov(p_arr, s_arr)[0, 1] / np.var(s_arr))
-        spy_cagr = float(np.prod(1 + s_arr) ** (1 / len(s_arr)) - 1)
-        alpha_ann = float(cagr - RISK_FREE - beta * (spy_cagr - RISK_FREE))
-        excess = cagr - spy_cagr
+    monthly_px = pd.read_parquet(MONTHLY_CACHE) if MONTHLY_CACHE.exists() else None
+    nav_result = build_monthly_nav(annual_rows, monthly_px)
+    if not nav_result['available']:
+        return {
+            'strategy': args.strategy,
+            'n_years': 0,
+            'official_performance_available': False,
+            'error': 'incomplete canonical monthly NAV evidence',
+            'nav_exclusions': nav_result['exclusions'],
+        }
+    metrics = compute_nav_metrics(nav_result['nav'])
+    annual = annual_returns_from_nav(nav_result['nav'])
 
     return {
         'strategy': args.strategy,
@@ -224,21 +208,30 @@ def run_backtest(df: pd.DataFrame, signal_cols: list[str],
         'kelly_fraction': args.kelly_fraction,
         'sector_cap': args.sector_cap,
         'position_cap': args.position_cap,
-        'n_years': n,
-        'cagr_pct': round(cagr * 100, 2),
-        'sharpe': round(sharpe, 3) if sharpe is not None else None,
-        'sortino': round(sortino, 3) if sortino is not None else None,
-        'max_drawdown_pct': round(max_dd * 100, 2),
-        'implied_max_drawdown_pct': round(implied_max_dd * 100, 2),
-        'var_95_pct': var_95,
-        'cvar_99_pct': cvar_99,
-        'spy_cagr_pct': round(spy_cagr * 100, 2) if spy_cagr is not None else None,
-        'excess_cagr_pct': round(excess * 100, 2) if excess is not None else None,
-        'beta': round(beta, 3) if beta is not None else None,
-        'alpha_annualised_pct': round(alpha_ann * 100, 2) if alpha_ann is not None else None,
+        'n_years': len(annual),
+        'official_performance_available': True,
+        'metric_nav_column': metrics['metric_nav_column'],
+        'cagr_pct': round(metrics['cagr'] * 100, 2),
+        'sharpe': None,
+        'sortino': None,
+        'calmar': round(metrics['calmar'], 3) if pd.notna(metrics['calmar']) else None,
+        'max_drawdown_pct': round(metrics['max_drawdown'] * 100, 2),
+        'implied_max_drawdown_pct': None,
+        'var_95_pct': None,
+        'cvar_99_pct': None,
+        'spy_cagr_pct': None,
+        'excess_cagr_pct': None,
+        'beta': None,
+        'alpha_annualised_pct': None,
         'signals_used': signal_cols,
         'ic_weights': {k: round(v, 4) for k, v in ic_weights.items()},
-        'annual_returns': annual_details,
+        'annual_returns': [
+            {'year': row['year'] - 1, 'holding_year': row['year'],
+             'return_pct': round(row['net_return'] * 100, 2),
+             'reconciliation_error': row['reconciliation_error']}
+            for row in annual
+        ],
+        'monthly_nav': nav_result['nav'].to_dict('records'),
     }
 
 
@@ -275,6 +268,18 @@ def build_current_holdings(df: pd.DataFrame, signal_cols: list[str],
 
     composite = compute_composite(yr, signal_cols, ic_weights)
     yr = yr.assign(_composite=composite)
+    yr = yr[yr['_composite'].notna()]
+    if len(yr) < args.top_n:
+        return {
+            'generated_at': datetime.utcnow().isoformat() + 'Z',
+            'fiscal_year': latest_year,
+            'strategy': args.strategy,
+            'horizon': args.horizon,
+            'market': args.market,
+            'n_holdings': 0,
+            'exclusion_reason': 'insufficient_valid_score_coverage',
+            'holdings': [],
+        }
     top = yr.nlargest(args.top_n, '_composite')
     w = kelly_weights(top['_composite'], args.kelly_fraction)
     w = apply_constraints(w, top, args.position_cap, args.sector_cap)

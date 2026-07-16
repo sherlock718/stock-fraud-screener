@@ -62,6 +62,13 @@ except ImportError:
     XGB_AVAILABLE = False
 
 from modeling.constants import EXCLUDE_COLS, EXCLUDE_PATTERNS, load_data, get_feature_candidates
+from modeling.label_eligibility import LABEL_POLICIES, OBSERVED_ONLY, training_label_eligible
+from modeling.fold_lineage import (
+    LineageError,
+    SelectorConfig,
+    make_lineage,
+    select_fold_features,
+)
 
 DATA_PATH  = BASE / 'data' / 'historical_dataset_clean.parquet'
 MODELS_DIR = BASE / 'models'
@@ -185,20 +192,21 @@ def compute_psi(train: pd.Series, test: pd.Series, buckets: int = 10) -> float:
     return float(np.sum((a - e) * np.log(a / e)))
 
 
-def log_psi_report(df_train: pd.DataFrame, df_test: pd.DataFrame,
-                   features: list[str]) -> None:
-    """Print top-drifting features by PSI (train vs test)."""
+def log_psi_report(df_train: pd.DataFrame, df_development: pd.DataFrame,
+                   features: list[str], horizon: str | None = None) -> None:
+    """Print PSI using only the explicitly designated development split."""
     records = []
     for f in features:
-        if f not in df_train.columns or f not in df_test.columns:
+        if f not in df_train.columns or f not in df_development.columns:
             continue
-        psi = compute_psi(df_train[f], df_test[f])
+        psi = compute_psi(df_train[f], df_development[f])
         records.append({'feature': f, 'psi': round(psi, 4)})
     if not records:
         return
     psi_df = pd.DataFrame(records).sort_values('psi', ascending=False)
-    psi_df.to_csv(REPORTS / 'feature_psi_train_vs_test.csv', index=False)
-    print('\n  Top 10 features by distribution shift (PSI train→test):')
+    suffix = f'_{horizon}' if horizon else ''
+    psi_df.to_csv(REPORTS / f'feature_psi_train_vs_development{suffix}.csv', index=False)
+    print('\n  Top 10 features by distribution shift (train→development PSI):')
     for _, row in psi_df.head(10).iterrows():
         flag = ' ⚠' if row['psi'] > 0.20 else ''
         print(f'    {row["feature"]:<45} PSI={row["psi"]:.4f}{flag}')
@@ -207,28 +215,58 @@ def log_psi_report(df_train: pd.DataFrame, df_test: pd.DataFrame,
 
 
 
+def fit_sector_zscore_params(
+    df_train: pd.DataFrame, features: list[str], sic_col: str = 'sic_code'
+) -> dict[str, dict[str, dict[str, float]]]:
+    """Fit reusable sector parameters on eligible training rows only."""
+    if sic_col not in df_train:
+        return {}
+    params: dict[str, dict[str, dict[str, float]]] = {}
+    for feature in features:
+        if feature not in df_train:
+            continue
+        feature_params: dict[str, dict[str, float]] = {}
+        for sector, values in df_train.groupby(sic_col, dropna=False)[feature]:
+            clean = values.dropna().astype(float)
+            if len(clean) < 5:
+                continue
+            feature_params[str(sector)] = {
+                'mean': float(clean.mean()),
+                'std': max(float(clean.std()), 1e-8),
+                'count': int(len(clean)),
+            }
+        params[feature] = feature_params
+    return params
+
+
+def apply_sector_zscore_params(
+    df: pd.DataFrame,
+    features: list[str],
+    params: dict[str, dict[str, dict[str, float]]],
+    sic_col: str = 'sic_code',
+) -> pd.DataFrame:
+    """Apply frozen training-sector parameters without refitting on scoring rows."""
+    df_out = df.copy()
+    if sic_col not in df_out:
+        return df_out
+    sector_keys = df_out[sic_col].map(str)
+    for feat in features:
+        if feat not in df_out or feat not in params:
+            continue
+        means = sector_keys.map({k: v['mean'] for k, v in params[feat].items()})
+        stds = sector_keys.map({k: v['std'] for k, v in params[feat].items()})
+        known = means.notna() & stds.notna()
+        df_out.loc[known, feat] = (
+            df_out.loc[known, feat].astype(float) - means[known]
+        ) / stds[known]
+    return df_out
+
+
 def sector_zscore_normalize(df: pd.DataFrame, features: list[str],
                              sic_col: str = 'sic_code') -> pd.DataFrame:
-    """Within-sector z-score normalization per (fiscal_year, sector) group.
-
-    Removes cross-sector valuation level differences so IC measures
-    within-sector stock selection ability rather than between-sector tilts.
-    Groups with fewer than 5 members are left unnormalized to avoid
-    inflated z-scores from tiny groups.
-    """
-    df_out = df.copy()
-    if sic_col not in df.columns:
-        return df_out
-    for feat in features:
-        if feat not in df.columns:
-            continue
-        grouped = df_out.groupby(['fiscal_year', sic_col])[feat]
-        mu = grouped.transform('mean')
-        sigma = grouped.transform('std').clip(lower=1e-8)
-        group_sizes = grouped.transform('count')
-        normalized = (df_out[feat] - mu) / sigma
-        df_out[feat] = np.where(group_sizes >= 5, normalized, df_out[feat])
-    return df_out
+    """Backward-compatible training-only fit and application helper."""
+    params = fit_sector_zscore_params(df, features, sic_col)
+    return apply_sector_zscore_params(df, features, params, sic_col)
 
 
 def train_model(df_train: pd.DataFrame, features: list[str], beat_col: str,
@@ -349,7 +387,8 @@ def walk_forward_cv(df: pd.DataFrame, features_per_horizon: dict[str, list[str]]
                     train_cutoff: int, min_train_years: int = 6,
                     override_params_per_horizon: dict | None = None,
                     embargo_years: int = 0,
-                    ensemble: bool = False) -> dict[str, float]:
+                    ensemble: bool = False,
+                    label_policy: str = OBSERVED_ONLY) -> dict[str, float]:
     """Expanding-window walk-forward validation.
 
     For each fold year t in [first_year + min_train_years, train_cutoff]:
@@ -371,10 +410,13 @@ def walk_forward_cv(df: pd.DataFrame, features_per_horizon: dict[str, list[str]]
 
     wf_aucs: dict[str, float] = {}
 
+    if override_params_per_horizon:
+        raise LineageError(
+            'walk-forward tuned parameters require fold-specific compatible lineage; '
+            'static model_meta.json parameters cannot be reused'
+        )
+
     for h, (ret_col, beat_col) in HORIZONS.items():
-        feats = features_per_horizon.get(h, [])
-        if not feats:
-            continue
         # Exclude folds whose test_year is too recent for the horizon to have
         # fully realised returns.  test_year = t+1; we require test_year + H - 1 <= max_fiscal_year.
         h_years = _horizon_years.get(h, 1)
@@ -389,7 +431,8 @@ def walk_forward_cv(df: pd.DataFrame, features_per_horizon: dict[str, list[str]]
             max_train_year = t - embargo_years  # purged embargo: exclude most recent years
             train_mask = (
                 (df['fiscal_year'] <= max_train_year) &
-                (filed.isna() | (filed < cutoff_date))
+                (filed.isna() | (filed < cutoff_date)) &
+                training_label_eligible(df, beat_col, cutoff_date, label_policy)
             )
             tr = df[train_mask].copy()
             te = df[df['fiscal_year'] == test_year].copy()
@@ -397,6 +440,14 @@ def walk_forward_cv(df: pd.DataFrame, features_per_horizon: dict[str, list[str]]
             if len(tr[tr[beat_col].notna()]) < 100 or len(te) < 20 or te[beat_col].nunique() < 2:
                 continue
             try:
+                _force_map = {'6m': FORCE_INCLUDE_6M, '1y': FORCE_INCLUDE_1Y,
+                              '2y': FORCE_INCLUDE_2Y}
+                feats = select_fold_features(
+                    tr, ret_col, SelectorConfig(top_n=40),
+                    force_include=_force_map.get(h, []),
+                )
+                if not feats:
+                    continue
                 op = (override_params_per_horizon or {}).get(h)
                 clf, fold_feats, _, medians = train_model(tr, feats, beat_col, override_params=op)
                 fa = [f for f in fold_feats if f in te.columns]
@@ -432,7 +483,7 @@ def walk_forward_cv(df: pd.DataFrame, features_per_horizon: dict[str, list[str]]
     return wf_aucs
 
 
-def run_oot_diagnostic(df: pd.DataFrame) -> None:
+def run_oot_diagnostic(df: pd.DataFrame, label_policy: str = OBSERVED_ONLY) -> None:
     """OOT diagnostic for the 3y model only.
 
     Retrains a fresh 3y model with TRAIN_CUTOFF=2019 (diagnostic only —
@@ -453,7 +504,8 @@ def run_oot_diagnostic(df: pd.DataFrame) -> None:
 
     df_tr = df[
         (df['fiscal_year'] <= OOT_CUTOFF) &
-        (filed.isna() | (filed < cutoff_date))
+        (filed.isna() | (filed < cutoff_date)) &
+        training_label_eligible(df, beat_col, cutoff_date, label_policy)
     ].copy()
     df_oot = df[df['fiscal_year'] == OOT_TEST_YR].copy()
     df_oot = df_oot[df_oot[beat_col].notna()]
@@ -468,7 +520,8 @@ def run_oot_diagnostic(df: pd.DataFrame) -> None:
         msg = (f'Insufficient data for OOT diagnostic '
                f'(train_labeled={n_train_labeled}, test={n_test}, classes={n_classes})')
         print(f'  ⚠  {msg}')
-        result = {'error': msg, 'oot_cutoff': OOT_CUTOFF, 'oot_test_year': OOT_TEST_YR}
+        result = {'error': msg, 'oot_cutoff': OOT_CUTOFF, 'oot_test_year': OOT_TEST_YR,
+                  'label_policy': label_policy}
         (REPORTS / 'oot_auc_diagnostic.json').write_text(json.dumps(result, indent=2))
         return
 
@@ -494,6 +547,7 @@ def run_oot_diagnostic(df: pd.DataFrame) -> None:
         'n_train':       n_train_labeled,
         'n_test':        n_test,
         'n_features':    len(feats),
+        'label_policy':  label_policy,
         'note':          'Diagnostic only — production model unchanged',
     }
     (REPORTS / 'oot_auc_diagnostic.json').write_text(json.dumps(result, indent=2))
@@ -548,6 +602,9 @@ def main() -> None:
                         help='Filter training data to clean stocks only: '
                              'fraud_suspect==0, piotroski_roa_pos==1, beneish_m_score<-1.78. '
                              'Removes value trap bias — model learns what honest/profitable companies do.')
+    parser.add_argument('--label-policy', choices=LABEL_POLICIES, default=OBSERVED_ONLY,
+                        help='Training-label population: observed prices only (default) or '
+                             'explicit likely-delisted -50%% sensitivity labels.')
     args = parser.parse_args()
 
     train_cutoff = args.train_cutoff
@@ -584,31 +641,26 @@ def main() -> None:
     print(f'  Val   : {train_cutoff+1}–{val_end} → {len(df_val):,} rows')
     print(f'  Test  : > {val_end} → {len(df_test):,} rows')
 
-    print('Computing feature candidates...')
-    all_features = get_candidates(df_train)
-    print(f'  {len(all_features)} candidates')
-
-    print('\nPSI distribution audit (train vs test)...')
-    log_psi_report(df_train, df_test, all_features)
-
-    # Drop high-drift features before IC analysis so macro regime features
-    # don't inflate IC on train data and then fail on shifted test distributions.
-    if df_test.empty:
-        psi_filtered = all_features
-    else:
-        psi_scores = {f: compute_psi(df_train[f], df_test[f])
-                      for f in all_features
-                      if f in df_train.columns and f in df_test.columns}
-        psi_filtered = [f for f in all_features if psi_scores.get(f, 0.0) <= args.max_psi]
-        n_dropped = len(all_features) - len(psi_filtered)
-        print(f'  PSI filter (>{args.max_psi}): dropped {n_dropped}, {len(psi_filtered)} remain')
-    all_features = psi_filtered
-
     print(f'\nRunning IC analysis on train split (2–4 min)...')
     ic_tables = {}
     for h, (ret_col, _) in HORIZONS.items():
         print(f'  {h}...', end=' ', flush=True)
-        ic_tables[h] = compute_ic_table(df_train, all_features, ret_col,
+        h_train = df_train[training_label_eligible(
+            df_train, ret_col, _cutoff_date, args.label_policy
+        )]
+        candidates = get_candidates(h_train)
+        log_psi_report(h_train, df_val, candidates, horizon=h)
+        if df_val.empty:
+            psi_filtered = candidates
+        else:
+            psi_scores = {
+                f: compute_psi(h_train[f], df_val[f]) for f in candidates
+                if f in df_val.columns
+            }
+            psi_filtered = [
+                f for f in candidates if psi_scores.get(f, 0.0) <= args.max_psi
+            ]
+        ic_tables[h] = compute_ic_table(h_train, psi_filtered, ret_col,
                                          sector_neutral=args.sector_neutral)
         ic_tables[h].to_csv(REPORTS / f'ic_table_{h}.csv')
         n_sig = (ic_tables[h]['mean_ic'].abs() > args.min_ic).sum()
@@ -648,25 +700,38 @@ def main() -> None:
                 print(f'    Force-include {forced} (ICIR={row["icir"]:.3f}, pct_pos={row["pct_positive_ic"]:.2f})')
 
         if not args.no_dedup:
-            top_n = deduplicate_features(df_train, top_n, corr_threshold=0.85)
+            h_train = df_train[training_label_eligible(
+                df_train, HORIZONS[h][0], _cutoff_date, args.label_policy
+            )]
+            top_n = deduplicate_features(h_train, top_n, corr_threshold=0.85)
 
         selected_features[h] = top_n
         print(f'    Final: {len(top_n)} features')
         print(f'    Top 10: {", ".join(top_n[:10])}')
 
     print('\nTraining LightGBM models...')
-    _old_meta_path = MODELS_DIR / 'model_meta.json'
-    _old_meta = json.loads(_old_meta_path.read_text()) if _old_meta_path.exists() else {}
-
-    _all_selected = list({f for feats in selected_features.values() for f in feats})
-    if args.sector_zscore:
-        print('  Applying sector z-score normalization to training split...')
-        df_train = sector_zscore_normalize(df_train, _all_selected)
-
     model_meta = {}
+    sector_params_by_horizon: dict[str, dict] = {}
     for h, (ret_col, beat_col) in HORIZONS.items():
         print(f'  {h}...', end=' ', flush=True)
-        clf, feats, y_train, train_medians = train_model(df_train, selected_features[h], beat_col)
+        h_train = df_train[training_label_eligible(
+            df_train, beat_col, _cutoff_date, args.label_policy
+        )].copy()
+        h_train_raw = h_train.copy()
+        h_val = df_val
+        h_test = df_test
+        sector_params: dict = {}
+        if args.sector_zscore:
+            sector_params = fit_sector_zscore_params(h_train, selected_features[h])
+            h_train = apply_sector_zscore_params(
+                h_train, selected_features[h], sector_params
+            )
+            h_val = apply_sector_zscore_params(df_val, selected_features[h], sector_params)
+            h_test = apply_sector_zscore_params(df_test, selected_features[h], sector_params)
+            sector_params_by_horizon[h] = sector_params
+        clf, feats, y_train, train_medians = train_model(
+            h_train, selected_features[h], beat_col
+        )
 
         def _eval_split(split_df: pd.DataFrame) -> float:
             sub = split_df[split_df[beat_col].notna()].copy()
@@ -677,11 +742,11 @@ def main() -> None:
             y = sub[beat_col].astype(int)
             return roc_auc_score(y, clf.predict_proba(X)[:, 1])
 
-        val_auc  = _eval_split(df_val)
-        test_auc = _eval_split(df_test)
+        val_auc  = _eval_split(h_val)
+        test_auc = _eval_split(h_test)
 
         # Logistic regression baseline (same features, same split, same medians)
-        lr_pipe = train_baseline(df_train, feats, beat_col, train_medians)
+        lr_pipe = train_baseline(h_train, feats, beat_col, train_medians)
 
         def _eval_baseline(split_df: pd.DataFrame) -> float:
             sub = split_df[split_df[beat_col].notna()].copy()
@@ -692,8 +757,8 @@ def main() -> None:
             y = sub[beat_col].astype(int)
             return roc_auc_score(y, lr_pipe.predict_proba(X)[:, 1])
 
-        lr_val_auc  = _eval_baseline(df_val)
-        lr_test_auc = _eval_baseline(df_test)
+        lr_val_auc  = _eval_baseline(h_val)
+        lr_test_auc = _eval_baseline(h_test)
 
         joblib.dump(clf,     MODELS_DIR / f'model_{h}.joblib')
         joblib.dump(lr_pipe, MODELS_DIR / f'baseline_lr_{h}.joblib')
@@ -702,7 +767,7 @@ def main() -> None:
 
         shap_top: list[str] = []
         if not args.no_shap:
-            _sub = df_train[df_train[beat_col].notna()].copy()
+            _sub = h_train[h_train[beat_col].notna()].copy()
             _feats_avail = [f for f in feats if f in _sub.columns]
             X_train_df = _sub[_feats_avail].fillna(pd.Series(train_medians))
             shap_df = compute_shap_importance(clf, X_train_df)
@@ -715,6 +780,7 @@ def main() -> None:
             'ret_col':        ret_col,
             'beat_col':       beat_col,
             'train_cutoff':   train_cutoff,
+            'label_policy':   args.label_policy,
             'val_end':        val_end,
             'sector_neutral': args.sector_neutral,
             'n_train':        int(len(y_train)),
@@ -724,12 +790,36 @@ def main() -> None:
             'lr_val_auc':     round(lr_val_auc,  4),
             'lr_test_auc':    round(lr_test_auc, 4),
             'train_medians':  train_medians,
+            'sector_zscore_params': sector_params,
             'shap_top_features': shap_top,
         }
+        selection_population = df_train[training_label_eligible(
+            df_train, ret_col, _cutoff_date, args.label_policy
+        )]
+        model_meta[h]['lineage'] = make_lineage(
+            dataset=df,
+            training_population=h_train_raw,
+            selection_population=selection_population,
+            development_population=df_val,
+            horizon=h,
+            target_col=beat_col,
+            label_policy=args.label_policy,
+            cutoff=_cutoff_date.isoformat(),
+            selector_config={
+                'top_n': args.top_n,
+                'min_abs_ic': args.min_ic,
+                'min_ic_stability': args.min_ic_stability,
+                'min_ic_years': args.min_ic_years,
+                'corr_threshold': None if args.no_dedup else 0.85,
+                'psi_threshold': args.max_psi,
+                'psi_population': 'validation',
+                'sector_neutral': args.sector_neutral,
+                'sector_zscore': args.sector_zscore,
+            },
+            features=feats,
+        )
         if args.clean_training:
             model_meta[h]['training_filter'] = 'fraud_suspect==0 & piotroski_roa_pos==1 & beneish_m_score<-1.78'
-        if _old_meta.get(h, {}).get('best_params'):
-            model_meta[h]['best_params'] = _old_meta[h]['best_params']
         print(f'done ({len(feats)} features, {len(y_train):,} rows, '
               f'LGBM val={val_auc:.3f}/test={test_auc:.3f} | '
               f'LR val={lr_val_auc:.3f}/test={lr_test_auc:.3f})')
@@ -738,9 +828,10 @@ def main() -> None:
     print('\nTraining 3y regression model...')
     ret_col_3y = HORIZONS['3y'][0]
     reg_feats = model_meta['3y']['features']
-    reg_medians = model_meta['3y']['train_medians']
 
-    reg_mask = df_train[ret_col_3y].notna()
+    reg_mask = training_label_eligible(
+        df_train, ret_col_3y, _cutoff_date, args.label_policy
+    )
     if args.clean_training:
         if 'fraud_suspect' in df_train.columns:
             reg_mask &= (df_train['fraud_suspect'] == 0)
@@ -749,7 +840,13 @@ def main() -> None:
         if 'beneish_m_score' in df_train.columns:
             reg_mask &= (df_train['beneish_m_score'] < -1.78)
 
-    df_reg = df_train[reg_mask].copy()
+    df_reg_raw = df_train[reg_mask].copy()
+    df_reg = df_reg_raw
+    if args.sector_zscore:
+        df_reg = apply_sector_zscore_params(
+            df_reg, reg_feats, sector_params_by_horizon.get('3y', {})
+        )
+    reg_medians = df_reg[reg_feats].median().to_dict()
     X_reg = df_reg[reg_feats].fillna(pd.Series(reg_medians))
     y_reg = df_reg[ret_col_3y].clip(-1, 5)
 
@@ -768,8 +865,24 @@ def main() -> None:
         'train_medians': reg_medians,
         'n_train': len(df_reg),
         'target': ret_col_3y,
+        'label_policy': args.label_policy,
         'target_clip': [-1, 5],
+        'sector_zscore_params': sector_params_by_horizon.get('3y', {}),
     }
+    model_meta['3y_regression']['lineage'] = make_lineage(
+        dataset=df,
+        training_population=df_reg_raw,
+        selection_population=df_train[training_label_eligible(
+            df_train, ret_col_3y, _cutoff_date, args.label_policy
+        )],
+        development_population=df_val,
+        horizon='3y',
+        target_col=ret_col_3y,
+        label_policy=args.label_policy,
+        cutoff=_cutoff_date.isoformat(),
+        selector_config=model_meta['3y']['lineage']['selector_config'],
+        features=reg_feats,
+    )
     if args.clean_training:
         model_meta['3y_regression']['training_filter'] = 'fraud_suspect==0 & piotroski_roa_pos==1 & beneish_m_score<-1.78'
     print(f'  Regression saved → models/model_3y_regression.joblib ({len(df_reg):,} rows, {len(reg_feats)} features)')
@@ -794,7 +907,8 @@ def main() -> None:
         wf_aucs = walk_forward_cv(df, selected_features, train_cutoff,
                                   override_params_per_horizon=override_params_per_horizon,
                                   embargo_years=args.embargo_years,
-                                  ensemble=args.ensemble)
+                                  ensemble=args.ensemble,
+                                  label_policy=args.label_policy)
         if wf_aucs:
             for h, mean_auc in wf_aucs.items():
                 if h in model_meta:
@@ -810,7 +924,7 @@ def main() -> None:
               f'{m["lr_val_auc"]:>8.4f}  {m["lr_test_auc"]:>9.4f}')
 
     if args.oot_eval:
-        run_oot_diagnostic(df)
+        run_oot_diagnostic(df, label_policy=args.label_policy)
 
 
 if __name__ == '__main__':

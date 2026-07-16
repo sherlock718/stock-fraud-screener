@@ -50,13 +50,168 @@ OUT  = DATA / 'historical_dataset_clean.parquet'
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _pct_rank_clip(series: pd.Series, clip_lo: float = 0.01, clip_hi: float = 0.99) -> pd.Series:
-    """Percentile-rank within non-null values, clipped to avoid extreme outliers."""
-    vals = pd.to_numeric(series, errors='coerce')
-    lo = vals.quantile(clip_lo)
-    hi = vals.quantile(clip_hi)
-    clipped = vals.clip(lo, hi)
-    return clipped.rank(pct=True, na_option='keep')
+class _FenwickCounts:
+    """Integer order-statistic tree used by expanding as-of percentile ranks."""
+
+    def __init__(self, size: int) -> None:
+        self.tree = np.zeros(size + 1, dtype=np.int64)
+
+    def add(self, position: int) -> None:
+        i = position + 1
+        while i < len(self.tree):
+            self.tree[i] += 1
+            i += i & -i
+
+    def prefix(self, end: int) -> int:
+        """Return the count in compressed positions ``[0, end)``."""
+        total = 0
+        i = end
+        while i:
+            total += int(self.tree[i])
+            i -= i & -i
+        return total
+
+    def kth(self, rank: int) -> int:
+        """Return the compressed position of the one-based ``rank`` value."""
+        position = 0
+        bit = 1 << (len(self.tree).bit_length() - 1)
+        while bit:
+            candidate = position + bit
+            if candidate < len(self.tree) and self.tree[candidate] < rank:
+                position = candidate
+                rank -= int(self.tree[candidate])
+            bit >>= 1
+        return position
+
+
+def _pct_rank_clip(
+    series: pd.Series,
+    as_of_dates: pd.Series,
+    clip_lo: float = 0.01,
+    clip_hi: float = 0.99,
+) -> pd.Series:
+    """Return a clipped percentile rank using only values available as of each row.
+
+    Rows sharing an availability timestamp enter the comparison population as one
+    batch. This makes the result independent of dataframe order while preventing
+    later filings from changing an earlier row's clipping bounds or rank.
+    """
+    if not 0 <= clip_lo <= clip_hi <= 1:
+        raise ValueError('clip bounds must satisfy 0 <= clip_lo <= clip_hi <= 1')
+    if len(series) != len(as_of_dates):
+        raise ValueError('series and as_of_dates must have the same length')
+
+    vals = pd.to_numeric(series, errors='coerce').to_numpy(dtype=float)
+    dates = pd.to_datetime(as_of_dates, errors='coerce').to_numpy()
+    if pd.isna(dates).any():
+        raise ValueError('fraud taxonomy requires a non-null filed_date for every row')
+
+    valid = np.isfinite(vals)
+    result = np.full(len(vals), np.nan, dtype=float)
+    if not valid.any():
+        return pd.Series(result, index=series.index, name=series.name)
+
+    coordinates = np.unique(vals[valid])
+    positions = np.searchsorted(coordinates, vals[valid])
+    compressed = np.full(len(vals), -1, dtype=np.int64)
+    compressed[valid] = positions
+    tree = _FenwickCounts(len(coordinates))
+
+    # Stable sorting is not relied upon for results: every equal-date batch is
+    # inserted before any member is ranked.
+    order = np.argsort(dates, kind='mergesort')
+    start = 0
+    count = 0
+    while start < len(order):
+        end = start + 1
+        while end < len(order) and dates[order[end]] == dates[order[start]]:
+            end += 1
+        batch = order[start:end]
+        for row in batch:
+            if valid[row]:
+                tree.add(int(compressed[row]))
+                count += 1
+
+        lower_position = (count - 1) * clip_lo if count else 0.0
+        upper_position = (count - 1) * clip_hi if count else 0.0
+
+        def quantile(position: float) -> float:
+            below = int(np.floor(position))
+            above = int(np.ceil(position))
+            lower_value = coordinates[tree.kth(below + 1)]
+            upper_value = coordinates[tree.kth(above + 1)]
+            return float(lower_value + (upper_value - lower_value) * (position - below))
+
+        lower = quantile(lower_position) if count else np.nan
+        upper = quantile(upper_position) if count else np.nan
+        for row in batch:
+            if not valid[row]:
+                continue
+            value = vals[row]
+            if lower == upper:
+                less = 0
+                equal = count
+            elif value <= lower:
+                less = 0
+                equal = tree.prefix(int(np.searchsorted(coordinates, lower, side='right')))
+            elif value >= upper:
+                less = tree.prefix(int(np.searchsorted(coordinates, upper, side='left')))
+                equal = count - less
+            else:
+                left = int(np.searchsorted(coordinates, value, side='left'))
+                right = int(np.searchsorted(coordinates, value, side='right'))
+                less = tree.prefix(left)
+                equal = tree.prefix(right) - less
+            result[row] = (less + (equal + 1) / 2) / count
+        start = end
+
+    return pd.Series(result, index=series.index, name=series.name)
+
+
+def _taxonomy_as_of_dates(df: pd.DataFrame) -> pd.Series:
+    if 'availability_timestamp' in df.columns:
+        dates = pd.to_datetime(df['availability_timestamp'], utc=True, errors='coerce')
+        if dates.isna().any():
+            raise ValueError('fraud taxonomy requires non-null availability_timestamp when present')
+        if 'availability_provenance' in df.columns:
+            valid = df['availability_provenance'].eq('sec_primary_filing')
+            if not valid.all():
+                raise ValueError('fraud taxonomy requires proven SEC-primary availability')
+        return dates
+    if 'filed_date' not in df.columns:
+        raise ValueError('fraud taxonomy requires filed_date; no undated ranking fallback is allowed')
+    dates = pd.to_datetime(df['filed_date'], errors='coerce')
+    if dates.isna().any():
+        raise ValueError('fraud taxonomy requires a non-null filed_date for every row')
+    return dates
+
+
+def _ticker_local_eps_growth(df: pd.DataFrame, as_of_dates: pd.Series) -> pd.Series:
+    """Compute EPS change within ticker after chronological filing-date ordering."""
+    entity_key = 'entity_id' if 'entity_id' in df.columns else 'ticker'
+    if entity_key not in df.columns:
+        raise ValueError('dilution EPS history requires entity_id or ticker')
+    eps_history = pd.DataFrame({
+        '_position': np.arange(len(df)),
+        'entity': df[entity_key].to_numpy(),
+        'filed_date': as_of_dates.to_numpy(),
+        'eps': pd.to_numeric(df['eps_diluted'], errors='coerce').to_numpy(),
+    })
+    if 'fiscal_year' in df.columns:
+        eps_history['fiscal_year'] = pd.to_numeric(df['fiscal_year'], errors='coerce').to_numpy()
+    chronology = ['entity', 'filed_date']
+    if 'fiscal_year' in eps_history.columns:
+        chronology.append('fiscal_year')
+    eps_history = eps_history.sort_values(chronology, kind='mergesort')
+    eps_history['eps_growth'] = (
+        eps_history.groupby('entity', sort=False)['eps']
+        .pct_change(fill_method=None)
+        .fillna(0)
+        .clip(-2, 2)
+    )
+    eps_growth = eps_history.sort_values('_position')['eps_growth']
+    eps_growth.index = df.index
+    return eps_growth
 
 
 def _fillna_zero(series: pd.Series) -> pd.Series:
@@ -75,23 +230,24 @@ def build_accounting_score(df: pd.DataFrame) -> pd.Series:
       - OCF-to-NI: low ratio = earnings not backed by cash (inverted)
     """
     components = []
+    as_of_dates = _taxonomy_as_of_dates(df)
 
     if 'beneish_m_score' in df.columns:
         # High M-score = bad → rank ascending so high rank = high fraud risk
-        components.append(_pct_rank_clip(df['beneish_m_score']))
+        components.append(_pct_rank_clip(df['beneish_m_score'], as_of_dates))
 
     if 'sloan_accruals' in df.columns:
-        components.append(_pct_rank_clip(df['sloan_accruals']))
+        components.append(_pct_rank_clip(df['sloan_accruals'], as_of_dates))
 
     if 'accruals_to_assets' in df.columns:
-        components.append(_pct_rank_clip(df['accruals_to_assets']))
+        components.append(_pct_rank_clip(df['accruals_to_assets'], as_of_dates))
 
     if 'ocf_to_ni' in df.columns:
         # Low OCF/NI = cash not backing earnings = bad → invert rank
-        pct = _pct_rank_clip(df['ocf_to_ni'])
+        pct = _pct_rank_clip(df['ocf_to_ni'], as_of_dates)
         components.append(1.0 - pct)
     elif 'ocf_to_ni_sector_pct' in df.columns:
-        pct = _pct_rank_clip(df['ocf_to_ni_sector_pct'])
+        pct = _pct_rank_clip(df['ocf_to_ni_sector_pct'], as_of_dates)
         components.append(1.0 - pct)
 
     if not components:
@@ -110,26 +266,26 @@ def build_dilution_score(df: pd.DataFrame) -> pd.Series:
       - EPS delta vs net income delta divergence (net income up, EPS down = dilution)
     """
     components = []
+    as_of_dates = _taxonomy_as_of_dates(df)
 
     if 'shares_growth' in df.columns:
         sg = pd.to_numeric(df['shares_growth'], errors='coerce')
         # Rapid share issuance is a red flag (positive values = more shares)
-        components.append(_pct_rank_clip(sg))
+        components.append(_pct_rank_clip(sg, as_of_dates))
 
     if 'shares_dilution' in df.columns:
         sd = pd.to_numeric(df['shares_dilution'], errors='coerce')
-        components.append(_pct_rank_clip(sd))
+        components.append(_pct_rank_clip(sd, as_of_dates))
 
     # EPS-vs-NI divergence: if net_margin growing but EPS declining, that's dilution
     if 'net_margin_change' in df.columns and 'eps_diluted' in df.columns:
         nm_change = pd.to_numeric(df['net_margin_change'], errors='coerce').fillna(0)
         # Proxy: rank negative EPS growth (declining EPS despite possible earnings)
         # Here we use shares_growth as the primary driver; EPS divergence is secondary
-        eps = pd.to_numeric(df['eps_diluted'], errors='coerce')
-        eps_growth = eps.pct_change(fill_method=None).fillna(0).clip(-2, 2)
+        eps_growth = _ticker_local_eps_growth(df, as_of_dates)
         # High NM change but low EPS growth = dilution
         divergence = nm_change - eps_growth
-        components.append(_pct_rank_clip(divergence))
+        components.append(_pct_rank_clip(divergence, as_of_dates))
 
     if not components:
         return pd.Series(np.nan, index=df.index)
@@ -149,28 +305,29 @@ def build_quality_score(df: pd.DataFrame) -> pd.Series:
       - OCF growth vs earnings growth divergence
     """
     components = []
+    as_of_dates = _taxonomy_as_of_dates(df)
 
     if 'ocf_margin' in df.columns:
-        pct = _pct_rank_clip(df['ocf_margin'])
+        pct = _pct_rank_clip(df['ocf_margin'], as_of_dates)
         components.append(1.0 - pct)  # low margin = high risk
 
     if 'ocf_to_assets' in df.columns:
-        pct = _pct_rank_clip(df['ocf_to_assets'])
+        pct = _pct_rank_clip(df['ocf_to_assets'], as_of_dates)
         components.append(1.0 - pct)
 
     # FCF yield or FCF to assets
     for col in ['fcf_yield', 'fcf_to_assets']:
         if col in df.columns:
-            pct = _pct_rank_clip(df[col])
+            pct = _pct_rank_clip(df[col], as_of_dates)
             components.append(1.0 - pct)
             break
 
     if 'gross_margin_trend_3y' in df.columns:
-        pct = _pct_rank_clip(df['gross_margin_trend_3y'])
+        pct = _pct_rank_clip(df['gross_margin_trend_3y'], as_of_dates)
         components.append(1.0 - pct)  # declining trend = bad
 
     if 'accruals_avg_3y' in df.columns:
-        components.append(_pct_rank_clip(df['accruals_avg_3y']))
+        components.append(_pct_rank_clip(df['accruals_avg_3y'], as_of_dates))
 
     if not components:
         return pd.Series(np.nan, index=df.index)
@@ -190,26 +347,27 @@ def build_distress_score(df: pd.DataFrame) -> pd.Series:
       - Net debt to EBITDA (high = leveraged, direct rank)
     """
     components = []
+    as_of_dates = _taxonomy_as_of_dates(df)
 
     if 'altman_z_score' in df.columns:
-        pct = _pct_rank_clip(df['altman_z_score'])
+        pct = _pct_rank_clip(df['altman_z_score'], as_of_dates)
         components.append(1.0 - pct)  # low Z = high distress
 
     if 'piotroski_f_score' in df.columns:
-        pct = _pct_rank_clip(df['piotroski_f_score'])
+        pct = _pct_rank_clip(df['piotroski_f_score'], as_of_dates)
         components.append(1.0 - pct)  # low F = weak fundamentals
 
     if 'altman_x1' in df.columns:
         # Working capital / total assets; lower = worse liquidity
-        pct = _pct_rank_clip(df['altman_x1'])
+        pct = _pct_rank_clip(df['altman_x1'], as_of_dates)
         components.append(1.0 - pct)
 
     if 'net_debt_to_ebitda' in df.columns:
         # High = over-levered
-        components.append(_pct_rank_clip(df['net_debt_to_ebitda']))
+        components.append(_pct_rank_clip(df['net_debt_to_ebitda'], as_of_dates))
 
     if 'current_ratio' in df.columns:
-        pct = _pct_rank_clip(df['current_ratio'])
+        pct = _pct_rank_clip(df['current_ratio'], as_of_dates)
         components.append(1.0 - pct)
 
     if not components:
@@ -302,13 +460,20 @@ def build_composite_fraud_score(df: pd.DataFrame) -> pd.Series:
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
-def run(dry_run: bool = False) -> None:
-    if not OUT.exists():
-        print(f'ERROR: {OUT} not found — run step 6 first')
+def run(
+    dry_run: bool = False,
+    *,
+    input_path: Path | None = None,
+    output_path: Path | None = None,
+) -> None:
+    in_path = input_path or OUT
+    out_path = output_path or OUT
+    if not in_path.exists():
+        print(f'ERROR: {in_path} not found — run step 6 first')
         sys.exit(1)
 
     print('P0d — Fraud Taxonomy: 5 Sub-Scores + Composite')
-    df = pd.read_parquet(OUT)
+    df = pd.read_parquet(in_path)
     print(f'  Loaded {len(df):,} rows × {len(df.columns)} columns')
 
     print('  Building accounting manipulation score...')
@@ -372,16 +537,19 @@ def run(dry_run: bool = False) -> None:
         print('\n  [DRY RUN] — file not modified')
         return
 
-    df.to_parquet(OUT, index=False)
-    print(f'\n  Saved: {OUT}')
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    df.to_parquet(out_path, index=False)
+    print(f'\n  Saved: {out_path}')
     print(f'  Columns added: {", ".join(score_cols)}')
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description='Fraud taxonomy sub-scores (P0d)')
     parser.add_argument('--dry-run', action='store_true', help='Print stats without saving')
+    parser.add_argument('--input', type=Path, default=None, help='Pre-taxonomy input parquet')
+    parser.add_argument('--out', type=Path, default=None, help='Taxonomy-enriched output parquet')
     args = parser.parse_args()
-    run(dry_run=args.dry_run)
+    run(dry_run=args.dry_run, input_path=args.input, output_path=args.out)
 
 
 if __name__ == '__main__':

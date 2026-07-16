@@ -25,6 +25,7 @@ from pipeline.enrich_fraud_taxonomy import (
     build_governance_score,
     build_quality_score,
     _pct_rank_clip,
+    _ticker_local_eps_growth,
 )
 
 
@@ -38,6 +39,7 @@ def base_df():
     return pd.DataFrame({
         'ticker': [f'T{i:03d}' for i in range(n)],
         'fiscal_year': np.random.choice([2015, 2016, 2017, 2018, 2019], n),
+        'filed_date': pd.date_range('2015-01-01', periods=n, freq='7D'),
         'beneish_m_score': np.random.normal(-2.0, 1.5, n),
         'sloan_accruals': np.random.normal(0.0, 0.05, n),
         'accruals_to_assets': np.random.normal(0.03, 0.04, n),
@@ -68,6 +70,7 @@ def empty_df():
     return pd.DataFrame({
         'ticker': ['A', 'B', 'C'],
         'fiscal_year': [2020, 2020, 2020],
+        'filed_date': pd.to_datetime(['2021-01-01', '2021-01-02', '2021-01-03']),
         'revenue': [100, 200, 300],
     })
 
@@ -76,21 +79,36 @@ def empty_df():
 
 class TestPctRankClip:
     def test_output_range_01(self, base_df):
-        result = _pct_rank_clip(base_df['beneish_m_score'])
+        result = _pct_rank_clip(base_df['beneish_m_score'], base_df['filed_date'])
         valid = result.dropna()
         assert valid.min() >= 0.0
         assert valid.max() <= 1.0
 
     def test_preserves_nan(self):
         s = pd.Series([1.0, 2.0, np.nan, 4.0, 5.0])
-        result = _pct_rank_clip(s)
+        result = _pct_rank_clip(s, pd.Series(pd.date_range('2020-01-01', periods=len(s))))
         assert pd.isna(result.iloc[2])
         assert result.iloc[0] > 0
 
     def test_clips_extreme_outliers(self):
         s = pd.Series([1.0] * 98 + [1000.0, -1000.0])
-        result = _pct_rank_clip(s, clip_lo=0.01, clip_hi=0.99)
+        dates = pd.Series(pd.date_range('2020-01-01', periods=len(s)))
+        result = _pct_rank_clip(s, dates, clip_lo=0.01, clip_hi=0.99)
         assert result.notna().all()
+
+    def test_matches_naive_as_of_quantile_and_rank(self):
+        s = pd.Series([1.0, 4.0, 2.0, 100.0, 2.0, -50.0, np.nan])
+        dates = pd.Series(pd.to_datetime([
+            '2020-01-01', '2020-01-01', '2020-02-01', '2020-02-01',
+            '2020-03-01', '2020-03-01', '2020-03-01',
+        ]))
+        actual = _pct_rank_clip(s, dates)
+        expected = []
+        for row, cutoff in dates.items():
+            eligible = s[dates <= cutoff]
+            clipped = eligible.clip(eligible.quantile(0.01), eligible.quantile(0.99))
+            expected.append(clipped.rank(pct=True, na_option='keep').loc[row])
+        pd.testing.assert_series_equal(actual, pd.Series(expected))
 
 
 # ── Accounting Score ─────────────────────────────────────────────────────────
@@ -106,6 +124,7 @@ class TestAccountingScore:
         df = pd.DataFrame({
             'beneish_m_score': [10.0] * 50 + [-5.0] * 50,
             'sloan_accruals': [0.0] * 100,
+            'filed_date': [pd.Timestamp('2020-01-01')] * 100,
         })
         score = build_accounting_score(df)
         high_group = score.iloc[:50].mean()
@@ -115,6 +134,7 @@ class TestAccountingScore:
     def test_low_ocf_to_ni_gives_high_score(self):
         df = pd.DataFrame({
             'ocf_to_ni': [-2.0] * 50 + [3.0] * 50,
+            'filed_date': [pd.Timestamp('2020-01-01')] * 100,
         })
         score = build_accounting_score(df)
         low_ocf_group = score.iloc[:50].mean()
@@ -125,6 +145,7 @@ class TestAccountingScore:
         df = pd.DataFrame({
             'beneish_m_score': [np.nan] * 10,
             'sloan_accruals': [np.nan] * 10,
+            'filed_date': [pd.Timestamp('2020-01-01')] * 10,
         })
         score = build_accounting_score(df)
         assert score.isna().all()
@@ -136,6 +157,7 @@ class TestAccountingScore:
     def test_fallback_to_ocf_to_ni_sector_pct(self):
         df = pd.DataFrame({
             'ocf_to_ni_sector_pct': np.linspace(0.1, 0.9, 50),
+            'filed_date': [pd.Timestamp('2020-01-01')] * 50,
         })
         score = build_accounting_score(df)
         assert score.notna().any()
@@ -153,6 +175,7 @@ class TestDilutionScore:
     def test_high_shares_growth_gives_high_score(self):
         df = pd.DataFrame({
             'shares_growth': [0.5] * 50 + [-0.1] * 50,
+            'filed_date': [pd.Timestamp('2020-01-01')] * 100,
         })
         score = build_dilution_score(df)
         high_group = score.iloc[:50].mean()
@@ -176,6 +199,7 @@ class TestQualityScore:
     def test_low_ocf_margin_gives_high_score(self):
         df = pd.DataFrame({
             'ocf_margin': [-0.2] * 50 + [0.4] * 50,
+            'filed_date': [pd.Timestamp('2020-01-01')] * 100,
         })
         score = build_quality_score(df)
         low_group = score.iloc[:50].mean()
@@ -185,6 +209,7 @@ class TestQualityScore:
     def test_uses_fcf_yield_when_available(self):
         df = pd.DataFrame({
             'fcf_yield': np.linspace(-0.1, 0.3, 50),
+            'filed_date': [pd.Timestamp('2020-01-01')] * 50,
         })
         score = build_quality_score(df)
         assert score.notna().any()
@@ -192,6 +217,7 @@ class TestQualityScore:
     def test_fcf_to_assets_as_fallback(self):
         df = pd.DataFrame({
             'fcf_to_assets': np.linspace(-0.1, 0.2, 50),
+            'filed_date': [pd.Timestamp('2020-01-01')] * 50,
         })
         score = build_quality_score(df)
         assert score.notna().any()
@@ -214,6 +240,7 @@ class TestDistressScore:
         df = pd.DataFrame({
             'altman_z_score': [-2.0] * 50 + [5.0] * 50,
             'piotroski_f_score': [5.0] * 100,
+            'filed_date': [pd.Timestamp('2020-01-01')] * 100,
         })
         score = build_distress_score(df)
         distressed_group = score.iloc[:50].mean()
@@ -223,6 +250,7 @@ class TestDistressScore:
     def test_low_piotroski_gives_high_score(self):
         df = pd.DataFrame({
             'piotroski_f_score': [0.0] * 50 + [9.0] * 50,
+            'filed_date': [pd.Timestamp('2020-01-01')] * 100,
         })
         score = build_distress_score(df)
         weak_group = score.iloc[:50].mean()
@@ -473,6 +501,7 @@ class TestLeakage:
             'beneish_m_score': [0.0, 0.0, -5.0],
             'piotroski_f_score': [1.0, 1.0, 8.0],
             'altman_z_score': [0.5, 0.5, 5.0],
+            'filed_date': pd.to_datetime(['2020-01-01', '2020-01-01', '2020-01-01']),
             'fraud_confirmed': [1, 0, 0],
             'fraud_suspect': [0, 1, 0],  # pre-set by labels
         })
@@ -487,25 +516,101 @@ class TestLeakage:
 # ── Cross-Sectional Rank Behavior ────────────────────────────────────────────
 
 class TestCrossSectionalRank:
-    def test_rank_is_global_not_per_year(self, base_df):
-        """
-        _pct_rank_clip ranks across ALL rows (not grouped by fiscal_year).
-        This is intentional for taxonomy scores — they are relative risk
-        positions in the full dataset, not within-year comparisons.
-        """
-        score = build_accounting_score(base_df)
-        # Verify roughly uniform distribution (percentile rank)
-        valid = score.dropna()
-        assert 0.4 < valid.median() < 0.6  # should be near 0.5 for large samples
+    def test_missing_scoring_timestamp_fails_closed(self):
+        with pytest.raises(ValueError, match='filed_date'):
+            build_accounting_score(pd.DataFrame({'beneish_m_score': [1.0, 2.0]}))
 
     def test_rank_insensitive_to_row_order(self, base_df):
-        """Shuffling rows should not change scores."""
-        score_original = build_accounting_score(base_df)
+        """Shuffling rows does not change any taxonomy score after key alignment."""
+        score_original = pd.DataFrame({
+            'ticker': base_df['ticker'],
+            'accounting': build_accounting_score(base_df),
+            'dilution': build_dilution_score(base_df),
+            'quality': build_quality_score(base_df),
+            'distress': build_distress_score(base_df),
+            'governance': build_governance_score(base_df),
+        }).set_index('ticker').sort_index()
         shuffled = base_df.sample(frac=1, random_state=123).reset_index(drop=True)
-        score_shuffled = build_accounting_score(shuffled)
-        # After sorting back, values should match
-        # Since we reset_index, compare by aligning on original order
-        assert abs(score_original.mean() - score_shuffled.mean()) < 0.01
+        score_shuffled = pd.DataFrame({
+            'ticker': shuffled['ticker'],
+            'accounting': build_accounting_score(shuffled),
+            'dilution': build_dilution_score(shuffled),
+            'quality': build_quality_score(shuffled),
+            'distress': build_distress_score(shuffled),
+            'governance': build_governance_score(shuffled),
+        }).set_index('ticker').sort_index()
+        pd.testing.assert_frame_equal(score_original, score_shuffled)
+
+    def test_later_rows_do_not_change_earlier_taxonomy_values(self, base_df):
+        historical = base_df.iloc[:120].copy()
+        future = base_df.iloc[120:].copy()
+        future['filed_date'] = future['filed_date'] + pd.DateOffset(years=20)
+        combined = pd.concat([historical, future], ignore_index=True)
+
+        builders = [
+            build_accounting_score,
+            build_dilution_score,
+            build_quality_score,
+            build_distress_score,
+            build_governance_score,
+        ]
+        for builder in builders:
+            expected = builder(historical).reset_index(drop=True)
+            actual = builder(combined).iloc[:len(historical)].reset_index(drop=True)
+            pd.testing.assert_series_equal(expected, actual)
+
+    def test_rows_after_as_of_cutoff_do_not_change_available_taxonomy(self, base_df):
+        cutoff = pd.Timestamp('2017-01-01')
+        available = base_df[base_df['filed_date'] <= cutoff].copy()
+        unavailable = base_df[base_df['filed_date'] > cutoff].copy()
+        full = pd.concat([available, unavailable], ignore_index=True)
+        expected = build_accounting_score(available).reset_index(drop=True)
+        actual = build_accounting_score(full).iloc[:len(available)].reset_index(drop=True)
+        pd.testing.assert_series_equal(expected, actual)
+
+
+class TestDilutionHistory:
+    def test_eps_change_is_ticker_local_and_chronological(self):
+        df = pd.DataFrame({
+            'ticker': ['B', 'A', 'B', 'A'],
+            'fiscal_year': [2021, 2021, 2020, 2020],
+            'filed_date': pd.to_datetime(['2022-03-01', '2022-02-01', '2021-03-01', '2021-02-01']),
+            'eps_diluted': [200.0, 2.0, 100.0, 1.0],
+        })
+        growth = _ticker_local_eps_growth(df, df['filed_date'])
+        expected = pd.Series([1.0, 1.0, 0.0, 0.0], name='eps_growth')
+        pd.testing.assert_series_equal(growth.reset_index(drop=True), expected)
+
+        changed_b = df.copy()
+        changed_b.loc[changed_b['ticker'] == 'B', 'eps_diluted'] = [900.0, 3.0]
+        changed_growth = _ticker_local_eps_growth(changed_b, changed_b['filed_date'])
+        pd.testing.assert_series_equal(
+            growth[df['ticker'] == 'A'].reset_index(drop=True),
+            changed_growth[df['ticker'] == 'A'].reset_index(drop=True),
+        )
+
+    def test_dilution_score_is_order_invariant_with_ticker_histories(self):
+        df = pd.DataFrame({
+            'ticker': ['A', 'A', 'A', 'B', 'B', 'B'],
+            'fiscal_year': [2019, 2020, 2021, 2019, 2020, 2021],
+            'filed_date': pd.to_datetime([
+                '2020-02-01', '2021-02-01', '2022-02-01',
+                '2020-03-01', '2021-03-01', '2022-03-01',
+            ]),
+            'shares_growth': [0.0, 0.1, 0.2, 0.0, -0.1, -0.2],
+            'shares_dilution': [0.0, 0.05, 0.1, 0.0, -0.05, -0.1],
+            'net_margin_change': [0.0, 0.2, 0.3, 0.0, 0.1, 0.2],
+            'eps_diluted': [1.0, 0.8, 0.6, 2.0, 2.5, 3.0],
+        })
+        expected = df[['ticker', 'fiscal_year']].copy()
+        expected['score'] = build_dilution_score(df)
+        expected = expected.set_index(['ticker', 'fiscal_year']).sort_index()
+
+        shuffled = df.sample(frac=1, random_state=9).reset_index(drop=True)
+        actual = shuffled[['ticker', 'fiscal_year']].copy()
+        actual['score'] = build_dilution_score(shuffled)
+        actual = actual.set_index(['ticker', 'fiscal_year']).sort_index()
+        pd.testing.assert_frame_equal(expected, actual)
 
 
 # ── Run Function Integration ─────────────────────────────────────────────────

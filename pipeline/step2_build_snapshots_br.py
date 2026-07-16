@@ -184,6 +184,9 @@ def normalise(df: pd.DataFrame, period_type: str, fiscal_quarter: str) -> pd.Dat
     df['fiscal_year']    = pd.to_datetime(df['dt_fim'],   errors='coerce').dt.year.astype(str)
     df['cik']            = df['cd_cvm']
     df['market']         = 'BR'
+    df['entity_id']      = 'BR:' + df['cik'].astype(str)
+    df['availability_timestamp'] = pd.NaT
+    df['availability_provenance'] = 'statement_date_unproven'
     df['country']        = 'BR'
     df['exchange']       = 'B3'
     df['currency']       = 'BRL'

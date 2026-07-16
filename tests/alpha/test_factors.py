@@ -6,6 +6,9 @@ import pytest
 
 from alpha.factors import value, quality, momentum, growth, fraud_risk, composite
 from alpha.factors.composite import DEFAULT_WEIGHTS
+from alpha.factors.fraud_risk import _ML_REQUIREMENTS
+from modeling.prediction_lineage import add_synthetic_manifest
+from modeling.prediction_lineage import manifest_col
 
 
 @pytest.fixture
@@ -16,6 +19,17 @@ def sample_df():
     df = pd.DataFrame({
         "fiscal_year": [2020] * 30 + [2021] * 30,
         "market": ["US"] * 60,
+        "period_type": ["annual"] * 60,
+        "entity_id": [f"US:{i}" for i in range(60)],
+        "filed_date": pd.to_datetime(
+            ["2021-03-01"] * 15 + ["2021-06-01"] * 15
+            + ["2022-03-01"] * 15 + ["2022-06-01"] * 15
+        ),
+        "availability_timestamp": pd.to_datetime(
+            ["2021-03-01"] * 15 + ["2021-06-01"] * 15
+            + ["2022-03-01"] * 15 + ["2022-06-01"] * 15
+        ),
+        "availability_provenance": ["sec_primary_filing"] * 60,
         # Value signals
         "ev_ebitda": rng.uniform(3, 30, n),
         "ev_revenue": rng.uniform(0.5, 10, n),
@@ -60,7 +74,12 @@ def sample_df():
         "ml_3y_oof": rng.uniform(0, 1, n),
         "ml_5y_oof": rng.uniform(0, 1, n),
     })
-    return df
+    df["decision_timestamp"] = pd.to_datetime(
+        ["2022-01-01"] * 30 + ["2023-01-01"] * 30
+    )
+    return add_synthetic_manifest(
+        df, _ML_REQUIREMENTS, source="oof_oos"
+    )
 
 
 class TestValueFactor:
@@ -168,7 +187,9 @@ class TestFraudRiskFactor:
                        ("fraud_score_distress", True)]:
             df.drop(columns=col, inplace=True)
         for col in ["ml_1y_oof", "ml_3y_oof", "ml_5y_oof"]:
-            df.drop(columns=col, inplace=True)
+            df[col] = 0.5
+            df[manifest_col(col, "raw_prediction")] = 0.5
+            df[manifest_col(col, "transformed_score")] = 0.5
         result = fraud_risk(df)
         # Within each group, rank correlation should be positive
         corr = result.corr(df["altman_z_score"])
@@ -205,6 +226,11 @@ class TestComposite:
         df = pd.DataFrame({
             "fiscal_year": [2020] * 20,
             "market": ["US"] * 20,
+            "period_type": ["annual"] * 20,
+            "entity_id": [f"US:missing-{i}" for i in range(20)],
+            "filed_date": pd.to_datetime(["2021-03-01"] * 20),
+            "availability_timestamp": pd.to_datetime(["2021-03-01"] * 20),
+            "availability_provenance": ["sec_primary_filing"] * 20,
             "roe": np.random.default_rng(0).uniform(0, 0.3, 20),
             "roa": np.random.default_rng(0).uniform(0, 0.2, 20),
         })

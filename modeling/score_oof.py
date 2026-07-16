@@ -11,8 +11,8 @@ For each fiscal year Y (expanding window):
 Writes ml_1y_oof, ml_3y_oof, ml_5y_oof to the parquet.
 Training-window rows (before first scored year) get NaN.
 
-Feature sets are loaded from models/feature_sets_{h}.json (Phase B selection pipeline output).
-Falls back to model_meta.json if feature_sets files are missing.
+Candidates and features are selected independently inside every eligible
+historical training fold. External feature artifacts are never used by OOF.
 
 Usage:
     python3 scripts/generate_oof_scores.py
@@ -42,8 +42,14 @@ import pandas as pd
 from sklearn.metrics import roc_auc_score
 
 from _root import ROOT
-from pipeline.feature_library import add_normalised_ratios, add_piotroski_ext
-from modeling.constants import EXCLUDE_COLS, EXCLUDE_PATTERNS, load_data, get_feature_candidates
+from modeling.constants import load_data
+from modeling.label_eligibility import LABEL_POLICIES, OBSERVED_ONLY, training_label_eligible
+from modeling.fold_lineage import (
+    LineageError,
+    SelectorConfig,
+    select_fold_features,
+    validate_lineage,
+)
 
 BASE = ROOT
 DATA_PATH  = BASE / 'data' / 'historical_dataset_clean.parquet'
@@ -62,26 +68,21 @@ ALL_HORIZONS = {
 
 
 
-def load_feature_set(horizon: str, meta: dict | None) -> list[str] | None:
-    """Load pre-selected features from Phase B feature_sets file, with fallback to model_meta."""
+def load_feature_set(
+    horizon: str, meta: dict | None = None, expected_lineage: dict | None = None
+) -> list[str]:
+    """Load a feature artifact only when exact compatibility is proven."""
+    if expected_lineage is None:
+        raise LineageError('expected lineage is required to load a feature artifact')
     fs_path = MODELS_DIR / f'feature_sets_{horizon}.json'
-    if fs_path.exists():
-        data = json.loads(fs_path.read_text())
-        feats = data.get('features', [])
-        if feats:
-            print(f'  [{horizon}] Loaded {len(feats)} features from feature_sets_{horizon}.json')
-            return feats
-
-    if meta and horizon in meta:
-        feats = meta[horizon].get('features', [])
-        if feats:
-            print(f'  [{horizon}] Loaded {len(feats)} features from model_meta.json (fallback)')
-            return feats
-
-    return None
-
-
-get_candidates = get_feature_candidates
+    if not fs_path.exists():
+        raise LineageError(f'missing feature artifact: {fs_path}')
+    data = json.loads(fs_path.read_text())
+    validate_lineage(data.get('lineage'), expected_lineage)
+    feats = data.get('features', [])
+    if not feats:
+        raise LineageError(f'feature artifact has no features: {fs_path}')
+    return feats
 
 
 def train_fold(df_train: pd.DataFrame, features: list[str], beat_col: str,
@@ -120,7 +121,8 @@ def train_fold(df_train: pd.DataFrame, features: list[str], beat_col: str,
 
 def run_oof(df: pd.DataFrame, horizon: str, beat_col: str,
             features: list[str], min_train_years: int,
-            n_estimators: int) -> tuple[dict[int, np.ndarray], list[dict]]:
+            n_estimators: int,
+            label_policy: str = OBSERVED_ONLY) -> tuple[dict[int, np.ndarray], list[dict]]:
     """
     Run expanding-window OOF scoring.
 
@@ -142,7 +144,8 @@ def run_oof(df: pd.DataFrame, horizon: str, beat_col: str,
         # Training rows: fiscal_year < test_year AND filed_date <= Dec 31 of test_year-1
         train_mask = (
             (df['fiscal_year'] < test_year) &
-            (filed.isna() | (filed < cutoff_date))
+            (filed.isna() | (filed < cutoff_date)) &
+            training_label_eligible(df, beat_col, cutoff_date, label_policy)
         )
         df_tr = df[train_mask].copy()
 
@@ -154,7 +157,11 @@ def run_oof(df: pd.DataFrame, horizon: str, beat_col: str,
                 len(df_te) == 0):
             continue
 
-        clf, fold_feats, medians, n_train = train_fold(df_tr, features, beat_col,
+        selection_target = ALL_HORIZONS[horizon][0]
+        fold_features = select_fold_features(
+            df_tr, selection_target, SelectorConfig(top_n=40)
+        )
+        clf, fold_feats, medians, n_train = train_fold(df_tr, fold_features, beat_col,
                                                         n_estimators=n_estimators)
         if clf is None:
             continue
@@ -176,6 +183,7 @@ def run_oof(df: pd.DataFrame, horizon: str, beat_col: str,
                 'auc':        round(float(auc), 4),
                 'n_train':    n_train,
                 'n_test':     len(df_te),
+                'label_policy': label_policy,
             })
             print(f'      year {test_year}: n_train={n_train:,}  n_test={len(df_te):,}  AUC={auc:.4f}')
         else:
@@ -195,6 +203,8 @@ def main() -> None:
                         help='LightGBM n_estimators per fold (default: 600)')
     parser.add_argument('--dry-run', action='store_true',
                         help='Compute scores but do NOT write parquet')
+    parser.add_argument('--label-policy', choices=LABEL_POLICIES, default=OBSERVED_ONLY,
+                        help='Observed-only primary labels or explicit policy-imputed sensitivity')
     args = parser.parse_args()
 
     parquet_path = Path(args.parquet)
@@ -204,13 +214,6 @@ def main() -> None:
     horizons = {h: ALL_HORIZONS[h] for h in args.horizons if h in ALL_HORIZONS}
     if not horizons:
         sys.exit(f'ERROR: No valid horizons in {args.horizons}. Choose from {list(ALL_HORIZONS)}')
-
-    # Load model_meta for feature fallback
-    meta = None
-    meta_path = MODELS_DIR / 'model_meta.json'
-    if meta_path.exists():
-        with open(meta_path) as f:
-            meta = json.load(f)
 
     print(f'Loading dataset: {parquet_path}')
     df_all = pd.read_parquet(parquet_path)
@@ -226,21 +229,11 @@ def main() -> None:
     df_all['_oof_key'] = df_all['ticker'].astype(str) + '_' + df_all['fiscal_year'].astype(str)
     df['_oof_key'] = df['ticker'].astype(str) + '_' + df['fiscal_year'].astype(str)
 
-    print('\nLoading feature sets...')
-    feature_sets: dict[str, list[str]] = {}
-    for h in horizons:
-        feats = load_feature_set(h, meta)
-        if feats is None:
-            print(f'  [{h}] WARNING: no feature_sets_{h}.json or model_meta.json found. '
-                  f'Run run_feature_selection.py or train_models.py first.')
-            feats = get_candidates(df)
-            print(f'  [{h}] Falling back to all {len(feats)} candidates')
-        feature_sets[h] = feats
-
     all_fold_records: list[dict] = []
+    policy_suffix = '' if args.label_policy == OBSERVED_ONLY else '_policy'
 
     for h, (ret_col, beat_col) in horizons.items():
-        oof_col = f'ml_{h}_oof'
+        oof_col = f'ml_{h}_oof{policy_suffix}'
         print(f'\n{"=" * 60}')
         print(f'  Horizon: {h}  target={beat_col}  output={oof_col}')
         print(f'{"=" * 60}')
@@ -249,17 +242,16 @@ def main() -> None:
             print(f'  SKIP — {beat_col} not in dataset')
             continue
 
-        feats = feature_sets[h]
-        feats_avail = [f for f in feats if f in df.columns]
-        print(f'  Features: {len(feats_avail)}/{len(feats)} available in dataset')
+        print('  Features: selected independently inside each eligible training fold')
 
         scores_by_year, fold_records = run_oof(
             df=df,
             horizon=h,
             beat_col=beat_col,
-            features=feats_avail,
+            features=[],
             min_train_years=args.min_train_years,
             n_estimators=args.n_estimators,
+            label_policy=args.label_policy,
         )
         all_fold_records.extend(fold_records)
 
@@ -284,17 +276,17 @@ def main() -> None:
 
         if fold_records:
             wf_df = pd.DataFrame(fold_records)
-            wf_df.to_csv(REPORTS / f'oof_auc_{h}.csv', index=False)
+            wf_df.to_csv(REPORTS / f'oof_auc_{h}{policy_suffix}.csv', index=False)
             mean_auc = wf_df['auc'].mean()
             print(f'  Walk-forward OOF AUC: mean={mean_auc:.4f}  '
                   f'min={wf_df["auc"].min():.4f}  max={wf_df["auc"].max():.4f}')
-            print(f'  Saved: reports/oof_auc_{h}.csv')
+            print(f'  Saved: reports/oof_auc_{h}{policy_suffix}.csv')
 
     df_all.drop(columns=['_oof_key'], errors='ignore', inplace=True)
 
     if args.dry_run:
         print('\n[dry-run] Parquet NOT written.')
-        oof_cols = [f'ml_{h}_oof' for h in horizons]
+        oof_cols = [f'ml_{h}_oof{policy_suffix}' for h in horizons]
         for col in oof_cols:
             if col in df_all.columns:
                 n = df_all[col].notna().sum()
@@ -303,7 +295,8 @@ def main() -> None:
 
     print(f'\nWriting updated parquet → {parquet_path}')
     df_all.to_parquet(parquet_path, index=False)
-    oof_cols = [f'ml_{h}_oof' for h in horizons if f'ml_{h}_oof' in df_all.columns]
+    oof_cols = [f'ml_{h}_oof{policy_suffix}' for h in horizons
+                if f'ml_{h}_oof{policy_suffix}' in df_all.columns]
     print(f'  Shape: {df_all.shape[0]:,} × {df_all.shape[1]}  |  new cols: {oof_cols}')
 
     # Summary AUC table

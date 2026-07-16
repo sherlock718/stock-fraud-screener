@@ -6,6 +6,7 @@ Tests the pure computation functions (price lookup, forward_return, prior_return
 using crafted price series to validate temporal contracts.
 """
 import sys
+import sqlite3
 from datetime import timedelta
 from pathlib import Path
 
@@ -17,13 +18,58 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'pipeline'))
 
 from step3_enrich_prices import (
     price_on_or_after,
+    price_and_date_on_or_after,
     forward_return,
+    forward_return_with_dates,
     prior_return,
     vol_prior,
     price_to_52w_high,
     pick_benchmark,
     enrich_row,
+    get_price_series,
+    PriceCache,
 )
+
+
+def test_read_only_offline_cache_never_fetches_or_writes(tmp_path, monkeypatch):
+    cache_path = tmp_path / 'prices.db'
+    conn = sqlite3.connect(cache_path)
+    conn.execute('CREATE TABLE price_cache (ticker TEXT PRIMARY KEY, fetched_at TEXT, data_json TEXT)')
+    conn.execute(
+        'INSERT INTO price_cache VALUES (?, ?, ?)',
+        ('PRESENT', 'frozen', '{"2020-01-02T00:00:00.000": 10.0}'),
+    )
+    conn.commit()
+    conn.close()
+    before = cache_path.read_bytes()
+
+    monkeypatch.setattr(
+        'step3_enrich_prices.fetch_price_series',
+        lambda ticker: pytest.fail(f'network fetch attempted for {ticker}'),
+    )
+    cache = PriceCache(cache_path, read_only=True)
+    assert get_price_series('PRESENT', cache, offline=True).iloc[0] == 10.0
+    assert get_price_series('MISSING', cache, offline=True) is None
+    with pytest.raises(PermissionError):
+        cache.set('MISSING', pd.Series(dtype=float))
+    assert cache_path.read_bytes() == before
+
+
+def test_read_only_offline_cache_preserves_empty_series(tmp_path, monkeypatch):
+    cache_path = tmp_path / 'prices.db'
+    conn = sqlite3.connect(cache_path)
+    conn.execute('CREATE TABLE price_cache (ticker TEXT PRIMARY KEY, fetched_at TEXT, data_json TEXT)')
+    conn.execute('INSERT INTO price_cache VALUES (?, ?, ?)', ('EMPTY', 'frozen', '{}'))
+    conn.commit()
+    conn.close()
+    monkeypatch.setattr(
+        'step3_enrich_prices.fetch_price_series',
+        lambda ticker: pytest.fail(f'network fetch attempted for {ticker}'),
+    )
+
+    series = get_price_series('EMPTY', PriceCache(cache_path, read_only=True), offline=True)
+    assert series is not None
+    assert series.empty
 
 
 def _make_price_series(start='2018-01-01', periods=1500, start_price=100.0, daily_return=0.0003):
@@ -123,6 +169,21 @@ class TestForwardReturn:
         ret = forward_return(prices, entry, horizon_days=183)
         # Should be ~20% (100 → 120), NOT affected by the pre-entry crash
         assert ret == pytest.approx(0.20, abs=0.01)
+
+    def test_returns_actual_entry_and_exit_trading_dates(self):
+        series = _make_price_series(start='2019-01-01', periods=1200)
+        entry = pd.Timestamp('2020-01-04')  # Saturday
+        ret, actual_entry, actual_exit = forward_return_with_dates(series, entry, 1095)
+        assert ret is not None
+        assert actual_entry == pd.Timestamp('2020-01-06')
+        assert actual_exit >= entry + timedelta(days=1095)
+
+    def test_price_date_helper_reports_missing_date_with_missing_price(self):
+        price, actual_date = price_and_date_on_or_after(
+            pd.Series(dtype=float), pd.Timestamp('2020-01-01')
+        )
+        assert price is None
+        assert actual_date is None
 
 
 class TestPriorReturn:
@@ -342,6 +403,45 @@ class TestEnrichRowTemporal:
         assert result['entry_price'] is None
         assert result['forward_return_1y'] is None
         assert result['momentum_12m_prior'] is None
+        assert result['stock_label_end_date_3y'] is None
+        assert result['stock_label_provenance_3y'] is None
+
+    def test_relative_label_ends_on_later_stock_or_benchmark_exit(self):
+        dates = pd.bdate_range('2019-01-01', periods=1400)
+        stock = pd.Series(100.0, index=dates)
+        filed = pd.Timestamp('2020-01-06')
+        intended_exit = filed + timedelta(days=1095)
+        stock_exit = dates[dates >= intended_exit][0]
+        benchmark_dates = dates.drop(stock_exit)
+        benchmark = pd.Series(100.0, index=benchmark_dates)
+        row = pd.Series({
+            'cik': '0001234567', 'ticker': 'TEST', 'filed_date': filed,
+            'fiscal_year': 2019, 'fiscal_quarter': None,
+            'period_type': 'annual', 'shares_outstanding': 1_000_000_000,
+            'market': 'US',
+        })
+
+        result = enrich_row(row, stock, {'SPY': benchmark})
+
+        assert result['label_start_date'] == filed
+        assert result['stock_label_end_date_3y'] == stock_exit
+        assert result['benchmark_label_end_date_3y'] > stock_exit
+        assert result['label_end_date_3y'] == result['benchmark_label_end_date_3y']
+        assert result['stock_label_provenance_3y'] == 'observed_market_price'
+        assert result['label_provenance_3y'] == 'observed_stock_and_benchmark_prices'
+
+    def test_persists_horizon_qualified_dates_for_all_horizons(self):
+        series = _make_price_series(start='2008-01-01', periods=6000)
+        row = pd.Series({
+            'cik': '0001234567', 'ticker': 'TEST', 'filed_date': '2010-01-04',
+            'fiscal_year': 2009, 'fiscal_quarter': None, 'period_type': 'annual',
+            'shares_outstanding': 1_000_000_000, 'market': 'US',
+        })
+        result = enrich_row(row, series, {'SPY': series})
+        for horizon in ['6m', '1y', '2y', '3y', '4y', '5y', '6y', '7y', '8y', '10y', '15y']:
+            assert f'stock_label_end_date_{horizon}' in result
+            assert f'label_end_date_{horizon}' in result
+            assert f'label_provenance_{horizon}' in result
 
 
 class TestPriceAdjustedClose:

@@ -80,7 +80,7 @@ def select_features_on_period(
     df_train = df[df["fiscal_year"].between(train_start, train_end)].copy()
     df_val = df[df["fiscal_year"].between(val_start, val_end)].copy()
 
-    candidates = get_candidates(df)
+    candidates = get_candidates(df_train)
     print(f"  {len(candidates)} candidate features")
 
     # PSI filter: train vs validate (checks distribution stability)
@@ -392,22 +392,7 @@ def main():
             f"  {row['excess_pct']:+7.2f}   {row['n_picks']:3d}"
         )
 
-    # ── Step 4: Compare with current (biased) feature set ─────────────────────
-    print("\n" + "─" * 70)
-    print("STEP 4: Comparison with current (full-history) feature set")
-    print("─" * 70)
-
-    current_path = ROOT / "models" / "feature_sets_3y.json"
-    if current_path.exists():
-        with open(current_path) as f:
-            current = json.load(f)
-        current_feats = set(current["features"])
-        new_feats = set(features_primary)
-        print(f"  Current (biased):    {len(current_feats)} features")
-        print(f"  Train-only:          {len(new_feats)} features")
-        print(f"  Overlap:             {len(current_feats & new_feats)}")
-        print(f"  Dropped by restrict: {sorted(current_feats - new_feats)}")
-        print(f"  New (not in biased): {sorted(new_feats - current_feats)}")
+    print("\nLegacy feature-artifact comparison skipped: its exact lineage is unproven.")
 
     # ── Gate decision ─────────────────────────────────────────────────────────
     print("\n" + "=" * 70)

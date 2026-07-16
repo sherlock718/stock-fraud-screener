@@ -35,7 +35,7 @@ from pathlib import Path
 from scipy import stats
 
 from backtest.engine import (
-    load_full_hist, load_spy_returns, run_backtest,
+    load_full_hist, load_monthly_prices, load_spy_returns, run_backtest,
     MIN_MARKET_CAP, DEFAULT_COST_BPS, SMALLCAP_COST_BPS,
 )
 from alpha.factors.value      import compute as _value_compute
@@ -44,6 +44,11 @@ from alpha.factors.momentum   import compute as _momentum_compute
 from alpha.factors.growth     import compute as _growth_compute
 from alpha.factors.fraud_risk import compute as _fraud_risk_compute
 from _root import ROOT
+from modeling.prediction_lineage import (
+    complete_top_n,
+    requirements_for_signals,
+    validate_historical_scores,
+)
 
 BASE = ROOT
 
@@ -120,9 +125,15 @@ def _make_filter(score_col: str):
         s = yr_df.copy()
         if market:
             s = s[s['market'] == market]
-        if score_col not in s.columns or s[score_col].notna().sum() < max(top_n, 3):
-            return pd.Index([])
-        return s.nlargest(top_n, score_col).index
+        requirements = requirements_for_signals([score_col])
+        eligible = validate_historical_scores(s, requirements)
+        yr_df.attrs["historical_score_role_coverage"] = s.attrs.get(
+            "historical_score_role_coverage", {}
+        )
+        s = s.loc[eligible]
+        return complete_top_n(
+            yr_df, s, score_col=score_col, target_n=top_n
+        )
     return filter_fn
 
 
@@ -163,6 +174,7 @@ def build_registry(
 
     registry: list[dict] = []
     mkt_label = market or 'all'
+    monthly_px = load_monthly_prices()
 
     for signal_id, score_col, ret_col, horizon, category in signals:
         if score_col not in df.columns or df[score_col].notna().sum() < 100:
@@ -185,6 +197,7 @@ def build_registry(
             min_market_cap=MIN_MARKET_CAP,
             vol_weighted=True,
             spy_returns=spy_returns,
+            monthly_px=monthly_px,
         )
 
         n_years = result.get('n_years', 0)

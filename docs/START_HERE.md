@@ -62,13 +62,14 @@ Open `notebooks/production_screener.ipynb` and run all cells. Output:
 
 | # | Doc | What You'll Learn |
 |---|-----|-------------------|
-| 1 | `docs/FAQ.md` | Quick reference — thresholds, features, pipeline steps |
-| 2 | `docs/PRODUCTION_CONFIG.md` | Current production config — gates, scoring, pros/cons |
-| 3 | `docs/architecture/orientation_pipeline_spine.md` | How raw SEC filings → clean dataset |
-| 4 | `docs/architecture/orientation_modeling_alpha.md` | How features → ML signal (training, walk-forward, alpha factors) |
-| 5 | `docs/architecture/orientation_research_backtest.md` | How we validate it works (backtest engine, strategies, stats) |
-| 6 | `docs/architecture/orientation_quality_orchestration.md` | How CI/tests keep it honest (523 tests, drift monitoring) |
-| 7 | `notebooks/production_screener.ipynb` | The product — run it, see picks |
+| 1 | `docs/CODEX_ROADMAP.md` | Active session-by-session validation and learning plan |
+| 2 | `docs/FAQ.md` | Quick reference — thresholds, features, pipeline steps |
+| 3 | `docs/PRODUCTION_CONFIG.md` | Current production config — gates, scoring, pros/cons |
+| 4 | `docs/architecture/orientation_pipeline_spine.md` | How raw SEC filings → clean dataset |
+| 5 | `docs/architecture/orientation_modeling_alpha.md` | How features → ML signal (training, walk-forward, alpha factors) |
+| 6 | `docs/architecture/orientation_research_backtest.md` | How we validate it works (backtest engine, strategies, stats) |
+| 7 | `docs/architecture/orientation_quality_orchestration.md` | How CI/tests keep it honest (523 tests, drift monitoring) |
+| 8 | `notebooks/production_screener.ipynb` | The product — run it, see picks |
 
 ---
 

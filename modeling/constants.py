@@ -25,6 +25,7 @@ EXCLUDE_COLS = {
     'cik', 'ticker', 'name', 'filed_date', 'fiscal_year', 'fiscal_quarter',
     'period_type', 'exchange', 'sic_code', 'sic_description', 'market',
     'country', 'accounting_std', 'size_category_label', 'corp_code', 'acc_mt',
+    'label_start_date',
     # raw dollar amounts — size-contaminated; normalised versions used instead
     'revenue', 'net_income', 'gross_profit', 'operating_income', 'pretax_income',
     'cogs', 'sga_expense', 'rd_expense', 'depreciation', 'da_expense',
@@ -51,6 +52,10 @@ EXCLUDE_COLS = {
 EXCLUDE_PATTERNS = [
     'forward_return', 'beat_local_market', 'excess_return_local',
     'benchmark_return',
+    'label_end_date_', 'label_provenance_', 'policy_label_available_date_',
+    'policy_stock_label_available_date_',
+    'stock_label_end_date_', 'stock_label_provenance_',
+    'benchmark_label_end_date_', 'benchmark_label_provenance_',
     'fraud_score_',
     'ml_pred_excess',
     'composite_score',
@@ -69,7 +74,7 @@ MAX_MARKET_CAP_PROD = 10_000_000_000
 # ── Shared data loader ────────────────────────────────────────────────────────
 
 def load_data(parquet_path: Path | None = None) -> pd.DataFrame:
-    """Load, deduplicate, winsorize, and enrich the historical dataset."""
+    """Load, deduplicate, and enrich the already-materialized dataset."""
     path = parquet_path or DATA_PATH
     df_raw = pd.read_parquet(path)
     df = df_raw[df_raw['period_type'] == 'annual'].copy()
@@ -77,10 +82,6 @@ def load_data(parquet_path: Path | None = None) -> pd.DataFrame:
 
     df = df.sort_values('total_assets', ascending=False, na_position='last')
     df = df.drop_duplicates(subset=['ticker', 'fiscal_year'], keep='first')
-
-    for col in [c for c in df.columns if 'growth_yoy' in c]:
-        lo, hi = df[col].quantile(0.01), df[col].quantile(0.99)
-        df[col] = df[col].clip(lo, hi)
 
     for col in ['forward_return_1y', 'forward_return_3y', 'forward_return_5y']:
         if col in df.columns:

@@ -3,18 +3,19 @@ Standalone feature selection pipeline.
 
 Stages (per horizon):
   1. PSI filter  — removes features with PSI > PSI_THRESHOLD between
-                   train (fiscal_year <= train_end) and test (> VAL_END)
+                   train and the explicit validation/development window
   2. IC screen   — keeps |mean_IC| >= IC_MIN_ABS and n_years >= N_YEARS_MIN
   3. ICIR rank   — sort by |ICIR|, keep top TOP_K_ICIR
   4. Spearman dedup — drop near-duplicates (|r| > CORR_THRESHOLD)
 
-All IC/PSI computation is restricted to fiscal_year <= train_end (default 2020)
-to prevent val/test leakage into feature selection.
+IC and correlation selection use eligible training rows. PSI may additionally
+use only the declared development window; later test rows remain untouched.
 
 Outputs:
   models/feature_sets_{1y,3y,5y}.json   — selected feature list per horizon
   reports/feature_selection_summary.csv  — all candidates with IC/ICIR/PSI stats
 """
+from __future__ import annotations
 
 import argparse
 import json
@@ -40,6 +41,8 @@ from modeling.train import (
     deduplicate_features,
     load_data,
 )
+from modeling.fold_lineage import make_lineage
+from modeling.label_eligibility import LABEL_POLICIES, OBSERVED_ONLY, training_label_eligible
 
 BASE = ROOT
 
@@ -244,18 +247,26 @@ def run_selection(
     corr_thr: float = CORR_THRESHOLD,
     sector_neutral: bool = True,
     train_end: int | None = None,
+    development_end: int = VAL_END,
+    label_policy: str = OBSERVED_ONLY,
 ) -> dict:
     ret_col, beat_col = HORIZONS[horizon]
 
     cutoff = train_end if train_end is not None else TRAIN_CUTOFF
-    df_train = df[df["fiscal_year"] <= cutoff].copy()
-    df_test  = df[df["fiscal_year"]  > VAL_END].copy()
+    cutoff_date = pd.Timestamp(f"{cutoff + 1}-01-01")
+    df_train = df[
+        (df["fiscal_year"] <= cutoff)
+        & training_label_eligible(df, ret_col, cutoff_date, label_policy)
+    ].copy()
+    df_development = df[
+        (df["fiscal_year"] > cutoff) & (df["fiscal_year"] <= development_end)
+    ].copy()
 
     candidates = get_candidates(df_train)
     print(f"\n  [{horizon}] {len(candidates)} candidates")
 
     # Stage 1 — PSI filter
-    psi_pass, psi_df = psi_filter(df_train, df_test, candidates, psi_thr)
+    psi_pass, psi_df = psi_filter(df_train, df_development, candidates, psi_thr)
 
     # Stage 2+3 — IC screen + ICIR rank (on train split only)
     df_train_ret = df_train[df_train[ret_col].notna()]
@@ -268,7 +279,7 @@ def run_selection(
 
     # Force-include (only features that survived PSI and exist in data)
     for fi in force_include:
-        if fi in df.columns and fi not in ic_pass and fi in psi_pass:
+        if fi in candidates and fi not in ic_pass and fi in psi_pass:
             ic_pass.append(fi)
             print(f"    Force-include: {fi}")
 
@@ -279,17 +290,37 @@ def run_selection(
 
     # Merge IC stats with PSI for the summary report
     merged = ic_tbl.reset_index().merge(
-        psi_df.rename(columns={"psi": "psi_train_vs_test"}),
+        psi_df.rename(columns={"psi": "psi_train_vs_development"}),
         on="feature", how="left",
     )
     merged["horizon"]   = horizon
     merged["selected"]  = merged["feature"].isin(final)
 
+    lineage = make_lineage(
+        dataset=df,
+        training_population=df_train,
+        development_population=df_development,
+        horizon=horizon,
+        target_col=ret_col,
+        label_policy=label_policy,
+        cutoff=cutoff_date.isoformat(),
+        selector_config={
+            "psi_threshold": psi_thr,
+            "psi_population": "development",
+            "ic_min": ic_min,
+            "top_k": top_k,
+            "corr_threshold": corr_thr,
+            "sector_neutral": sector_neutral,
+            "development_end": development_end,
+        },
+        features=final,
+    )
     return {
         "features": final,
         "n":        len(final),
         "horizon":  horizon,
         "generated": datetime.now(timezone.utc).isoformat(),
+        "lineage": lineage,
         "_ic_summary": merged,  # kept in-memory for combined CSV only
     }
 
@@ -305,8 +336,10 @@ def main():
     parser.add_argument("--no-sector-neutral", dest="sector_neutral", action="store_false",
                         help="Disable sector-neutral IC")
     parser.add_argument("--train-end", type=int, default=TRAIN_CUTOFF,
-                        help=f"Last fiscal_year used for IC/PSI computation (default: {TRAIN_CUTOFF}). "
-                             "Prevents leakage from val/test years into feature selection.")
+                        help=f"Last fiscal_year used for training selection (default: {TRAIN_CUTOFF})")
+    parser.add_argument("--development-end", type=int, default=VAL_END,
+                        help="Last validation year permitted for PSI development decisions")
+    parser.add_argument("--label-policy", choices=LABEL_POLICIES, default=OBSERVED_ONLY)
     parser.add_argument("--dry-run", action="store_true",
                         help="Print stats but do not write JSON files")
     args = parser.parse_args()
@@ -333,7 +366,9 @@ def main():
         result = run_selection(df, horizon, force,
                                psi_thr=psi_thr, ic_min=ic_min,
                                top_k=top_k, corr_thr=corr_thr,
-                               sector_neutral=sn, train_end=train_end)
+                               sector_neutral=sn, train_end=train_end,
+                               development_end=args.development_end,
+                               label_policy=args.label_policy)
         if not result:
             continue
         results[horizon] = result

@@ -25,6 +25,8 @@ Output: data/prices.parquet
     excess_return_local_{h}  for h in HORIZONS
   momentum_12m_prior, momentum_6m_prior, momentum_3m_prior
   price_to_52w_high, vol_prior_12m
+  label_start_date, stock_label_end_date_{h}, benchmark_label_end_date_{h},
+    label_end_date_{h}, and matching provenance columns
 """
 
 from __future__ import annotations
@@ -102,19 +104,29 @@ CREATE TABLE IF NOT EXISTS price_cache (
 class PriceCache:
     """Thread-safe SQLite disk cache for yfinance adjusted close prices."""
 
-    def __init__(self, db_path=CACHE):
+    def __init__(self, db_path=CACHE, *, read_only: bool = False):
         self.db_path = str(db_path)
+        self.read_only = read_only
         self._local = threading.local()
         self._init_db()
 
     def _conn(self):
         if not hasattr(self._local, 'conn'):
-            self._local.conn = sqlite3.connect(self.db_path)
-            self._local.conn.execute(_CREATE_CACHE)
-            self._local.conn.commit()
+            if self.read_only:
+                uri = Path(self.db_path).resolve().as_uri() + '?mode=ro&immutable=1'
+                self._local.conn = sqlite3.connect(uri, uri=True)
+            else:
+                self._local.conn = sqlite3.connect(self.db_path)
+                self._local.conn.execute(_CREATE_CACHE)
+                self._local.conn.commit()
         return self._local.conn
 
     def _init_db(self):
+        if self.read_only:
+            if not Path(self.db_path).is_file():
+                raise FileNotFoundError(f'read-only price cache not found: {self.db_path}')
+            self._conn().execute('SELECT 1 FROM price_cache LIMIT 1').fetchone()
+            return
         conn = sqlite3.connect(self.db_path)
         conn.execute(_CREATE_CACHE)
         conn.commit()
@@ -136,6 +148,8 @@ class PriceCache:
 
     def set(self, ticker: str, series: pd.Series):
         """Persist a price series to disk."""
+        if self.read_only:
+            raise PermissionError('cannot write to a read-only price cache')
         if series is None or series.empty:
             data_json = json.dumps({})
         else:
@@ -220,10 +234,17 @@ def fetch_price_series(ticker: str) -> pd.Series | None:
     return with_retry(_fetch, label=ticker)
 
 
-def get_price_series(ticker: str, cache: PriceCache) -> pd.Series | None:
+def get_price_series(
+    ticker: str,
+    cache: PriceCache,
+    *,
+    offline: bool = False,
+) -> pd.Series | None:
     """Return price series from cache or fetch from yfinance."""
     if cache.has(ticker):
         return cache.get(ticker)
+    if offline:
+        return None
     series = fetch_price_series(ticker)
     cache.set(ticker, series if series is not None else pd.Series(dtype=float))
     return series
@@ -231,11 +252,15 @@ def get_price_series(ticker: str, cache: PriceCache) -> pd.Series | None:
 
 # ── Benchmark loading ──────────────────────────────────────────────────────────
 
-def load_benchmarks(cache: PriceCache) -> dict[str, pd.Series]:
+def load_benchmarks(
+    cache: PriceCache,
+    *,
+    offline: bool = False,
+) -> dict[str, pd.Series]:
     """Load SPY, MDY, IWM, IWC price series. Cached to SQLite."""
     benches = {}
     for sym in BENCHMARK_TICKERS:
-        s = get_price_series(sym, cache)
+        s = get_price_series(sym, cache, offline=offline)
         if s is not None and not s.empty:
             benches[sym] = s
             print(f'  Benchmark {sym}: {len(s):,} days '
@@ -272,15 +297,24 @@ def pick_benchmark(market_cap: float | None, market: str = 'US') -> str:
 
 # ── Price lookup helpers ───────────────────────────────────────────────────────
 
-def price_on_or_after(series: pd.Series, target_date: pd.Timestamp,
-                       max_lag: int = 5) -> float | None:
-    """Return first available price on or after target_date within max_lag days."""
+def price_and_date_on_or_after(series: pd.Series, target_date: pd.Timestamp,
+                               max_lag: int = 5) -> tuple[float | None, pd.Timestamp | None]:
+    """Return the first price and actual trading date on/after ``target_date``."""
     if series is None or series.empty:
-        return None
+        return None, None
     subset = series[series.index >= target_date]
     deadline = target_date + timedelta(days=max_lag)
     subset = subset[subset.index <= deadline]
-    return float(subset.iloc[0]) if len(subset) > 0 else None
+    if subset.empty:
+        return None, None
+    return float(subset.iloc[0]), pd.Timestamp(subset.index[0])
+
+
+def price_on_or_after(series: pd.Series, target_date: pd.Timestamp,
+                       max_lag: int = 5) -> float | None:
+    """Return first available price on or after target_date within max_lag days."""
+    price, _ = price_and_date_on_or_after(series, target_date, max_lag=max_lag)
+    return price
 
 
 def forward_return(series: pd.Series, entry_date: pd.Timestamp,
@@ -294,6 +328,20 @@ def forward_return(series: pd.Series, entry_date: pd.Timestamp,
     if exit_price is None:
         return None
     return float(exit_price / entry_price - 1)
+
+
+def forward_return_with_dates(
+    series: pd.Series, entry_date: pd.Timestamp, horizon_days: int
+) -> tuple[float | None, pd.Timestamp | None, pd.Timestamp | None]:
+    """Return cumulative return plus actual entry and exit trading dates."""
+    entry_price, actual_entry = price_and_date_on_or_after(series, entry_date)
+    if entry_price is None:
+        return None, actual_entry, None
+    target = entry_date + timedelta(days=horizon_days)
+    exit_price, actual_exit = price_and_date_on_or_after(series, target, max_lag=10)
+    if exit_price is None:
+        return None, actual_entry, None
+    return float(exit_price / entry_price - 1), actual_entry, actual_exit
 
 
 def prior_return(series: pd.Series, entry_date: pd.Timestamp,
@@ -375,8 +423,27 @@ def enrich_row(row: pd.Series, price_series: pd.Series,
         col_beat  = f'beat_local_market_{h}'
         col_exc   = f'excess_return_local_{h}'
 
-        fwd   = forward_return(price_series, entry_date, days) if price_series is not None else None
-        bench = forward_return(benchmarks.get(bench_sym), entry_date, days)
+        fwd, stock_start, stock_end = forward_return_with_dates(
+            price_series, entry_date, days
+        ) if price_series is not None else (None, None, None)
+        bench, _, benchmark_end = forward_return_with_dates(
+            benchmarks.get(bench_sym), entry_date, days
+        )
+        result['label_start_date'] = stock_start
+        result[f'stock_label_end_date_{h}'] = stock_end
+        result[f'benchmark_label_end_date_{h}'] = benchmark_end
+        result[f'stock_label_provenance_{h}'] = (
+            'observed_market_price' if fwd is not None else None
+        )
+        result[f'benchmark_label_provenance_{h}'] = (
+            'observed_market_price' if bench is not None else None
+        )
+        if fwd is not None and bench is not None:
+            result[f'label_end_date_{h}'] = max(stock_end, benchmark_end)
+            result[f'label_provenance_{h}'] = 'observed_stock_and_benchmark_prices'
+        else:
+            result[f'label_end_date_{h}'] = None
+            result[f'label_provenance_{h}'] = None
 
         result[col_fwd]   = fwd
         result[col_bench] = bench
@@ -422,13 +489,21 @@ def save_checkpoint(done: set, path: Path = CHECKPOINT):
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
-def run(limit=None, snapshots_path=None, out_path=None):
-    DATA.mkdir(exist_ok=True)
+def run(
+    limit=None,
+    snapshots_path=None,
+    out_path=None,
+    cache_path=None,
+    *,
+    offline: bool = False,
+):
     print('Step 3 — Enriching with prices + forward returns')
 
     snap_file = Path(snapshots_path) if snapshots_path else SNAP
     out_file  = Path(out_path)       if out_path       else OUT
+    cache_file = Path(cache_path)    if cache_path     else CACHE
     ckpt_file = out_file.with_name(out_file.stem + '_checkpoint.json')
+    out_file.parent.mkdir(parents=True, exist_ok=True)
 
     # Load snapshots
     if not snap_file.exists():
@@ -447,18 +522,18 @@ def run(limit=None, snapshots_path=None, out_path=None):
     # Sort by ticker so checkpoint resumes cleanly
     snap = snap.sort_values(['ticker', 'filed_date']).reset_index(drop=True)
 
-    cache = PriceCache(CACHE)
+    cache = PriceCache(cache_file, read_only=offline)
     print(f'  Price cache: {cache.count():,} tickers already cached')
 
     # Load benchmark series at startup (cached)
     print('  Loading benchmark series (SPY, MDY, IWM, IWC) ...')
-    benchmarks = load_benchmarks(cache)
+    benchmarks = load_benchmarks(cache, offline=offline)
 
     # Load Korean benchmarks if KR rows present
     if 'market' in snap.columns and (snap['market'] == 'KR').any():
         print('  Loading Korean benchmark series (^KS11, ^KQ11) ...')
         for sym in KR_BENCHMARK_TICKERS:
-            s = get_price_series(sym, cache)
+            s = get_price_series(sym, cache, offline=offline)
             if s is not None and not s.empty:
                 benchmarks[sym] = s
                 print(f'  Benchmark {sym}: {len(s):,} days')
@@ -470,7 +545,7 @@ def run(limit=None, snapshots_path=None, out_path=None):
             eu_syms = sorted({EU_BENCHMARK_MAP[m] for m in eu_markets_present})
             print(f'  Loading EU benchmark series ({", ".join(eu_syms)}) ...')
             for sym in eu_syms:
-                s = get_price_series(sym, cache)
+                s = get_price_series(sym, cache, offline=offline)
                 if s is not None and not s.empty:
                     benchmarks[sym] = s
                     print(f'  Benchmark {sym}: {len(s):,} days')
@@ -484,7 +559,7 @@ def run(limit=None, snapshots_path=None, out_path=None):
             single_syms = sorted({SINGLE_BENCHMARK_MAP[m] for m in single_markets_present})
             print(f'  Loading single-market benchmark series ({", ".join(single_syms)}) ...')
             for sym in single_syms:
-                s = get_price_series(sym, cache)
+                s = get_price_series(sym, cache, offline=offline)
                 if s is not None and not s.empty:
                     benchmarks[sym] = s
                     print(f'  Benchmark {sym}: {len(s):,} days')
@@ -494,6 +569,9 @@ def run(limit=None, snapshots_path=None, out_path=None):
     done_tickers = load_checkpoint(ckpt_file)
     tickers_all  = snap['ticker'].unique().tolist()
     tickers_todo = [t for t in tickers_all if t not in done_tickers]
+    rows_by_ticker = {
+        ticker: rows for ticker, rows in snap.groupby('ticker', sort=False)
+    }
     print(f'  Tickers to process: {len(tickers_todo):,} '
           f'(already done: {len(done_tickers):,})')
 
@@ -508,13 +586,13 @@ def run(limit=None, snapshots_path=None, out_path=None):
     t_start    = time.time()
     n_done     = 0
     n_total    = len(tickers_todo)
-    BATCH_SIZE = 50
+    BATCH_SIZE = 500 if offline else 50
 
     for i, ticker in enumerate(tickers_todo):
-        rows_for_ticker = snap[snap['ticker'] == ticker]
+        rows_for_ticker = rows_by_ticker[ticker]
 
         # Fetch price series (cached)
-        price_series = get_price_series(ticker, cache)
+        price_series = get_price_series(ticker, cache, offline=offline)
 
         # Enrich each filing row
         for _, row in rows_for_ticker.iterrows():
@@ -571,5 +649,15 @@ if __name__ == '__main__':
                         help='Path to snapshots parquet (default: data/snapshots.parquet)')
     parser.add_argument('--out',       type=str,  default=None,
                         help='Output parquet path (default: data/prices.parquet)')
+    parser.add_argument('--cache',     type=str,  default=None,
+                        help='SQLite daily-price cache (default: data/price_cache.db)')
+    parser.add_argument('--offline', action='store_true',
+                        help='Open the cache read-only and never fetch missing series')
     args = parser.parse_args()
-    run(limit=args.limit, snapshots_path=args.snapshots, out_path=args.out)
+    run(
+        limit=args.limit,
+        snapshots_path=args.snapshots,
+        out_path=args.out,
+        cache_path=args.cache,
+        offline=args.offline,
+    )

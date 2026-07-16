@@ -142,7 +142,13 @@ def fetch_company_facts(cik: str, retries=4) -> Optional[dict]:
     return None
 
 
-def extract_concept_series(facts: dict, concept_path: str, is_shares=False, is_bool=False):
+def extract_concept_series(
+    facts: dict,
+    concept_path: str,
+    is_shares=False,
+    is_bool=False,
+    include_provenance=False,
+):
     """
     Extract time-series values for a single XBRL concept.
     Returns dict: {(fy, fp): (value, filed_date)}
@@ -168,13 +174,12 @@ def extract_concept_series(facts: dict, concept_path: str, is_shares=False, is_b
         units = ns_data[concept].get('units', {})
 
         if is_bool:
-            entries = []
-            for unit_entries in units.values():
-                entries.extend(unit_entries)
-            return {(e.get('fy'), e.get('fp')): (True, e.get('filed', ''))
-                    for e in entries if e.get('fy')}
-
-        if is_shares:
+            unit_data = [
+                {**entry, 'val': True}
+                for unit_entries in units.values()
+                for entry in unit_entries
+            ]
+        elif is_shares:
             unit_data = units.get('shares', units.get('USD/shares', []))
         else:
             unit_data = units.get('USD', [])
@@ -191,7 +196,7 @@ def extract_concept_series(facts: dict, concept_path: str, is_shares=False, is_b
                 continue
             if not isinstance(fy, int) or fy < 2005 or fy > datetime.now().year + 1:
                 continue
-            by_period[(fy, fp)].append((val, filed, e.get('form', '')))
+            by_period[(fy, fp)].append((val, filed, e.get('form', ''), e.get('accn', '')))
 
         # For each period, select the PIT-correct value:
         # 1. Prefer the earliest primary filing (10-K, 10-Q, 20-F, 10-KSB)
@@ -199,15 +204,52 @@ def extract_concept_series(facts: dict, concept_path: str, is_shares=False, is_b
         PRIMARY_FORMS = {'10-K', '10-Q', '20-F', '10-KSB', '10-QSB'}
         result = {}
         for key, entries in by_period.items():
-            primary = [(v, f, form) for v, f, form in entries if form in PRIMARY_FORMS]
+            primary = [entry for entry in entries if entry[2] in PRIMARY_FORMS and entry[1]]
+            provenance = None
             if primary:
                 # Earliest primary filing (by filed date)
                 primary.sort(key=lambda x: x[1])
-                result[key] = (primary[0][0], primary[0][1])
+                earliest_date = primary[0][1]
+                earliest = [entry for entry in primary if entry[1] == earliest_date]
+                accessions = {entry[3] for entry in earliest}
+                if len(accessions) != 1 or (not next(iter(accessions)) and len(earliest) != 1):
+                    # No accession precedence may be inferred when two source
+                    # records claim the same earliest filing date.
+                    chosen = (None, earliest_date, '', '')
+                    provenance = 'ambiguous_earliest_primary'
+                else:
+                    # A Company Facts filing repeats comparative and interim
+                    # contexts under the filing's FY/FP metadata. Select the
+                    # current context inside the single proven accession: latest
+                    # period end, then full-year duration for FY or shortest
+                    # quarter duration for Q1/Q2/Q3.
+                    raw_entries = [e for e in unit_data if (
+                        e.get('fy'), e.get('fp', ''), e.get('filed', ''), e.get('accn', '')
+                    ) == (key[0], key[1], earliest_date, next(iter(accessions)))]
+                    dated = [e for e in raw_entries if e.get('end')]
+                    if dated:
+                        latest_end = max(e['end'] for e in dated)
+                        raw_entries = [e for e in dated if e['end'] == latest_end]
+                    duration_entries = [e for e in raw_entries if e.get('start') and e.get('end')]
+                    if len(duration_entries) > 1:
+                        def duration(entry):
+                            return (datetime.fromisoformat(entry['end']) - datetime.fromisoformat(entry['start'])).days
+                        target = (max if key[1] == 'FY' else min)(duration(e) for e in duration_entries)
+                        raw_entries = [e for e in duration_entries if duration(e) == target]
+                    values = {json.dumps(e.get('val'), sort_keys=True, default=str) for e in raw_entries}
+                    if len(values) != 1:
+                        chosen = (None, earliest_date, '', '')
+                        provenance = 'ambiguous_earliest_primary'
+                    else:
+                        chosen = (raw_entries[0].get('val'), earliest_date, raw_entries[0].get('form', ''), raw_entries[0].get('accn', ''))
+                        provenance = 'sec_primary_filing'
             else:
-                # No primary filing — use earliest available
+                # Preserve raw extraction coverage, but do not certify this row
+                # for filing-time cohort transforms.
                 entries.sort(key=lambda x: x[1])
-                result[key] = (entries[0][0], entries[0][1])
+                chosen = entries[0]
+            value = (chosen[0], chosen[1], provenance)
+            result[key] = value if include_provenance else value[:2]
 
         return result
     except Exception:
@@ -223,14 +265,18 @@ def extract_field_series(facts: dict, field: str) -> dict:
     is_bool   = field in BOOL_FIELDS
     merged = {}
     for concept in FIELD_CONCEPTS.get(field, []):
-        series = extract_concept_series(facts, concept, is_shares, is_bool)
+        series = extract_concept_series(
+            facts, concept, is_shares, is_bool, include_provenance=True
+        )
         for key, val in series.items():
             if key not in merged:  # first concept that has a value wins
+                merged[key] = val
+            elif merged[key][2] is None and val[2] == 'sec_primary_filing':
                 merged[key] = val
     return merged
 
 
-def build_period_snapshots(facts: dict) -> list:
+def build_period_snapshots(facts: dict, *, return_excluded=False):
     """
     Build a list of financial snapshots (one per fiscal period).
     Returns list of dicts, sorted by (fiscal_year, period_type).
@@ -245,6 +291,7 @@ def build_period_snapshots(facts: dict) -> list:
 
     # Build a snapshot per period
     snapshots = []
+    excluded = []
     for (fy, fp) in sorted(all_periods, key=lambda x: (x[0] or '', x[1] or '')):
         # Determine period type
         if fp == 'FY':
@@ -264,23 +311,51 @@ def build_period_snapshots(facts: dict) -> list:
             'fiscal_quarter':  fiscal_quarter,
             'period_type':     period_type,
             'filed_date':      None,
+            'availability_timestamp': None,
+            'availability_provenance': None,
         }
 
         latest_filed = ''
+        exclusion_reasons = set()
+        omitted_fields = []
         for field, series in field_data.items():
             if (fy, fp) in series:
-                val, filed = series[(fy, fp)]
-                snap[field] = val
-                if filed > latest_filed:
-                    latest_filed = filed
+                val, filed, provenance = series[(fy, fp)]
+                if provenance == 'sec_primary_filing' and filed:
+                    snap[field] = val
+                    if filed > latest_filed:
+                        latest_filed = filed
+                elif provenance == 'ambiguous_earliest_primary':
+                    exclusion_reasons.add('ambiguous_earliest_primary')
+                else:
+                    omitted_fields.append(field)
+                    if not return_excluded:
+                        snap[field] = val
+                        if filed > latest_filed:
+                            latest_filed = filed
 
         snap['filed_date'] = latest_filed if latest_filed else None
+        if latest_filed and not omitted_fields and not exclusion_reasons:
+            snap['availability_timestamp'] = latest_filed
+            snap['availability_provenance'] = 'sec_primary_filing'
 
         # Only keep if we have at least assets and revenue
-        if snap.get('total_assets') and snap.get('revenue'):
+        if not snap.get('total_assets') or not snap.get('revenue'):
+            exclusion_reasons.add('missing_primary_revenue_or_assets')
+        if omitted_fields:
+            snap['unproven_fields_excluded'] = ';'.join(sorted(omitted_fields))
+
+        if snap.get('total_assets') and snap.get('revenue') and not exclusion_reasons:
+            snapshots.append(snap)
+        elif return_excluded:
+            snap['exclusion_reason'] = ';'.join(sorted(exclusion_reasons))
+            excluded.append(snap)
+        elif snap.get('total_assets') and snap.get('revenue'):
+            # Backwards-compatible diagnostic behavior for callers that have
+            # not requested the certified/excluded split.
             snapshots.append(snap)
 
-    return snapshots
+    return (snapshots, excluded) if return_excluded else snapshots
 
 
 def _yoy(curr, prev):
@@ -486,6 +561,7 @@ def run(limit=None):
             snap['sic_code']        = company.get('sic_code')
             snap['sic_description'] = company.get('sic_description', '')
             snap['market']          = company.get('market', 'US')
+            snap['entity_id']       = f"{snap['market']}:{cik}"
             snap['country']         = company.get('country', 'United States')
             snap['accounting_std']  = company.get('accounting_std', 'GAAP')
             rows.append(snap)

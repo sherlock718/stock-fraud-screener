@@ -54,7 +54,7 @@ class TestComputeComposite:
         df = pd.DataFrame({'sig_a': [1.0, 2.0, 3.0]})
         result = compute_composite(df, ['sig_a', 'nonexistent'],
                                    {'sig_a': 0.5, 'nonexistent': 0.5})
-        assert result.notna().all()
+        assert result.isna().all()
 
     def test_output_bounded_zero_one(self, df_with_signals):
         result = compute_composite(
@@ -194,9 +194,12 @@ class TestQualityGate:
         result = _quality_gate(gate_df, min_fscore=3)
         assert (result['beneish_m_score'] < -1.78).all()
 
-    def test_removes_delisted(self, gate_df):
-        result = _quality_gate(gate_df, min_fscore=3)
-        assert (result['likely_delisted'] == 0).all()
+    def test_future_derived_delisted_annotation_is_not_a_historical_gate(self, gate_df):
+        changed = gate_df.copy()
+        changed["likely_delisted"] = 1 - changed["likely_delisted"]
+        original = _quality_gate(gate_df, min_fscore=3)
+        reclassified = _quality_gate(changed, min_fscore=3)
+        assert original.index.tolist() == reclassified.index.tolist()
 
     def test_combined_filters_reduce_rows(self, gate_df):
         result = _quality_gate(gate_df, min_fscore=7)

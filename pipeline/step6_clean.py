@@ -19,6 +19,12 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from pipeline.event_time_cohorts import (
+    attach_contract_provenance,
+    event_time_rank,
+    winsorize_accruals_event_time,
+)
+
 BASE = Path(__file__).parent.parent
 DATA = BASE / "data"
 IN = DATA / "historical_dataset.parquet"
@@ -51,11 +57,13 @@ def run_structural_clean(df: pd.DataFrame) -> pd.DataFrame:
 
     # Remove duplicates
     before = len(df)
-    dedup_key = (
-        ["cik", "market", "filed_date", "period_type"]
-        if "market" in df.columns
-        else ["cik", "filed_date", "period_type"]
-    )
+    dedup_key = (["stable_row_id"] if "stable_row_id" in df.columns else
+                 (["entity_id", "fiscal_year", "period_type"]
+                  if "entity_id" in df.columns else
+                  (["cik", "market", "filed_date", "period_type"]
+                   if "market" in df.columns else ["cik", "filed_date", "period_type"])))
+    if df.duplicated(dedup_key, keep=False).any() and "stable_row_id" in df.columns:
+        raise ValueError("duplicate stable_row_id encountered during Step 6")
     df = df.drop_duplicates(subset=dedup_key, keep="first")
     n_dropped = before - len(df)
     if n_dropped:
@@ -75,7 +83,8 @@ def run_structural_clean(df: pd.DataFrame) -> pd.DataFrame:
     df["filing_lag_days"] = (df["filed_date"] - fy_end).dt.days
 
     # Sort
-    df = df.sort_values(["ticker", "filed_date", "period_type"]).reset_index(drop=True)
+    entity_key = "entity_id" if "entity_id" in df.columns else "ticker"
+    df = df.sort_values([entity_key, "filed_date", "period_type"]).reset_index(drop=True)
     return df
 
 
@@ -118,37 +127,15 @@ def add_forecast_flag(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def winsorize_accruals(df: pd.DataFrame) -> pd.DataFrame:
-    """Winsorize accruals_to_assets at 1st/99th percentile per (market, fiscal_year)."""
+    """Winsorize accruals under the accepted filing-time fallback contract."""
     col = "accruals_to_assets"
     if col not in df.columns:
         return df
 
     df = df.copy()
-    n_changed = 0
-
-    def _winsorize_group(grp: pd.DataFrame) -> pd.DataFrame:
-        nonlocal n_changed
-        series = grp[col].dropna()
-        if len(series) < 20:
-            lo = df[col].quantile(0.01)
-            hi = df[col].quantile(0.99)
-        else:
-            lo = series.quantile(0.01)
-            hi = series.quantile(0.99)
-        mask = grp[col].notna()
-        before = (grp.loc[mask, col] < lo).sum() + (grp.loc[mask, col] > hi).sum()
-        grp = grp.copy()
-        grp.loc[mask, col] = grp.loc[mask, col].clip(lo, hi)
-        n_changed += before
-        return grp
-
-    if "market" in df.columns and "fiscal_year" in df.columns:
-        df = df.groupby(["market", "fiscal_year"], group_keys=False).apply(_winsorize_group)
-    else:
-        lo = df[col].quantile(0.01)
-        hi = df[col].quantile(0.99)
-        n_changed = int((df[col] < lo).sum() + (df[col] > hi).sum())
-        df[col] = df[col].clip(lo, hi)
+    before = pd.to_numeric(df[col], errors="coerce")
+    df[col], df["accruals_winsorization_method"] = winsorize_accruals_event_time(df, col)
+    n_changed = int((before.notna() & df[col].notna() & before.ne(df[col])).sum())
 
     print(f"  Winsorized accruals_to_assets: {n_changed:,} values clipped")
     return df
@@ -200,22 +187,26 @@ def _impute_size_category(df: pd.DataFrame) -> pd.DataFrame:
         df[SIZE_FLAG_COL] = False
         return df
 
-    def _rank_to_bucket(s: pd.Series) -> pd.Series:
-        ranks = s.rank(pct=True, na_option="keep")
-        return pd.cut(
-            ranks, bins=[0, 0.25, 0.5, 0.75, 1.0],
-            labels=[0, 1, 2, 3], include_lowest=True,
-        ).astype("float32")
-
-    if "market" in df.columns:
-        imputed = df[null_mask].groupby(
-            ["fiscal_year", "market"], group_keys=False
-        )["log_assets"].transform(_rank_to_bucket)
-    else:
-        imputed = _rank_to_bucket(df.loc[null_mask, "log_assets"])
+    ranks = event_time_rank(
+        df,
+        "log_assets",
+        group_cols=["fiscal_year", "market"],
+        min_count=20,
+    )
+    imputed = pd.cut(
+        ranks.loc[null_mask],
+        bins=[0, 0.25, 0.5, 0.75, 1.0],
+        labels=[0, 1, 2, 3],
+        include_lowest=True,
+    ).astype("float32")
 
     df.loc[null_mask, "size_category"] = imputed
-    df[SIZE_FLAG_COL] = null_mask
+    df[SIZE_FLAG_COL] = null_mask & df["size_category"].notna()
+    df["size_category_imputation_method"] = pd.Series(pd.NA, index=df.index, dtype="string")
+    df.loc[null_mask & ranks.notna(), "size_category_imputation_method"] = (
+        "eligible_fiscal_market_cohort"
+    )
+    df.loc[null_mask & ranks.isna(), "size_category_imputation_method"] = "sparse_or_unproven"
     return df
 
 
@@ -262,6 +253,13 @@ def run_impute(df: pd.DataFrame, source_path: Path | None = None) -> pd.DataFram
 
 DEFAULT_LAG = 3
 DELISTING_RETURN = -0.50
+SURVIVORSHIP_HORIZON_DAYS = {
+    "6m": 183,
+    "1y": 365,
+    "2y": 730,
+    "3y": 1095,
+    "5y": 1825,
+}
 
 
 def run_survivorship(df: pd.DataFrame, lag: int = DEFAULT_LAG) -> pd.DataFrame:
@@ -280,31 +278,83 @@ def run_survivorship(df: pd.DataFrame, lag: int = DEFAULT_LAG) -> pd.DataFrame:
     print(f"  Survivorship: {len(delisted_tickers):,} likely-delisted tickers, "
           f"{n_delisted:,} rows flagged")
 
-    # Impute pessimistic forward returns on final filing row
+    last_rows = (
+        df[df["likely_delisted"] & (df.get("period_type", "annual") == "annual")]
+        .sort_values("fiscal_year")
+        .drop_duplicates("ticker", keep="last")
+        .index
+    )
+
+    def _policy_available(index: pd.Index, horizon: str) -> pd.Series:
+        filed = pd.to_datetime(df.loc[index, "filed_date"], errors="coerce")
+        detection_date = filed + pd.DateOffset(years=lag)
+        horizon_date = filed + pd.to_timedelta(
+            SURVIVORSHIP_HORIZON_DAYS[horizon], unit="D"
+        )
+        return pd.concat(
+            [detection_date.rename("detection"), horizon_date.rename("horizon")],
+            axis=1,
+        ).max(axis=1)
+
+    # Impute pessimistic forward returns on final filing row. These rows remain
+    # in the universe, but are a separate sensitivity population for training.
     imputed = 0
-    for h in ["1y", "3y", "5y"]:
+    for h in SURVIVORSHIP_HORIZON_DAYS:
         col = f"forward_return_{h}"
         if col not in df.columns:
             continue
-        last_rows = (
-            df[df["likely_delisted"] & (df.get("period_type", "annual") == "annual")]
-            .sort_values("fiscal_year")
-            .drop_duplicates("ticker", keep="last")
-            .index
-        )
         missing_return = df.loc[last_rows, col].isna()
         fill_idx = last_rows[missing_return]
         df.loc[fill_idx, col] = DELISTING_RETURN
+        if len(fill_idx):
+            stock_policy_available = _policy_available(fill_idx, h)
+            benchmark_end = pd.to_datetime(
+                df.loc[fill_idx, f"benchmark_label_end_date_{h}"], errors="coerce"
+            ) if f"benchmark_label_end_date_{h}" in df.columns else pd.Series(
+                pd.NaT, index=fill_idx, dtype="datetime64[ns]"
+            )
+            relative_policy_available = pd.concat(
+                [stock_policy_available.rename("policy"), benchmark_end.rename("benchmark")],
+                axis=1,
+            ).max(axis=1)
+            df.loc[fill_idx, f"stock_label_end_date_{h}"] = pd.NaT
+            df.loc[fill_idx, f"label_end_date_{h}"] = pd.NaT
+            df.loc[fill_idx, f"policy_stock_label_available_date_{h}"] = stock_policy_available
+            df.loc[fill_idx, f"policy_label_available_date_{h}"] = relative_policy_available
+            df.loc[fill_idx, f"stock_label_provenance_{h}"] = "policy_imputed_likely_delisted"
+            df.loc[fill_idx, f"label_provenance_{h}"] = "policy_imputed_likely_delisted"
+            bench_col = f"benchmark_return_{h}"
+            excess_col = f"excess_return_local_{h}"
+            if bench_col in df.columns and excess_col in df.columns:
+                relative_idx = fill_idx[df.loc[fill_idx, bench_col].notna()]
+                df.loc[relative_idx, excess_col] = (
+                    DELISTING_RETURN - df.loc[relative_idx, bench_col]
+                )
         imputed += int(missing_return.sum())
 
     # Update beat_local_market labels
-    for h in ["1y", "3y", "5y"]:
+    for h in SURVIVORSHIP_HORIZON_DAYS:
         ret_col = f"forward_return_{h}"
         beat_col = f"beat_local_market_{h}"
         if ret_col not in df.columns or beat_col not in df.columns:
             continue
         mask = df["likely_delisted"] & df[beat_col].isna() & df[ret_col].notna()
         df.loc[mask, beat_col] = 0
+        df.loc[mask, f"label_end_date_{h}"] = pd.NaT
+        df.loc[mask, f"label_provenance_{h}"] = "policy_imputed_likely_delisted"
+        mask_idx = df.index[mask]
+        if len(mask_idx):
+            relative_available = _policy_available(mask_idx, h)
+            benchmark_end_col = f"benchmark_label_end_date_{h}"
+            if benchmark_end_col in df.columns:
+                benchmark_end = pd.to_datetime(
+                    df.loc[mask_idx, benchmark_end_col], errors="coerce"
+                )
+                relative_available = pd.concat(
+                    [relative_available.rename("policy"), benchmark_end.rename("benchmark")],
+                    axis=1,
+                ).max(axis=1)
+            df.loc[mask_idx, f"policy_label_available_date_{h}"] = relative_available
 
     print(f"  Survivorship: {imputed:,} forward returns imputed at {DELISTING_RETURN:.0%}")
     return df
@@ -433,7 +483,12 @@ def run_confidence(df: pd.DataFrame) -> pd.DataFrame:
 # Main Pipeline
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def run(source_path: Path | None = None) -> None:
+def run(
+    source_path: Path | None = None,
+    *,
+    enable_imputation: bool = True,
+    enable_survivorship_policy: bool = True,
+) -> None:
     """Execute the full step 6 pipeline."""
     DATA.mkdir(exist_ok=True)
     print("Step 6 — Clean, enrich, and validate dataset")
@@ -457,15 +512,24 @@ def run(source_path: Path | None = None) -> None:
 
     # 3. Imputation
     print("\n── Imputation ──")
-    df = run_impute(df, source_path=in_path)
+    if enable_imputation:
+        df = run_impute(df, source_path=in_path)
+    else:
+        df[SIZE_FLAG_COL] = False
+        print("  Imputation disabled by fail-closed configuration")
 
     # 4. Survivorship correction
     print("\n── Survivorship Correction ──")
-    df = run_survivorship(df)
+    if enable_survivorship_policy:
+        df = run_survivorship(df)
+    else:
+        print("  Survivorship policy disabled; no inferred outcome or flag added")
 
     # 5. Confidence score
     print("\n── Data Confidence Score ──")
     df = run_confidence(df)
+
+    df = attach_contract_provenance(df)
 
     # ── Save ──
     df.to_parquet(OUT, index=False)
@@ -486,11 +550,26 @@ def run(source_path: Path | None = None) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Step 6 — Clean, enrich, and validate")
     parser.add_argument("--snapshots", type=str, default=None, help="Unused; pipeline compat")
+    parser.add_argument("--input", type=str, default=None, help="Step 5 input parquet")
+    parser.add_argument("--out", type=str, default=None, help="Pre-taxonomy output parquet")
     parser.add_argument("--suffix", type=str, default="", help="Market suffix, e.g. _br")
+    parser.add_argument("--skip-imputation", action="store_true",
+                        help="Do not run quarterly or size-category imputations")
+    parser.add_argument("--skip-survivorship-policy", action="store_true",
+                        help="Do not infer likely-delisted flags or policy labels")
     args = parser.parse_args()
 
     sfx = args.suffix
     if sfx:
         IN = DATA / f"historical_dataset{sfx}.parquet"
         OUT = DATA / f"historical_dataset_clean{sfx}.parquet"
-    run()
+    if args.input:
+        IN = Path(args.input)
+    if args.out:
+        OUT = Path(args.out)
+    OUT.parent.mkdir(parents=True, exist_ok=True)
+    run(
+        source_path=IN,
+        enable_imputation=not args.skip_imputation,
+        enable_survivorship_policy=not args.skip_survivorship_policy,
+    )

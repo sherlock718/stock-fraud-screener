@@ -16,6 +16,12 @@ Signals used:
 import numpy as np
 import pandas as pd
 
+from modeling.prediction_lineage import (
+    ScoreRequirement,
+    validate_historical_scores,
+)
+from pipeline.event_time_cohorts import attach_result_contract, event_time_rank
+
 _SIGNALS = [
     ("beneish_m_score",         True),
     ("ohlson_prob_bankruptcy",  True),
@@ -26,6 +32,10 @@ _SIGNALS = [
 ]
 
 _ML_SIGNALS = ["ml_1y_oof", "ml_3y_oof", "ml_5y_oof"]
+_ML_REQUIREMENTS = tuple(
+    ScoreRequirement(col, "oof_factor_input", horizon)
+    for col, horizon in zip(_ML_SIGNALS, ("1y", "3y", "5y"))
+)
 
 
 def _winsorize(s: pd.Series, q: float = 0.01) -> pd.Series:
@@ -38,11 +48,12 @@ def _cross_rank(s: pd.Series) -> pd.Series:
 
 
 def compute(df: pd.DataFrame, group_cols: tuple = ("fiscal_year", "market")) -> pd.Series:
+    ml_eligible = validate_historical_scores(df, _ML_REQUIREMENTS)
     ranks = []
     for col, invert in _SIGNALS:
         if col not in df.columns:
             continue
-        r = df.groupby(list(group_cols))[col].transform(_cross_rank)
+        r = event_time_rank(df, col, group_cols=group_cols, min_count=10)
         if invert:
             r = 1.0 - r
         ranks.append(r)
@@ -50,10 +61,14 @@ def compute(df: pd.DataFrame, group_cols: tuple = ("fiscal_year", "market")) -> 
     for col in _ML_SIGNALS:
         if col not in df.columns:
             continue
-        r = df.groupby(list(group_cols))[col].transform(_cross_rank)
+        r = event_time_rank(df, col, group_cols=group_cols, min_count=10)
         ranks.append(r)
 
     if not ranks:
-        return pd.Series(np.nan, index=df.index)
+        return attach_result_contract(
+            pd.Series(np.nan, index=df.index), "alpha_factor_ranks"
+        )
 
-    return pd.concat(ranks, axis=1).mean(axis=1)
+    result = pd.concat(ranks, axis=1).mean(axis=1)
+    result.loc[~ml_eligible] = np.nan
+    return attach_result_contract(result, "alpha_factor_ranks")

@@ -35,11 +35,46 @@ Step 1: Apply hard gates (8 total):
 Step 2: Score survivors with decision tree → tree_prob
 Step 3: Gate: tree_prob >= 0.55 (strict agreement)
 Step 4: Score with LightGBM regression → predicted 3y return
-Step 5: ADTV liquidity filter (position < 1% of daily volume)
+Step 5: Candidate-wide ADTV liquidity filter before ranking
 Step 6: Rank by reg_3y descending, take top 15
 Step 7: M&A screen (LLM flag — manual review, not auto-exclude)
 Step 8: Equal-weight, annual rebalance
 ```
+
+### Frozen ADTV contract
+
+- Portfolio AUM: `$200,000`.
+- `target_n`: `15`; planned equal-weight position: `AUM / target_n =
+  $13,333.333333...`.
+- Limit: planned position must be no more than `1%` of candidate ADTV.
+- Required ADTV: `(AUM / target_n) / 0.01 = $1,333,333.333333...`.
+- ADTV estimator: median of exactly 30 valid regular-session observations of
+  unadjusted close times volume, using only sessions whose market close is
+  strictly before the candidate's prediction timestamp.
+- Evidence timestamp: prediction timestamp; the certified Session 8E entry
+  timestamp is the later execution timestamp.
+- Scope: compute for every candidate that passes all non-liquidity hard gates
+  and required model-role availability, before regression ranking and top-15
+  selection.
+- Missingness: fewer than 30 valid observations, missing/nonpositive close or
+  volume, ambiguous security identity, missing timestamp, or missing payload
+  fails the candidate closed. The gate cannot be disabled or computed only for
+  a provisional top 15.
+
+The legacy engine expression `AUM * 0.01` is not the accepted position-size
+test. Session 9C covers post-selection market/NAV evidence; it does not replace
+this preselection liquidity gate.
+
+### Current corrected-path availability
+
+This configuration is the production contract, not evidence that the current
+`CORRECTED_8F` path can execute it. The frozen Session 9B verdict remains
+unavailable: the final Session 8F outputs lack `beneish_m_score`,
+`altman_z_score`, and `ps_ratio_sector_pct`; the required fold-local tree score
+has not been built; candidate-wide ADTV evidence is absent; and Session 9's 3y
+Ridge ranker is not the LightGBM family named above. Those items must be
+explicitly reconciled under the post-Session-9B roadmap before production
+holdings can be frozen.
 
 ## Why This Config
 

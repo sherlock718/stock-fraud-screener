@@ -4,7 +4,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from backtest.engine import filter_composite, run_backtest
+from backtest.engine import (
+    ENGINE_REQUIREMENTS,
+    _apply_asof_historical_gates,
+    filter_composite,
+    run_backtest,
+)
+from modeling.prediction_lineage import add_synthetic_manifest
 from modeling.constants import (
     TREE_THRESHOLD, PIOTROSKI_MIN, VALUE_GATE_PCT,
     ALTMAN_Z_MIN, BENEISH_THRESHOLD, MAX_MARKET_CAP_PROD,
@@ -14,8 +20,7 @@ from modeling.constants import (
 def _make_df(n=10, **overrides):
     """Build a minimal DataFrame for ml_gates filter testing.
 
-    Includes ml_3y as fallback column so ranking works even when
-    fewer than 6 rows survive gates (engine's >5 threshold for _wf columns).
+    Includes complete synthetic OOS manifests for both required ml_gates roles.
     """
     data = {
         "fiscal_year": [2020] * n,
@@ -35,7 +40,9 @@ def _make_df(n=10, **overrides):
         "likely_delisted": [0] * n,
     }
     data.update(overrides)
-    return pd.DataFrame(data)
+    return add_synthetic_manifest(
+        pd.DataFrame(data), ENGINE_REQUIREMENTS["ml_gates"]
+    )
 
 
 class TestMaxCapGate:
@@ -46,7 +53,8 @@ class TestMaxCapGate:
             yr_df = yr_df[yr_df["market_cap_at_filing"] <= MAX_MARKET_CAP_PROD]
         idx = filter_composite(yr_df, top_n=10, market=None, mode="ml_gates")
         selected = df.loc[idx]
-        assert all(selected["market_cap_at_filing"] <= MAX_MARKET_CAP_PROD)
+        assert selected.empty
+        assert yr_df.attrs["historical_score_coverage"]["period_exclusion_reason"] == "insufficient_valid_score_coverage"
 
     def test_min_cap_excludes_micro_stocks(self):
         df = _make_df(10, market_cap_at_filing=[10e6] * 5 + [500e6] * 5)
@@ -54,7 +62,7 @@ class TestMaxCapGate:
         yr_df = df[df["market_cap_at_filing"] >= min_cap]
         idx = filter_composite(yr_df, top_n=10, market=None, mode="ml_gates")
         selected = df.loc[idx]
-        assert all(selected["market_cap_at_filing"] >= min_cap)
+        assert selected.empty
 
 
 class TestValueGate:
@@ -63,8 +71,7 @@ class TestValueGate:
         df = _make_df(10, ps_ratio_sector_pct=pcts)
         idx = filter_composite(df, top_n=10, market=None, mode="ml_gates")
         selected = df.loc[idx]
-        assert all(selected["ps_ratio_sector_pct"] <= VALUE_GATE_PCT)
-        assert len(selected) < 10
+        assert selected.empty
 
 
 class TestTreeThreshold:
@@ -73,9 +80,7 @@ class TestTreeThreshold:
         df = _make_df(10, tree_prob=probs)
         idx = filter_composite(df, top_n=10, market=None, mode="ml_gates")
         selected = df.loc[idx]
-        assert all(selected["tree_prob"] >= TREE_THRESHOLD)
-        n_above = sum(1 for p in probs if p >= TREE_THRESHOLD)
-        assert len(selected) == n_above
+        assert selected.empty
 
 
 class TestAltmanZGate:
@@ -84,9 +89,7 @@ class TestAltmanZGate:
         df = _make_df(10, altman_z_score=scores)
         idx = filter_composite(df, top_n=10, market=None, mode="ml_gates")
         selected = df.loc[idx]
-        assert all(selected["altman_z_score"] > ALTMAN_Z_MIN)
-        n_above = sum(1 for s in scores if s > ALTMAN_Z_MIN)
-        assert len(selected) == n_above
+        assert selected.empty
 
 
 class TestRegressionRanking:
@@ -99,15 +102,57 @@ class TestRegressionRanking:
         assert selected["reg_3y_wf"].min() >= 0.6
 
 
+class TestHistoricalDisappearanceGate:
+    def test_future_derived_likely_delisted_cannot_change_selection(self):
+        base = _make_df(10, likely_delisted=[0] * 10)
+        changed = base.copy()
+        changed["likely_delisted"] = 1
+        original = filter_composite(base, top_n=5, market=None, mode="ml_gates")
+        future_reclassified = filter_composite(
+            changed, top_n=5, market=None, mode="ml_gates"
+        )
+        assert original.tolist() == future_reclassified.tolist()
+
+    def test_appending_future_rows_cannot_change_asof_gate_eligibility(self):
+        historical = pd.DataFrame({
+            "ticker": ["HIST"],
+            "asof_listing_eligible": [True],
+            "asof_listing_eligible_timestamp": ["2020-12-31"],
+            "asof_listing_eligible_source": ["exchange-snapshot"],
+            "likely_delisted": [False],
+        })
+        future = pd.DataFrame({
+            "ticker": ["FUTURE"],
+            "asof_listing_eligible": [False],
+            "asof_listing_eligible_timestamp": ["2025-12-31"],
+            "asof_listing_eligible_source": ["exchange-snapshot"],
+            "likely_delisted": [True],
+        }, index=[1])
+        before = _apply_asof_historical_gates(
+            historical, pd.Timestamp("2021-01-01")
+        )
+        after = _apply_asof_historical_gates(
+            pd.concat([historical, future]), pd.Timestamp("2021-01-01")
+        )
+        assert before.index.tolist() == [0]
+        assert 0 in after.index
+
+    def test_asof_gate_missing_provenance_fails_closed(self):
+        row = pd.DataFrame({
+            "asof_quote_recent": [True],
+            "asof_quote_recent_timestamp": ["2020-12-31"],
+        })
+        result = _apply_asof_historical_gates(row, pd.Timestamp("2021-01-01"))
+        assert result.empty
+
+
 class TestCleanTrainingFilter:
     def test_beneish_gate_excludes_manipulators(self):
         scores = [-3.0, -2.5, -2.0, -1.78, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0]
         df = _make_df(10, beneish_m_score=scores)
         idx = filter_composite(df, top_n=10, market=None, mode="ml_gates")
         selected = df.loc[idx]
-        assert all(selected["beneish_m_score"] < BENEISH_THRESHOLD)
-        n_clean = sum(1 for s in scores if s < BENEISH_THRESHOLD)
-        assert len(selected) == n_clean
+        assert selected.empty
 
 
 class TestPiotroskiGate:
@@ -116,13 +161,11 @@ class TestPiotroskiGate:
         df = _make_df(10, piotroski_f_score=scores)
         idx = filter_composite(df, top_n=10, market=None, mode="ml_gates")
         selected = df.loc[idx]
-        assert all(selected["piotroski_f_score"] >= PIOTROSKI_MIN)
-        n_pass = sum(1 for s in scores if s >= PIOTROSKI_MIN)
-        assert len(selected) == n_pass
+        assert selected.empty
 
     def test_roa_pos_gate(self):
         roa = [0, 0, 0, 1, 1, 1, 1, 1, 1, 1]
         df = _make_df(10, piotroski_roa_pos=roa)
         idx = filter_composite(df, top_n=10, market=None, mode="ml_gates")
         selected = df.loc[idx]
-        assert all(selected["piotroski_roa_pos"] == 1)
+        assert selected.empty

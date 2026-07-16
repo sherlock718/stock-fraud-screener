@@ -23,6 +23,8 @@ import numpy as np
 import pandas as pd
 from typing import Optional
 
+from pipeline.event_time_cohorts import winsorize_prior_market_history
+
 
 def winsorize_global(series: pd.Series, lower=0.01, upper=0.99) -> pd.Series:
     """Original global winsorization (preserved for comparison)."""
@@ -75,32 +77,15 @@ def winsorize_by_filed_date(
     upper: float = 0.99,
 ) -> pd.Series:
     """
-    Strictly PIT-correct winsorization using actual filing dates.
+    Strict filing-time winsorization using proven publication timestamps.
 
-    For each filing quarter Q, bounds are computed using only observations
-    with filed_date < start of Q. This ensures that only records that were
-    publicly available before the current cohort inform the clipping bounds.
+    ``filed_col`` is retained for API compatibility, but uncertified legacy
+    dates are not accepted. Bounds use strictly prior proven same-market annual
+    history; sparse histories leave raw values unchanged.
     """
-    result = df[col].copy().astype(float)
-    filed = pd.to_datetime(df[filed_col], errors='coerce')
-    filing_qtr = filed.dt.to_period('Q')
-
-    quarters = sorted(filing_qtr.dropna().unique())
-    for qtr in quarters:
-        mask = filing_qtr == qtr
-        train_mask = filed < qtr.start_time
-        train_vals = df.loc[train_mask, col].astype(float).dropna()
-
-        if len(train_vals) < 50:
-            train_mask_incl = filed <= qtr.end_time
-            train_vals = df.loc[train_mask_incl, col].astype(float).dropna()
-            if len(train_vals) < 50:
-                continue
-
-        lo = train_vals.quantile(lower)
-        hi = train_vals.quantile(upper)
-        result.loc[mask] = result.loc[mask].clip(lo, hi)
-
+    result, _ = winsorize_prior_market_history(
+        df, col, min_count=50, lower=lower, upper=upper
+    )
     return result
 
 

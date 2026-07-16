@@ -10,6 +10,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from alpha.factors.fraud_risk import _ML_REQUIREMENTS
+from modeling.prediction_lineage import add_synthetic_manifest
+
 
 def _make_synthetic_dataset(n_tickers: int = 40, n_years: int = 8, seed: int = 99):
     """Build a minimal dataset that exercises the full pipeline."""
@@ -94,7 +97,22 @@ def _make_synthetic_dataset(n_tickers: int = 40, n_years: int = 8, seed: int = 9
                 "beat_local_market_3y": int(rng.integers(0, 2)),
                 "beat_local_market_5y": int(rng.integers(0, 2)),
             })
-    return pd.DataFrame(rows)
+    df = pd.DataFrame(rows)
+    df["entity_id"] = df["market"] + ":" + df["cik"]
+    df["availability_timestamp"] = pd.to_datetime(df["filed_date"])
+    df["availability_provenance"] = "sec_primary_filing"
+    return df
+
+
+def _with_oof_manifest(df: pd.DataFrame) -> pd.DataFrame:
+    out = df.copy()
+    rng = np.random.default_rng(123)
+    for horizon in ("1y", "3y", "5y"):
+        out[f"ml_{horizon}_oof"] = rng.uniform(0, 1, len(out))
+    out["decision_timestamp"] = pd.to_datetime(
+        (out["fiscal_year"].astype(int) + 2).astype(str) + "-01-01"
+    )
+    return add_synthetic_manifest(out, _ML_REQUIREMENTS, source="oof_oos")
 
 
 class TestFullPipelineIntegration:
@@ -144,7 +162,7 @@ class TestFullPipelineIntegration:
         """5-factor alpha composite runs and produces valid scores."""
         from alpha.factors.composite import compute as compute_composite
 
-        scores = compute_composite(dataset)
+        scores = compute_composite(_with_oof_manifest(dataset))
         assert isinstance(scores, pd.DataFrame)
         expected_cols = [
             "alpha_value", "alpha_quality", "alpha_momentum",
@@ -200,7 +218,7 @@ class TestFullPipelineIntegration:
 
         # 5. Alpha scores on full dataset
         from alpha.factors.composite import compute as compute_composite
-        alpha_scores = compute_composite(dataset)
+        alpha_scores = compute_composite(_with_oof_manifest(dataset))
         assert "alpha_composite" in alpha_scores.columns
         assert alpha_scores["alpha_composite"].notna().sum() > 0
 

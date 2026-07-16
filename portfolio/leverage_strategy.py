@@ -148,9 +148,6 @@ def quality_gate(df: pd.DataFrame) -> pd.DataFrame:
         # Z > 2.99 = safe zone; 1.81–2.99 = grey; < 1.81 = distress
         safe &= df['altman_z_score'].fillna(0) > MIN_ALTMAN_Z
 
-    if 'likely_delisted' in df.columns:
-        safe &= df['likely_delisted'].fillna(1) == 0
-
     if 'price_to_book' in df.columns:
         safe &= df['price_to_book'].fillna(999) < STAGE1_MAX_PB
 

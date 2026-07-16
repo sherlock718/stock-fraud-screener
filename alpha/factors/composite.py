@@ -8,6 +8,12 @@ Score is 0–1, higher = stronger composite alpha signal.
 from typing import Optional
 import pandas as pd
 
+from pipeline.event_time_cohorts import (
+    CONTRACT_VERSION,
+    PROVENANCE_POLICY,
+    TRANSFORM_CONTRACTS,
+)
+
 from .value import compute as _value
 from .quality import compute as _quality
 from .momentum import compute as _momentum
@@ -58,5 +64,10 @@ def compute(
         result["alpha_fraud_risk"] * w["fraud_risk"]
     )
     result["alpha_composite"] = composite
+    result.attrs["event_time_contract_version"] = CONTRACT_VERSION
+    result.attrs["event_time_provenance_policy"] = PROVENANCE_POLICY
+    result.attrs["event_time_transform_contract"] = TRANSFORM_CONTRACTS[
+        "alpha_factor_ranks"
+    ]
 
     return result

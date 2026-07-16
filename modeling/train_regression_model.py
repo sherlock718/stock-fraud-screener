@@ -1,10 +1,9 @@
 """
 Train LightGBM Huber regression models to predict continuous excess returns for all horizons.
 
-For each horizon (6m/1y/2y/3y/5y), loads the frozen ICIR-selected feature set from
-models/feature_sets_{h}.json (same features as the binary classifier — no extra feature
-selection on the regression target, which would overfit). Predicts excess_return_local_{h}
-or falls back to forward_return_{h} if the excess column is absent.
+For each horizon (6m/1y/2y/3y/5y), selects features only on the eligible training
+population. Walk-forward folds repeat selection locally. Predicts
+excess_return_local_{h} or falls back to forward_return_{h} if absent.
 
 Algorithm: LightGBM Huber regression (robust to the rare +100%/−80% outlier years).
 Primary metric: Spearman IC (rank correlation of predicted vs actual excess return).
@@ -42,6 +41,14 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 from scipy import stats
+from modeling.label_eligibility import LABEL_POLICIES, OBSERVED_ONLY, training_label_eligible
+from modeling.fold_lineage import (
+    LineageError,
+    SelectorConfig,
+    make_lineage,
+    select_fold_features,
+    validate_lineage,
+)
 
 MODELS_DIR = BASE / 'models'
 REPORTS    = BASE / 'reports'
@@ -84,22 +91,29 @@ def _load_data() -> pd.DataFrame:
     return load_data()
 
 
-def _load_features(horizon: str) -> list[str]:
+def _load_features(horizon: str, expected_lineage: dict) -> list[str]:
     feat_path = MODELS_DIR / f'feature_sets_{horizon}.json'
     if not feat_path.exists():
         raise FileNotFoundError(
             f'{feat_path} not found — run train_models.py first to generate feature sets'
         )
     d = json.loads(feat_path.read_text())
-    return d.get('features', d.get('selected_features', []))
+    validate_lineage(d.get('lineage'), expected_lineage)
+    features = d.get('features', d.get('selected_features', []))
+    if not features:
+        raise LineageError(f'{feat_path} has no selected features')
+    return features
 
 
-def _temporal_split(df: pd.DataFrame, train_cutoff: int, val_end: int):
+def _temporal_split(df: pd.DataFrame, train_cutoff: int, val_end: int,
+                    target_col: str | None = None,
+                    label_policy: str = OBSERVED_ONLY):
     filed = pd.to_datetime(df.get('filed_date', pd.NaT), errors='coerce')
     cutoff_date = pd.Timestamp(f'{train_cutoff + 1}-01-01')
     df_train = df[
         (df['fiscal_year'] <= train_cutoff) &
-        (filed.isna() | (filed < cutoff_date))
+        (filed.isna() | (filed < cutoff_date)) &
+        training_label_eligible(df, target_col or '', cutoff_date, label_policy)
     ].copy()
     df_val  = df[(df['fiscal_year'] > train_cutoff) & (df['fiscal_year'] <= val_end)].copy()
     df_test = df[df['fiscal_year'] > val_end].copy()
@@ -149,7 +163,8 @@ def train_regression(df_train: pd.DataFrame, features: list[str],
 
 def walk_forward_cv(df: pd.DataFrame, features: list[str],
                     target_col: str, horizon: str,
-                    train_cutoff: int, min_train_years: int = 6) -> list[dict]:
+                    train_cutoff: int, min_train_years: int = 6,
+                    label_policy: str = OBSERVED_ONLY) -> list[dict]:
     """Expanding-window walk-forward CV with PIT-safe filed_date cutoff."""
     filed = pd.to_datetime(df.get('filed_date', pd.NaT), errors='coerce')
     first_year    = int(df['fiscal_year'].min())
@@ -168,7 +183,8 @@ def walk_forward_cv(df: pd.DataFrame, features: list[str],
         cutoff_date = pd.Timestamp(f'{test_year}-01-01')
         train_mask = (
             (df['fiscal_year'] <= t) &
-            (filed.isna() | (filed < cutoff_date))
+            (filed.isna() | (filed < cutoff_date)) &
+            training_label_eligible(df, target_col, cutoff_date, label_policy)
         )
         tr = df[train_mask].copy()
         te = df[df['fiscal_year'] == test_year].copy()
@@ -178,7 +194,14 @@ def walk_forward_cv(df: pd.DataFrame, features: list[str],
             continue
 
         try:
-            fold_model, fold_feats, medians, lo, hi = train_regression(tr, features, target_col)
+            fold_features = select_fold_features(
+                tr, target_col, SelectorConfig(top_n=40)
+            )
+            if not fold_features:
+                continue
+            fold_model, fold_feats, medians, lo, hi = train_regression(
+                tr, fold_features, target_col
+            )
             fa = [f for f in fold_feats if f in te.columns]
             X_te = te[fa].fillna(pd.Series(medians))
             preds = fold_model.predict(X_te)
@@ -203,18 +226,23 @@ def train_one_horizon(df: pd.DataFrame, horizon: str,
     print(f'\n── Horizon: {horizon} ──────────────────────────────────────────────')
 
     try:
-        features   = _load_features(horizon)
         target_col = _resolve_target(df, horizon)
-    except (FileNotFoundError, ValueError) as exc:
+    except ValueError as exc:
         print(f'  SKIP: {exc}')
         return None
 
     available = df[target_col].notna().sum()
     print(f'  Target: {target_col}  ({available:,} non-null rows)')
-    print(f'  Features from feature_sets_{horizon}.json: {len(features)}')
-
-    df_train, df_val, df_test = _temporal_split(df, args.train_cutoff, args.val_end)
+    df_train, df_val, df_test = _temporal_split(
+        df, args.train_cutoff, args.val_end, target_col, args.label_policy
+    )
     print(f'  Train: {len(df_train):,} | Val: {len(df_val):,} | Test: {len(df_test):,}')
+
+    features = select_fold_features(df_train, target_col, SelectorConfig(top_n=40))
+    if not features:
+        print('  SKIP: fold-local feature selection returned no features')
+        return None
+    print(f'  Fold-local features: {len(features)}')
 
     # Train final model
     model, used_feats, train_medians, lo, hi = train_regression(df_train, features, target_col)
@@ -239,7 +267,10 @@ def train_one_horizon(df: pd.DataFrame, horizon: str,
     wf_mean_ic = float('nan')
     if args.walk_forward:
         print('  Running walk-forward CV...')
-        wf_records = walk_forward_cv(df, used_feats, target_col, horizon, args.train_cutoff)
+        wf_records = walk_forward_cv(
+            df, used_feats, target_col, horizon, args.train_cutoff,
+            label_policy=args.label_policy,
+        )
         if wf_records:
             wf_df = pd.DataFrame(wf_records)
             report_path = REPORTS / f'regression_ic_{horizon}.csv'
@@ -260,6 +291,7 @@ def train_one_horizon(df: pd.DataFrame, horizon: str,
         'features':      used_feats,
         'n_features':    len(used_feats),
         'train_cutoff':  args.train_cutoff,
+        'label_policy':  args.label_policy,
         'val_end':       args.val_end,
         'winsor_lo':     round(lo, 6),
         'winsor_hi':     round(hi, 6),
@@ -269,6 +301,22 @@ def train_one_horizon(df: pd.DataFrame, horizon: str,
         'test_ic':       round(test_ic,  4) if not np.isnan(test_ic)  else None,
         'wf_mean_ic':    round(wf_mean_ic, 4) if not np.isnan(wf_mean_ic) else None,
     }
+    cutoff_date = pd.Timestamp(f'{args.train_cutoff + 1}-01-01')
+    meta['lineage'] = make_lineage(
+        dataset=df,
+        training_population=df_train,
+        development_population=df_val,
+        horizon=horizon,
+        target_col=target_col,
+        label_policy=args.label_policy,
+        cutoff=cutoff_date.isoformat(),
+        selector_config={
+            'method': 'fold_local_icir',
+            **SelectorConfig(top_n=40).__dict__,
+            'psi_population': None,
+        },
+        features=used_feats,
+    )
     meta_path.write_text(json.dumps(meta, indent=2))
     print(f'  Saved: {model_path}')
     print(f'  Saved: {meta_path}')
@@ -298,6 +346,8 @@ def main() -> None:
                         help='Run walk-forward Spearman IC CV (default: on)')
     parser.add_argument('--no-walk-forward', dest='walk_forward', action='store_false',
                         help='Skip walk-forward CV (faster)')
+    parser.add_argument('--label-policy', choices=LABEL_POLICIES, default=OBSERVED_ONLY,
+                        help='Observed-only primary labels or explicit policy-imputed sensitivity')
     args = parser.parse_args()
 
     print('Loading data...')

@@ -19,7 +19,9 @@ Feature groups (170+ total):
 Input:  data/snapshots.parquet, data/prices.parquet, data/macro.parquet
 Output: data/historical_dataset.parquet
 """
+from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -27,6 +29,11 @@ import numpy as np
 import pandas as pd
 
 from pipeline.column_aliases import apply_column_aliases
+from pipeline.event_time_cohorts import (
+    attach_contract_provenance,
+    event_time_rank,
+    winsorize_prior_market_history,
+)
 
 BASE = Path(__file__).parent.parent
 DATA = BASE / 'data'
@@ -35,6 +42,14 @@ SNAP  = DATA / 'snapshots.parquet'
 PRICE = DATA / 'prices.parquet'
 MACRO = DATA / 'macro.parquet'
 OUT   = DATA / 'historical_dataset.parquet'
+
+
+def _feature_market_cap(df: pd.DataFrame) -> pd.Series:
+    """Return the explicitly selected, provenance-bearing market-cap input."""
+    nan = pd.Series(np.nan, index=df.index)
+    if 'feature_market_cap' in df.columns:
+        return pd.to_numeric(df['feature_market_cap'], errors='coerce')
+    return pd.to_numeric(df.get('market_cap_at_filing', nan), errors='coerce')
 
 
 # ── Safe arithmetic helpers ───────────────────────────────────────────────────
@@ -65,58 +80,24 @@ def winsorize(series: pd.Series, lower=0.01, upper=0.99) -> pd.Series:
     return series.clip(lo, hi)
 
 
-def winsorize_pit(df: pd.DataFrame, col: str, lower=0.01, upper=0.99) -> pd.Series:
+def winsorize_pit(
+    df: pd.DataFrame,
+    col: str,
+    lower=0.01,
+    upper=0.99,
+    *,
+    return_method: bool = False,
+) -> pd.Series | tuple[pd.Series, pd.Series]:
     """
-    Point-in-time winsorization using filed_date as the availability gate.
+    Filing-time winsorization using strictly prior proven same-market annual rows.
 
-    For each observation, bounds are computed from all observations whose
-    filed_date is strictly BEFORE this observation's filed_date. This ensures
-    that only records actually available at scoring time inform the bounds.
-
-    Implementation: group observations by filing cohort (calendar quarter of
-    filed_date), compute expanding bounds from all prior cohorts, apply to
-    current cohort. This avoids O(n²) per-observation computation while
-    respecting actual filing chronology.
+    Sparse proven histories leave the raw value unchanged. Missing, estimated,
+    or legacy-unproven availability fails closed to null.
     """
-    result = df[col].copy().astype(float)
-
-    if 'filed_date' not in df.columns:
-        # Fallback: fiscal_year expanding window
-        years = sorted(df['fiscal_year'].dropna().unique())
-        for yr in years:
-            mask = df['fiscal_year'] == yr
-            train_mask = df['fiscal_year'] <= yr
-            train_vals = df.loc[train_mask, col].astype(float).dropna()
-            if len(train_vals) < 50:
-                continue
-            lo = train_vals.quantile(lower)
-            hi = train_vals.quantile(upper)
-            result.loc[mask] = result.loc[mask].clip(lo, hi)
-        return result
-
-    filed = pd.to_datetime(df['filed_date'], errors='coerce')
-    # Assign each row to a filing quarter (YYYY-Q#)
-    filing_qtr = filed.dt.to_period('Q')
-
-    quarters = sorted(filing_qtr.dropna().unique())
-    for qtr in quarters:
-        mask = filing_qtr == qtr
-        # Training set: all observations filed BEFORE this quarter starts
-        train_mask = filed < qtr.start_time
-        train_vals = df.loc[train_mask, col].astype(float).dropna()
-
-        if len(train_vals) < 50:
-            # Insufficient history — include same quarter (bootstrapping)
-            train_mask_incl = filed <= qtr.end_time
-            train_vals = df.loc[train_mask_incl, col].astype(float).dropna()
-            if len(train_vals) < 50:
-                continue
-
-        lo = train_vals.quantile(lower)
-        hi = train_vals.quantile(upper)
-        result.loc[mask] = result.loc[mask].clip(lo, hi)
-
-    return result
+    result, method = winsorize_prior_market_history(
+        df, col, min_count=50, lower=lower, upper=upper
+    )
+    return (result, method) if return_method else result
 
 
 # ── A. Valuation ratios ───────────────────────────────────────────────────────
@@ -124,7 +105,7 @@ def winsorize_pit(df: pd.DataFrame, col: str, lower=0.01, upper=0.99) -> pd.Seri
 def add_valuation(df: pd.DataFrame) -> pd.DataFrame:
     nan = pd.Series(np.nan, index=df.index)
     zero = pd.Series(0.0, index=df.index)
-    mc  = df.get('market_cap_at_filing', nan)
+    mc  = _feature_market_cap(df)
     ep  = df.get('entry_price',          nan)
     rev = df.get('revenue',              nan)
     ni  = df.get('net_income',           nan)
@@ -305,7 +286,7 @@ def add_fraud_scores(df: pd.DataFrame) -> pd.DataFrame:
     gp   = df.get('gross_profit',        nan)
     oi   = df.get('operating_income',    nan)
     sga  = df.get('sga_expense',         nan)
-    mc   = df.get('market_cap_at_filing', nan)
+    mc   = _feature_market_cap(df)
 
     rev_growth = df.get('revenue_growth', pd.Series(np.nan, index=df.index))
 
@@ -585,27 +566,24 @@ def add_composite_scores(df: pd.DataFrame) -> pd.DataFrame:
     quality_signals = ['roa', 'roe', 'gross_margin', 'ocf_to_ni', 'ocf_margin']
     quality_vals = pd.DataFrame({s: df.get(s, pd.Series(np.nan, index=df.index))
                                   for s in quality_signals})
-    rank_keys = [k for k in ['fiscal_year', 'market'] if k in df.columns]
-    if rank_keys:
-        quality_ranked = quality_vals.copy()
-        grp = df[rank_keys].apply(tuple, axis=1) if len(rank_keys) > 1 else df[rank_keys[0]]
-        for col in quality_ranked.columns:
-            quality_ranked[col] = quality_ranked[col].groupby(grp).rank(pct=True, na_option='keep')
-        df['quality_composite'] = quality_ranked.mean(axis=1)
-    else:
-        df['quality_composite'] = quality_vals.rank(pct=True).mean(axis=1)
+    rank_keys = ['fiscal_year', 'market']
+    quality_ranked = pd.DataFrame(index=df.index)
+    for col in quality_vals.columns:
+        quality_ranked[col] = event_time_rank(
+            df, col, group_cols=rank_keys, min_count=10
+        )
+    df['quality_composite'] = quality_ranked.mean(axis=1)
 
     # Value composite (high = cheap, ranked within fiscal_year × market cohort)
     value_signals = ['book_to_market', 'earnings_yield', 'sales_to_price', 'fcf_yield']
     value_vals = pd.DataFrame({s: df.get(s, pd.Series(np.nan, index=df.index))
                                  for s in value_signals})
-    if rank_keys:
-        value_ranked = value_vals.copy()
-        for col in value_ranked.columns:
-            value_ranked[col] = value_ranked[col].groupby(grp).rank(pct=True, na_option='keep')
-        df['value_composite'] = value_ranked.mean(axis=1)
-    else:
-        df['value_composite'] = value_vals.rank(pct=True).mean(axis=1)
+    value_ranked = pd.DataFrame(index=df.index)
+    for col in value_vals.columns:
+        value_ranked[col] = event_time_rank(
+            df, col, group_cols=rank_keys, min_count=10
+        )
+    df['value_composite'] = value_ranked.mean(axis=1)
 
     return df
 
@@ -613,7 +591,7 @@ def add_composite_scores(df: pd.DataFrame) -> pd.DataFrame:
 # ── G. Size features ──────────────────────────────────────────────────────────
 
 def add_size_features(df: pd.DataFrame) -> pd.DataFrame:
-    mc = df['market_cap_at_filing']
+    mc = _feature_market_cap(df)
     ta = df['total_assets']
     rev= df['revenue']
 
@@ -645,14 +623,7 @@ def add_momentum_ranks(df: pd.DataFrame) -> pd.DataFrame:
     Separates momentum signal from level — a 20% return ranks differently in a
     bull year (low rank) vs a bear year (high rank). Jegadeesh & Titman 1993.
     """
-    group_keys = [k for k in ['fiscal_year', 'market'] if k in df.columns]
-    if not group_keys:
-        return df
-
-    def pct_rank(x: pd.Series) -> pd.Series:
-        if x.notna().sum() < 10:  # cohort guard: sparse cohort ranks are noisy
-            return pd.Series(np.nan, index=x.index)
-        return x.rank(pct=True, na_option='keep')
+    group_keys = ['fiscal_year', 'market']
 
     raw_cols = {
         'momentum_12m_rank': 'momentum_12m_prior',
@@ -661,11 +632,15 @@ def add_momentum_ranks(df: pd.DataFrame) -> pd.DataFrame:
     }
     for rank_col, raw_col in raw_cols.items():
         if raw_col in df.columns:
-            df[rank_col] = df.groupby(group_keys)[raw_col].transform(pct_rank)
+            df[rank_col] = event_time_rank(
+                df, raw_col, group_cols=group_keys, min_count=10
+            )
 
     # Volatility rank — inverted so low-vol = high rank (low-vol premium)
     if 'vol_prior_12m' in df.columns:
-        df['vol_rank_12m'] = 1.0 - df.groupby(group_keys)['vol_prior_12m'].transform(pct_rank)
+        df['vol_rank_12m'] = 1.0 - event_time_rank(
+            df, 'vol_prior_12m', group_cols=group_keys, min_count=10
+        )
 
     # Composite momentum rank: mean of available horizon ranks
     rank_cols = [c for c in ['momentum_12m_rank', 'momentum_6m_rank', 'momentum_3m_rank']
@@ -697,7 +672,7 @@ def add_interactions(df: pd.DataFrame) -> pd.DataFrame:
     roa = df.get('roa',               pd.Series(np.nan, index=df.index))
     bm  = df.get('book_to_market',    pd.Series(np.nan, index=df.index))
 
-    mom_rank = df.get('momentum_12m_rank', mom.rank(pct=True))
+    mom_rank = df.get('momentum_12m_rank', pd.Series(np.nan, index=df.index))
 
     df['value_x_quality']    = val * qua
     df['value_x_momentum']   = val * mom_rank
@@ -742,13 +717,13 @@ def add_sector_percentiles(df: pd.DataFrame) -> pd.DataFrame:
 
     # Group by BOTH sector AND fiscal_year — without fiscal_year this ranks a 2005
     # company against 2005-2024 peers, which is lookahead across time.
-    group_keys = ['sic_2digit', 'fiscal_year'] if 'fiscal_year' in df.columns else ['sic_2digit']
+    group_keys = ['fiscal_year', 'market', 'sic_2digit']
     for feat in rank_features:
         if feat not in df.columns:
             continue
         col_pct = f'{feat}_sector_pct'
-        df[col_pct] = df.groupby(group_keys, observed=True)[feat].transform(
-            lambda x: x.rank(pct=True, na_option='keep')
+        df[col_pct] = event_time_rank(
+            df, feat, group_cols=group_keys, min_count=5
         )
 
     return df
@@ -759,21 +734,21 @@ def add_sector_percentiles(df: pd.DataFrame) -> pd.DataFrame:
 def add_macro_interactions(df: pd.DataFrame) -> pd.DataFrame:
     """Macro × factor interactions: signals work differently across regimes."""
     ffr  = df.get('fed_funds_rate',    pd.Series(np.nan, index=df.index))
-    rec  = df.get('recession',         pd.Series(0,      index=df.index))
+    rec  = df.get('recession',         pd.Series(np.nan, index=df.index))
     yc   = df.get('yield_curve',       pd.Series(np.nan, index=df.index))
     hy   = df.get('hy_spread',         pd.Series(np.nan, index=df.index))
     val  = df.get('value_composite',   pd.Series(np.nan, index=df.index))
     mom  = df.get('momentum_12m_prior',pd.Series(np.nan, index=df.index))
     qua  = df.get('quality_composite', pd.Series(np.nan, index=df.index))
 
-    df['value_in_high_rate']    = val * (ffr > 3.0).astype(float)
-    df['value_in_recession']    = val * rec.fillna(0)
-    df['momentum_in_expansion'] = mom * (1 - rec.fillna(0))
-    df['quality_in_recession']  = qua * rec.fillna(0)
+    df['value_in_high_rate']    = (val * (ffr > 3.0).astype(float)).where(ffr.notna())
+    df['value_in_recession']    = (val * rec).where(rec.notna())
+    df['momentum_in_expansion'] = (mom * (1 - rec)).where(rec.notna())
+    df['quality_in_recession']  = (qua * rec).where(rec.notna())
     df['levered_in_tight_credit']= (
         df.get('debt_to_assets', pd.Series(np.nan, index=df.index)) *
         (hy > 5.0).astype(float)
-    )  # highly levered companies underperform more when credit is tight
+    ).where(hy.notna())  # highly levered companies underperform more when credit is tight
 
     return df
 
@@ -835,7 +810,7 @@ def run():
     numeric_cols = [
         'total_assets', 'total_equity', 'revenue', 'net_income',
         'operating_cash_flow', 'current_assets', 'current_liabilities',
-        'long_term_debt', 'market_cap_at_filing', 'entry_price',
+        'long_term_debt', 'market_cap_at_filing', 'feature_market_cap', 'entry_price',
     ]
     for col in numeric_cols:
         if col in df.columns:
@@ -887,16 +862,17 @@ def run():
     # Earnings stability — 5yr rolling std of ROE per company (lower = higher quality)
     # Requires time-series groupby; computed here after all other features exist
     print('  Computing earnings stability (5yr ROE volatility) ...')
-    df = df.sort_values(['ticker', 'fiscal_year', 'fiscal_quarter'])
+    entity_key = 'entity_id' if 'entity_id' in df.columns else 'ticker'
+    df = df.sort_values([entity_key, 'fiscal_year', 'fiscal_quarter'])
     df['roe_volatility_5yr'] = (
-        df.groupby('ticker')['roe']
+        df.groupby(entity_key)['roe']
         .transform(lambda x: x.rolling(5, min_periods=3).std())
     )
     df['earnings_stability_5yr'] = -df['roe_volatility_5yr']  # invert: more stable = higher score
 
     if 'roa' in df.columns:
         df['roa_volatility_5yr'] = (
-            df.groupby('ticker')['roa']
+            df.groupby(entity_key)['roa']
             .transform(lambda x: x.rolling(5, min_periods=3).std())
         )
         df['earnings_stability_roa_5yr'] = -df['roa_volatility_5yr']
@@ -938,9 +914,21 @@ def run():
         # Forensic accounting composites
         'montier_c_score', 'wc_accruals_to_assets', 'sloan_wc_accruals', 'sloan_lt_accruals',
     ]
+    winsor_methods = pd.DataFrame(index=df.index)
     for col in ratio_cols:
         if col in df.columns:
-            df[col] = winsorize_pit(df, col)
+            df[col], winsor_methods[col] = winsorize_pit(
+                df, col, return_method=True
+            )
+    if not winsor_methods.empty:
+        df['step5_winsorization_methods'] = winsor_methods.apply(
+            lambda row: json.dumps(
+                {key: value for key, value in row.items() if pd.notna(value)},
+                sort_keys=True,
+            ),
+            axis=1,
+        )
+    df = attach_contract_provenance(df)
 
     # ── Save ───────────────────────────────────────────────────────────────────
     print(f'  Saving {len(df):,} rows × {len(df.columns)} columns ...')
@@ -989,6 +977,7 @@ if __name__ == '__main__':
     parser.add_argument('--snapshots', type=str, default=None, help='Path to snapshots parquet')
     parser.add_argument('--prices',    type=str, default=None, help='Path to prices parquet')
     parser.add_argument('--macro',     type=str, default=None, help='Path to macro parquet')
+    parser.add_argument('--out',       type=str, default=None, help='Output parquet path')
     parser.add_argument('--suffix',    type=str, default='',   help='Market suffix, e.g. _br')
     args = parser.parse_args()
 
@@ -1003,4 +992,7 @@ if __name__ == '__main__':
         PRICE = Path(args.prices)
     if args.macro:
         MACRO = Path(args.macro)
+    if args.out:
+        OUT = Path(args.out)
+    OUT.parent.mkdir(parents=True, exist_ok=True)
     run()

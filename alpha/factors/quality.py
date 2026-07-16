@@ -8,6 +8,8 @@ Score is 0–1, higher = better quality.
 import numpy as np
 import pandas as pd
 
+from pipeline.event_time_cohorts import attach_result_contract, event_time_rank
+
 _SIGNALS = [
     ("roe",                  False),
     ("roa",                  False),
@@ -36,12 +38,16 @@ def compute(df: pd.DataFrame, group_cols: tuple = ("fiscal_year", "market")) -> 
     for col, invert in _SIGNALS:
         if col not in df.columns:
             continue
-        r = df.groupby(list(group_cols))[col].transform(_cross_rank)
+        r = event_time_rank(df, col, group_cols=group_cols, min_count=10)
         if invert:
             r = 1.0 - r
         ranks.append(r)
 
     if not ranks:
-        return pd.Series(np.nan, index=df.index)
+        return attach_result_contract(
+            pd.Series(np.nan, index=df.index), "alpha_factor_ranks"
+        )
 
-    return pd.concat(ranks, axis=1).mean(axis=1)
+    return attach_result_contract(
+        pd.concat(ranks, axis=1).mean(axis=1), "alpha_factor_ranks"
+    )

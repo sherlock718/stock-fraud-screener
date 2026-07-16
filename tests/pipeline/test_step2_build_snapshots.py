@@ -342,3 +342,30 @@ class TestVintageAwareness:
         facts = self._make_facts(entries)
         result = extract_concept_series(facts, 'us-gaap/Revenues')
         assert result[(2020, 'Q1')][0] == 250
+
+    def test_snapshot_certifies_only_primary_source_rows(self):
+        primary_entries = {
+            'facts': {'us-gaap': {
+                'Revenues': {'units': {'USD': [
+                    {'fy': 2020, 'fp': 'FY', 'val': 100, 'filed': '2021-03-01', 'form': '10-K'}
+                ]}},
+                'Assets': {'units': {'USD': [
+                    {'fy': 2020, 'fp': 'FY', 'val': 500, 'filed': '2021-03-01', 'form': '10-K'}
+                ]}},
+            }}}
+        snap = build_period_snapshots(primary_entries)[0]
+        assert snap['availability_timestamp'] == '2021-03-01'
+        assert snap['availability_provenance'] == 'sec_primary_filing'
+
+        amendment_only = {
+            'facts': {'us-gaap': {
+                'Revenues': {'units': {'USD': [
+                    {'fy': 2020, 'fp': 'FY', 'val': 100, 'filed': '2021-05-01', 'form': '10-K/A'}
+                ]}},
+                'Assets': {'units': {'USD': [
+                    {'fy': 2020, 'fp': 'FY', 'val': 500, 'filed': '2021-05-01', 'form': '10-K/A'}
+                ]}},
+            }}}
+        unproven = build_period_snapshots(amendment_only)[0]
+        assert unproven['availability_timestamp'] is None
+        assert unproven['availability_provenance'] is None
