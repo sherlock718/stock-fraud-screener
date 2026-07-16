@@ -8,6 +8,11 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+- Freeze Session V3.1's manifest-backed observed-only US annual three-year
+  production table and exact tree, LightGBM, hard-gate, portfolio, and ADTV
+  contracts; adopt the corrected `production_v3_ml_gates` contract and add one
+  verified conventional-commit checkpoint per V3 session.
+
 ### Planning — Linear Production Validation Reset (2026-07-16)
 
 #### Changed

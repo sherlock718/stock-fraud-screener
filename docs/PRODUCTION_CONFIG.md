@@ -11,14 +11,19 @@
 | Beta | -0.18 | — |
 | SPY CAGR | +13.6% | +13.6% |
 
-## Model
+## Corrected V3 model contract
 
-- **Ranking:** LightGBM regressor (target: forward_return_3y magnitude)
-- **Gate:** Decision tree classifier (tree_prob >= 0.55)
-- **Features:** 28 canonical (3y model, selected via IC/ICIR on train-only)
-- **Training data:** Clean stocks only (fraud_suspect==0, ROA positive, Beneish < -1.78)
-- **Train period:** fiscal_year <= 2023 (expanding window in walk-forward)
-- **Why regression over classification:** Regression ranks by HOW MUCH a stock beats market, not just probability. +3% CAGR improvement, same risk profile when combined with strict tree gate.
+- **Strategy name:** `production_v3_ml_gates`; legacy performance does not
+  transfer to this corrected strategy.
+- **Ranking:** fold-local OOS LightGBM regressor targeting observed 3y stock
+  return, clipped to `[-1, 5]` for fitting.
+- **Gate:** fold-local OOS decision tree targeting observed 3y local-benchmark
+  outperformance; `tree_prob >= 0.55` is a fixed policy rule.
+- **Features:** frozen V3.1 candidate pool with fold-local IC/ICIR selection
+  capped at 28; preprocessing is fold-local median imputation.
+- **Training data:** observed labels with `label_end_date < decision_timestamp`,
+  positive ROA, and Beneish below `-1.78`. The uncertified `fraud_suspect`
+  heuristic is excluded rather than synthesized or silently skipped.
 
 ## Scoring + Portfolio Construction
 
@@ -67,14 +72,12 @@ this preselection liquidity gate.
 
 ### Current corrected-path availability
 
-This configuration is the production contract, not evidence that the current
-`CORRECTED_8F` path can execute it. The frozen Session 9B verdict remains
-unavailable: the final Session 8F outputs lack `beneish_m_score`,
-`altman_z_score`, and `ps_ratio_sector_pct`; the required fold-local tree score
-has not been built; candidate-wide ADTV evidence is absent; and Session 9's 3y
-Ridge ranker is not the LightGBM family named above. Those items must be
-explicitly reconciled under the post-Session-9B roadmap before production
-holdings can be frozen.
+Session V3.1 rematerializes Beneish, Altman, and sector-relative P/S from the
+certified Session 8F components under the SEC-primary availability clock. V3.2
+must still generate the required fold-local OOS model roles. Candidate-wide
+ADTV remains unavailable because certified Session 8E normalized price records
+contain no volume; V3.3 therefore requires explicit approval before collecting
+market data.
 
 ## Why This Config
 

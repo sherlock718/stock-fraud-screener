@@ -12,12 +12,21 @@ reports under `reports/pit_validation/`; it is not an active execution plan.
 - US SEC annual population only.
 - One annual July decision calendar and one three-year target.
 - Observed evidence only; unresolved rows fail closed.
-- Production `ml_gates` only.
+- Corrected `production_v3_ml_gates` only. It is a new certified production
+  contract; legacy performance claims do not transfer to it.
 - OOS decision-tree agreement gate plus OOS LightGBM three-year regression
   ranker.
 - Fixed production hard gates, top 15, equal weights, $200,000 AUM, and a 1%
   position/ADTV limit.
 - One security-level monthly total-return NAV and one controlled backtest.
+
+The model contract uses observed three-year targets for both roles: binary
+local-benchmark outperformance for the decision tree and observed stock return
+for the LightGBM regressor. Fold-local feature selection is capped at 28 from
+the V3.1 frozen candidate pool. Clean training requires certified positive ROA
+and Beneish below -1.78; the uncertified `fraud_suspect` heuristic is excluded.
+The tree threshold of 0.55 is a fixed policy parameter, not a newly optimized
+claim.
 
 Explicitly excluded: 6m/1y/2y/5y models, alternate strategies, legacy-result
 reproduction, `OLD_RECONSTRUCTED`, `CORRECTED_PARTIAL`, policy-imputed portfolio
@@ -107,3 +116,12 @@ The project reaches the production-validation boundary only when V3.1 through
 V3.5 pass in order. A blocker stops the sequence; it does not create another
 lettered session. Resolve it inside the same session contract or revise this
 roadmap explicitly before continuing.
+
+## Commit checkpoints
+
+Each V3 session ends with one conventional commit after its scoped tests, final
+verification, diff review, changelog entry, and handoff update pass. Generated
+artifact payloads remain Git-ignored and are never staged. A blocked session may
+commit a useful fail-closed diagnostic checkpoint, but it does not create a
+lettered session. Do not accumulate work from multiple completed V3 sessions in
+one commit.
