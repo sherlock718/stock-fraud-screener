@@ -8,6 +8,69 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+- Complete canonical consolidation Session C1 without changing the accepted
+  P2-P4 behavior: extract active fold-local OOS modeling and fixed
+  selection/liquidity contracts from historical Session V3 names into neutral
+  modules; add a fail-closed, non-overwriting `workflows.run_canonical`
+  P2 -> P3 -> P4 verifier/reconstructor; label the six-step and scheduled
+  multi-market refresh paths as legacy while preserving their international
+  structure; correct the active FAQ, production configuration, and
+  architecture; and add tracked dependency and non-destructive archive
+  inventories with artifact sizes and manifest hashes. No external data,
+  publication, archive move, branch, commit, or push occurred.
+- Freeze the approved post-P4 completion plan: continue a controlled canonical
+  refactor instead of a whole-repository rewrite; run the replacement refresh
+  US-first while preserving legacy international structure; use free evidence
+  with isolated survivorship sensitivity assumptions and paid-provider
+  adapters deferred; design historical then live cited event/M&A handling;
+  prepare private, versioned, non-overwriting P2-P4 publication through the
+  existing `ekrash718/stock-screener-data` Hugging Face destination after
+  visibility verification; and preserve tracked legacy material on a separate
+  Git archive branch. Set repository consolidation Session C1 as the exact next
+  bounded implementation.
+- Complete Product Session P4's canonical prediction-to-product route: consume
+  only the pinned P3 row-complete OOS predictions; independently reconfirm
+  source/model lineage, decision-time eligibility, and all eight hard gates;
+  evaluate every eligible candidate against exactly 30 frozen pre-prediction
+  Session 8E close/volume sessions; rank only after the $1.333 million median
+  dollar-volume gate; and freeze 12 supported top-15 equal-weight vintages, a
+  15-row 2026 shortlist, selected-feature explanations, and direct
+  prediction-to-report traceability under a new non-overwriting manifest.
+  Freeze the accepted three-year-vintage and 25-bps-per-side actual-notional
+  cost contracts, but fail official performance closed because the accepted
+  security/action market ledger and immutable `DGS1MO` ALFRED vintage are
+  absent. No model retraining, external refresh, macro fallback, V3.4 action,
+  old V3 performance transfer, archive, commit, or push occurred.
+- Complete Product Session P3's canonical US annual observed-only three-year
+  research/model route: replace the accepted V3.1/V3.2 route's old Session 8F
+  input with a fail-closed loader for the pinned P2 primary dataset, observed
+  labels, row-horizon support, and summary; remove realized target/support and
+  unavailable macro fields from the model candidate contract; exclude
+  decision-late source rows; preserve fold-local feature selection and median
+  preprocessing for decision-tree and LightGBM roles; and materialize 87,612
+  row-complete OOS prediction/exclusion records under a new non-overwriting
+  manifest-backed artifact. Reconcile the historical V3.3 validator only for
+  the two reused V3.2 code/test records whose exact replacements are pinned by
+  P3; all other historical records still fail closed. No backtest, portfolio,
+  performance calculation, refresh, V3.4 action, archive, commit, or push
+  occurred.
+- Complete Product Session P2's canonical corrected US annual data route:
+  validate SEC date-only filings against their America/New_York source-local
+  calendar date without relaxing provenance, mismatch, version, or equal-time
+  gates; add focused regressions; rebuild 43,806 observed-only rows under
+  `artifacts/canonical/corrected_us_annual/`; freeze the manifest-backed primary
+  dataset entrypoint and exact coverage validation; preserve the separate
+  zero-addition policy namespace; and reconcile historical Session 8F code
+  lineage only through files independently pinned by the canonical P2
+  manifest. No external refresh, model, backtest, performance, archive, commit,
+  or push action occurred.
+- Complete Product Session P1's read-only canonicalization decision: select the
+  corrected Step 2 → Session 8E → Session 8F US annual chain as the canonical
+  data foundation; classify the legacy dataset and downstream alternatives;
+  document the accepted V3.1–V3.3 model/liquidity components and missing
+  backtest/report bridge; and freeze P2 as one bounded correction of SEC
+  source-local availability validation plus a non-overwriting canonical
+  observed-only dataset build.
 - Correct the simplified product framing to preserve the original
   dataset-first research objective; document the verified Hugging Face source
   Parquets, HTML feature dictionary, extensive survivorship/PIT work and its

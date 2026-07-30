@@ -11,9 +11,15 @@ def test_complete_session8f_manifest_passes() -> None:
     assert result == {
         "result": "pass",
         "manifest_sha256": session9.SESSION8F_MANIFEST_SHA256,
+        "canonical_p2_manifest_sha256": session9.CANONICAL_P2_MANIFEST_SHA256,
         "validated_inputs": 2,
         "records": 33,
         "code_lineage": 7,
+        "accepted_p2_code_lineage": [
+            "pipeline/build_corrected_feature_population.py",
+            "pipeline/event_time_cohorts.py",
+            "tests/pipeline/test_build_corrected_feature_population.py",
+        ],
         "dirty_state_references": 3,
         "dirty_state_hashed": 3,
     }

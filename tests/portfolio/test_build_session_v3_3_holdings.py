@@ -30,6 +30,18 @@ def test_accepted_artifacts_materialize_exact_candidate_wide_scope():
     assert preflight["v3_2_manifest_sha256"].startswith("ba0e3b2d")
     assert preflight["v3_1_records_revalidated"] == 12
     assert preflight["v3_2_records_revalidated"] == 144
+    reconciled = [
+        item for item in preflight["records_validated"]
+        if item["lineage_reconciliation"] is not None
+    ]
+    assert {item["path"] for item in reconciled} == {
+        "modeling/build_session_v3_2_oos.py",
+        "tests/modeling/test_build_session_v3_2_oos.py",
+    }
+    assert all(
+        item["lineage_reconciliation"] == "canonical_p3_exact_code_lineage"
+        for item in reconciled
+    )
     assert len(required) == 1428
     assert required["decision_timestamp"].dt.year.value_counts().sort_index().to_dict() == {
         2015: 36, 2016: 226, 2017: 254, 2018: 285, 2019: 319, 2020: 308,

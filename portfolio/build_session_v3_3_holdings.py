@@ -35,10 +35,16 @@ import requests
 ROOT = Path(__file__).resolve().parents[1]
 V3_1 = ROOT / "artifacts/pit_validation/session_v3_1_production_contract"
 V3_2 = ROOT / "artifacts/pit_validation/session_v3_2_oos_predictions"
+CANONICAL_P3 = ROOT / "artifacts/canonical/corrected_us_annual_3y_research_model"
 DEFAULT_ARTIFACT_ROOT = ROOT / "artifacts/pit_validation/session_v3_3_liquidity_holdings"
 REPORT_PATH = ROOT / "reports/pit_validation/v3_3_liquidity_holdings.md"
 V3_1_MANIFEST_SHA256 = "2b5249cdb05c7bad1759abbd281ec1c90a8a9ce2fbd72973cd4dc905c8a86e5a"
 V3_2_MANIFEST_SHA256 = "ba0e3b2d850af113c26306dbec1d9d5cab7a58aa78cafd40cefac31059899912"
+CANONICAL_P3_MANIFEST_SHA256 = "8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2"
+P3_RECONCILED_V3_2_CODE = {
+    "modeling/build_session_v3_2_oos.py",
+    "tests/modeling/test_build_session_v3_2_oos.py",
+}
 V3_1_TABLE = V3_1 / "outputs/observed_only_us_annual_3y.parquet"
 V3_1_CONFIG = V3_1 / "configuration/production_contract.json"
 V3_2_PREDICTIONS = V3_2 / "predictions/oos_predictions.parquet"
@@ -103,6 +109,27 @@ def _manifest_index(manifest: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return result
 
 
+def _canonical_p3_code_replacement(relative: str) -> dict[str, Any] | None:
+    """Return only the exact historical V3.2 code record pinned by P3."""
+    if relative not in P3_RECONCILED_V3_2_CODE:
+        return None
+    manifest_path = CANONICAL_P3 / "manifest.json"
+    if (
+        not manifest_path.is_file()
+        or sha256_file(manifest_path) != CANONICAL_P3_MANIFEST_SHA256
+    ):
+        return None
+    manifest = json.loads(manifest_path.read_text())
+    return next(
+        (
+            item
+            for item in manifest.get("code_lineage", [])
+            if item["path"] == relative
+        ),
+        None,
+    )
+
+
 def _validate_manifest(path: Path, expected_sha: str, label: str) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     actual = sha256_file(path)
     if actual != expected_sha:
@@ -115,9 +142,26 @@ def _validate_manifest(path: Path, expected_sha: str, label: str) -> tuple[dict[
             raise RuntimeError(f"{label} manifest record missing: {relative}")
         actual_size = target.stat().st_size
         actual_hash = sha256_file(target)
+        reconciliation = None
         if actual_size != int(item["size_bytes"]) or actual_hash != item["sha256"]:
-            raise RuntimeError(f"{label} manifest record drifted: {relative}")
-        validated.append({"path": relative, "size_bytes": actual_size, "sha256": actual_hash})
+            replacement = (
+                _canonical_p3_code_replacement(relative)
+                if label == "V3.2"
+                else None
+            )
+            if (
+                replacement is None
+                or actual_size != int(replacement["size_bytes"])
+                or actual_hash != replacement["sha256"]
+            ):
+                raise RuntimeError(f"{label} manifest record drifted: {relative}")
+            reconciliation = "canonical_p3_exact_code_lineage"
+        validated.append({
+            "path": relative,
+            "size_bytes": actual_size,
+            "sha256": actual_hash,
+            "lineage_reconciliation": reconciliation,
+        })
     return manifest, validated
 
 

@@ -80,3 +80,17 @@ The archived V3.4/V3.5 canonical-market-ledger program is not an active
 dependency. New data vendors, multi-market expansion, strategy proliferation,
 threshold tuning, new feature families, new fraud models, and broad repository
 reorganization remain deferred until the canonical product path works.
+
+## Post-P4 continuation
+
+P2-P4 are complete as the local reproducible product baseline. The approved
+continuation is a controlled refactor, not a whole-repository rewrite. The
+ordered consolidation, private publication, US refresh, free-source
+survivorship/event ledger, backtest, nested tuning, international restoration,
+and archive plan is frozen in
+`docs/CANONICAL_REFACTOR_COMPLETION_PLAN.md`.
+
+The exact next bounded implementation is Session C1 from that plan. It must
+preserve the legacy international code structure and existing dirty worktree,
+and it must not collect, publish, archive, branch, commit, or push without
+separate authorization.

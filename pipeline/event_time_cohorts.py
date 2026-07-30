@@ -14,6 +14,7 @@ import pandas as pd
 AVAILABILITY_TIMESTAMP = "availability_timestamp"
 AVAILABILITY_PROVENANCE = "availability_provenance"
 ENTITY_ID = "entity_id"
+SEC_DATE_ONLY_TIMEZONE = "America/New_York"
 CONTRACT_VERSION = "filing_time_v1"
 PROVENANCE_POLICY = "proven_publication_only_v1"
 
@@ -91,7 +92,16 @@ def proven_availability(df: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
     )
     if "filed_date" in df.columns:
         filed = pd.to_datetime(df["filed_date"], errors="coerce", utc=True)
-        eligible &= filed.notna() & timestamps.dt.normalize().eq(filed.dt.normalize())
+        matching_date = timestamps.dt.normalize().eq(filed.dt.normalize())
+        sec_primary = df[AVAILABILITY_PROVENANCE].eq("sec_primary_filing")
+        sec_source_local_match = (
+            timestamps.loc[sec_primary]
+            .dt.tz_convert(SEC_DATE_ONLY_TIMEZONE)
+            .dt.date
+            .eq(filed.loc[sec_primary].dt.date)
+        )
+        matching_date.loc[sec_primary] |= sec_source_local_match
+        eligible &= filed.notna() & matching_date
 
     # The current source-vintage policy permits only one earliest-primary row
     # per entity-period. Later versions and unresolved equal-time collisions are

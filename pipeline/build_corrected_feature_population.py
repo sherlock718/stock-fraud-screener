@@ -28,17 +28,43 @@ from pipeline.step3_enrich_prices import prior_return, vol_prior
 ROOT = Path(__file__).resolve().parents[1]
 STEP2 = ROOT / "artifacts/pit_validation/corrected_step2"
 SESSION8E = ROOT / "artifacts/pit_validation/contract_aligned_label_inputs"
-DEFAULT_ARTIFACT_ROOT = ROOT / "artifacts/pit_validation/corrected_feature_population"
+DEFAULT_ARTIFACT_ROOT = ROOT / "artifacts/canonical/corrected_us_annual"
+STEP2_MANIFEST_SHA256 = "899cffd7a9d1dc3395a08bee5c65ad4a5e8a109a83c63346ac54c891fe706e08"
 SESSION8E_MANIFEST_SHA256 = "0ab15685a445f09919b19393e074b8b5903afef7e12defc7c44aeac624f4581a"
 BASELINE_COMMIT = "3f706e3e10d2b354c6e8b9407760fa2074749c0a"
 HORIZONS = ("6m", "1y", "2y", "3y", "5y")
 POPULATIONS = ("observed_only", "include_policy_imputed")
+PRIMARY_POPULATION = "observed_only"
+PRIMARY_DATASET = "outputs/observed_only/features_taxonomy.parquet"
 PRICE_FEATURES = (
     "feature_market_cap", "decision_price_raw_close", "decision_price_total_return_close",
     "momentum_12m_prior", "momentum_6m_prior", "momentum_3m_prior",
     "vol_prior_6m", "vol_prior_12m", "vol_prior_36m", "vol_prior_60m",
     "price_to_52w_high",
 )
+NON_ML_FACTOR_PREREQUISITES = {
+    "value": (
+        "ev_ebitda", "ev_revenue", "fcf_yield", "earnings_yield",
+        "book_to_market", "ps_ratio", "pe_ratio",
+    ),
+    "quality": (
+        "roe", "roa", "roic", "gross_margin", "operating_margin", "ocf_to_ni",
+        "piotroski_f_score", "accruals_to_assets", "sloan_accruals",
+        "gross_profit_to_assets",
+    ),
+    "momentum": (
+        "momentum_12m_prior", "momentum_6m_prior", "momentum_3m_prior",
+        "momentum_12m_rank", "momentum_6m_rank", "momentum_3m_rank",
+    ),
+    "growth": (
+        "revenue_cagr_3y", "revenue_growth_yoy", "eps_growth_yoy",
+        "net_income_growth_yoy", "ocf_growth_yoy", "gross_profit_growth_yoy",
+    ),
+    "fraud_risk": (
+        "beneish_m_score", "ohlson_prob_bankruptcy", "altman_z_score",
+        "fraud_score_composite", "fraud_score_accounting", "fraud_score_distress",
+    ),
+}
 
 
 def sha256_file(path: Path, *, decompressed: bool = False) -> str:
@@ -73,6 +99,8 @@ def _check_record(item: dict, *, base: Path = ROOT) -> Path:
 
 def validate_session8e_chain() -> dict:
     """Rehash the complete 8E→8D→8C→8B→8 evidence chain and payloads."""
+    if sha256_file(STEP2 / "manifest.json") != STEP2_MANIFEST_SHA256:
+        raise RuntimeError("corrected Step 2 manifest hash mismatch")
     manifest_path = SESSION8E / "manifest.json"
     if sha256_file(manifest_path) != SESSION8E_MANIFEST_SHA256:
         raise RuntimeError("Session 8E manifest hash mismatch")
@@ -80,10 +108,11 @@ def validate_session8e_chain() -> dict:
     queue = [manifest_path]
     seen: set[Path] = set()
     referenced = 0
-    allowed_8f_code_drift = {
+    allowed_corrected_feature_code_drift = {
         (ROOT / "pipeline/step5_compute_features.py").resolve(),
         (ROOT / "pipeline/step6_clean.py").resolve(),
         (ROOT / "pipeline/enrich_fraud_taxonomy.py").resolve(),
+        (ROOT / "pipeline/event_time_cohorts.py").resolve(),
     }
     code_drift = []
     while queue:
@@ -102,14 +131,16 @@ def validate_session8e_chain() -> dict:
                     try:
                         checked = _check_record(value)
                     except RuntimeError:
-                        if candidate not in allowed_8f_code_drift:
+                        if candidate not in allowed_corrected_feature_code_drift:
                             raise
                         checked = candidate
                         code_drift.append({
                             "path": candidate.relative_to(ROOT).as_posix(),
                             "session8e_or_prior_sha256": value["sha256"],
-                            "session8f_prebuild_sha256": sha256_file(candidate),
-                            "reason": "explicit Session 8F fail-closed pipeline change",
+                            "current_sha256": sha256_file(candidate),
+                            "reason": (
+                                "explicit corrected-feature/P2 fail-closed pipeline change"
+                            ),
                         })
                     referenced += 1
                     if checked.suffix == ".json" and "manifest" in checked.name:
@@ -165,11 +196,12 @@ def validate_session8e_chain() -> dict:
     return {
         "result": "pass", "manifests_validated": len(seen),
         "referenced_hashes_validated": referenced,
+        "step2_manifest_sha256": STEP2_MANIFEST_SHA256,
         "session8e_manifest_sha256": SESSION8E_MANIFEST_SHA256,
         "session8e_latest_payloads": len(latest_market), "session8e_success": market_success,
         "session8e_failure": market_failure, "session8d_latest_responses": len(latest_sec),
         "session8d_success": sec_success, "session8d_failure": sec_failure,
-        "expected_session8f_code_lineage_drift": code_drift,
+        "accepted_corrected_feature_code_lineage_drift": code_drift,
         "pre_edit_full_chain_validation": {
             "result": "pass", "manifests_validated": 4,
             "referenced_hashes_validated": 14504,
@@ -345,6 +377,87 @@ def assert_identity(path: Path, expected_ids: set[str], population: str) -> None
         raise RuntimeError(f"filing provenance changed in {path}")
 
 
+def validate_canonical_population(
+    frame: pd.DataFrame,
+    expected_ids: set[str],
+) -> dict:
+    """Fail closed unless the P2 observed-only dataset contract is materialized."""
+    if len(frame) != len(expected_ids) or set(frame["stable_row_id"]) != expected_ids:
+        raise RuntimeError("canonical observed-only row identity changed")
+    if frame["stable_row_id"].duplicated().any():
+        raise RuntimeError("canonical observed-only stable IDs are not unique")
+    if not frame["population"].eq(PRIMARY_POPULATION).all():
+        raise RuntimeError("canonical dataset is not exclusively observed-only")
+    if set(frame["market"].dropna().unique()) != {"US"}:
+        raise RuntimeError("canonical dataset is not exclusively US")
+    if set(frame["period_type"].dropna().unique()) != {"annual"}:
+        raise RuntimeError("canonical dataset is not exclusively annual")
+
+    event_time_count = int(
+        frame["event_time_materialization_timestamp"].notna().sum()
+    )
+    method_count = int(
+        frame["step5_winsorization_methods"]
+        .fillna("{}")
+        .astype(str)
+        .ne("{}")
+        .sum()
+    )
+    if event_time_count == 0 or method_count == 0:
+        raise RuntimeError("event-time materialization or PIT transform methods are unavailable")
+
+    required_fields = ("beneish_m_score", "altman_z_score")
+    field_counts = {
+        field: int(frame[field].notna().sum()) if field in frame.columns else 0
+        for field in required_fields
+    }
+    if any(count == 0 for count in field_counts.values()):
+        raise RuntimeError("Beneish or Altman fields are universally unavailable")
+
+    sector_fields = sorted(column for column in frame if column.endswith("_sector_pct"))
+    sector_counts = {
+        field: int(frame[field].notna().sum())
+        for field in sector_fields
+    }
+    if not sector_fields or not any(sector_counts.values()):
+        raise RuntimeError("sector-relative fields are universally unavailable")
+
+    factor_counts = {}
+    for family, fields in NON_ML_FACTOR_PREREQUISITES.items():
+        counts = {
+            field: int(frame[field].notna().sum()) if field in frame.columns else 0
+            for field in fields
+        }
+        if not any(counts.values()):
+            raise RuntimeError(
+                f"{family} non-ML factor prerequisites are universally unavailable"
+            )
+        factor_counts[family] = counts
+
+    policy_columns = [
+        column for column in frame if column.startswith("policy_imputed_")
+    ]
+    policy_imputed_rows = int(
+        frame[policy_columns].fillna(False).astype(bool).any(axis=1).sum()
+    )
+    if policy_imputed_rows:
+        raise RuntimeError("observed-only canonical population contains policy-imputed labels")
+
+    return {
+        "rows": len(frame),
+        "columns": len(frame.columns),
+        "stable_row_ids": frame["stable_row_id"].nunique(),
+        "scope": {"market": "US", "period_type": "annual"},
+        "primary_population": PRIMARY_POPULATION,
+        "policy_imputed_rows": policy_imputed_rows,
+        "event_time_materialization_non_null": event_time_count,
+        "pit_transform_methods_non_empty": method_count,
+        "beneish_altman_non_null": field_counts,
+        "sector_field_non_null": sector_counts,
+        "non_ml_factor_prerequisite_non_null": factor_counts,
+    }
+
+
 def freeze_dirty_state(artifact_root: Path) -> list[Path]:
     lineage = artifact_root / "lineage"
     lineage.mkdir(parents=True, exist_ok=True)
@@ -415,6 +528,7 @@ def build(artifact_root: Path = DEFAULT_ARTIFACT_ROOT) -> dict:
     macro_scaffold.to_parquet(macro_path, index=False)
     summaries = []
     commands = []
+    final_paths = {}
     for population in POPULATIONS:
         population_root = artifact_root / "intermediate" / population
         output_root = artifact_root / "outputs" / population
@@ -445,6 +559,7 @@ def build(artifact_root: Path = DEFAULT_ARTIFACT_ROOT) -> dict:
         commands.append(["python3", "-m", "pipeline.enrich_fraud_taxonomy", *args_tax])
         assert_identity(final_path, expected_ids, population)
         final = pd.read_parquet(final_path)
+        final_paths[population] = final_path
 
         price_counts = price_features["price_feature_status"].value_counts().to_dict()
         summaries.append({"population": population, "feature_family": "certified_accounting",
@@ -473,19 +588,42 @@ def build(artifact_root: Path = DEFAULT_ARTIFACT_ROOT) -> dict:
         raise RuntimeError("supported/unavailable/excluded counts do not partition the population")
     summary_path = artifact_root / "support/feature_population_summary.parquet"
     summary_frame.to_parquet(summary_path, index=False)
+    canonical_validation = validate_canonical_population(
+        pd.read_parquet(final_paths[PRIMARY_POPULATION]),
+        set(annual["stable_row_id"]),
+    )
+    sensitivity = pd.read_parquet(final_paths["include_policy_imputed"])
+    sensitivity_policy_columns = [
+        column for column in sensitivity if column.startswith("policy_imputed_")
+    ]
+    policy_only_additions = int(
+        sensitivity[sensitivity_policy_columns]
+        .fillna(False)
+        .astype(bool)
+        .any(axis=1)
+        .sum()
+    )
+    if policy_only_additions:
+        raise RuntimeError("Session 8E policy sensitivity unexpectedly added rows")
     validation.update({
         "annual_rows": len(annual), "stable_row_ids": annual["stable_row_id"].nunique(),
         "population_namespaces": list(POPULATIONS), "population_rows_each": len(annual),
+        "primary_population": PRIMARY_POPULATION,
+        "primary_dataset": PRIMARY_DATASET,
+        "policy_only_additions": policy_only_additions,
         "macro_supported_rows": 0, "stale_corrected_partial_inputs_used": 0,
         "row_identity_preserved_after_each_stage": True,
+        "canonical_population": canonical_validation,
     })
     validation_path = artifact_root / "validation_summary.json"
     validation_path.write_text(json.dumps(validation, indent=2) + "\n")
 
     configuration = {
-        "schema_version": 1, "session": "8F", "created_at_utc": datetime.now(timezone.utc).isoformat(),
+        "schema_version": 2, "session": "P2", "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "source_population": "corrected_step2/outputs/certified_snapshots.parquet annual rows only",
         "populations": list(POPULATIONS), "required_price_features": list(PRICE_FEATURES),
+        "scope": "US annual only", "primary_population": PRIMARY_POPULATION,
+        "primary_dataset": PRIMARY_DATASET, "policy_only_additions": policy_only_additions,
         "price_feature_time": "strictly before Session 8B decision timestamp",
         "momentum": "provider adjusted close; 365/183/91 calendar-day lookback; 21-day skip; max 5-day start/end lag",
         "volatility": "provider adjusted-close daily returns; 126/252/756/1260 calendar-day windows; annualized sqrt(252)",
@@ -493,6 +631,10 @@ def build(artifact_root: Path = DEFAULT_ARTIFACT_ROOT) -> dict:
         "macro": "unavailable: no certified vintage/release-lag input; no macro value or interaction synthesized",
         "step6_imputation": "disabled", "step6_survivorship_policy": "disabled",
         "taxonomy_clock": "availability_timestamp with sec_primary_filing provenance",
+        "availability_date_validation": (
+            "SEC date-only filed_date matches either the UTC calendar date or the "
+            "America/New_York source-local calendar date of availability_timestamp"
+        ),
         "commands": commands,
     }
     config_path = artifact_root / "configuration/config.json"
@@ -506,14 +648,51 @@ def build(artifact_root: Path = DEFAULT_ARTIFACT_ROOT) -> dict:
         "pipeline/step5_compute_features.py", "pipeline/step6_clean.py",
         "pipeline/enrich_fraud_taxonomy.py", "pipeline/event_time_cohorts.py",
         "tests/pipeline/test_build_corrected_feature_population.py",
+        "tests/pipeline/test_event_time_cohorts.py",
     )]
     manifest = {
-        "schema_version": 1, "artifact_class": "SESSION8F_CORRECTED_FEATURE_POPULATION",
+        "schema_version": 2,
+        "artifact_class": "CANONICAL_CORRECTED_US_ANNUAL_FEATURE_POPULATION",
         "created_at_utc": configuration["created_at_utc"], "baseline_commit": BASELINE_COMMIT,
-        "current_head": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
-        "claim": {"session8f_complete": True, "session9_started": False,
-                  "models_predictions_backtests_generated": False, "stale_corrected_partial_reused": False},
+        "current_head": subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
+        ).strip(),
+        "canonical_entrypoint": {
+            "command": "python3 -m pipeline.build_corrected_feature_population",
+            "artifact_root": "artifacts/canonical/corrected_us_annual",
+            "primary_dataset": PRIMARY_DATASET,
+            "population": PRIMARY_POPULATION,
+        },
+        "canonical_route": [
+            {
+                "stage": "corrected_step2",
+                "manifest": "artifacts/pit_validation/corrected_step2/manifest.json",
+                "manifest_sha256": STEP2_MANIFEST_SHA256,
+            },
+            {
+                "stage": "contract_aligned_label_inputs",
+                "manifest": (
+                    "artifacts/pit_validation/contract_aligned_label_inputs/manifest.json"
+                ),
+                "manifest_sha256": SESSION8E_MANIFEST_SHA256,
+            },
+            {
+                "stage": "corrected_feature_population",
+                "builder": "pipeline/build_corrected_feature_population.py",
+                "primary_dataset": PRIMARY_DATASET,
+            },
+        ],
+        "claim": {
+            "product_session_p2_complete": True,
+            "canonical_dataset_ready": True,
+            "primary_population": PRIMARY_POPULATION,
+            "policy_only_additions": policy_only_additions,
+            "models_predictions_backtests_generated": False,
+            "stale_corrected_partial_reused": False,
+        },
         "validated_inputs": [
+            {"path": "artifacts/pit_validation/corrected_step2/manifest.json",
+             "sha256": STEP2_MANIFEST_SHA256},
             {"path": "artifacts/pit_validation/contract_aligned_label_inputs/manifest.json",
              "sha256": SESSION8E_MANIFEST_SHA256},
             {"path": "artifacts/pit_validation/corrected_step2/outputs/certified_snapshots.parquet",
@@ -525,11 +704,14 @@ def build(artifact_root: Path = DEFAULT_ARTIFACT_ROOT) -> dict:
         "environment": {"python": platform.python_version(), "pandas": pd.__version__, "numpy": np.__version__},
         "dirty_state": {"baseline": BASELINE_COMMIT, "complete_status_recorded": True,
                         "records": [path.relative_to(ROOT).as_posix() for path in lineage_paths]},
+        "primary_dataset": PRIMARY_DATASET,
+        "canonical_validation": canonical_validation,
         "population_separation": {population: f"outputs/{population}" for population in POPULATIONS},
         "limitations": [
             "No certified macro vintage/release-lag input exists; macro features are unavailable.",
             "Rows missing any required decision-time price feature retain null price features and an explicit unavailable reason.",
             "Session 8E contains zero policy-only label additions; physical sensitivity output remains separate but has identical support.",
+            "The US annual population is historically enriched but not comprehensively survivorship-free: free sources do not provide CRSP-quality historical exchange membership, security-type/ticker histories, delisting terms, or delisting returns.",
             "No model, prediction, threshold, backtest, or Session 9 action is part of this artifact.",
         ],
     }

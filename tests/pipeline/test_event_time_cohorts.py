@@ -158,6 +158,41 @@ def test_missing_estimated_and_legacy_dates_fail_closed():
     ).isna().all()
 
 
+def test_sec_date_only_new_york_end_of_day_survives_utc_rollover():
+    filing = _rows([1.0], ["2021-03-01"])
+    filing["availability_timestamp"] = "2021-03-02T04:59:59.999999+00:00"
+
+    timestamps, eligible = proven_availability(filing)
+
+    assert str(timestamps.iloc[0]) == "2021-03-02 04:59:59.999999+00:00"
+    assert eligible.tolist() == [True]
+
+
+def test_sec_date_only_source_local_mismatch_still_fails_closed():
+    filing = _rows([1.0], ["2021-03-01"])
+    filing["availability_timestamp"] = "2021-03-03T04:59:59.999999+00:00"
+
+    _, eligible = proven_availability(filing)
+
+    assert eligible.tolist() == [False]
+
+
+def test_new_york_date_exception_requires_sec_primary_provenance():
+    invalid = _rows(
+        [1.0],
+        ["2021-03-01"],
+        provenance="estimated_filing_date",
+    )
+    invalid["availability_timestamp"] = "2021-03-02T04:59:59.999999+00:00"
+    _, invalid_mask = proven_availability(invalid)
+    assert invalid_mask.tolist() == [False]
+
+    other_proven_source = invalid.copy()
+    other_proven_source["availability_provenance"] = "edinet_submission"
+    _, other_mask = proven_availability(other_proven_source)
+    assert other_mask.tolist() == [False]
+
+
 def test_later_versions_and_unresolved_equal_time_collisions_fail_closed():
     versions = _rows([1.0, 2.0], ["2021-03-01", "2021-06-01"])
     versions["entity_id"] = "US:same-issuer"

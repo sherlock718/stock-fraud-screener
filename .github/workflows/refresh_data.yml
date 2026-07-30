@@ -1,18 +1,21 @@
-name: Weekly Data Refresh
+name: Legacy Multi-Market Refresh (Manual Opt-In)
 
 on:
-  schedule:
-    # Run every Sunday at 05:00 UTC (before market open Monday)
-    - cron: '0 5 * * 0'
   workflow_dispatch:
     inputs:
+      run_legacy_workflow:
+        description: 'Acknowledge this is the non-canonical legacy refresh'
+        required: true
+        type: boolean
+        default: false
       markets:
-        description: 'Space-separated market codes to refresh (e.g. US JP DE), or "all"'
+        description: 'Legacy market codes (e.g. US JP DE), or "all"'
         required: false
         default: 'US'
 
 jobs:
   refresh-data:
+    if: ${{ inputs.run_legacy_workflow == true }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
 

@@ -206,6 +206,22 @@ def test_regression_clips_training_target_and_persists_lineage(tmp_path, monkeyp
     assert captured["params"] == config["lightgbm_ranker"]["parameters"]
     assert lineage["selected_feature_count"] == 1
     assert lineage["model_configuration_artifact_id"].startswith("sha256:")
+    feature_payload = json.loads(
+        (tmp_path / "models/fold/lightgbm_regression/features.json").read_text()
+    )
+    assert feature_payload["selection_population_fingerprint"] == (
+        v3_2.dataframe_fingerprint(
+            train[
+                [
+                    "stable_row_id",
+                    "fiscal_year",
+                    "target_3y",
+                    "feature_a",
+                    "feature_b",
+                ]
+            ]
+        )
+    )
     target_payload = json.loads((tmp_path / "models/fold/lightgbm_regression/target.json").read_text())
     assert target_payload["regression_fit_clip"] == [-1.0, 5.0]
 

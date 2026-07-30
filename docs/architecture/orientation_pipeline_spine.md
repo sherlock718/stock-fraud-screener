@@ -1,4 +1,10 @@
-# Pipeline Spine Orientation (Session 27, updated Session 49)
+# Legacy Six-Step Pipeline Orientation (Session 27, updated Session 49)
+
+> Historical orientation only. The active canonical US annual spine is
+> documented in `docs/ARCHITECTURE.md` and is run with
+> `python3 -m workflows.run_canonical`. The six-step and multi-market
+> structures below remain preserved for later refresh replacement and
+> international adapters; they are not the supported canonical route.
 
 Generated: 2026-06-26 | Updated: 2026-07-14 | Scope: `pipeline/` folder + `_root.py`
 

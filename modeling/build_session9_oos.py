@@ -32,8 +32,10 @@ from modeling.fold_lineage import SelectorConfig, select_fold_features
 
 ROOT = Path(__file__).resolve().parents[1]
 SESSION8F = ROOT / "artifacts/pit_validation/corrected_feature_population"
+CANONICAL_P2 = ROOT / "artifacts/canonical/corrected_us_annual"
 DEFAULT_ARTIFACT_ROOT = ROOT / "artifacts/pit_validation/session9_corrected_8f"
 SESSION8F_MANIFEST_SHA256 = "9c1e4b82c2e7bc2a85228adf6668b797acec827e2bd1ff7c58d20cfb6a9ac01a"
+CANONICAL_P2_MANIFEST_SHA256 = "40e7c716ce98dfece7caf4dfc42739425660b83b7c1ac73d1cbdadfee7a3c2b3"
 BASELINE_COMMIT = "3f706e3e10d2b354c6e8b9407760fa2074749c0a"
 HORIZONS = ("6m", "1y", "2y", "3y", "5y")
 POPULATIONS = ("observed_only", "include_policy_imputed")
@@ -71,23 +73,49 @@ def record(path: Path, role: str) -> dict[str, Any]:
 
 
 def validate_session8f_manifest() -> dict[str, Any]:
-    """Validate every Session 8F input, output, code, and dirty-state record."""
+    """Validate Session 8F, accepting only code superseded and pinned by P2."""
     manifest_path = SESSION8F / "manifest.json"
     actual = sha256_file(manifest_path)
     if actual != SESSION8F_MANIFEST_SHA256:
         raise RuntimeError(f"Session 8F manifest hash mismatch: {actual}")
     manifest = json.loads(manifest_path.read_text())
+    canonical_manifest_path = CANONICAL_P2 / "manifest.json"
+    canonical_actual = sha256_file(canonical_manifest_path)
+    if canonical_actual != CANONICAL_P2_MANIFEST_SHA256:
+        raise RuntimeError(f"canonical P2 manifest hash mismatch: {canonical_actual}")
+    canonical_manifest = json.loads(canonical_manifest_path.read_text())
+    canonical_code = {
+        item["path"]: item for item in canonical_manifest["code_lineage"]
+    }
     checked = {"validated_inputs": 0, "records": 0, "code_lineage": 0}
+    accepted_p2_code_lineage = []
     indexed_records = {item["path"]: item for item in manifest["records"]}
     for section in checked:
         for item in manifest[section]:
             path = ROOT / item["path"]
             if not path.is_file():
                 raise RuntimeError(f"Session 8F {section} file missing: {path}")
-            if "size_bytes" in item and path.stat().st_size != int(item["size_bytes"]):
-                raise RuntimeError(f"Session 8F {section} size mismatch: {path}")
-            if sha256_file(path) != item["sha256"]:
-                raise RuntimeError(f"Session 8F {section} hash mismatch: {path}")
+            current_size = path.stat().st_size
+            current_hash = sha256_file(path)
+            size_matches = (
+                "size_bytes" not in item
+                or current_size == int(item["size_bytes"])
+            )
+            hash_matches = current_hash == item["sha256"]
+            if not size_matches or not hash_matches:
+                replacement = canonical_code.get(item["path"])
+                replacement_matches = (
+                    section == "code_lineage"
+                    and replacement is not None
+                    and current_size == int(replacement["size_bytes"])
+                    and current_hash == replacement["sha256"]
+                )
+                if not replacement_matches:
+                    mismatch = "size" if not size_matches else "hash"
+                    raise RuntimeError(
+                        f"Session 8F {section} {mismatch} mismatch: {path}"
+                    )
+                accepted_p2_code_lineage.append(item["path"])
             checked[section] += 1
     dirty_paths = manifest["dirty_state"]["records"]
     for path in dirty_paths:
@@ -96,7 +124,9 @@ def validate_session8f_manifest() -> dict[str, Any]:
     return {
         "result": "pass",
         "manifest_sha256": actual,
+        "canonical_p2_manifest_sha256": canonical_actual,
         **checked,
+        "accepted_p2_code_lineage": accepted_p2_code_lineage,
         "dirty_state_references": len(dirty_paths),
         "dirty_state_hashed": len(dirty_paths),
     }

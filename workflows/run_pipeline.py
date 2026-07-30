@@ -1,5 +1,9 @@
-"""
-run_pipeline.py — Master runner for the v4 alpha research dataset pipeline.
+"""Legacy master runner for the v4 multi-market research dataset pipeline.
+
+This entrypoint is preserved for the future US refresh replacement and later
+international adapters. It is not the active canonical P2 -> P3 -> P4 route.
+Use ``python3 -m workflows.run_canonical`` for local canonical verification or
+deterministic reconstruction from accepted pinned inputs.
 
 Usage:
   python scripts/workflows/run_pipeline.py build              # Full pipeline (all steps)

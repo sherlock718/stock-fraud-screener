@@ -271,7 +271,14 @@ def fit_fold_role(
     target_path = artifact_dir / "target.json"
     model_configuration_path = artifact_dir / "model_configuration.json"
     model_path = artifact_dir / "model.joblib"
-    selection_population = train[["stable_row_id", "fiscal_year", target, *features]].copy()
+    selection_population = train[
+        [
+            "stable_row_id",
+            "fiscal_year",
+            target,
+            *config["feature_contract"]["candidate_columns"],
+        ]
+    ].copy()
     feature_payload = {
         "role": role,
         "fold_id": fold_id,
