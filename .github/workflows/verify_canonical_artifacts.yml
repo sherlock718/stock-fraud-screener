@@ -1,0 +1,32 @@
+name: Verify Private Canonical Artifact Recovery
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  recover-canonical-p2-p4:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install pinned Hugging Face client
+        run: pip install 'huggingface_hub==1.8.0'
+
+      - name: Retrieve and verify immutable P2-P4 artifacts
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: >-
+          python3 -m data_io.retrieve_canonical_from_hf
+          --pointer-dir data_io/canonical_artifact_pointers
+          --target "${RUNNER_TEMP}/canonical"

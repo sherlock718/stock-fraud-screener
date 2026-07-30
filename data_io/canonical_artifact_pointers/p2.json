@@ -1,0 +1,218 @@
+{
+  "artifact_name": "corrected_us_annual",
+  "file_count": 34,
+  "files": [
+    {
+      "relative_path": "checkpoints/price_features.json",
+      "repository_path": "canonical/corrected_us_annual/40e7c716ce98dfece7caf4dfc42739425660b83b7c1ac73d1cbdadfee7a3c2b3/checkpoints/price_features.json",
+      "sha256": "e214804320e67cfeb6724abc46173191096013003399dac946580f5bdf3be7f6",
+      "size_bytes": 263
+    },
+    {
+      "relative_path": "configuration/config.json",
+      "repository_path": "canonical/corrected_us_annual/40e7c716ce98dfece7caf4dfc42739425660b83b7c1ac73d1cbdadfee7a3c2b3/configuration/config.json",
+      "sha256": "6b3ca85cef6059bb0cc7b443c30057952ee65bada494042e429ae30d54c703e1",
+      "size_bytes": 4926
+    },
+    {
+      "relative_path": "inputs/certified_snapshots.parquet",
+      "repository_path": "canonical/corrected_us_annual/40e7c716ce98dfece7caf4dfc42739425660b83b7c1ac73d1cbdadfee7a3c2b3/inputs/certified_snapshots.parquet",
+      "sha256": "fb7e5ac206f257b16606d0c4e4bf67c68243a987dcda6f3d3af9e0d35cb6f83d",
+      "size_bytes": 36225913
+    },
+    {
+      "relative_path": "inputs/include_policy_imputed_labels.parquet",
+      "repository_path": "canonical/corrected_us_annual/40e7c716ce98dfece7caf4dfc42739425660b83b7c1ac73d1cbdadfee7a3c2b3/inputs/include_policy_imputed_labels.parquet",
+      "sha256": "a60ecfa3c688454dca27e528dee243c92415817ff40bd8bda4ea73a49c2ba5ad",
+      "size_bytes": 3615071
+    },
+    {
+      "relative_path": "inputs/include_policy_imputed_row_horizon.parquet",
+      "repository_path": "canonical/corrected_us_annual/40e7c716ce98dfece7caf4dfc42739425660b83b7c1ac73d1cbdadfee7a3c2b3/inputs/include_policy_imputed_row_horizon.parquet",
+      "sha256": "7916642d8e608f76ce137da409e766e24885d9e59fcea3202ef2f0e5b3f0d1bb",
+      "size_bytes": 845244
+    },
+    {
+      "relative_path": "inputs/normalized_inventory.json",
+      "repository_path": "canonical/corrected_us_annual/40e7c716ce98dfece7caf4dfc42739425660b83b7c1ac73d1cbdadfee7a3c2b3/inputs/normalized_inventory.json",
+      "sha256": "0a004d01d06d0e923402435bb178e1ee3487291f48138b5b96aa5c37e4918b1c",
+      "size_bytes": 1975692
+    },
+    {
+      "relative_path": "inputs/observed_only_labels.parquet",
+      "repository_path": "canonical/corrected_us_annual/40e7c716ce98dfece7caf4dfc42739425660b83b7c1ac73d1cbdadfee7a3c2b3/inputs/observed_only_labels.parquet",
+      "sha256": "821c54dc054ea64a558e2e08f61bf1e3185c2d078e589f9473ae7ad959228b3b",
+      "size_bytes": 3615026
+    },
+    {
+      "relative_path": "inputs/observed_only_row_horizon.parquet",
+      "repository_path": "canonical/corrected_us_annual/40e7c716ce98dfece7caf4dfc42739425660b83b7c1ac73d1cbdadfee7a3c2b3/inputs/observed_only_row_horizon.parquet",
+      "sha256": "158888adb1df33272628e958766b262adfb97e7db963b2c8e30460a2e8d7a42f",
+      "size_bytes": 843405
+    },
+    {
+      "relative_path": "inputs/security_mapping.parquet",
+      "repository_path": "canonical/corrected_us_annual/40e7c716ce98dfece7caf4dfc42739425660b83b7c1ac73d1cbdadfee7a3c2b3/inputs/security_mapping.parquet",
+      "sha256": "8a4f2f7c8ef75ebc69327ef63796184faecad235ae4f7b480a266d217a44594a",
+      "size_bytes": 152674
+    },
+    {
+      "relative_path": "inputs/session8b_calendar_contract.json",
+      "repository_path": "canonical/corrected_us_annual/40e7c716ce98dfece7caf4dfc42739425660b83b7c1ac73d1cbdadfee7a3c2b3/inputs/session8b_calendar_contract.json",
+      "sha256": "13cd7494aa7f0ff6e3f8a11efa0ee7a9a087968bb20b1fd5a9cb57f380148296",
+      "size_bytes": 4375
+    },
+    {
+      "relative_path": "inputs/session8e_manifest.json",
+      "repository_path": "canonical/corrected_us_annual/40e7c716ce98dfece7caf4dfc42739425660b83b7c1ac73d1cbdadfee7a3c2b3/inputs/session8e_manifest.json",
+      "sha256": "0ab15685a445f09919b19393e074b8b5903afef7e12defc7c44aeac624f4581a",
+      "size_bytes": 12069
+    },
+    {
+      "relative_path": "intermediate/certified_annual_with_row_id.parquet",
+      "repository_path": "canonical/corrected_us_annual/40e7c716ce98dfece7caf4dfc42739425660b83b7c1ac73d1cbdadfee7a3c2b3/intermediate/certified_annual_with_row_id.parquet",
+      "sha256": "a915ec1bd46c87dfe3f1e6f691cc47c3d5fc5e0a43d32109a424926be23a0beb",
+      "size_bytes": 14762862
+    },
+    {
+      "relative_path": "intermediate/decision_price_features.parquet",
+      "repository_path": "canonical/corrected_us_annual/40e7c716ce98dfece7caf4dfc42739425660b83b7c1ac73d1cbdadfee7a3c2b3/intermediate/decision_price_features.parquet",
+      "sha256": "fa4b46cb9e444280de632ce832dbc9431d80990d89c2edd2d57e08f78308fb3f",
+      "size_bytes": 6634921
+    },
+    {
+      "relative_path": "intermediate/include_policy_imputed/01_prepared_price_and_labels.parquet",
+      "repository_path": "canonical/corrected_us_annual/40e7c716ce98dfece7caf4dfc42739425660b83b7c1ac73d1cbdadfee7a3c2b3/intermediate/include_policy_imputed/01_prepared_price_and_labels.parquet",
+      "sha256": "f0a68fc5bef1f1633d45e2247f5c4f023bbbe0d8c39292a932305888a720ce6d",
+      "size_bytes": 9242502
+    },
+    {
+      "relative_path": "intermediate/include_policy_imputed/02_step5_features.parquet",
+      "repository_path": "canonical/corrected_us_annual/40e7c716ce98dfece7caf4dfc42739425660b83b7c1ac73d1cbdadfee7a3c2b3/intermediate/include_policy_imputed/02_step5_features.parquet",
+      "sha256": "1209d1ac087e897acc119264920be2c132de93f40ee0ecd9ce17c20b744c8748",
+      "size_bytes": 57077920
+    },
+    {
+      "relative_path": "intermediate/include_policy_imputed/03_step6_clean.parquet",
+      "repository_path": "canonical/corrected_us_annual/40e7c716ce98dfece7caf4dfc42739425660b83b7c1ac73d1cbdadfee7a3c2b3/intermediate/include_policy_imputed/03_step6_clean.parquet",
+      "sha256": "df1d185cc1d452a0f476c988f576ddf41cabef95516c6b402a543443d969c180",
+      "size_bytes": 57302177
+    },
+    {
+      "relative_path": "intermediate/macro_unavailable_scaffold.parquet",
+      "repository_path": "canonical/corrected_us_annual/40e7c716ce98dfece7caf4dfc42739425660b83b7c1ac73d1cbdadfee7a3c2b3/intermediate/macro_unavailable_scaffold.parquet",
+      "sha256": "d073fbdf9f111e8d0818b46e2f69c179fbc165e84974ddd23f0873ef673dbe36",
+      "size_bytes": 217921
+    },
+    {
+      "relative_path": "intermediate/observed_only/01_prepared_price_and_labels.parquet",
+      "repository_path": "canonical/corrected_us_annual/40e7c716ce98dfece7caf4dfc42739425660b83b7c1ac73d1cbdadfee7a3c2b3/intermediate/observed_only/01_prepared_price_and_labels.parquet",
+      "sha256": "75dbfe1e165f2da43eabe8fce4b9aa13c11ec6b39887aa95307028d896b20619",
+      "size_bytes": 9242457
+    },
+    {
+      "relative_path": "intermediate/observed_only/02_step5_features.parquet",
+      "repository_path": "canonical/corrected_us_annual/40e7c716ce98dfece7caf4dfc42739425660b83b7c1ac73d1cbdadfee7a3c2b3/intermediate/observed_only/02_step5_features.parquet",
+      "sha256": "c70aaadec2b3c528d83cc79b1d9c3fc9c3474eb6331e12b6eb5212541b0df72a",
+      "size_bytes": 57077875
+    },
+    {
+      "relative_path": "intermediate/observed_only/03_step6_clean.parquet",
+      "repository_path": "canonical/corrected_us_annual/40e7c716ce98dfece7caf4dfc42739425660b83b7c1ac73d1cbdadfee7a3c2b3/intermediate/observed_only/03_step6_clean.parquet",
+      "sha256": "a3277eed50124cdee9265b96e32269bb37d495447ddcced4fc80a16eee40964d",
+      "size_bytes": 57302132
+    },
+    {
+      "relative_path": "lineage/git_status_porcelain.txt",
+      "repository_path": "canonical/corrected_us_annual/40e7c716ce98dfece7caf4dfc42739425660b83b7c1ac73d1cbdadfee7a3c2b3/lineage/git_status_porcelain.txt",
+      "sha256": "dc3b25c91796220ea9d0186fd7a66d7e824fa1d2ff52738c92ddf435ab2a10e6",
+      "size_bytes": 275
+    },
+    {
+      "relative_path": "lineage/tracked_dirty.patch",
+      "repository_path": "canonical/corrected_us_annual/40e7c716ce98dfece7caf4dfc42739425660b83b7c1ac73d1cbdadfee7a3c2b3/lineage/tracked_dirty.patch",
+      "sha256": "509652abfca5d6bc766ed770ab962914ec9375dd471f04de4853954a9b2e5425",
+      "size_bytes": 1042882
+    },
+    {
+      "relative_path": "lineage/untracked_inventory.json",
+      "repository_path": "canonical/corrected_us_annual/40e7c716ce98dfece7caf4dfc42739425660b83b7c1ac73d1cbdadfee7a3c2b3/lineage/untracked_inventory.json",
+      "sha256": "82e8d3029afa268cdc12df8f509c1609dc87a106beb75475ff21988d3af53f91",
+      "size_bytes": 193
+    },
+    {
+      "relative_path": "logs/include_policy_imputed_step5.log",
+      "repository_path": "canonical/corrected_us_annual/40e7c716ce98dfece7caf4dfc42739425660b83b7c1ac73d1cbdadfee7a3c2b3/logs/include_policy_imputed_step5.log",
+      "sha256": "3777ca839db1b613ba028b88a7ba9bc0a13180e09ebedea8ca6e082e38c955e1",
+      "size_bytes": 36111
+    },
+    {
+      "relative_path": "logs/include_policy_imputed_step6.log",
+      "repository_path": "canonical/corrected_us_annual/40e7c716ce98dfece7caf4dfc42739425660b83b7c1ac73d1cbdadfee7a3c2b3/logs/include_policy_imputed_step6.log",
+      "sha256": "0c922852f644718e110a7a4a585f5b4b2b38be886fa8b67c0930a12073405e11",
+      "size_bytes": 1897
+    },
+    {
+      "relative_path": "logs/include_policy_imputed_taxonomy.log",
+      "repository_path": "canonical/corrected_us_annual/40e7c716ce98dfece7caf4dfc42739425660b83b7c1ac73d1cbdadfee7a3c2b3/logs/include_policy_imputed_taxonomy.log",
+      "sha256": "20c67fd53b187acc55573baa0027c221d3ab1955f4fc38b930e560ca485f357b",
+      "size_bytes": 1846
+    },
+    {
+      "relative_path": "logs/observed_only_step5.log",
+      "repository_path": "canonical/corrected_us_annual/40e7c716ce98dfece7caf4dfc42739425660b83b7c1ac73d1cbdadfee7a3c2b3/logs/observed_only_step5.log",
+      "sha256": "aa896f1f92e2ed2bf9fc760311ff357b09bcbb9919ae4f42656eaedd5f580413",
+      "size_bytes": 36102
+    },
+    {
+      "relative_path": "logs/observed_only_step6.log",
+      "repository_path": "canonical/corrected_us_annual/40e7c716ce98dfece7caf4dfc42739425660b83b7c1ac73d1cbdadfee7a3c2b3/logs/observed_only_step6.log",
+      "sha256": "767c4a1aaa40e66ea4a70cc5c15d9eba08015edb9899997e9753ddc4b1c7f43f",
+      "size_bytes": 1888
+    },
+    {
+      "relative_path": "logs/observed_only_taxonomy.log",
+      "repository_path": "canonical/corrected_us_annual/40e7c716ce98dfece7caf4dfc42739425660b83b7c1ac73d1cbdadfee7a3c2b3/logs/observed_only_taxonomy.log",
+      "sha256": "1c0c601e2ca46b43db61e00fd7d9335ed7b603304ac111d48ef825a330851f22",
+      "size_bytes": 1837
+    },
+    {
+      "relative_path": "manifest.json",
+      "repository_path": "canonical/corrected_us_annual/40e7c716ce98dfece7caf4dfc42739425660b83b7c1ac73d1cbdadfee7a3c2b3/manifest.json",
+      "sha256": "40e7c716ce98dfece7caf4dfc42739425660b83b7c1ac73d1cbdadfee7a3c2b3",
+      "size_bytes": 22369
+    },
+    {
+      "relative_path": "outputs/include_policy_imputed/features_taxonomy.parquet",
+      "repository_path": "canonical/corrected_us_annual/40e7c716ce98dfece7caf4dfc42739425660b83b7c1ac73d1cbdadfee7a3c2b3/outputs/include_policy_imputed/features_taxonomy.parquet",
+      "sha256": "b51e749e026e30265fe2677909627b340cc50c395e51036b1ac62809f6cf486d",
+      "size_bytes": 59465391
+    },
+    {
+      "relative_path": "outputs/observed_only/features_taxonomy.parquet",
+      "repository_path": "canonical/corrected_us_annual/40e7c716ce98dfece7caf4dfc42739425660b83b7c1ac73d1cbdadfee7a3c2b3/outputs/observed_only/features_taxonomy.parquet",
+      "sha256": "46ed33affd8cc66df1f11dc8a41d6f804d106f0a2f8841509cbc931de013e56f",
+      "size_bytes": 59465346
+    },
+    {
+      "relative_path": "support/feature_population_summary.parquet",
+      "repository_path": "canonical/corrected_us_annual/40e7c716ce98dfece7caf4dfc42739425660b83b7c1ac73d1cbdadfee7a3c2b3/support/feature_population_summary.parquet",
+      "sha256": "9dd0e50bd4154eae50f99aac3e179a558d60520a27ee0875d6e629fa7a7cbe31",
+      "size_bytes": 3798
+    },
+    {
+      "relative_path": "validation_summary.json",
+      "repository_path": "canonical/corrected_us_annual/40e7c716ce98dfece7caf4dfc42739425660b83b7c1ac73d1cbdadfee7a3c2b3/validation_summary.json",
+      "sha256": "891e30e73b2a1c68d7ffe7ea181e301ebfc81c5caba89f29ebe31589bdf8d0a5",
+      "size_bytes": 5037
+    }
+  ],
+  "manifest_sha256": "40e7c716ce98dfece7caf4dfc42739425660b83b7c1ac73d1cbdadfee7a3c2b3",
+  "repository": "ekrash718/stock-screener-data",
+  "repository_prefix": "canonical/corrected_us_annual/40e7c716ce98dfece7caf4dfc42739425660b83b7c1ac73d1cbdadfee7a3c2b3",
+  "repository_type": "dataset",
+  "revision": "aaf056ea115067e42ef9abf9fa93ade75cdd4052",
+  "schema_version": 1,
+  "stage": "P2",
+  "total_size_bytes": 436240397
+}

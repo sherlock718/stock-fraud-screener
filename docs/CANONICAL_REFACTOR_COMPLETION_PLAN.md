@@ -180,22 +180,34 @@ The existing repository's actual current visibility has not been externally
 verified. Publication must fail closed if it is public or cannot be verified
 as private.
 
-- [ ] Add a canonical publisher and retriever; do not extend the legacy root
+- [x] Add a canonical publisher and retriever; do not extend the legacy root
       upload list silently.
-- [ ] Verify the existing repository is private before uploading.
-- [ ] Use immutable versioned paths such as
+- [x] Verify the existing repository is private before uploading.
+- [x] Use immutable versioned paths such as
       `canonical/<artifact-name>/<manifest-sha256>/...`.
-- [ ] Upload P2, P3, and P4 manifests plus every referenced generated record
+- [x] Upload P2, P3, and P4 manifests plus every referenced generated record
       needed for reconstruction or consumption.
-- [ ] Preserve existing legacy root files unchanged.
-- [ ] Record repository, repository type, revision, relative path, byte size,
+- [x] Preserve existing legacy root files unchanged.
+- [x] Record repository, repository type, revision, relative path, byte size,
       and SHA-256 in small tracked pointer manifests.
-- [ ] Download into a temporary target and independently verify every record.
-- [ ] Add CI verification that does not fall back to mutable `latest`.
-- [ ] Publish only after explicit approval and without exposing `HF_TOKEN`.
+- [x] Download into a temporary target and independently verify every record.
+- [x] Add CI verification that does not fall back to mutable `latest`.
+- [x] Publish only after explicit approval and without exposing `HF_TOKEN`.
 
 Done when a clean checkout can retrieve the exact current P2-P4 baseline and
 reconcile it byte for byte.
+
+C2 completion: after explicit approval and informed re-authorization, the user
+ran the guarded publisher directly because Codex's environment prohibited the
+export. The exact 202-file, 481,666,707-byte P2-P4 baseline was published
+privately at immutable revision
+`aaf056ea115067e42ef9abf9fa93ade75cdd4052`. The command completed its
+temporary byte/hash recovery before materializing all three pointers.
+Independent metadata reconciliation found all 202 expected paths present,
+zero missing, and private visibility retained. No legacy root path was
+overwritten. The three exact pointer files are materialized, locally
+validated, and included in the separately authorized C2 checkpoint, completing
+strict clean-checkout recovery.
 
 ### D1 — US canonical raw-refresh replacement
 

@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+repository_root=$(dirname -- "$script_dir")
+cd "$repository_root"
+
+exec python3 -m data_io.publish_canonical_to_hf "$@"

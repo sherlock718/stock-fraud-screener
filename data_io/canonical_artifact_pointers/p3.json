@@ -1,0 +1,866 @@
+{
+  "artifact_name": "corrected_us_annual_3y_research_model",
+  "file_count": 142,
+  "files": [
+    {
+      "relative_path": "configuration/research_model_contract.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/configuration/research_model_contract.json",
+      "sha256": "d146518c5adeec47ccec9936c6cd724b5862d43cde1d25a959b9963616ef8329",
+      "size_bytes": 9490
+    },
+    {
+      "relative_path": "inputs/canonical_p2_manifest.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/inputs/canonical_p2_manifest.json",
+      "sha256": "40e7c716ce98dfece7caf4dfc42739425660b83b7c1ac73d1cbdadfee7a3c2b3",
+      "size_bytes": 22369
+    },
+    {
+      "relative_path": "lineage/git_status_porcelain.txt",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/lineage/git_status_porcelain.txt",
+      "sha256": "edb07ec352e6f3e01e912fbc1d058f6e7b300f0cb030a8c05300c62f7ca09662",
+      "size_bytes": 544
+    },
+    {
+      "relative_path": "lineage/tracked_dirty.patch",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/lineage/tracked_dirty.patch",
+      "sha256": "4ab6cbdd7469fa2482aeece9c465e567a8cb96e2f87b3bdb92e7a892200c20a4",
+      "size_bytes": 52157
+    },
+    {
+      "relative_path": "lineage/untracked_inventory.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/lineage/untracked_inventory.json",
+      "sha256": "1cbb0579072f218b6c243295e1d7f70548e1062a830e425bef4f255dccef56d3",
+      "size_bytes": 627
+    },
+    {
+      "relative_path": "manifest.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/manifest.json",
+      "sha256": "8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2",
+      "size_bytes": 63862
+    },
+    {
+      "relative_path": "models/decision_20140702T000000Z/decision_tree/features.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20140702T000000Z/decision_tree/features.json",
+      "sha256": "0b28f216a46a1e08eb081cfaedf6bcae8d94e43df61a0efead9a722cb964a094",
+      "size_bytes": 5630
+    },
+    {
+      "relative_path": "models/decision_20140702T000000Z/decision_tree/model.joblib",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20140702T000000Z/decision_tree/model.joblib",
+      "sha256": "705b96aeffb6701e9d4ecfbe3fe71c84ec758a48f5e62dbf91c9fd5e6e8bc120",
+      "size_bytes": 807
+    },
+    {
+      "relative_path": "models/decision_20140702T000000Z/decision_tree/model_configuration.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20140702T000000Z/decision_tree/model_configuration.json",
+      "sha256": "8dd07be6e85263b90b8a70f69699b0fe2532ebe89d73139acd106a33210a3075",
+      "size_bytes": 418
+    },
+    {
+      "relative_path": "models/decision_20140702T000000Z/decision_tree/preprocessing.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20140702T000000Z/decision_tree/preprocessing.json",
+      "sha256": "48bf7b369efd701f23440aa64e397f539d920fc52b086fe01118efe2554a964c",
+      "size_bytes": 1922
+    },
+    {
+      "relative_path": "models/decision_20140702T000000Z/decision_tree/target.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20140702T000000Z/decision_tree/target.json",
+      "sha256": "aa3d292fd99b6dde081e1d3cd2f3bfdacc71b9391ab70b66f194873c944fd425",
+      "size_bytes": 469
+    },
+    {
+      "relative_path": "models/decision_20140702T000000Z/lightgbm_regression/features.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20140702T000000Z/lightgbm_regression/features.json",
+      "sha256": "cb4c53ddbe34bab16265c33e66f88eb57afbb69774e9bcaed104d8c8ce8587a4",
+      "size_bytes": 5568
+    },
+    {
+      "relative_path": "models/decision_20140702T000000Z/lightgbm_regression/model.joblib",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20140702T000000Z/lightgbm_regression/model.joblib",
+      "sha256": "2b72764c21a9838df16e7f1c76e879391843abb008b38f27144d2b3a47c037e9",
+      "size_bytes": 49520
+    },
+    {
+      "relative_path": "models/decision_20140702T000000Z/lightgbm_regression/model_configuration.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20140702T000000Z/lightgbm_regression/model_configuration.json",
+      "sha256": "ca2503c9ddeda9e2c8a611c7ae138f5b0542f9f700fec8c264db08783be3cbb2",
+      "size_bytes": 469
+    },
+    {
+      "relative_path": "models/decision_20140702T000000Z/lightgbm_regression/preprocessing.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20140702T000000Z/lightgbm_regression/preprocessing.json",
+      "sha256": "b9685163283221c56fa1ae685803ffe35277f48d83bac5418503aadf5d8a4619",
+      "size_bytes": 1758
+    },
+    {
+      "relative_path": "models/decision_20140702T000000Z/lightgbm_regression/target.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20140702T000000Z/lightgbm_regression/target.json",
+      "sha256": "af29526b2ba04d3343bc29f27da50865a1aa5a6b359157553a667a5b1f5afc29",
+      "size_bytes": 489
+    },
+    {
+      "relative_path": "models/decision_20150702T000000Z/decision_tree/features.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20150702T000000Z/decision_tree/features.json",
+      "sha256": "b4570352e1bbe3081858d7de68052fe7d803d1bd8ee2a19888b1cffdec5e92a8",
+      "size_bytes": 5692
+    },
+    {
+      "relative_path": "models/decision_20150702T000000Z/decision_tree/model.joblib",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20150702T000000Z/decision_tree/model.joblib",
+      "sha256": "35bb8d75ca85a11b8adbfc37bd2c69c0fcb76309037678e2d78229eeecb1f00c",
+      "size_bytes": 1003
+    },
+    {
+      "relative_path": "models/decision_20150702T000000Z/decision_tree/model_configuration.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20150702T000000Z/decision_tree/model_configuration.json",
+      "sha256": "24e7a6f150b4c3bd6d84f17be6ff8ffa825de0c39b495335904e4e79d138173c",
+      "size_bytes": 418
+    },
+    {
+      "relative_path": "models/decision_20150702T000000Z/decision_tree/preprocessing.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20150702T000000Z/decision_tree/preprocessing.json",
+      "sha256": "e9b29c8a0711b560aa7e1afe23968abbc581206092377cd0d944aa6d14ba5167",
+      "size_bytes": 1900
+    },
+    {
+      "relative_path": "models/decision_20150702T000000Z/decision_tree/target.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20150702T000000Z/decision_tree/target.json",
+      "sha256": "b6d8a66d6e34490b3862e1b8e60bad35812bc4fe205721d7287059d365084a78",
+      "size_bytes": 470
+    },
+    {
+      "relative_path": "models/decision_20150702T000000Z/lightgbm_regression/features.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20150702T000000Z/lightgbm_regression/features.json",
+      "sha256": "594918869b6dc8412d0006965c7fd12d263b099ab4dcab5f0053dcc686d84654",
+      "size_bytes": 5679
+    },
+    {
+      "relative_path": "models/decision_20150702T000000Z/lightgbm_regression/model.joblib",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20150702T000000Z/lightgbm_regression/model.joblib",
+      "sha256": "1ab9e4d78665f92062d554843d92af628784675fc9f393e4fa43842658a06bd6",
+      "size_bytes": 137119
+    },
+    {
+      "relative_path": "models/decision_20150702T000000Z/lightgbm_regression/model_configuration.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20150702T000000Z/lightgbm_regression/model_configuration.json",
+      "sha256": "f4f042ea01a0381ea235abab8165c14151d6875cff3fe81a0ef601aaad819daa",
+      "size_bytes": 469
+    },
+    {
+      "relative_path": "models/decision_20150702T000000Z/lightgbm_regression/preprocessing.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20150702T000000Z/lightgbm_regression/preprocessing.json",
+      "sha256": "5c7c4c439a383ec09984c13c2a0a65fc752f9279ae882eb497c36836250c3a88",
+      "size_bytes": 1907
+    },
+    {
+      "relative_path": "models/decision_20150702T000000Z/lightgbm_regression/target.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20150702T000000Z/lightgbm_regression/target.json",
+      "sha256": "0c5bf31f3a1d04b6876b696afb562d7dffda5d4aa7e9429b809eed179bee0f23",
+      "size_bytes": 490
+    },
+    {
+      "relative_path": "models/decision_20160702T000000Z/decision_tree/features.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20160702T000000Z/decision_tree/features.json",
+      "sha256": "3da2785db6b01ec9f30eb76df1113fb5dc9f9602555dd3c630116b9bf1c58de2",
+      "size_bytes": 5697
+    },
+    {
+      "relative_path": "models/decision_20160702T000000Z/decision_tree/model.joblib",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20160702T000000Z/decision_tree/model.joblib",
+      "sha256": "05094e69998d0be079d597e140270671cb3e4ed08eb1775b6ce3970bc873ce09",
+      "size_bytes": 1637
+    },
+    {
+      "relative_path": "models/decision_20160702T000000Z/decision_tree/model_configuration.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20160702T000000Z/decision_tree/model_configuration.json",
+      "sha256": "2d302f1596aad2f87c45e9fbefbbabddef1ca4dcc99228fe26a79c7c9f189374",
+      "size_bytes": 403
+    },
+    {
+      "relative_path": "models/decision_20160702T000000Z/decision_tree/preprocessing.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20160702T000000Z/decision_tree/preprocessing.json",
+      "sha256": "64bf4d587d54530638905f82f87158c27e5b6d5b0a077b40752defcc039eb668",
+      "size_bytes": 2014
+    },
+    {
+      "relative_path": "models/decision_20160702T000000Z/decision_tree/target.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20160702T000000Z/decision_tree/target.json",
+      "sha256": "27bed86ca2d766a3c6be6774ef461e434c584e09c30e9367ec48c7473fbe84ee",
+      "size_bytes": 470
+    },
+    {
+      "relative_path": "models/decision_20160702T000000Z/lightgbm_regression/features.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20160702T000000Z/lightgbm_regression/features.json",
+      "sha256": "f0eab9f7c57de21856fa8a3c49d368f5e3ee37a7fb82a4ce9611ea44a5952fff",
+      "size_bytes": 5533
+    },
+    {
+      "relative_path": "models/decision_20160702T000000Z/lightgbm_regression/model.joblib",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20160702T000000Z/lightgbm_regression/model.joblib",
+      "sha256": "ffea1e973e2d43ade43fb3742574979b974fa7d68a0eba0e888cde180f2b195d",
+      "size_bytes": 260291
+    },
+    {
+      "relative_path": "models/decision_20160702T000000Z/lightgbm_regression/model_configuration.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20160702T000000Z/lightgbm_regression/model_configuration.json",
+      "sha256": "dea250c1b95057566d0e9ecc459e6626b404496f029f05a26d2380eb11b02f91",
+      "size_bytes": 469
+    },
+    {
+      "relative_path": "models/decision_20160702T000000Z/lightgbm_regression/preprocessing.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20160702T000000Z/lightgbm_regression/preprocessing.json",
+      "sha256": "edf24ac73f82e94a673dab976e736362e752a6daae3cf328cfc41dc33c7fbe2c",
+      "size_bytes": 1572
+    },
+    {
+      "relative_path": "models/decision_20160702T000000Z/lightgbm_regression/target.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20160702T000000Z/lightgbm_regression/target.json",
+      "sha256": "4e7b64f0603e896d810b5dd275cc8346b2bba749de38af08ab11d103dfe814a3",
+      "size_bytes": 490
+    },
+    {
+      "relative_path": "models/decision_20170702T000000Z/decision_tree/features.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20170702T000000Z/decision_tree/features.json",
+      "sha256": "0c0c6616de4821e1b5c635d9f3f8931b430aa773bf15740b98da636e06977c76",
+      "size_bytes": 5536
+    },
+    {
+      "relative_path": "models/decision_20170702T000000Z/decision_tree/model.joblib",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20170702T000000Z/decision_tree/model.joblib",
+      "sha256": "d17b65ba0556b2b7741c3bcf130da7f5a5b83adabdb4da2769585d392919a13f",
+      "size_bytes": 1567
+    },
+    {
+      "relative_path": "models/decision_20170702T000000Z/decision_tree/model_configuration.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20170702T000000Z/decision_tree/model_configuration.json",
+      "sha256": "529dc6506b2c80171af2e4b5a39428b7f6785fc6e462681f55452d9652a4ab0e",
+      "size_bytes": 418
+    },
+    {
+      "relative_path": "models/decision_20170702T000000Z/decision_tree/preprocessing.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20170702T000000Z/decision_tree/preprocessing.json",
+      "sha256": "60fd5d314a7ba00760f75a0082fe40588e3c6b198a2127b3e56db32e9964ac40",
+      "size_bytes": 1637
+    },
+    {
+      "relative_path": "models/decision_20170702T000000Z/decision_tree/target.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20170702T000000Z/decision_tree/target.json",
+      "sha256": "64d2806de4b7c0a7458f28b3b7075d4ce50d6b970444c7f1b878b4ea2d09c15b",
+      "size_bytes": 471
+    },
+    {
+      "relative_path": "models/decision_20170702T000000Z/lightgbm_regression/features.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20170702T000000Z/lightgbm_regression/features.json",
+      "sha256": "4f02aea45b1fd1874a15c9d959b51e0058d3d8bff4e16db7077c05fef5f34b73",
+      "size_bytes": 5536
+    },
+    {
+      "relative_path": "models/decision_20170702T000000Z/lightgbm_regression/model.joblib",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20170702T000000Z/lightgbm_regression/model.joblib",
+      "sha256": "b86f37a05846be9aba0a497ae759f6cd5cd2a35f78e3b5539420784688f382ff",
+      "size_bytes": 319545
+    },
+    {
+      "relative_path": "models/decision_20170702T000000Z/lightgbm_regression/model_configuration.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20170702T000000Z/lightgbm_regression/model_configuration.json",
+      "sha256": "a5646d502cd6b56389a31dc944ad48e43b89cd0cdeb3bb6307dd69c887242df0",
+      "size_bytes": 469
+    },
+    {
+      "relative_path": "models/decision_20170702T000000Z/lightgbm_regression/preprocessing.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20170702T000000Z/lightgbm_regression/preprocessing.json",
+      "sha256": "59c1986dfbe8c3e843c1c75380254cd0d76754caa947da65426d53f4f43e65f7",
+      "size_bytes": 1616
+    },
+    {
+      "relative_path": "models/decision_20170702T000000Z/lightgbm_regression/target.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20170702T000000Z/lightgbm_regression/target.json",
+      "sha256": "434f29bf18880429b1cb3e716555bf49e0cd555ed651c9c315c77ae4dc7c4545",
+      "size_bytes": 491
+    },
+    {
+      "relative_path": "models/decision_20180702T000000Z/decision_tree/features.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20180702T000000Z/decision_tree/features.json",
+      "sha256": "ac91143248b4fbefa339931e3ef6290d33e8ba692d390b58612fcf796892d0d4",
+      "size_bytes": 5552
+    },
+    {
+      "relative_path": "models/decision_20180702T000000Z/decision_tree/model.joblib",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20180702T000000Z/decision_tree/model.joblib",
+      "sha256": "fc5314f072d8a9d6ddffcfd052b4e15a4146bb04f325cbff55ca48aace82d499",
+      "size_bytes": 1705
+    },
+    {
+      "relative_path": "models/decision_20180702T000000Z/decision_tree/model_configuration.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20180702T000000Z/decision_tree/model_configuration.json",
+      "sha256": "c47c5a89cf28cc7d329745a3865e4d9e6ba7e07cc2111a85b5a84bb5a31600b8",
+      "size_bytes": 418
+    },
+    {
+      "relative_path": "models/decision_20180702T000000Z/decision_tree/preprocessing.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20180702T000000Z/decision_tree/preprocessing.json",
+      "sha256": "5b31af85ab9c3a840e947e4e8940b2a71727eba20d50fd119d95a93d0d394eef",
+      "size_bytes": 1687
+    },
+    {
+      "relative_path": "models/decision_20180702T000000Z/decision_tree/target.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20180702T000000Z/decision_tree/target.json",
+      "sha256": "5dc4402a90c53975003107da963a024a50c7942c27ca4ff6eaf9cbef76b226f9",
+      "size_bytes": 471
+    },
+    {
+      "relative_path": "models/decision_20180702T000000Z/lightgbm_regression/features.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20180702T000000Z/lightgbm_regression/features.json",
+      "sha256": "9eb04bfb1e31a34043166eca783fd98941864a5e69b38938783d9e79478a1b17",
+      "size_bytes": 5603
+    },
+    {
+      "relative_path": "models/decision_20180702T000000Z/lightgbm_regression/model.joblib",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20180702T000000Z/lightgbm_regression/model.joblib",
+      "sha256": "12f516f7a4a3d881ed4466eefea478fb7cbd56a2daf45d0744bb65dcdc1addd1",
+      "size_bytes": 423354
+    },
+    {
+      "relative_path": "models/decision_20180702T000000Z/lightgbm_regression/model_configuration.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20180702T000000Z/lightgbm_regression/model_configuration.json",
+      "sha256": "1976b9733d7bf13e9b1585299f9195e7321a3425453063aaaa46a4e45bcf1cb4",
+      "size_bytes": 469
+    },
+    {
+      "relative_path": "models/decision_20180702T000000Z/lightgbm_regression/preprocessing.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20180702T000000Z/lightgbm_regression/preprocessing.json",
+      "sha256": "2dfbdd7edb22c27d23c52a125536db9f3cdf8aa0e4ffc500c80778db7bcdee11",
+      "size_bytes": 1859
+    },
+    {
+      "relative_path": "models/decision_20180702T000000Z/lightgbm_regression/target.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20180702T000000Z/lightgbm_regression/target.json",
+      "sha256": "095d86fe60cb18ab2418145cd4667d6066c5ac2b3b45dcf40dc31b120c9aa31f",
+      "size_bytes": 491
+    },
+    {
+      "relative_path": "models/decision_20190702T000000Z/decision_tree/features.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20190702T000000Z/decision_tree/features.json",
+      "sha256": "3fe295a8619fbd3e88e20703ec983632053eb93fbd3dbccfb1c89ebdad7a5a15",
+      "size_bytes": 5589
+    },
+    {
+      "relative_path": "models/decision_20190702T000000Z/decision_tree/model.joblib",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20190702T000000Z/decision_tree/model.joblib",
+      "sha256": "73846cb22b3f79cbebc9ac3b7b08879134b7318f08cb771e335956be2ce84939",
+      "size_bytes": 1916
+    },
+    {
+      "relative_path": "models/decision_20190702T000000Z/decision_tree/model_configuration.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20190702T000000Z/decision_tree/model_configuration.json",
+      "sha256": "d975f0635c8de05de0ea1f520cc66b8a6bca8277443d4c464225a4a492b049a9",
+      "size_bytes": 418
+    },
+    {
+      "relative_path": "models/decision_20190702T000000Z/decision_tree/preprocessing.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20190702T000000Z/decision_tree/preprocessing.json",
+      "sha256": "5712a21ec687fb62264e56e3d6fc85356f66cf43fa81dded8ff27222fd7a8bf7",
+      "size_bytes": 1788
+    },
+    {
+      "relative_path": "models/decision_20190702T000000Z/decision_tree/target.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20190702T000000Z/decision_tree/target.json",
+      "sha256": "906f86019eb80d743f2d4c7615c6418495018b5ab4e877395272fbbb12a0d28f",
+      "size_bytes": 471
+    },
+    {
+      "relative_path": "models/decision_20190702T000000Z/lightgbm_regression/features.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20190702T000000Z/lightgbm_regression/features.json",
+      "sha256": "31c216acf7c63bb37e1f2b0e4798fe7b80224dd07fd716bc9a4463d8b48079fd",
+      "size_bytes": 5593
+    },
+    {
+      "relative_path": "models/decision_20190702T000000Z/lightgbm_regression/model.joblib",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20190702T000000Z/lightgbm_regression/model.joblib",
+      "sha256": "8234ecc8a3e1df1dd7019ad4207df1b2aabd2a4b7548bf2b529e3592fe0f0832",
+      "size_bytes": 469969
+    },
+    {
+      "relative_path": "models/decision_20190702T000000Z/lightgbm_regression/model_configuration.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20190702T000000Z/lightgbm_regression/model_configuration.json",
+      "sha256": "f4876c901f12cb9c752add10838ccdd4da27d488f8ddce320905127f2826f83f",
+      "size_bytes": 469
+    },
+    {
+      "relative_path": "models/decision_20190702T000000Z/lightgbm_regression/preprocessing.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20190702T000000Z/lightgbm_regression/preprocessing.json",
+      "sha256": "8f8d3fe0d100708ad43eeb753845fdfe1bab69ac98c2d420856f405ecedf3330",
+      "size_bytes": 1831
+    },
+    {
+      "relative_path": "models/decision_20190702T000000Z/lightgbm_regression/target.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20190702T000000Z/lightgbm_regression/target.json",
+      "sha256": "14cce05cc6d472d33ca3276bbd39572511b6282f516be003a8002682b8cda5c5",
+      "size_bytes": 491
+    },
+    {
+      "relative_path": "models/decision_20200702T000000Z/decision_tree/features.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20200702T000000Z/decision_tree/features.json",
+      "sha256": "59bb40ef6f1ee6d71d04f992df804098ad48d69137b8699fb5257d2af8bfbc56",
+      "size_bytes": 5576
+    },
+    {
+      "relative_path": "models/decision_20200702T000000Z/decision_tree/model.joblib",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20200702T000000Z/decision_tree/model.joblib",
+      "sha256": "d69a071131b66e5b41d3e09dc51c4635bbe945beef4d7a46a57f9a01387c066c",
+      "size_bytes": 1571
+    },
+    {
+      "relative_path": "models/decision_20200702T000000Z/decision_tree/model_configuration.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20200702T000000Z/decision_tree/model_configuration.json",
+      "sha256": "4204176efb659e2c9a3eff93c4346e57e790220ccee301bbab6b9a875bcf1066",
+      "size_bytes": 418
+    },
+    {
+      "relative_path": "models/decision_20200702T000000Z/decision_tree/preprocessing.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20200702T000000Z/decision_tree/preprocessing.json",
+      "sha256": "8193a3efa456ef3fcaa1d3358164134156a8115d0aeeb3d974395f7d4bc6f908",
+      "size_bytes": 1808
+    },
+    {
+      "relative_path": "models/decision_20200702T000000Z/decision_tree/target.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20200702T000000Z/decision_tree/target.json",
+      "sha256": "fe7b3f8b48162e29e1b2b0d55ec87d507a7b5f051978c869e6e09217f681317d",
+      "size_bytes": 471
+    },
+    {
+      "relative_path": "models/decision_20200702T000000Z/lightgbm_regression/features.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20200702T000000Z/lightgbm_regression/features.json",
+      "sha256": "9f10b04172da80f06c483dafbbc6d8ee82b0bd8be83232a4b420c2e5699d5075",
+      "size_bytes": 5519
+    },
+    {
+      "relative_path": "models/decision_20200702T000000Z/lightgbm_regression/model.joblib",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20200702T000000Z/lightgbm_regression/model.joblib",
+      "sha256": "b20c3e8cb531ab364718c5f9c22cca6fa0480c27cb9ac419cee5fb26257d7347",
+      "size_bytes": 499904
+    },
+    {
+      "relative_path": "models/decision_20200702T000000Z/lightgbm_regression/model_configuration.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20200702T000000Z/lightgbm_regression/model_configuration.json",
+      "sha256": "8731e8b850d96440eee6a947a1c8565d31d2f4a8d3443101aa0986a7417d1eb3",
+      "size_bytes": 469
+    },
+    {
+      "relative_path": "models/decision_20200702T000000Z/lightgbm_regression/preprocessing.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20200702T000000Z/lightgbm_regression/preprocessing.json",
+      "sha256": "d5b52d001db0e7f7af8a4bc1df224281958bc4e025bfdaf4eaaf2c14771f3c9a",
+      "size_bytes": 1651
+    },
+    {
+      "relative_path": "models/decision_20200702T000000Z/lightgbm_regression/target.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20200702T000000Z/lightgbm_regression/target.json",
+      "sha256": "7824bd03a834e83056e0343084fe69b420c77481ed569cf32eaa1eec6ed48375",
+      "size_bytes": 491
+    },
+    {
+      "relative_path": "models/decision_20210702T000000Z/decision_tree/features.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20210702T000000Z/decision_tree/features.json",
+      "sha256": "de2d28416052399c90ab4c1c3ba68d756bd8f7e4fc7221e474123d32ce47cd79",
+      "size_bytes": 5623
+    },
+    {
+      "relative_path": "models/decision_20210702T000000Z/decision_tree/model.joblib",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20210702T000000Z/decision_tree/model.joblib",
+      "sha256": "61d0fba861c3c74f00e4010eb3d994e1545d12e1869e5fe34f31b70d295efdf9",
+      "size_bytes": 1660
+    },
+    {
+      "relative_path": "models/decision_20210702T000000Z/decision_tree/model_configuration.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20210702T000000Z/decision_tree/model_configuration.json",
+      "sha256": "98fffaf15f4c9c28a32e0a102a6cc92e57d279543d0956695d897e4a98aa1fc3",
+      "size_bytes": 417
+    },
+    {
+      "relative_path": "models/decision_20210702T000000Z/decision_tree/preprocessing.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20210702T000000Z/decision_tree/preprocessing.json",
+      "sha256": "6ef435357dd3a1f093889a567d3b358a3bcce16f3e83b1a0dda2efdd4e94c208",
+      "size_bytes": 1913
+    },
+    {
+      "relative_path": "models/decision_20210702T000000Z/decision_tree/target.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20210702T000000Z/decision_tree/target.json",
+      "sha256": "143f8f8958a66e0e9925ab0a9bb053cccbc7d68cca7840f0a6d6d726b9ef9609",
+      "size_bytes": 471
+    },
+    {
+      "relative_path": "models/decision_20210702T000000Z/lightgbm_regression/features.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20210702T000000Z/lightgbm_regression/features.json",
+      "sha256": "a8c3aa97f1d9e54f96ef06f51a6aad28355a18f1d0c0fafaed403d6b622199d3",
+      "size_bytes": 5541
+    },
+    {
+      "relative_path": "models/decision_20210702T000000Z/lightgbm_regression/model.joblib",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20210702T000000Z/lightgbm_regression/model.joblib",
+      "sha256": "f6eb9a28c62d45cbed91a2b72e90bcc38958a40e7afaed1ae12889c4b5e24f75",
+      "size_bytes": 531946
+    },
+    {
+      "relative_path": "models/decision_20210702T000000Z/lightgbm_regression/model_configuration.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20210702T000000Z/lightgbm_regression/model_configuration.json",
+      "sha256": "3e0816868d281eda4409f7c7d539e8488f862abf75ad319bd6246f90d87f3f2f",
+      "size_bytes": 469
+    },
+    {
+      "relative_path": "models/decision_20210702T000000Z/lightgbm_regression/preprocessing.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20210702T000000Z/lightgbm_regression/preprocessing.json",
+      "sha256": "8d4bc895fbf3fd0142bbdec2567dff0e606893c662cb4c2e93779c719f418f46",
+      "size_bytes": 1618
+    },
+    {
+      "relative_path": "models/decision_20210702T000000Z/lightgbm_regression/target.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20210702T000000Z/lightgbm_regression/target.json",
+      "sha256": "247a29f4f8dd997e88bd6f6b1a009bf0d6760d4c697a1b62e7217260c43dc504",
+      "size_bytes": 491
+    },
+    {
+      "relative_path": "models/decision_20220702T000000Z/decision_tree/features.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20220702T000000Z/decision_tree/features.json",
+      "sha256": "b3d10824fdd0a560061081a1a486d8f1e86be4fb46f4b610b262c31ba73ed590",
+      "size_bytes": 5599
+    },
+    {
+      "relative_path": "models/decision_20220702T000000Z/decision_tree/model.joblib",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20220702T000000Z/decision_tree/model.joblib",
+      "sha256": "43f83c036bf3e4d3e9a475aa7ef3bf470f1294e22aa1e2b60b8c3a89ef88ffa1",
+      "size_bytes": 1563
+    },
+    {
+      "relative_path": "models/decision_20220702T000000Z/decision_tree/model_configuration.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20220702T000000Z/decision_tree/model_configuration.json",
+      "sha256": "5480310ba29f8afe25c136910569978af0d0abe898dfa921d80bf3f9c4e1ca47",
+      "size_bytes": 418
+    },
+    {
+      "relative_path": "models/decision_20220702T000000Z/decision_tree/preprocessing.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20220702T000000Z/decision_tree/preprocessing.json",
+      "sha256": "9a2acad20f82db1c8a2e73e1e58a25507d8309303dde1d0375ae18add1790362",
+      "size_bytes": 1843
+    },
+    {
+      "relative_path": "models/decision_20220702T000000Z/decision_tree/target.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20220702T000000Z/decision_tree/target.json",
+      "sha256": "6a76ad027376e5626dda59fba1ef65bd5f72bc0ee464d305afcafda135b226d2",
+      "size_bytes": 471
+    },
+    {
+      "relative_path": "models/decision_20220702T000000Z/lightgbm_regression/features.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20220702T000000Z/lightgbm_regression/features.json",
+      "sha256": "5ffb3a4ffdc6c252173fa2f78fada98072379db76b0327fe78c6a8d712df8e00",
+      "size_bytes": 5549
+    },
+    {
+      "relative_path": "models/decision_20220702T000000Z/lightgbm_regression/model.joblib",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20220702T000000Z/lightgbm_regression/model.joblib",
+      "sha256": "410961e51a10ab70c85b86a9f39102f2cf8c47c76ad317054bed633c57693e37",
+      "size_bytes": 535507
+    },
+    {
+      "relative_path": "models/decision_20220702T000000Z/lightgbm_regression/model_configuration.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20220702T000000Z/lightgbm_regression/model_configuration.json",
+      "sha256": "18f1fbc5b906d5609967a0ec1a08c21749889bc707625e41f236d3b97f060970",
+      "size_bytes": 469
+    },
+    {
+      "relative_path": "models/decision_20220702T000000Z/lightgbm_regression/preprocessing.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20220702T000000Z/lightgbm_regression/preprocessing.json",
+      "sha256": "b0dba600993f258b28aac138224c5693f1301c5dd5ed7bc7123d317426e5fb4c",
+      "size_bytes": 1674
+    },
+    {
+      "relative_path": "models/decision_20220702T000000Z/lightgbm_regression/target.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20220702T000000Z/lightgbm_regression/target.json",
+      "sha256": "6f5a61c91ee5b3f2c4137b6a1b42a225ade6268d6d352028e3fb8051b7b6caae",
+      "size_bytes": 491
+    },
+    {
+      "relative_path": "models/decision_20230702T000000Z/decision_tree/features.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20230702T000000Z/decision_tree/features.json",
+      "sha256": "e198ec2047496196502253cb1cfaee03115fa2f736106639f7ea6535b10d047b",
+      "size_bytes": 5619
+    },
+    {
+      "relative_path": "models/decision_20230702T000000Z/decision_tree/model.joblib",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20230702T000000Z/decision_tree/model.joblib",
+      "sha256": "4f7f680b2ad32f40c12013948607458ded16bb866e2c9e87a3cb1e5262dd016b",
+      "size_bytes": 1576
+    },
+    {
+      "relative_path": "models/decision_20230702T000000Z/decision_tree/model_configuration.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20230702T000000Z/decision_tree/model_configuration.json",
+      "sha256": "9d81de596aa68b5b758a2b725755f8ec6c89e5c2517601ff299c44c2c6f77df0",
+      "size_bytes": 418
+    },
+    {
+      "relative_path": "models/decision_20230702T000000Z/decision_tree/preprocessing.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20230702T000000Z/decision_tree/preprocessing.json",
+      "sha256": "c425601c6cb35329da9ae9f7167c8e68b0e0753eff36e01f62a58a50bb081d5a",
+      "size_bytes": 1887
+    },
+    {
+      "relative_path": "models/decision_20230702T000000Z/decision_tree/target.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20230702T000000Z/decision_tree/target.json",
+      "sha256": "f2a1538f0d9afa41c540ddce3ab3fa4199918d12d4f93c3ec2af785996b4f0fc",
+      "size_bytes": 471
+    },
+    {
+      "relative_path": "models/decision_20230702T000000Z/lightgbm_regression/features.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20230702T000000Z/lightgbm_regression/features.json",
+      "sha256": "4fafcf9b833a287dff66a638278c108fd394d18051d4ab9ed302b7067bdf8562",
+      "size_bytes": 5527
+    },
+    {
+      "relative_path": "models/decision_20230702T000000Z/lightgbm_regression/model.joblib",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20230702T000000Z/lightgbm_regression/model.joblib",
+      "sha256": "18055132cf5807c2d63327b6db7f35a265c8bf1618890c24952fc4c11c3b8ebd",
+      "size_bytes": 592720
+    },
+    {
+      "relative_path": "models/decision_20230702T000000Z/lightgbm_regression/model_configuration.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20230702T000000Z/lightgbm_regression/model_configuration.json",
+      "sha256": "ed1ddc14c3f8256d2e927d84794f180c6d6f6b0a6e59f8fe43996733a22c7b0f",
+      "size_bytes": 469
+    },
+    {
+      "relative_path": "models/decision_20230702T000000Z/lightgbm_regression/preprocessing.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20230702T000000Z/lightgbm_regression/preprocessing.json",
+      "sha256": "49dad9ec4850430181ab8e477ba8e1367a1b1702bfb49dc4fbe4bf9077464206",
+      "size_bytes": 1608
+    },
+    {
+      "relative_path": "models/decision_20230702T000000Z/lightgbm_regression/target.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20230702T000000Z/lightgbm_regression/target.json",
+      "sha256": "fce25f5bac5785ee13564cbe0aaa5a4e638215eb80308d9437b994128c942e64",
+      "size_bytes": 491
+    },
+    {
+      "relative_path": "models/decision_20240702T000000Z/decision_tree/features.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20240702T000000Z/decision_tree/features.json",
+      "sha256": "9d509bfbe2bdf011f44062c0b8fbdf22717422099734b6a13edf4240919fbbd1",
+      "size_bytes": 5629
+    },
+    {
+      "relative_path": "models/decision_20240702T000000Z/decision_tree/model.joblib",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20240702T000000Z/decision_tree/model.joblib",
+      "sha256": "5c62abe25cd4eeb1d541fca333b65e83f0d8285c6ab62139d1d3e117121c1625",
+      "size_bytes": 2105
+    },
+    {
+      "relative_path": "models/decision_20240702T000000Z/decision_tree/model_configuration.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20240702T000000Z/decision_tree/model_configuration.json",
+      "sha256": "a8ac1bd5c18ebebb6f64f75fd6d191eb6f135c96e6ad006d3556d14345e056dd",
+      "size_bytes": 418
+    },
+    {
+      "relative_path": "models/decision_20240702T000000Z/decision_tree/preprocessing.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20240702T000000Z/decision_tree/preprocessing.json",
+      "sha256": "d151b7c4a08031e21a4defeaf40f16fe8e80ff056682bab04781dbcbeceeefbe",
+      "size_bytes": 1904
+    },
+    {
+      "relative_path": "models/decision_20240702T000000Z/decision_tree/target.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20240702T000000Z/decision_tree/target.json",
+      "sha256": "e7672471c0f81b40ef5b5cc4a2afa9828959f6d439564443a42a59f3caf9b55b",
+      "size_bytes": 471
+    },
+    {
+      "relative_path": "models/decision_20240702T000000Z/lightgbm_regression/features.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20240702T000000Z/lightgbm_regression/features.json",
+      "sha256": "65e7c5ba116f94322117312ccbf0bd9a38d1435c259f9419300a2787b0ce941f",
+      "size_bytes": 5612
+    },
+    {
+      "relative_path": "models/decision_20240702T000000Z/lightgbm_regression/model.joblib",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20240702T000000Z/lightgbm_regression/model.joblib",
+      "sha256": "72798f5f36d636bd58deeebb3856be7ed60577175b20bc290d4f3356a13457c8",
+      "size_bytes": 635728
+    },
+    {
+      "relative_path": "models/decision_20240702T000000Z/lightgbm_regression/model_configuration.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20240702T000000Z/lightgbm_regression/model_configuration.json",
+      "sha256": "026eab6f6e7c2f6ce223e72651b40c2591e1556857066bf9a52793513c0065ac",
+      "size_bytes": 469
+    },
+    {
+      "relative_path": "models/decision_20240702T000000Z/lightgbm_regression/preprocessing.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20240702T000000Z/lightgbm_regression/preprocessing.json",
+      "sha256": "5c6ce62541c7993daf8be4f4805b4a917adcb3f748c45d29569fd10a66faa4b3",
+      "size_bytes": 1846
+    },
+    {
+      "relative_path": "models/decision_20240702T000000Z/lightgbm_regression/target.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20240702T000000Z/lightgbm_regression/target.json",
+      "sha256": "1daa0b0107d75a6854029450c3c1f81f21adc0e5d793ed275a661b916eadad51",
+      "size_bytes": 491
+    },
+    {
+      "relative_path": "models/decision_20250702T000000Z/decision_tree/features.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20250702T000000Z/decision_tree/features.json",
+      "sha256": "88be18d817506209b7d0ed2589515513791c8d9808a6d9be1af5d2e218e088bb",
+      "size_bytes": 5633
+    },
+    {
+      "relative_path": "models/decision_20250702T000000Z/decision_tree/model.joblib",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20250702T000000Z/decision_tree/model.joblib",
+      "sha256": "434d38fc06c07e69fce2903a05f4b1ae836246b1e558a0a3a3368f93cef30826",
+      "size_bytes": 2099
+    },
+    {
+      "relative_path": "models/decision_20250702T000000Z/decision_tree/model_configuration.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20250702T000000Z/decision_tree/model_configuration.json",
+      "sha256": "e765133dd112fc1d2d2cd53f8afcbe59fbd49517f8f73d6648b9f804388fbef4",
+      "size_bytes": 418
+    },
+    {
+      "relative_path": "models/decision_20250702T000000Z/decision_tree/preprocessing.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20250702T000000Z/decision_tree/preprocessing.json",
+      "sha256": "510fd424b499eaa9a7d1238c7d64f7910c017c7903cb3839e43663fb8e5b3d23",
+      "size_bytes": 1943
+    },
+    {
+      "relative_path": "models/decision_20250702T000000Z/decision_tree/target.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20250702T000000Z/decision_tree/target.json",
+      "sha256": "74f2fadc42c84e51f52132f61693aabc745ed286a4320ca176efce0efc3ca07b",
+      "size_bytes": 471
+    },
+    {
+      "relative_path": "models/decision_20250702T000000Z/lightgbm_regression/features.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20250702T000000Z/lightgbm_regression/features.json",
+      "sha256": "9ad2b27698b10d852b4f5f32029691fbd11f26591a070d390a37da9dddf12364",
+      "size_bytes": 5548
+    },
+    {
+      "relative_path": "models/decision_20250702T000000Z/lightgbm_regression/model.joblib",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20250702T000000Z/lightgbm_regression/model.joblib",
+      "sha256": "83b70a7aeaccb4a18faa85e27dcad8a4e9e11f665b3e6fb22ecd0a6efae941f3",
+      "size_bytes": 683863
+    },
+    {
+      "relative_path": "models/decision_20250702T000000Z/lightgbm_regression/model_configuration.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20250702T000000Z/lightgbm_regression/model_configuration.json",
+      "sha256": "8298e7caab6c07227a111a165bc690fab06fd9d617b6c790c72f85e9ca5d980b",
+      "size_bytes": 469
+    },
+    {
+      "relative_path": "models/decision_20250702T000000Z/lightgbm_regression/preprocessing.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20250702T000000Z/lightgbm_regression/preprocessing.json",
+      "sha256": "1aae861c32dac689b8680d309d5f5ff02e00385bb9141b3c5de0cc1dedaaa0ee",
+      "size_bytes": 1704
+    },
+    {
+      "relative_path": "models/decision_20250702T000000Z/lightgbm_regression/target.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20250702T000000Z/lightgbm_regression/target.json",
+      "sha256": "8e7b27fdc5d089981d4a204fff0ccc730cf0886adaaddd4794a699c68dfae65c",
+      "size_bytes": 491
+    },
+    {
+      "relative_path": "models/decision_20260702T000000Z/decision_tree/features.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20260702T000000Z/decision_tree/features.json",
+      "sha256": "caa0d35a1c3d986fc8b2bdb3df483e5ef601636a24484fe90b06dd44f26475c9",
+      "size_bytes": 5598
+    },
+    {
+      "relative_path": "models/decision_20260702T000000Z/decision_tree/model.joblib",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20260702T000000Z/decision_tree/model.joblib",
+      "sha256": "d306cd70688008042fe6925b8470e4543d1ab16cc91047adad9737d6266f5ff0",
+      "size_bytes": 2101
+    },
+    {
+      "relative_path": "models/decision_20260702T000000Z/decision_tree/model_configuration.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20260702T000000Z/decision_tree/model_configuration.json",
+      "sha256": "f437d51475691e33be7a862076dbc666787b167141a09e5a792fe782fe820da2",
+      "size_bytes": 417
+    },
+    {
+      "relative_path": "models/decision_20260702T000000Z/decision_tree/preprocessing.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20260702T000000Z/decision_tree/preprocessing.json",
+      "sha256": "9927a0cb7522eb2234f34e1235cb9a3419463c4ec65ff82481dcb691e28f1959",
+      "size_bytes": 1822
+    },
+    {
+      "relative_path": "models/decision_20260702T000000Z/decision_tree/target.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20260702T000000Z/decision_tree/target.json",
+      "sha256": "0465b4bc0c55787860cf28fa88aaef6685e4c20c3c63bc763351311321fd9759",
+      "size_bytes": 471
+    },
+    {
+      "relative_path": "models/decision_20260702T000000Z/lightgbm_regression/features.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20260702T000000Z/lightgbm_regression/features.json",
+      "sha256": "f91373825f0b5a20c71cf1ad8b46488e482890d242699516cc3dac6d7744ebe0",
+      "size_bytes": 5577
+    },
+    {
+      "relative_path": "models/decision_20260702T000000Z/lightgbm_regression/model.joblib",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20260702T000000Z/lightgbm_regression/model.joblib",
+      "sha256": "6709cc99cef03f49b4eaa54fdedb9ecb298655613573b33c1b7a3f20de5e24b5",
+      "size_bytes": 682553
+    },
+    {
+      "relative_path": "models/decision_20260702T000000Z/lightgbm_regression/model_configuration.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20260702T000000Z/lightgbm_regression/model_configuration.json",
+      "sha256": "a9fefb59f8f199bccdfb3d4260f5990f335c72bfca84d16a60d1092e368c9c30",
+      "size_bytes": 469
+    },
+    {
+      "relative_path": "models/decision_20260702T000000Z/lightgbm_regression/preprocessing.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20260702T000000Z/lightgbm_regression/preprocessing.json",
+      "sha256": "f02e1ef7a771648bf11c1530695699f3129efc757a353564ca6624848119542e",
+      "size_bytes": 1716
+    },
+    {
+      "relative_path": "models/decision_20260702T000000Z/lightgbm_regression/target.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/models/decision_20260702T000000Z/lightgbm_regression/target.json",
+      "sha256": "487efd66728e8879b63abdb8e221b6ef8b5d1d010569d3c15fadb498945114bd",
+      "size_bytes": 491
+    },
+    {
+      "relative_path": "predictions/oos_predictions.parquet",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/predictions/oos_predictions.parquet",
+      "sha256": "85164532421aec9909670f16fd56b4dcc9c5bcaaf7273c1ab98d1c464a7242a2",
+      "size_bytes": 7512841
+    },
+    {
+      "relative_path": "support/exclusions.parquet",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/support/exclusions.parquet",
+      "sha256": "c435113ad136740ae9ae1d4afba21448c4bf96c0e17f44ef2fbae933a7f88452",
+      "size_bytes": 3170
+    },
+    {
+      "relative_path": "support/fold_coverage.parquet",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/support/fold_coverage.parquet",
+      "sha256": "9eceed787445c9c2b6355293357bb5132f1ab69247413beca872c1e13a10f10a",
+      "size_bytes": 31203
+    },
+    {
+      "relative_path": "support/oos_lineage_validation.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/support/oos_lineage_validation.json",
+      "sha256": "5d89976fd305225f5da6cc9334ab3275df52946917ea23ca6a52c42025373c77",
+      "size_bytes": 436
+    },
+    {
+      "relative_path": "support/preflight_validation.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/support/preflight_validation.json",
+      "sha256": "0ce26bc1a2fc2eeac241a0f28ff7407a6c924c4ecea8c84b44cca555602a168c",
+      "size_bytes": 1619
+    },
+    {
+      "relative_path": "support/verdict.json",
+      "repository_path": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2/support/verdict.json",
+      "sha256": "7a79a868913b0369493ef928f161735ec3938f924428d079ff48b837ac55b33f",
+      "size_bytes": 583
+    }
+  ],
+  "manifest_sha256": "8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2",
+  "repository": "ekrash718/stock-screener-data",
+  "repository_prefix": "canonical/corrected_us_annual_3y_research_model/8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2",
+  "repository_type": "dataset",
+  "revision": "aaf056ea115067e42ef9abf9fa93ade75cdd4052",
+  "schema_version": 1,
+  "stage": "P3",
+  "total_size_bytes": 13758028
+}

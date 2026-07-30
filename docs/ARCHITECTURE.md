@@ -1,6 +1,6 @@
 # Active Canonical Architecture
 
-Status: Session C1 consolidated local baseline
+Status: Sessions C1-C2 consolidated, published, and privately recoverable
 
 ## Supported spine
 
@@ -30,6 +30,13 @@ Existing roots are never reused or replaced.
 - `portfolio/selection_contract.py`: neutral fixed gate/liquidity/portfolio
   constants shared by active P4.
 - `workflows/run_canonical.py`: deterministic local orchestration.
+- `data_io/canonical_hf.py`: private, content-addressed publication,
+  immutable pointer validation, and byte-verified recovery contracts.
+- `data_io/publish_canonical_to_hf.py`: local preparation, authenticated
+  visibility preflight, and approval-bound atomic publication.
+- `data_io/retrieve_canonical_from_hf.py`: clean-checkout recovery pinned to
+  full Hugging Face commit revisions.
+- `scripts/publish_canonical`: location-independent publication wrapper.
 - `backtest/monthly_nav.py`: accepted accounting implementation, inactive for
   official performance until required evidence exists.
 
@@ -59,5 +66,10 @@ otherwise. The dependency and archive classifications are tracked in
 - Frozen Yahoo payloads support liquidity only.
 - Official performance remains fail-closed without the accepted
   security/action ledger and immutable risk-free vintage.
-- External refresh, Hugging Face publication, archive moves, and performance
-  calculation are outside deterministic reconstruction.
+- External refresh, approval-bound Hugging Face publication, archive moves,
+  and performance calculation are outside deterministic reconstruction.
+- C2 published the exact P2-P4 baseline privately at immutable revision
+  `aaf056ea115067e42ef9abf9fa93ade75cdd4052`. The three pointer manifests pin
+  all 202 files and 481,666,707 bytes; no mutable revision is accepted.
+- The authorized C2 checkpoint includes the recovery code and exact pointers,
+  enabling clean-checkout discovery without a mutable revision.

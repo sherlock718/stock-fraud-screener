@@ -130,29 +130,34 @@ rate or event fallbacks are prohibited.
 
 ## What to do next
 
-Session C1 consolidated the accepted P2-P4 baseline. Verify the complete local
-route without reading historical V3 documents:
+Session C1 consolidated the accepted P2-P4 baseline. The local route remains:
 
 ```bash
 python3 -m workflows.run_canonical
 ```
 
-The command validates the pinned manifests in P2 -> P3 -> P4 order. It is
-read-only by default. `--build-missing` may invoke only an absent stage's
-non-overwriting builder.
+The command validates the pinned manifests in P2 -> P3 -> P4 order. C2
+published the exact 202-file, 481,666,707-byte baseline privately at immutable
+revision `aaf056ea115067e42ef9abf9fa93ade75cdd4052`. The authorized C2
+checkpoint includes the recovery code and pointers, so a clean checkout can
+recover it with:
 
-Active P3/P4 code now uses neutral shared modules rather than historically
-named Session V3 builders. The legacy six-step route, international/per-market
-structure, historical code, and artifacts remain intact. See
-`docs/ARCHITECTURE.md`, `docs/CANONICAL_DEPENDENCY_INVENTORY.md`, and
-`docs/ARCHIVE_INVENTORY.md`.
+```bash
+python3 -m data_io.retrieve_canonical_from_hf
+```
 
-The reviewed P2-P4/C1 checkpoint is preserved on the working branch and at
-`codex/legacy-archive`; no tracked-file retirement occurred. Do not begin
-private publication (C2), collect external data, move archive files, create
-another branch, commit, or push without separate explicit authorization.
-Official performance remains unavailable until the accepted
-market/security/action ledger and immutable risk-free vintage exist.
+The pointers require this full revision and verify every downloaded byte size
+and SHA-256 before exposing the target. Post-publication reconciliation
+confirmed private visibility and all 202 paths present with zero missing. For
+future separately approved versions, `scripts/publish_canonical` works from
+any current directory and automates preparation through recovery verification.
+See `docs/CANONICAL_ARTIFACT_PUBLICATION.md`.
+
+The next implementation phase is D1, the US canonical raw-refresh replacement.
+Do not collect external data, move archive files, create a branch, commit,
+push, or publish a new version without separate authorization. Official
+performance remains unavailable until the accepted market/security/action
+ledger and immutable risk-free vintage exist.
 
 ## Basic test command
 
@@ -160,7 +165,8 @@ market/security/action ledger and immutable risk-free vintage exist.
 python3 -m pytest tests/ -x -q
 ```
 
-The C1 closeout run produced 699 passed, 4 skipped, and 78 existing pandas
+The C2 focused publisher/retriever boundary has 18 passing tests. The C2 final
+verification run produced 717 passed, 4 skipped, and 78 existing pandas
 warnings.
 
 Tests demonstrate code behavior; they do not establish data freshness,

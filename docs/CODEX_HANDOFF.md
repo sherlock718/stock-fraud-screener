@@ -692,13 +692,100 @@ explicit approval, the reviewed P2-P4/C1 state was checkpointed and
 P2-P4 artifacts and the legacy international structure remain preserved. The
 unrelated untracked `.jupyter_ystore.db` remains excluded and untouched.
 
+## Canonical publication Session C2 — completed 2026-07-30
+
+C2 made the exact accepted P2-P4 baseline privately recoverable from a clean
+checkout without changing any legacy repository-root artifact.
+
+### Exact local publication
+
+`python3 -m data_io.publish_canonical_to_hf --prepare` independently rehashed
+the three complete ignored artifact roots and reconciled every regular file
+against each manifest's generated `records` list:
+
+- P2: 34 files, 436,240,397 bytes, manifest
+  `40e7c716ce98dfece7caf4dfc42739425660b83b7c1ac73d1cbdadfee7a3c2b3`;
+- P3: 142 files, 13,758,028 bytes, manifest
+  `8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2`;
+- P4: 26 files, 31,668,282 bytes, manifest
+  `28ecc946c5c1c3c75ee6e13013fdb1a7eda1e1fd73d70e5d915f3d1edd1aabc7`;
+- total: 202 files and 481,666,707 bytes.
+
+Every planned remote path is under
+`canonical/<artifact-name>/<manifest-sha256>/...`. No legacy repository-root
+path is present.
+
+### Publication and recovery behavior
+
+- `data_io/canonical_hf.py` contains strict local manifest/root validation,
+  authenticated private-visibility proof, current-head and collision
+  preflight, parent-pinned atomic commit construction, immutable pointer
+  validation, non-overwriting staging, and independent size/hash retrieval.
+- `data_io/publish_canonical_to_hf.py` separates local preparation,
+  authenticated read-only preflight, explicit double-confirmed publication,
+  and post-commit recovery through `--finalize-revision`.
+- `data_io/retrieve_canonical_from_hf.py` requires the three tracked pointers,
+  one shared full commit SHA, reverified private visibility, and an absent
+  target.
+- `.github/workflows/verify_canonical_artifacts.yml` is a manual
+  secret-backed clean recovery check with no `latest` or branch fallback.
+- `scripts/publish_canonical` is a location-independent wrapper, preventing the
+  earlier module-resolution failure when publication is launched outside the
+  repository.
+- Focused C2 verification: 18 passed.
+- Full suite: 717 passed, 4 skipped, and 78 existing pandas warnings in
+  61.49 seconds.
+
+The fine-grained Hugging Face token was validated and saved outside the
+repository through the standard Hugging Face user credential store. Both
+credential files were tightened to owner-only mode `0600`. The canonical
+client uses `HF_TOKEN` when set and otherwise this saved credential; neither is
+printed.
+
+Authenticated read-only preflight verified:
+
+- repository `ekrash718/stock-screener-data`;
+- repository type `dataset`;
+- private visibility `true`;
+- checked parent revision
+  `0b8f3baac4c823e0ef89d8a73da11c3f0e88c9db`;
+- all 202 destination paths absent;
+- zero uploads.
+
+The user explicitly authorized and then explicitly re-authorized the upload
+after disclosure that it includes frozen lineage/source-diff records. Codex's
+environment prohibited the export, so the user ran the exact guarded command
+directly. The publisher repeated its preflight, created one parent-pinned
+commit, downloaded every record into a temporary target, independently
+verified all sizes and SHA-256 values, and only then wrote:
+
+- `data_io/canonical_artifact_pointers/p2.json`;
+- `data_io/canonical_artifact_pointers/p3.json`;
+- `data_io/canonical_artifact_pointers/p4.json`.
+
+All pointers validate and share immutable revision
+`aaf056ea115067e42ef9abf9fa93ade75cdd4052`. They cover exactly 202 unique
+files and 481,666,707 bytes. Independent authenticated metadata reconciliation
+at that exact revision confirmed:
+
+- private visibility `true`;
+- 202 expected paths;
+- 202 present paths;
+- zero missing paths.
+
+The pointer files can exist only after the publisher's temporary byte/hash
+recovery has completed successfully. Legacy repository-root objects were not
+part of the plan and remain unchanged. After separate explicit authorization,
+the C2 code, workflow, wrapper, tests, and pointer files were included in one
+conventional checkpoint and pushed on `codex/pit-checkpoint`, completing
+clean-checkout discovery.
+
 ## Exact next task
 
-C1 and its authorization-bound checkpoint/archive-branch close are complete.
-The next bounded phase is C2 private canonical artifact publication. Begin C2
-in a fresh task and pause at the external upload boundary for explicit
-approval. Do not collect data, publish, move archive files, commit, or push
-without the corresponding explicit authorization.
+C2 is complete. The next implementation phase is D1, the US canonical
+raw-refresh replacement. Do not begin external collection, overwrite a
+Hugging Face path, publish a new version, archive, create a branch, commit, or
+push without separate explicit authorization.
 
 ## High-value references
 
@@ -729,4 +816,6 @@ and `codex/legacy-archive`. The three ignored canonical artifact roots retain
 their accepted frozen manifests. No canonical, frozen PIT, legacy dataset,
 historical model, prediction, backtest, portfolio, report, international
 entrypoint, or archive candidate was overwritten or moved. The archived V3
-program remains preserved and paused.
+program remains preserved and paused. C2 currently adds only tracked code,
+tests, documentation, and a CI workflow; the unrelated untracked
+`.jupyter_ystore.db` remains untouched.

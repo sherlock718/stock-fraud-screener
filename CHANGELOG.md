@@ -8,6 +8,24 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+- Prepare Session C2's separate private canonical Hugging Face
+  publisher/retriever without changing the legacy root transfer utilities:
+  validate the complete frozen P2-P4 roots and exact 202-file,
+  481,666,707-byte content-addressed plan; fail closed unless authenticated
+  repository metadata proves the dataset repository is private; refuse any
+  existing destination; parent-pin one atomic commit; require full immutable
+  revisions for pointer-based recovery; verify every downloaded size and hash
+  before exposing a non-overwriting target; and add a manual secret-backed CI
+  recovery workflow with no mutable-revision fallback. Support `HF_TOKEN` or
+  the standard saved Hugging Face credential without printing either.
+  Authenticated read-only preflight verified the existing dataset repository
+  private and all 202 planned paths absent. After explicit approval and
+  informed re-authorization, publish the exact 481,666,707-byte baseline at
+  immutable revision `aaf056ea115067e42ef9abf9fa93ade75cdd4052`, complete
+  temporary byte/hash recovery, materialize all three pointers, and
+  independently reconcile all 202 remote paths with zero missing. Add a
+  location-independent wrapper so future approved runs work outside the
+  repository directory.
 - Complete canonical consolidation Session C1 without changing the accepted
   P2-P4 behavior: extract active fold-local OOS modeling and fixed
   selection/liquidity contracts from historical Session V3 names into neutral

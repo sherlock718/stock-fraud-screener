@@ -1,0 +1,170 @@
+{
+  "artifact_name": "corrected_us_annual_3y_product",
+  "file_count": 26,
+  "files": [
+    {
+      "relative_path": "configuration/product_contract.json",
+      "repository_path": "canonical/corrected_us_annual_3y_product/28ecc946c5c1c3c75ee6e13013fdb1a7eda1e1fd73d70e5d915f3d1edd1aabc7/configuration/product_contract.json",
+      "sha256": "a120b939fa77173dc4c2d1782e9c72f158dbcf7d5c9778f110100841527f00d5",
+      "size_bytes": 3859
+    },
+    {
+      "relative_path": "inputs/canonical_p3_manifest.json",
+      "repository_path": "canonical/corrected_us_annual_3y_product/28ecc946c5c1c3c75ee6e13013fdb1a7eda1e1fd73d70e5d915f3d1edd1aabc7/inputs/canonical_p3_manifest.json",
+      "sha256": "8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2",
+      "size_bytes": 63862
+    },
+    {
+      "relative_path": "inputs/session8e_manifest.json",
+      "repository_path": "canonical/corrected_us_annual_3y_product/28ecc946c5c1c3c75ee6e13013fdb1a7eda1e1fd73d70e5d915f3d1edd1aabc7/inputs/session8e_manifest.json",
+      "sha256": "0ab15685a445f09919b19393e074b8b5903afef7e12defc7c44aeac624f4581a",
+      "size_bytes": 12069
+    },
+    {
+      "relative_path": "lineage/consumed_market_evidence.parquet",
+      "repository_path": "canonical/corrected_us_annual_3y_product/28ecc946c5c1c3c75ee6e13013fdb1a7eda1e1fd73d70e5d915f3d1edd1aabc7/lineage/consumed_market_evidence.parquet",
+      "sha256": "67381cc5e29c29a31646a4373e7bea10c08cc5861ebd02a7ae53e0d7514707b2",
+      "size_bytes": 120239
+    },
+    {
+      "relative_path": "lineage/git_status_porcelain.txt",
+      "repository_path": "canonical/corrected_us_annual_3y_product/28ecc946c5c1c3c75ee6e13013fdb1a7eda1e1fd73d70e5d915f3d1edd1aabc7/lineage/git_status_porcelain.txt",
+      "sha256": "0b277a17722a6fb111497f4ed5fe2830db8418b2cfe015a79ed887aff3cf8a66",
+      "size_bytes": 734
+    },
+    {
+      "relative_path": "lineage/tracked_dirty.patch",
+      "repository_path": "canonical/corrected_us_annual_3y_product/28ecc946c5c1c3c75ee6e13013fdb1a7eda1e1fd73d70e5d915f3d1edd1aabc7/lineage/tracked_dirty.patch",
+      "sha256": "c812d4d683bfbe5e848af93f6af316fc43c6b8c13dffcaaf81cdbaf546a4d140",
+      "size_bytes": 65252
+    },
+    {
+      "relative_path": "lineage/untracked_inventory.json",
+      "repository_path": "canonical/corrected_us_annual_3y_product/28ecc946c5c1c3c75ee6e13013fdb1a7eda1e1fd73d70e5d915f3d1edd1aabc7/lineage/untracked_inventory.json",
+      "sha256": "1858c4231e3ea648220b441164a9de5c4f0a9c4985e7646c21504fa3bbf70621",
+      "size_bytes": 1040
+    },
+    {
+      "relative_path": "manifest.json",
+      "repository_path": "canonical/corrected_us_annual_3y_product/28ecc946c5c1c3c75ee6e13013fdb1a7eda1e1fd73d70e5d915f3d1edd1aabc7/manifest.json",
+      "sha256": "28ecc946c5c1c3c75ee6e13013fdb1a7eda1e1fd73d70e5d915f3d1edd1aabc7",
+      "size_bytes": 23518
+    },
+    {
+      "relative_path": "outputs/backtest_vintage_plan.parquet",
+      "repository_path": "canonical/corrected_us_annual_3y_product/28ecc946c5c1c3c75ee6e13013fdb1a7eda1e1fd73d70e5d915f3d1edd1aabc7/outputs/backtest_vintage_plan.parquet",
+      "sha256": "80bd3849b372cba8d7654d3d0332a2deec53b33edb3d792da28e28aacbca549a",
+      "size_bytes": 24368
+    },
+    {
+      "relative_path": "outputs/candidates.parquet",
+      "repository_path": "canonical/corrected_us_annual_3y_product/28ecc946c5c1c3c75ee6e13013fdb1a7eda1e1fd73d70e5d915f3d1edd1aabc7/outputs/candidates.parquet",
+      "sha256": "3a4cf810a3f666848bcf423cf174277e416d769d12f644b35b0aab98273a170d",
+      "size_bytes": 9791287
+    },
+    {
+      "relative_path": "outputs/exclusions.parquet",
+      "repository_path": "canonical/corrected_us_annual_3y_product/28ecc946c5c1c3c75ee6e13013fdb1a7eda1e1fd73d70e5d915f3d1edd1aabc7/outputs/exclusions.parquet",
+      "sha256": "04804201837e7f4f9c57ab927c1e2fd1a2795c2caa6505b9a05ea333cb27a4e4",
+      "size_bytes": 3342911
+    },
+    {
+      "relative_path": "outputs/gates.parquet",
+      "repository_path": "canonical/corrected_us_annual_3y_product/28ecc946c5c1c3c75ee6e13013fdb1a7eda1e1fd73d70e5d915f3d1edd1aabc7/outputs/gates.parquet",
+      "sha256": "91ee7ebd2bad579b8dc2dc9c4f2d87711ce68e5353be29a85ed1d8ac71fa2154",
+      "size_bytes": 8204670
+    },
+    {
+      "relative_path": "outputs/holdings.parquet",
+      "repository_path": "canonical/corrected_us_annual_3y_product/28ecc946c5c1c3c75ee6e13013fdb1a7eda1e1fd73d70e5d915f3d1edd1aabc7/outputs/holdings.parquet",
+      "sha256": "8f12c7f9a3659093186c4674a2f17058c9fe63a3ec40b7d894bc6c81f5dbcdf5",
+      "size_bytes": 835381
+    },
+    {
+      "relative_path": "outputs/latest_shortlist.parquet",
+      "repository_path": "canonical/corrected_us_annual_3y_product/28ecc946c5c1c3c75ee6e13013fdb1a7eda1e1fd73d70e5d915f3d1edd1aabc7/outputs/latest_shortlist.parquet",
+      "sha256": "93bd6104a73e3752da019f7767cc7dfa72bfca837149179dd72b9b87bf466a3b",
+      "size_bytes": 355286
+    },
+    {
+      "relative_path": "outputs/liquidity_evidence.parquet",
+      "repository_path": "canonical/corrected_us_annual_3y_product/28ecc946c5c1c3c75ee6e13013fdb1a7eda1e1fd73d70e5d915f3d1edd1aabc7/outputs/liquidity_evidence.parquet",
+      "sha256": "79945f6a4f5c8f877456339f7b16599992c517c91cc5c1a33db48933474f6323",
+      "size_bytes": 1079101
+    },
+    {
+      "relative_path": "outputs/prediction_lineage.parquet",
+      "repository_path": "canonical/corrected_us_annual_3y_product/28ecc946c5c1c3c75ee6e13013fdb1a7eda1e1fd73d70e5d915f3d1edd1aabc7/outputs/prediction_lineage.parquet",
+      "sha256": "c1ae19edeee70f4d32ff22a494104644c9aceac46425449ca72540791f5967ee",
+      "size_bytes": 7513826
+    },
+    {
+      "relative_path": "outputs/report_traceability.parquet",
+      "repository_path": "canonical/corrected_us_annual_3y_product/28ecc946c5c1c3c75ee6e13013fdb1a7eda1e1fd73d70e5d915f3d1edd1aabc7/outputs/report_traceability.parquet",
+      "sha256": "c5331a259b2175f4998ef66f723d938bf0c8ceee45cde2ecd771d177d45942fb",
+      "size_bytes": 36734
+    },
+    {
+      "relative_path": "report/product_report.md",
+      "repository_path": "canonical/corrected_us_annual_3y_product/28ecc946c5c1c3c75ee6e13013fdb1a7eda1e1fd73d70e5d915f3d1edd1aabc7/report/product_report.md",
+      "sha256": "dc3c719cee44f243c4b088c70a50c13187284832accaa867bef469cea044faba",
+      "size_bytes": 4278
+    },
+    {
+      "relative_path": "support/backtest_status.json",
+      "repository_path": "canonical/corrected_us_annual_3y_product/28ecc946c5c1c3c75ee6e13013fdb1a7eda1e1fd73d70e5d915f3d1edd1aabc7/support/backtest_status.json",
+      "sha256": "d76c3d102dee922c83159a7c132000a143739ceeb96932ce4c783ae8f25ce746",
+      "size_bytes": 2382
+    },
+    {
+      "relative_path": "support/decision_gate_validation.json",
+      "repository_path": "canonical/corrected_us_annual_3y_product/28ecc946c5c1c3c75ee6e13013fdb1a7eda1e1fd73d70e5d915f3d1edd1aabc7/support/decision_gate_validation.json",
+      "sha256": "19161d7aada3b29403b25693d345ff2fd6ae1908182b8ed96675f64e042be81f",
+      "size_bytes": 221
+    },
+    {
+      "relative_path": "support/liquidity_coverage.parquet",
+      "repository_path": "canonical/corrected_us_annual_3y_product/28ecc946c5c1c3c75ee6e13013fdb1a7eda1e1fd73d70e5d915f3d1edd1aabc7/support/liquidity_coverage.parquet",
+      "sha256": "e8cc5533820a06cbdb5e4104685fced7d77dd3bb2d5579f6013105b1e2a6712a",
+      "size_bytes": 177286
+    },
+    {
+      "relative_path": "support/liquidity_validation.json",
+      "repository_path": "canonical/corrected_us_annual_3y_product/28ecc946c5c1c3c75ee6e13013fdb1a7eda1e1fd73d70e5d915f3d1edd1aabc7/support/liquidity_validation.json",
+      "sha256": "e2e1576f803613c17d3ecf79156627a82576391f5013487672b689170e036cac",
+      "size_bytes": 406
+    },
+    {
+      "relative_path": "support/period_coverage.parquet",
+      "repository_path": "canonical/corrected_us_annual_3y_product/28ecc946c5c1c3c75ee6e13013fdb1a7eda1e1fd73d70e5d915f3d1edd1aabc7/support/period_coverage.parquet",
+      "sha256": "ae9ce67ba555a357bc9be7f69fa61279580ab96548f19e93ee7850db1f39e4af",
+      "size_bytes": 6617
+    },
+    {
+      "relative_path": "support/portfolio_validation.json",
+      "repository_path": "canonical/corrected_us_annual_3y_product/28ecc946c5c1c3c75ee6e13013fdb1a7eda1e1fd73d70e5d915f3d1edd1aabc7/support/portfolio_validation.json",
+      "sha256": "ae89c47d6173b4a2aed0454fd5408109de1959ca13d453e7eeea342e28160f07",
+      "size_bytes": 430
+    },
+    {
+      "relative_path": "support/prediction_lineage_validation.json",
+      "repository_path": "canonical/corrected_us_annual_3y_product/28ecc946c5c1c3c75ee6e13013fdb1a7eda1e1fd73d70e5d915f3d1edd1aabc7/support/prediction_lineage_validation.json",
+      "sha256": "cd153f79aec7473ece459ba700e2673936c5440113831bce7c1546c110ffde79",
+      "size_bytes": 729
+    },
+    {
+      "relative_path": "support/preflight_validation.json",
+      "repository_path": "canonical/corrected_us_annual_3y_product/28ecc946c5c1c3c75ee6e13013fdb1a7eda1e1fd73d70e5d915f3d1edd1aabc7/support/preflight_validation.json",
+      "sha256": "54727cf871dfec18fa4dfd5f48176f4ad2ce4b7074519bbe11b9686d9e955b03",
+      "size_bytes": 1796
+    }
+  ],
+  "manifest_sha256": "28ecc946c5c1c3c75ee6e13013fdb1a7eda1e1fd73d70e5d915f3d1edd1aabc7",
+  "repository": "ekrash718/stock-screener-data",
+  "repository_prefix": "canonical/corrected_us_annual_3y_product/28ecc946c5c1c3c75ee6e13013fdb1a7eda1e1fd73d70e5d915f3d1edd1aabc7",
+  "repository_type": "dataset",
+  "revision": "aaf056ea115067e42ef9abf9fa93ade75cdd4052",
+  "schema_version": 1,
+  "stage": "P4",
+  "total_size_bytes": 31668282
+}
