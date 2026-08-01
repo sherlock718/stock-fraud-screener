@@ -446,3 +446,36 @@ existing Step 5/Step 6 pandas warnings.
 
 Tests demonstrate code behavior; they do not establish data freshness,
 survivorship-free coverage, or future performance.
+
+## Session REL1 — clean-checkout verification and release boundary
+
+REL1 verified checkpoint `0b6fb150ede821eacc7b03f9769fd543390b3c8e` in a
+detached temporary worktree. The active worktree was not switched or reset;
+the unrelated `.jupyter_ystore.db` remains preserved. The authoritative
+`python3 -m workflows.run_us_free_v1` route passed after restoring frozen
+ignored inputs, including P2/P3/P4/US1A/US1B, all supporting B1E/M1A/M1C/M1D/I1
+boundaries, and all five partial M1C attempts. Two fresh US1C assemblies were
+byte-identical; candidate manifest SHA-256:
+`a639e7bdd40eae8d8b28b0ee802c8de09beb8c05569a20f3996d172db9a7b466`.
+
+Read-only recovery from private immutable Hugging Face revision
+`aaf056ea115067e42ef9abf9fa93ade75cdd4052` passed for 202 files and
+481,666,707 bytes, with private visibility, no mutable fallback, and no remote
+mutation. A1 contract/archive manifest hashes are
+`1b8174bac5181b68f6e3913c2e6bf73a7271acce9f1421063e40b39db2a63f3a` and
+`892cf0991b9e1a5a651728a1329bd91422037c62de6d57ee27adcc1e919399da`.
+All four A1 packages and all 11 tracked retired files recovered with matching
+hashes.
+
+REL1 remains blocked at the release-decision boundary: P2-P4 have immutable
+recovery, but US1A, US1B, supporting ignored artifacts, US1C, and A1 packages
+have no immutable recoverable source. A1 explicitly makes no remote-durability
+claim. US1B still has 14 unresolved names plus failed-request HPK; all 15
+require human review. Performance remains limited free-source research, not
+provider-certified or survivorship-complete performance; the ledger and
+immutable `DGS1MO` vintage limitations remain unresolved.
+
+The single final clean-worktree full-suite run produced 828 passed, 5 skipped,
+24 failed, 16 errors, and 78 warnings in 119.07 seconds. The failures are
+fail-closed missing or drifted ignored Session 8E/B1C, corrected-Step-2, and E1
+lineage inputs outside the restored US1C route.

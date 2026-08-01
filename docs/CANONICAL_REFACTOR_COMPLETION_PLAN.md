@@ -1,6 +1,6 @@
 # Canonical Refactor Completion Plan
 
-Status: Session A1 dependency-safe retirement complete; REL1 remains unauthorized
+Status: Session REL1 clean-checkout verification complete; release blocked pending durable sources and explicit authorization
 Date: 2026-07-31
 
 ## Decision
@@ -875,15 +875,33 @@ No release or remote mutation occurred.
 
 ### REL1 — Consolidated release boundary
 
-- [ ] Verify a clean P2 -> P3 -> P4 reconstruction.
-- [ ] Verify private Hugging Face recovery and hashes.
-- [ ] Run focused verification and the full suite once.
-- [ ] Review the diff and archive inventory.
-- [ ] Update changelog, onboarding, handoff, limitations, and next task.
-- [ ] Commit, push, and tag only after explicit approval.
-- [ ] Retain clear statements that the product is research, free-source
-      survivorship coverage may remain incomplete, and no future performance
-      is promised.
+- [x] Verify checkpoint `0b6fb150ede821eacc7b03f9769fd543390b3c8e` in a clean
+      detached worktree without switching or resetting the active checkout.
+- [x] Verify the authoritative route and deterministic P2 -> P3 -> P4 -> US1A
+      -> US1B chain; reconstruct US1C twice with candidate manifest SHA-256
+      `a639e7bdd40eae8d8b28b0ee802c8de09beb8c05569a20f3996d172db9a7b466`.
+- [x] Verify read-only immutable recovery at
+      `aaf056ea115067e42ef9abf9fa93ade75cdd4052`: 202 files and 481,666,707
+      bytes, with no mutable fallback or remote mutation.
+- [x] Recover all four A1 packages and all 11 tracked retired files; contract
+      and local archive manifest hashes are
+      `1b8174bac5181b68f6e3913c2e6bf73a7271acce9f1421063e40b39db2a63f3a` and
+      `892cf0991b9e1a5a651728a1329bd91422037c62de6d57ee27adcc1e919399da`.
+- [x] Run focused checks and review the diff/archive inventory; update all
+      required REL1 documentation.
+- [x] Run the single final full suite after these documentation edits: 828
+      passed, 5 skipped, 24 failed, 16 errors, and 78 warnings in 119.07s.
+      Failures are missing or drifted ignored Session 8E/B1C, corrected-Step-2,
+      and E1 lineage inputs in the clean checkout.
+- [ ] Commit, push, tag, publish, promote, or release; each requires explicit
+      authorization and remains prohibited in this task.
+
+REL1 is verified but not release-ready. P2-P4 have immutable recovery, while
+US1A/US1B/supporting ignored artifacts, US1C, and A1 packages are local-only
+without immutable recoverable sources; A1 explicitly claims no remote
+durability. US1B remains 14 unresolved names plus failed-request HPK, all 15
+requiring human review. Provider-certified/survivorship-complete performance
+remains blocked by the S1 ledger gap and missing immutable `DGS1MO` vintage.
 
 ## Completion definition
 
@@ -909,8 +927,8 @@ The refactor is complete only when:
 
 ## Exact next-session task
 
-Stop after A1. No next session is authorized. Do not begin REL1, a second
-market, V2A, paid-data, publication, release, performance, commit, push, or
-tagging work without separate authorization. REL1 must first address the
-remaining clean-checkout/dirty-worktree review and approval boundaries; A1's
-local packages have not been uploaded or published.
+Stop at the REL1 release-decision boundary. No commit, push, tag, publication,
+promotion, upload, or release is authorized until the documentation diff is
+approved and a durable source decision is made for local US1A/US1B/supporting
+and A1 artifacts. Deferred V2A and new evidence/performance work remain out of
+scope.

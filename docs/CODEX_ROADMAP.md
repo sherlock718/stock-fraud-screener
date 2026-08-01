@@ -293,3 +293,35 @@ A1 made no external request, remote mutation, model/performance execution,
 methodology change, release, branch switch, commit, push, or tag. Its packages
 are local and Git-ignored; no remote-durability claim is made for them. Stop
 after A1. REL1 and deferred V2A remain unauthorized.
+
+## Session REL1 — clean-checkout verification — completed 2026-08-02
+
+Checkpoint `0b6fb150ede821eacc7b03f9769fd543390b3c8e` was verified in a
+detached clean worktree without switching or resetting the active checkout.
+The authoritative `python3 -m workflows.run_us_free_v1` route passed after
+restoring frozen ignored inputs. P2 -> P3 -> P4 -> US1A -> US1B, all supporting
+boundaries, lineage, shortlist, and partial M1C attempts matched. Two fresh
+US1C reconstructions matched with candidate manifest SHA-256
+`a639e7bdd40eae8d8b28b0ee802c8de09beb8c05569a20f3996d172db9a7b466`.
+
+Immutable read-only recovery from revision
+`aaf056ea115067e42ef9abf9fa93ade75cdd4052` passed for 202 files and
+481,666,707 bytes. A1 contract/archive manifest hashes are
+`1b8174bac5181b68f6e3913c2e6bf73a7271acce9f1421063e40b39db2a63f3a` and
+`892cf0991b9e1a5a651728a1329bd91422037c62de6d57ee27adcc1e919399da`;
+all four packages and 11 tracked retired files recovered with matching hashes.
+
+REL1 is verified but not release-ready. P2-P4 have immutable recovery, while
+US1A/US1B/supporting ignored artifacts, US1C, and A1 packages are local-only
+without immutable recoverable sources; A1 explicitly claims no remote
+durability. US1B remains 14 unresolved names plus failed-request HPK, all 15
+requiring human review. Provider-certified/survivorship-complete performance
+remains blocked by the S1 ledger gap and missing immutable `DGS1MO` vintage.
+The final full suite remains the next verification action after documentation
+edits; commit, push, tag, upload, publication, promotion, and release require
+explicit authorization.
+
+The single final clean-worktree full-suite run completed with 828 passed, 5
+skipped, 24 failed, 16 errors, and 78 warnings in 119.07 seconds because
+broader tests require additional ignored Session 8E/B1C, corrected-Step-2, and
+E1 lineage inputs absent from a clean checkout.

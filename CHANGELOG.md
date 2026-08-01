@@ -8,6 +8,24 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+- Complete bounded Session REL1 clean-checkout verification from checkpoint
+  `0b6fb150ede821eacc7b03f9769fd543390b3c8e` in a detached temporary
+  worktree. The authoritative `python3 -m workflows.run_us_free_v1` route
+  passed after restoring frozen ignored inputs; P2/P3/P4/US1A/US1B and every
+  supporting B1E/M1A/M1C/M1D/I1/partial-M1C boundary matched their frozen
+  hashes. Two fresh US1C assemblies were byte-identical and the candidate
+  manifest matched SHA-256
+  `a639e7bdd40eae8d8b28b0ee802c8de09beb8c05569a20f3996d172db9a7b466`.
+  Read-only recovery from private immutable revision
+  `aaf056ea115067e42ef9abf9fa93ade75cdd4052` passed for 202 files and
+  481,666,707 bytes. The A1 contract and local archive manifest matched
+  `1b8174bac5181b68f6e3913c2e6bf73a7271acce9f1421063e40b39db2a63f3a` and
+  `892cf0991b9e1a5a651728a1329bd91422037c62de6d57ee27adcc1e919399da`;
+  four package recoveries and all 11 tracked archive-branch recoveries passed.
+  REL1 is not release-ready: US1A/US1B/supporting ignored artifacts and A1
+  packages have no immutable recoverable source, and A1 remote durability is
+  explicitly unclaimed. No release, upload, commit, push, or tag occurred.
+
 - Complete bounded Session A1 dependency-safe archive and retirement. Freeze
   `docs/A1_ARCHIVE_CONTRACT.json`, SHA-256
   `1b8174bac5181b68f6e3913c2e6bf73a7271acce9f1421063e40b39db2a63f3a`,

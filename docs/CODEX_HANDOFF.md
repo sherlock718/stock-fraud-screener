@@ -2366,3 +2366,35 @@ defined after an authorized checkpoint, and explicit commit/push/tag/release
 authority is supplied. The 15 US1B names also remain unresolved and require
 human review; provider-certified/survivorship-complete performance and exact
 `DGS1MO` metrics remain unavailable. Stop after A1.
+
+## Session REL1 — clean-checkout verification — completed 2026-08-02
+
+Checkpoint `0b6fb150ede821eacc7b03f9769fd543390b3c8e` was verified in detached
+temporary worktree `/private/tmp/rel1-clean-checkout-8irQNW`; the active
+worktree was not switched or reset and `.jupyter_ystore.db` remains untouched.
+The authoritative route passed after restoring frozen ignored inputs:
+`P2 -> P3 -> P4 -> US1A -> US1B`, all supporting boundaries, shortlist,
+lineage, and five partial M1C attempts. Two fresh US1C assemblies matched and
+the candidate manifest is
+`a639e7bdd40eae8d8b28b0ee802c8de09beb8c05569a20f3996d172db9a7b466`.
+
+Immutable HF revision `aaf056ea115067e42ef9abf9fa93ade75cdd4052` recovered 202
+files and 481,666,707 bytes read-only. A1 contract/archive manifest hashes are
+`1b8174bac5181b68f6e3913c2e6bf73a7271acce9f1421063e40b39db2a63f3a` /
+`892cf0991b9e1a5a651728a1329bd91422037c62de6d57ee27adcc1e919399da`.
+Four package recoveries (887 files, 1,954,687,841 source bytes) and 11/11
+tracked archive-branch recoveries passed.
+
+Release decision: blocked. Only P2-P4 have immutable remote recovery. US1A,
+US1B, supporting ignored artifacts, US1C, and A1 packages remain local-only;
+A1 explicitly claims no remote durability. US1B remains 14 unresolved names
+plus failed-request HPK, with human review required for all 15. The S1 ledger
+gap and missing immutable 2026-07-17 `DGS1MO` vintage continue to block
+provider-certified/survivorship-complete performance. No commit, push, tag,
+upload, publication, promotion, or release occurred. The next task requires
+explicit authorization for the documentation commit and a durability decision.
+
+The single final clean-worktree full-suite run completed with 828 passed, 5
+skipped, 24 failed, 16 errors, and 78 warnings in 119.07 seconds. Failures
+were fail-closed missing or drifted ignored Session 8E/B1C, corrected-Step-2,
+and E1 lineage inputs; no code, data, model, or methodology change was made.
