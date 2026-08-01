@@ -8,6 +8,408 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+- Complete bounded Session A1 dependency-safe archive and retirement. Freeze
+  `docs/A1_ARCHIVE_CONTRACT.json`, SHA-256
+  `1b8174bac5181b68f6e3913c2e6bf73a7271acce9f1421063e40b39db2a63f3a`,
+  only after hashing all 303 tracked and 53 non-ignored untracked files and
+  mapping imports, workflows, CI, documentation, and artifacts. Package four
+  confirmed superseded PIT roots as four local Git-ignored tar archives under
+  `artifacts/archive/a1/20260801T220130Z-a1/`; archive manifest SHA-256 is
+  `892cf0991b9e1a5a651728a1329bd91422037c62de6d57ee27adcc1e919399da`.
+  Recover and rehash all 887 files and 1,954,687,841 source bytes before
+  replacing the active roots with exact-manifest/archive-pointer stubs, and
+  reproduce 11 associated tracked historical files byte-for-byte from
+  `codex/legacy-archive` before retiring them. Fail closed on V3.1-V3.3 because
+  active parity tests and the frozen M1A contract still depend on them. Keep
+  canonical P2-P4, corrected source evidence, D1/S1/E1/B1/M1/I1/US1A-US1C,
+  immutable Hugging Face pointers, international structure, and shared
+  implementations unchanged. The focused dependency/recovery/import/workflow/
+  failure-path boundary passes 47 tests with 13 existing warnings; the
+  post-retirement US1C route passes; and the final full suite passes 869 tests
+  with 4 skips and 78 existing warnings. No methodology, shortlist, release,
+  remote state, branch, commit, push, tag, promotion, or publication changed.
+- Complete bounded Session US1C with one frozen local release-consolidation
+  contract, SHA-256
+  `d7098153542afa77ff09e850980362eb957b3e24cd609a4984451289595f1d47`,
+  and one authoritative verification route,
+  `python3 -m workflows.run_us_free_v1`. Rehash and reconcile the complete
+  P2 -> P3 -> P4 -> US1A -> US1B chain, every named supporting boundary, and
+  all five partial M1C attempts without changing their contents. Verify two
+  fresh non-overwriting reconstructions are byte-identical and recover the
+  exact 202-file, 481,666,707-byte P2/P3/P4 baseline read-only from private
+  immutable Hugging Face revision
+  `aaf056ea115067e42ef9abf9fa93ade75cdd4052`, with no mutable-revision
+  fallback or remote mutation. Materialize the independently verified local
+  release candidate at
+  `artifacts/product/us_free_v1_release_candidate/20260801T210000Z-us1c/`,
+  manifest SHA-256
+  `a639e7bdd40eae8d8b28b0ee802c8de09beb8c05569a20f3996d172db9a7b466`,
+  with 24 records and 1,039,444 recorded bytes. Preserve every US1A identity,
+  holding, rank, score, gate, liquidity decision, and 1/15 weight plus all
+  US1B evidence states: 14 unresolved names, failed-request HPK, unresolved
+  deterministic actions, and human review for all 15. Add fail-closed
+  consolidation, recovery, immutability, non-overwrite, and mismatch tests;
+  the focused boundary passes 37 tests with 13 existing warnings and the
+  final full suite passes 871 tests with 4 skips and 78 existing warnings. No
+  release, archive, remote write, data/methodology change, model or
+  performance execution, commit, push, tag, or branch action occurred.
+- Complete bounded Session US1B with the approval-gated, non-overwriting
+  evidence derivative
+  `artifacts/product/us_free_v1_evidence/20260801T193322Z-us1b/`, manifest
+  SHA-256
+  `f802ec26358d27afa21c99490e598e13c98a6ad60229705769f3fae1818d9dcd`.
+  Freeze the exact 36-URL plan before collection, reuse 29 preserved D1/E1
+  responses without requests, retrieve all 36 approved URLs once with HTTP
+  200, and verify 3,681,377 received response-body bytes. Materialize 15 exact
+  market/exchange identity rows, 47 separately adjudicated primary documents,
+  46 accession-bound cited claims, and 15 name-level coverage rows. Keep 14
+  names unresolved and HPK in explicit `failed_request` because its preserved
+  E1 Form 25-NSE response remains HTTP 503; all deterministic actions remain
+  unresolved and require human review. Independently verify all 95 artifact
+  records and 2,653,162 recorded bytes, all 36 new and 29 reused response
+  payloads, claim locators/hashes, the unchanged US1A shortlist, and every
+  preserved P2/P3/P4/B1D/B1E/M1A/M1C/M1D/I1/partial-attempt boundary. Add a
+  deterministic offline verifier and pass the 39-test focused evidence,
+  extraction, adjudication, shortlist, lineage, non-overwrite, and failure-path
+  boundary with 13 existing warnings. No baseline, model, score, gate,
+  liquidity decision, holding, rank, weight, performance, promotion, archive,
+  publication, commit, or push changed. The final full suite passes 859 tests
+  with 4 skips and 78 existing warnings.
+- Complete bounded Session US1A with one contract-first, offline US free-data
+  product candidate under
+  `artifacts/product/us_free_v1/20260801T183000Z-us1a/`, manifest SHA-256
+  `f27773c0e1fb92a25707e0fec363e13afa7ccb10f8ace7537187c6be58575edf`.
+  Freeze accepted P2 before downstream materialization after D1 passes source,
+  schema, identity, availability, target-support, and reconstruction checks but
+  fails exact frozen-route row coverage (43,564 shared IDs, 242 P2-only, 76
+  D1-only) and cannot satisfy M1C's pinned P2 identity/manifest contract without
+  retraining or changing the contract. Consume only the accepted M1A/M1C
+  inner-evidence route through unchanged P4 gates, 30-session liquidity, rank,
+  15-name equal-weight, and tie-break rules. Materialize 87,612 row-role scores,
+  43,806 candidates, 525,672 gate rows, 175,784 exclusions, 1,477 liquidity-
+  required rows, 44,310 exact liquidity sessions, 120 holdings, and the final
+  15-name 2026 shortlist. Map five names to exact stable-row/security E1
+  evidence, retain their unresolved status, and label ten names
+  `event_evidence_not_collected`. Add the deterministic offline verifier and six
+  focused tests. Rehash every P2/P3/P4/B1D/B1E/M1A/M1C/M1D/I1 boundary and all
+  five partial M1C attempts; pass the 89-test focused product/prediction/P4/
+  shortlist/lineage boundary and the final full suite with 853 passed, 4
+  skipped, and 78 existing warnings. No model fitting, retuning, performance
+  calculation, external collection, promotion, overwrite, archive,
+  publication, commit, or push occurred.
+- Complete bounded Session I1 as the first international adapter test. Freeze
+  Canada (`CA`, TSX/TSXV) from predeclared local evidence before downstream
+  results under `artifacts/international/i1/20260801T180000Z-i1-ca/`, manifest
+  SHA-256 `d3f17854cf0839713163e8dda99aefedd6ba064a14a042a886770818a472d9f6`.
+  The fail-closed adapter materializes 9,207 row-complete core P2 records;
+  calendar, benchmark vintage, action/delisting, FX vintage,
+  survivorship-complete targets, P3/P4, model, portfolio, and performance
+  remain unsupported. No external data or performance was collected.
+- Complete bounded Session M1D with exactly one pre-performance-locked,
+  P4/B1E-compatible portfolio evaluation of the accepted M1C route. Freeze
+  `artifacts/performance/m1d/20260801T162953Z-m1d/`, pre-performance lock
+  manifest SHA-256
+  `757e19cd9e35290a6b339f79e2c44a0f1ddb47c03b913930b1abda84f0bf74bc`,
+  and final manifest SHA-256
+  `b04cea8236da6cd92749410f6186360be5f29dbbbeb00a64f2ed07c180cc72ab`.
+  The single composite route uses only the 16 frozen M1A/M1C inner-evidence
+  winners and preserves the unchanged P4 construction and B1D/B1E
+  evaluation contracts. Materialize 43,806 row-complete candidate/
+  eligibility records, 120 holdings across eight 2019-2026 vintages, 75
+  matured holdings for 2019-2023 metrics, 45 open holdings outside completed
+  metrics, all four physical outcome/performance namespaces, gross/net and
+  benchmark NAV, positions, weights, exclusions, returns, costs, turnover,
+  coverage, drawdown, and stability ledgers. The primary free-evidence result
+  records 19.75% aggregate net CAGR, 0.854 zero-rate diagnostic Sharpe,
+  24.50% annualized volatility, -29.46% maximum drawdown, and 2.0 turnover;
+  both the 30% CAGR and 1.0 Sharpe reporting thresholds are not met. Exact
+  DGS1MO-dependent metrics remain unavailable, all identities remain
+  uncertified, and the aggregate B1E comparison is not like-for-like because
+  its history begins in 2015 rather than 2019. Independently verify all 132
+  generated records, rehash every frozen P2/P3/P4/B1D/B1E/M1A/M1C boundary,
+  and pass the 135-test focused M1D-through-P3 boundary with 13 existing
+  warnings. No retry, retuning, external data, frozen-artifact change,
+  publication, archive, deletion, branch, commit, push, or later-session work
+  occurred.
+- Complete bounded Session M1C as one successful controlled nested temporal
+  walk-forward execution through the frozen M1A/M1B contract. Add
+  `modeling/run_nested_walk_forward.py`, exact-population mechanical reuse of
+  fold-local selector/preprocessor results, normalized diagnostic lineage, and
+  fail-closed M1C runner tests. Freeze the new non-overwriting artifact
+  `artifacts/modeling/nested_walk_forward/20260801T121426Z-m1c/`, manifest
+  SHA-256 `125cb5d6a8012c3b03ee6eab5f00ac944135c39996e992ecf40d8816acdacc58`.
+  Its persisted preflight covers all 34 outer-role, 306 inner, 102 maturity,
+  72 canonical-candidate, 1,224 outer-candidate-context, 200-feature,
+  target/regime/selector/grid/seed/hash/prohibited-input records before the
+  first fit. Materialize 87,612 unique row-role records, 20,142 matured
+  metric-eligible OOS predictions, 24,566 frozen-rule open 2024-2026 scores
+  outside metrics, 516 explicit 2027-2028 future exclusions, 624 candidate
+  evaluations, 104 normalized fold-local selection/preprocessing records, and
+  16 model records with complete lineage. The pooled 2019-2023 predictive-only
+  result is Spearman IC 0.335 for LightGBM and ROC AUC 0.654 for the tree over
+  10,071 rows per role; no portfolio or performance metric is calculated.
+  Independently verify every one of 26 manifest records and every generated
+  row/model/diagnostic reference. Preserve five earlier preflight/execution-
+  only partial directories, including one mechanical Parquet-dtype failure,
+  with no persisted outer result and no adaptive retry. The focused M1C/M1B/
+  M1A/P3 boundary passes 73 tests with 13 existing warnings; sync and diff
+  checks pass; P2, P3, P4, B1D, B1E, and M1A hashes remain unchanged. The exact
+  next task is M1D: one locked P4/B1E-compatible portfolio-performance
+  comparison with no adaptive retuning.
+- Complete bounded Session M1B without historical execution. Add
+  `modeling/nested_walk_forward.py`, a hash-verified implementation of the
+  frozen M1A inner-fold, three-year purge, fold-local selection/preprocessing,
+  bounded stability/redundancy selection, deterministic LightGBM/tree grids,
+  three training regimes, predictive-only winner rules, simplicity
+  tie-breakers, one-shot tuning state, outer-refit hook, and explicit fold,
+  population, target, feature, transformation, and parameter lineage. Add 21
+  synthetic tests that make label overlap, transformer/imputation leakage,
+  global selection, outer-fold reuse, validation-row reuse, prohibited target/
+  support/model-output features, B1E or outer-performance consumption, and
+  adaptive post-threshold retuning fail closed. The broader focused M1A/P3
+  compatibility boundary passes 67 tests with 13 existing matplotlib/
+  pyparsing warnings. P2, P3, P4, B1D, B1E, and M1A hashes remain unchanged;
+  no historical model, tuning, scoring, portfolio, performance, data refresh,
+  artifact, branch, commit, push, publication, archive, deletion, or schedule
+  action occurred. At the M1B boundary, the exact next task was M1C: one
+  controlled nested walk-forward OOS model run.
+- Complete bounded Session M1A as a contract-only modeling boundary. Add the
+  non-overwriting artifact
+  `artifacts/modeling/nested_walk_forward/20260801T000000Z-m1a/` with manifest
+  SHA-256 `a9d4d2eeb06543206e1f2f7d1a9c3000599b69ee5b22db7c89de21fd5330cabc`.
+  Reverify the frozen P2, P3, P4, B1D, and B1E boundaries; preserve 17 exact
+  P3 outer decision cohorts and 34 role-specific outer records; define 306
+  explicit inner role/regime/fold records with three mature expanding folds,
+  strict label maturity, three-year horizon purging, fold-local transforms and
+  selection, bounded seeded LightGBM/tree grids, predictive-only objectives,
+  and simplicity tie-breakers. Add focused deterministic contract tests and a
+  human-readable methodology report. No model fitting, tuning, scoring,
+  performance calculation, portfolio change, external data, frozen-artifact
+  overwrite, publication, archive, deletion, branch, commit, push, or schedule
+  occurred. The exact next task is M1B: implement this contract and synthetic
+  leakage tests without historical execution.
+- Defer V2A paid-data exploration at the user's direction and promote the
+  free-source-only M1 sequence. Split M1 into four anti-overfitting boundaries:
+  M1A freezes the exact nested walk-forward folds, three-year label purging,
+  fold-local feature-selection/preprocessing contract, bounded existing-model
+  grids, predictive objectives, stability/simplicity tie-breakers, and gate
+  regimes without execution; M1B implements and tests without historical
+  fitting; M1C performs one controlled outer-OOS model run; and M1D performs
+  one locked P4/B1E-compatible comparison without adaptive retuning. Preserve
+  P3 and B1E as untouched baselines and classify 30% net CAGR and 1.0 zero-rate
+  diagnostic Sharpe only as final reporting thresholds, never tuning targets.
+  This change updates planning documentation only; no model, feature selection,
+  performance calculation, external source, provider, artifact, portfolio,
+  branch, commit, push, publication, archive, deletion, or schedule changed.
+- Complete bounded Session B1E's one controlled free-data V1 historical
+  backtest and product report over the unchanged B1D engine and exact frozen
+  B1C evidence. Add a non-overwriting workflow that independently reverifies
+  the B1C manifest, all 29 records, seven validated inputs, three code-lineage
+  records, and both frozen B1D hashes before calculation; preserves nine
+  independent matured July 2015-2023 36-month vintages and keeps all 45 open
+  2024-2026 holdings outside completed metrics; charges 25 bps per side on
+  absolute actual traded notional; and materializes separate gross/net
+  portfolio and benchmark NAV, time-weighted aggregate NAV, transactions,
+  capital flows, coverage, event/scenario, outcome, metric, and rate-
+  availability ledgers for all four performance namespaces. Freeze
+  `20260801T011135Z-b1e` with 135/135 price-path-accounted matured holdings,
+  $1.8M/$1.8M planned exposure, 5,130/5,130 stock and benchmark sessions, zero
+  benchmark gaps, zero explicit terminal-exit triggers, and zero scenario-
+  imputed exposure. Keep the 135 S1-ambiguous identities/actions and
+  uncertified adjusted-close semantics explicit; fail DGS1MO Sharpe, Sortino,
+  and alpha closed; label the separate zero-rate results only as a diagnostic;
+  and state that the results are free-source research, not survivorship-
+  complete certification, advice, or a future-performance promise. Add
+  deterministic artifact/report reconciliation tests. No external data,
+  model execution, portfolio change, provider action, publication, archive,
+  deletion, branch, commit, push, or schedule occurred.
+- Add bounded Session B1D's provider-neutral free-data V1 NAV and performance-
+  metric engine over the frozen B1C schemas. Independently verify the accepted
+  B1C manifest, all 29 artifact records, seven copied validated inputs, and
+  three code-lineage records before loading any evidence; fail closed on
+  schema, identity, coverage, terminal-event, benchmark, performance-
+  namespace, or risk-free-namespace inconsistencies. Implement independent
+  overlapping July 36-month vintages, exact common stock/assigned-benchmark
+  entry/month-end/exit sessions, separate-vintage and time-weighted aggregate
+  NAV, 25-bps-per-side costs on absolute actual traded notional, and separate
+  gross/net portfolio and benchmark streams. Preserve observed, bounded-
+  scenario, provider-confirmed, and unsupported/unresolved outcome ledgers;
+  permit the frozen minus-50-percent and terminal-loss assumptions only for
+  explicit unsupported terminal exits; and keep the unavailable DGS1MO path
+  physically and semantically separate from the zero-rate diagnostic. Add
+  deterministic synthetic coverage for partial/complete exits, ticker and
+  identity continuity, cash/stock mergers, bankruptcy/delisting outcomes,
+  benchmark gaps, all required absolute and benchmark-relative metrics,
+  coverage denominators, zero-denominator cases, deterministic reruns, and
+  fail-closed behavior. No historical backtest, model, external collection,
+  actual performance calculation, portfolio change, provider action,
+  artifact publication, notebook mutation, archive, branch, commit, push, or
+  scheduling occurred.
+- Add bounded Session B1C's non-overwriting free-data V1 performance-input
+  evidence assembler and workflow. Independently reverify the frozen P2-P4,
+  Session 8E raw/normalized, S1, and E1 boundaries; reconcile exactly 180 P4
+  holdings plus four benchmark masters; validate all 132 relevant holding and
+  four benchmark Yahoo payloads, their exact compressed/decompressed and
+  normalized hashes, metadata, arrays, calendars, common entries, 135 matured
+  common exits, final-common month ends, and assigned benchmarks; and preserve
+  the provider-adjclose/no-double-counting assumption without relabelling it as
+  a certified security/action ledger. Materialize physically separate
+  observed, best-free-evidence, legacy-minus-50-percent, terminal-loss, exact
+  DGS1MO, and zero-risk-free diagnostic contracts and eligibility states while
+  calculating no NAV, return, metric, backtest, or performance report. Freeze
+  `20260731T115106Z-b1c` with 184 requirements, 135 matured and 45 open
+  holdings, zero fully matched S1 requirements, 14 current holdings with
+  incomplete retrieved primary-document support, SSTK with none, and explicit
+  `unavailable_not_collected_missing_fred_api_key` rate status; no external
+  request, model execution, portfolio change, provider action, promotion,
+  publication, archive, branch, commit, push, or schedule occurred.
+- Revise the post-Q1 product sequence to build the best defensible free-data V1
+  before any paid-data V2. Record Q1's moderate predictive-signal result
+  (16,597 labeled OOS rows; LightGBM pooled Spearman IC 0.138 with positive IC
+  in all ten labeled years; tree pooled ROC AUC 0.569 with weak calibration),
+  replace the paid-provider B1B prerequisite with a read-only free-data V1
+  performance-contract session, and stage separate free-evidence assembly,
+  P4-compatible overlapping-vintage NAV/metric implementation, and controlled
+  V1 backtest/report sessions. Require complete holding accounting, prohibit
+  silent deletion, keep observed/best-free-evidence/legacy-minus-50/terminal-
+  loss namespaces physically separate, and report coverage and scenario
+  exposure beside CAGR, volatility, Sharpe, Sortino, drawdown, Calmar,
+  benchmark-relative metrics, turnover, and costs. Move paid-provider fit-gap,
+  acquisition, and certification to V2A through the same provider-neutral
+  interfaces. This change revises documentation only; no model or backtest was
+  executed, no performance was calculated, no external data was collected,
+  and no artifact, portfolio, provider, publication, archive, branch, commit,
+  push, or schedule changed.
+- Revise the existing post-P4 session plan after the bounded local-only B1
+  evidence decision. Record B1 as `unavailable_fail_closed` under current
+  evidence because S1 remains 0 matched, 135 ambiguous, and 49 unsupported,
+  E1 supplies no deterministic historical upgrade, the exact 2026-07-17
+  `DGS1MO` ALFRED vintage is absent, and the current monthly-NAV implementation
+  does not yet satisfy the full P4 overlapping-vintage contract. Insert Q1 as
+  the exact next session: a frozen P3 OOS predictive-quality audit before any
+  paid-data decision. Stage any later provider fit-gap, authorized collection,
+  NAV implementation, and controlled completed-vintage backtest as separate
+  conditional sessions. No model execution, performance calculation, external
+  request, purchase, artifact mutation, publication, archive, branch, commit,
+  push, or schedule occurred. The later free-data V1 decision recorded above
+  supersedes this then-current paid-provider-first ordering.
+- Add the deterministic canonical final-shortlist presentation route over the
+  exact frozen P4 shortlist and E1 adjudication. Freeze presentation policy v2
+  so `exclude`, `warn`, and `unresolved` map only to their specified labels,
+  a complete clean contract alone may map to `RESEARCH_CANDIDATE`, narrative
+  cannot change any decision field, and human sign-off is not a presentation
+  issuance gate. Materialize the non-overwriting
+  `20260731T000054Z-final-shortlist-v2` artifact with a 15-row final table,
+  15-row machine-attested E1 derivative, 47-row trace table reproducing all 46
+  exact E1 citations, frozen comment/policy contracts, and a concise cited
+  report. Preserve all P4 ranks, holdings, weights, gates, model scores, and
+  fraud/liquidity values; retain all 15 names as
+  `RESEARCH_CANDIDATE_EVENT_EVIDENCE_INCOMPLETE`; preserve the original E1
+  state as `unsigned_pending_explicit_human_signoff`; keep HPK and SSTK
+  summary-prohibited; record the expected post-P4 C1 builder-code evolution
+  separately from intact artifact records; and keep official performance
+  unavailable. No LLM, external request, retry, model execution, dataset
+  promotion, performance calculation, publication, archive, deletion, branch,
+  commit, push, or schedule occurred.
+- Complete the offline citation-by-citation adjudication of E1's frozen
+  15-name human-review queue from
+  `20260730T154650Z-e1-extraction-v2`. Independently verify its exact manifest
+  SHA-256, all 62 records, all 47 compressed/decompressed responses and
+  19,120,821 aggregate bytes, all 46 claim locators/passage hashes, all 59
+  collection records, all 148 parent E1 records, and all 29 preservation
+  entries before processing. Apply the frozen deterministic rules before
+  narrative; separately adjudicate affected security/role, event type/status,
+  publication lineage, date/effective-time precision, exact bounded terms,
+  cross-document conflicts, remaining ambiguity, and rule completeness for
+  every name and document. The final non-overwriting
+  `20260730T173110Z-e1-adjudication-v2` artifact retains all 47 exact
+  responses, 46 claim citations, 47 unresolved document rows, 15 unresolved
+  name rows, an updated live contract, and a 15-row unsigned explicit-human-
+  signoff queue. HPK remains unresolved and summary-prohibited after the
+  preserved Form 25-NSE HTTP 503; SSTK remains summary-prohibited; SM's
+  consideration-issuer role is not treated as cessation of SM common stock.
+  No external request, retry, dataset promotion, P3/P4 consumption change,
+  performance calculation, Hugging Face write, archive, branch, commit, push,
+  publication, deletion, or scheduling occurred.
+- Complete the offline human-review-ready continuation of Session E1 from the
+  independently verified `20260730T150604Z-e1-collection-final` artifact.
+  Reverify the frozen parent E1 manifest, request plan, collection contract,
+  all 59 collection records, all 47 compressed/decompressed response hashes,
+  URL order, 19,120,821 aggregate bytes, and all D1 preservation entries
+  before processing. Extract one exact, hash-addressed, normalized-text passage
+  from each of the 46 HTTP 200 SEC primary documents; keep the HPK Form 25-NSE
+  HTTP 503 response unresolved and summary-prohibited; separately reconcile
+  exact security scope, event type/status, publication time, effective time,
+  terms, and ambiguity; and apply the frozen deterministic policy before the
+  cited report. The non-overwriting
+  `20260730T154650Z-e1-extraction-v2` artifact retains all 47 exact responses,
+  46 claim rows, 47 unresolved deterministic rows, an updated 15-name live
+  contract, and a 15-row human-review queue. Thirteen names may be summarized
+  only from claim-level retrieved-evidence citations; HPK and SSTK remain
+  summary-prohibited, and summaries cannot change deterministic actions. No
+  external request, retry, dataset promotion, P3/P4 consumption change,
+  performance calculation, Hugging Face write, archive, branch, commit, push,
+  publication, deletion, or scheduling occurred.
+- Execute Session E1's frozen, explicitly approved 47-request SEC EDGAR
+  Archives primary-document plan without changing its URLs, forms, CIKs, or
+  date window. Validate the parent E1 manifest and plan hashes before the first
+  request; use the repository SEC identification and bounded request pacing;
+  preserve exact response bytes, HTTP metadata, timestamps, hashes, and
+  continuation lineage; and independently verify the final non-overwriting
+  `20260730T150604Z-e1-collection-final` artifact. The plan exhausted exactly
+  47 external requests and preserved 46 HTTP 200 primary documents plus one
+  HPK Form 25-NSE HTTP 503 response, totaling 19,120,821 bytes. Apply the
+  deterministic event policy before summarization, keep all 47 document rows
+  and all 15 shortlist names unresolved in human review, create zero event or
+  summary claims, and permit any later live summary only with claim-level
+  citations to retrieved hash-pinned evidence. No dataset promotion, P3/P4
+  consumption change, performance calculation, Hugging Face write, archive,
+  branch, commit, push, publication, deletion, or scheduling occurred.
+- Complete Session E1's versioned historical-then-live event/M&A review from
+  the exact provider-neutral S1 ledger without weakening any identity,
+  security-scope, confidence, ambiguity, or effective-time state. Add
+  deterministic effective-time policies for pending acquisitions, completed
+  mergers, bankruptcy, suspension, delisting, registration termination,
+  exchange noncompliance, and other material events; distinguish event,
+  publication, retrieval, and decision-eligibility clocks; reconcile all 180
+  canonical P4 holdings; route all 15 current-shortlist names to cited human
+  review; prohibit historical LLM/model knowledge; and permit live LLM
+  summaries only after every claim cites retrieved hash-pinned evidence. The
+  immutable `20260730T144043Z-e1-final` artifact recopies and independently
+  verifies all 136 exact S1 responses, freezes 86 historical and seven live
+  dated filing-indicator warnings, and prepares but does not execute an exact
+  approval-gated 47-request SEC primary-document plan. No external request,
+  performance calculation, P2-P4 consumption change, D1 promotion, Hugging
+  Face write, archive, branch, commit, push, publication, or scheduling
+  occurred.
+- Complete Session S1's offline, versioned, provider-neutral security and
+  survivorship ledger from the exact SEC index and submissions responses
+  already preserved by D1. Add stable issuer/security/listing/event/effective-
+  date schemas; distinct event-effective, source-publication, and retrieval
+  times; confidence and ambiguity fields; exact raw-response copies and hash
+  lineage; explicit corporate-action and price-adjustment semantics; P4
+  holding and benchmark reconciliation; and matched/ambiguous/unsupported/
+  conflicting coverage. Keep unsupported exits and delisting returns
+  unavailable, isolate the legacy minus-50-percent scenario under a physical
+  sensitivity namespace excluded from observed-label training, preserve the
+  future paid-provider adapter boundary, and calculate no performance. The
+  final ledger version is `20260730T141429Z-s1-final`; no external request,
+  canonical promotion, Hugging Face write, archive, branch, commit, push, or
+  publication occurred.
+- Complete Session D1's versioned US canonical refresh route without changing
+  the accepted P2-P4 baseline or legacy international workflows: preserve
+  exact SEC/Yahoo response bodies, request timestamps, hashes, and explicit
+  failures; version the live SEC universe; reuse corrected Step 2 availability
+  and PIT Step 5 transformations; freeze price, benchmark, calendar, decision,
+  and label-support contracts; keep macro vintages unavailable; run Step 6
+  observed-only with inferred delisting returns disabled; and produce a
+  non-promoted P2 review candidate plus row/schema/coverage/label/missingness/
+  gate/source-drift comparison. The authorized refresh version
+  `20260730T110301Z` retains 8,017 SEC CIKs, 43,640 certified annual rows,
+  4,790 successful terminal market responses, 23 explicit market failures, and
+  a 43,640-row/339-column P2 candidate. No canonical pointer, immutable
+  Hugging Face path, legacy collector, archive, branch, commit, push,
+  publication, or promotion changed.
 - Prepare Session C2's separate private canonical Hugging Face
   publisher/retriever without changing the legacy root transfer utilities:
   validate the complete frozen P2-P4 roots and exact 202-file,

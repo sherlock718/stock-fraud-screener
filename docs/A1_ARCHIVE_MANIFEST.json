@@ -1,0 +1,142 @@
+{
+  "archive_manifest": {
+    "path": "artifacts/archive/a1/20260801T220130Z-a1/manifest.json",
+    "sha256": "892cf0991b9e1a5a651728a1329bd91422037c62de6d57ee27adcc1e919399da"
+  },
+  "archive_root": "artifacts/archive/a1/20260801T220130Z-a1",
+  "artifact_class": "A1_ARCHIVE_AND_RETIREMENT_RESULT",
+  "artifact_version": "20260801T220130Z-a1",
+  "contract": {
+    "path": "docs/A1_ARCHIVE_CONTRACT.json",
+    "sha256": "1b8174bac5181b68f6e3913c2e6bf73a7271acce9f1421063e40b39db2a63f3a"
+  },
+  "methodology_boundary": {
+    "evidence_collected": false,
+    "methodology_changed": false,
+    "model_or_score_executed": false,
+    "performance_executed": false,
+    "release_performed": false,
+    "remote_state_mutated": false,
+    "shortlist_changed": false
+  },
+  "packages": [
+    {
+      "file_count": 19,
+      "inventory_sha256": "c511a775f4eee5a2bca5c64e7e74af5456f6f9bd0a262e1b8cb3c25958c39fc8",
+      "manifest_sha256": "10b648c581ed56d6b6acb7f16d786be00409f4dfc96f0e92073693276e51b6ee",
+      "package_path": "artifacts/archive/a1/20260801T220130Z-a1/packages/corrected_partial.tar",
+      "package_sha256": "e07f41abf149b9f4b23c47c21f6fad4f535d73feaf158ac1d2beec7af9a70dd6",
+      "package_size_bytes": 565954560,
+      "recovery_status": "pass",
+      "source_root": "artifacts/pit_validation/corrected_partial",
+      "source_total_size_bytes": 565934344
+    },
+    {
+      "file_count": 4,
+      "inventory_sha256": "a19c8b0b8ea27ecb05300c8d6746914995f48ff06a69241d07d5a6eaa88f9535",
+      "manifest_sha256": "31c4f4e289ac49ef7c01f333370b4e3a35a3e786c0b289200bdc95e9c5c2f4d5",
+      "package_path": "artifacts/archive/a1/20260801T220130Z-a1/packages/corrected_partial_inputs.tar",
+      "package_sha256": "0992283d399780624c11a3488d6134f744f823f630a9afd1d0eda7c546530de3",
+      "package_size_bytes": 1316864000,
+      "recovery_status": "pass",
+      "source_root": "artifacts/pit_validation/corrected_partial_inputs",
+      "source_total_size_bytes": 1316859187
+    },
+    {
+      "file_count": 847,
+      "inventory_sha256": "f91cd98720306d515acfc7f4caa9cda64b069a3c332032a7be01d34259fd8184",
+      "manifest_sha256": "bb75e2be97104736786a14c2b6c435fecef5aa335fb41181fe1f1947cb094deb",
+      "package_path": "artifacts/archive/a1/20260801T220130Z-a1/packages/session9_corrected_8f.tar",
+      "package_sha256": "1a66ff970d7fb0f1f197ee4a0e7eed1cd6c98d5c5e140d7c6c3724d0132674ce",
+      "package_size_bytes": 31703040,
+      "recovery_status": "pass",
+      "source_root": "artifacts/pit_validation/session9_corrected_8f",
+      "source_total_size_bytes": 30992893
+    },
+    {
+      "file_count": 17,
+      "inventory_sha256": "53bcd45e5bfe0e1431f34d9948d9e8ed64dfa51be14a60725708151224ffdb7e",
+      "manifest_sha256": "2b17030e554b8f663f48e7f44299107f781dbdadc4d73054361b3ebe1ab492b8",
+      "package_path": "artifacts/archive/a1/20260801T220130Z-a1/packages/session9b_oos_selection_freeze.tar",
+      "package_sha256": "8f3ab2976f79f1a05767e524809b43153f30f6cb234ebf1fad1cffd67bc3ae2e",
+      "package_size_bytes": 40919040,
+      "recovery_status": "pass",
+      "source_root": "artifacts/pit_validation/session9b_oos_selection_freeze",
+      "source_total_size_bytes": 40901417
+    }
+  ],
+  "recovery": {
+    "artifact_files_recovered": 887,
+    "artifact_source_bytes_recovered": 1954687841,
+    "artifact_targets": [
+      "/private/tmp/a1-artifact-recovery/corrected_partial",
+      "/private/tmp/a1-artifact-recovery/corrected_partial_inputs",
+      "/private/tmp/a1-artifact-recovery/session9_corrected_8f",
+      "/private/tmp/a1-artifact-recovery/session9b_oos_selection_freeze"
+    ],
+    "tracked_files_recovered": 11,
+    "tracked_recovery_branch": "codex/legacy-archive",
+    "tracked_recovery_commit": "ed53232cb45cf8b82cfd8941ead5f9a88016e507",
+    "tracked_recovery_target": "/private/tmp/a1-tracked-recovery",
+    "tracked_sha256_mismatches": 0
+  },
+  "repository_inventory_before": {
+    "path": "docs/A1_REPOSITORY_INVENTORY_BEFORE.json",
+    "sha256": "bfc3b754b3076ea348eec79b67b90b393df893117112f36254bf4bfe2f99c6f7",
+    "tracked_files": 303,
+    "untracked_files": 53
+  },
+  "retirement": {
+    "artifact_roots_retired_to_pointer_only": 4,
+    "artifact_source_files_removed_from_active_tree": 887,
+    "tracked_files_retired": 11
+  },
+  "source_stubs": [
+    {
+      "manifest_sha256": "10b648c581ed56d6b6acb7f16d786be00409f4dfc96f0e92073693276e51b6ee",
+      "pointer_path": "artifacts/pit_validation/corrected_partial/ARCHIVED_POINTER.json",
+      "pointer_sha256": "296955f7acf37d059c6fa96f84721470a052964738b717c99cb7c6e04f913693",
+      "source_root": "artifacts/pit_validation/corrected_partial"
+    },
+    {
+      "manifest_sha256": "31c4f4e289ac49ef7c01f333370b4e3a35a3e786c0b289200bdc95e9c5c2f4d5",
+      "pointer_path": "artifacts/pit_validation/corrected_partial_inputs/ARCHIVED_POINTER.json",
+      "pointer_sha256": "10b8472315afc39900a28e029520bff6eaf2a89b0ec2e611cbf78ba73ca54e2d",
+      "source_root": "artifacts/pit_validation/corrected_partial_inputs"
+    },
+    {
+      "manifest_sha256": "bb75e2be97104736786a14c2b6c435fecef5aa335fb41181fe1f1947cb094deb",
+      "pointer_path": "artifacts/pit_validation/session9_corrected_8f/ARCHIVED_POINTER.json",
+      "pointer_sha256": "afe52dccdfdc8d442b6db1c16aca67104964c2fc054b2ffbf6513e126661f3d2",
+      "source_root": "artifacts/pit_validation/session9_corrected_8f"
+    },
+    {
+      "manifest_sha256": "2b17030e554b8f663f48e7f44299107f781dbdadc4d73054361b3ebe1ab492b8",
+      "pointer_path": "artifacts/pit_validation/session9b_oos_selection_freeze/ARCHIVED_POINTER.json",
+      "pointer_sha256": "75efaeaddaf9423bf3cdec0b98aafc8118a7718556ebebb1cba40872d072f42d",
+      "source_root": "artifacts/pit_validation/session9b_oos_selection_freeze"
+    }
+  ],
+    "storage_boundary": {
+        "a1_archive_remote_revision": null,
+        "a1_packages_are_local_and_gitignored": true,
+        "canonical_private_hf_revision": "aaf056ea115067e42ef9abf9fa93ade75cdd4052",
+        "canonical_private_hf_revision_unchanged": true,
+        "remote_durability_claimed_for_a1_packages": false
+    },
+    "verification": {
+        "focused_tests": {
+            "passed": 47,
+            "skipped": 0,
+            "warnings": 13
+        },
+        "full_suite": {
+            "passed": 869,
+            "runtime_seconds": 521.01,
+            "skipped": 4,
+            "warnings": 78
+        },
+        "post_retirement_us1c_route": "pass",
+        "recovery_and_dependency_failure_paths": "pass"
+    }
+}

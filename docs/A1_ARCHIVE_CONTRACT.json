@@ -1,0 +1,322 @@
+{
+  "archive_branch": {
+    "branch": "codex/legacy-archive",
+    "commit": "ed53232cb45cf8b82cfd8941ead5f9a88016e507",
+    "inspection_mode": "detached_separate_worktree",
+    "relationship_to_active_head": "pre-existing C1 archive checkpoint",
+    "tracked_recovery_command": "test ! -e /private/tmp/a1-tracked-recovery && mkdir -p /private/tmp/a1-tracked-recovery && git archive codex/legacy-archive quality/compare_corrected_partial.py quality/freeze_corrected_partial_evidence.py quality/freeze_corrected_step2.py reports/pit_validation/08_data_comparison.md reports/pit_validation/08_preflight_input_freeze.md modeling/build_session9_oos.py modeling/freeze_session9b_selection.py tests/modeling/test_build_session9_oos.py tests/modeling/test_freeze_session9b_selection.py reports/pit_validation/09_model_prediction_comparison.md reports/pit_validation/09b_oos_selection_freeze.md | tar -x -C /private/tmp/a1-tracked-recovery"
+  },
+  "artifact_class": "DEPENDENCY_SAFE_ARCHIVE_AND_RETIREMENT_A1",
+  "artifact_version": "20260801T220130Z-a1",
+  "archive_root": "artifacts/archive/a1/20260801T220130Z-a1",
+  "archive_candidates": [
+    {
+      "active_replacement": {
+        "command": "python3 -m pipeline.build_corrected_feature_population",
+        "manifest_sha256": "40e7c716ce98dfece7caf4dfc42739425660b83b7c1ac73d1cbdadfee7a3c2b3",
+        "path": "artifacts/canonical/corrected_us_annual"
+      },
+      "archive_package": "artifacts/archive/a1/20260801T220130Z-a1/packages/corrected_partial.tar",
+      "dependency_resolution": {
+        "artifact": "The corrected Step 2 manifest retains the exact corrected_partial manifest as prior-chain evidence; retirement must leave that manifest byte-identical in a pointer-only source stub.",
+        "ci": "no reference",
+        "documentation": "historical references must be retired with their tracked reports or redirected to this archive contract/inventory",
+        "imports": "no external importer after the named tracked retirement set is removed",
+        "workflow": "no reference"
+      },
+      "file_count": 19,
+      "inventory_sha256": "c511a775f4eee5a2bca5c64e7e74af5456f6f9bd0a262e1b8cb3c25958c39fc8",
+      "manifest_sha256": "10b648c581ed56d6b6acb7f16d786be00409f4dfc96f0e92073693276e51b6ee",
+      "recovery_command": "python3 -m quality.archive_retirement --contract docs/A1_ARCHIVE_CONTRACT.json --recover corrected_partial --target-root /private/tmp/a1-artifact-recovery/corrected_partial",
+      "retained_source_stub": [
+        "artifacts/pit_validation/corrected_partial/manifest.json",
+        "artifacts/pit_validation/corrected_partial/ARCHIVED_POINTER.json"
+      ],
+      "source_root": "artifacts/pit_validation/corrected_partial",
+      "total_size_bytes": 565934344
+    },
+    {
+      "active_replacement": {
+        "paths": [
+          "artifacts/pit_validation/corrected_step2",
+          "artifacts/pit_validation/contract_aligned_label_inputs",
+          "artifacts/canonical/corrected_us_annual"
+        ],
+        "p2_manifest_sha256": "40e7c716ce98dfece7caf4dfc42739425660b83b7c1ac73d1cbdadfee7a3c2b3"
+      },
+      "archive_package": "artifacts/archive/a1/20260801T220130Z-a1/packages/corrected_partial_inputs.tar",
+      "dependency_resolution": {
+        "artifact": "consumed only by the archived corrected_partial reconstruction; current corrected Step 2 and Session 8E evidence are preserved",
+        "ci": "no reference",
+        "documentation": "historical references must be retired with their tracked reports or redirected to this archive contract/inventory",
+        "imports": "no external importer after the named tracked retirement set is removed",
+        "workflow": "no reference"
+      },
+      "file_count": 4,
+      "inventory_sha256": "a19c8b0b8ea27ecb05300c8d6746914995f48ff06a69241d07d5a6eaa88f9535",
+      "manifest_sha256": "31c4f4e289ac49ef7c01f333370b4e3a35a3e786c0b289200bdc95e9c5c2f4d5",
+      "recovery_command": "python3 -m quality.archive_retirement --contract docs/A1_ARCHIVE_CONTRACT.json --recover corrected_partial_inputs --target-root /private/tmp/a1-artifact-recovery/corrected_partial_inputs",
+      "retained_source_stub": [
+        "artifacts/pit_validation/corrected_partial_inputs/manifest.json",
+        "artifacts/pit_validation/corrected_partial_inputs/ARCHIVED_POINTER.json"
+      ],
+      "source_root": "artifacts/pit_validation/corrected_partial_inputs",
+      "total_size_bytes": 1316859187
+    },
+    {
+      "active_replacement": {
+        "command": "python3 -m modeling.build_canonical_research_model",
+        "manifest_sha256": "8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2",
+        "path": "artifacts/canonical/corrected_us_annual_3y_research_model"
+      },
+      "archive_package": "artifacts/archive/a1/20260801T220130Z-a1/packages/session9_corrected_8f.tar",
+      "dependency_resolution": {
+        "artifact": "retained only as the parent of the archived Session 9B zero-holdings freeze",
+        "ci": "no reference",
+        "documentation": "the Session 9 result/report and original path are retired together",
+        "imports": "only the two named Session 9 tests import the two named Session 9 builders; all four are retired together",
+        "workflow": "no reference"
+      },
+      "file_count": 847,
+      "inventory_sha256": "f91cd98720306d515acfc7f4caa9cda64b069a3c332032a7be01d34259fd8184",
+      "manifest_sha256": "bb75e2be97104736786a14c2b6c435fecef5aa335fb41181fe1f1947cb094deb",
+      "recovery_command": "python3 -m quality.archive_retirement --contract docs/A1_ARCHIVE_CONTRACT.json --recover session9_corrected_8f --target-root /private/tmp/a1-artifact-recovery/session9_corrected_8f",
+      "retained_source_stub": [
+        "artifacts/pit_validation/session9_corrected_8f/manifest.json",
+        "artifacts/pit_validation/session9_corrected_8f/ARCHIVED_POINTER.json"
+      ],
+      "source_root": "artifacts/pit_validation/session9_corrected_8f",
+      "total_size_bytes": 30992893
+    },
+    {
+      "active_replacement": {
+        "command": "python3 -m portfolio.build_canonical_product",
+        "manifest_sha256": "28ecc946c5c1c3c75ee6e13013fdb1a7eda1e1fd73d70e5d915f3d1edd1aabc7",
+        "path": "artifacts/canonical/corrected_us_annual_3y_product"
+      },
+      "archive_package": "artifacts/archive/a1/20260801T220130Z-a1/packages/session9b_oos_selection_freeze.tar",
+      "dependency_resolution": {
+        "artifact": "zero-holdings historical freeze with no active downstream consumer",
+        "ci": "no reference",
+        "documentation": "the Session 9B report and original path are retired together",
+        "imports": "only the named Session 9B test imports the named builder; both are retired together",
+        "workflow": "no reference"
+      },
+      "file_count": 17,
+      "inventory_sha256": "53bcd45e5bfe0e1431f34d9948d9e8ed64dfa51be14a60725708151224ffdb7e",
+      "manifest_sha256": "2b17030e554b8f663f48e7f44299107f781dbdadc4d73054361b3ebe1ab492b8",
+      "recovery_command": "python3 -m quality.archive_retirement --contract docs/A1_ARCHIVE_CONTRACT.json --recover session9b_oos_selection_freeze --target-root /private/tmp/a1-artifact-recovery/session9b_oos_selection_freeze",
+      "retained_source_stub": [
+        "artifacts/pit_validation/session9b_oos_selection_freeze/manifest.json",
+        "artifacts/pit_validation/session9b_oos_selection_freeze/ARCHIVED_POINTER.json"
+      ],
+      "source_root": "artifacts/pit_validation/session9b_oos_selection_freeze",
+      "total_size_bytes": 40901417
+    }
+  ],
+  "contract_version": 1,
+  "dependency_map": {
+    "artifact": {
+      "corrected_partial_manifest_consumer": "artifacts/pit_validation/corrected_step2/manifest.json",
+      "session9_parent_consumer": "artifacts/pit_validation/session9b_oos_selection_freeze/manifest.json"
+    },
+    "ci": {
+      "candidate_references": [],
+      "reviewed": [
+        ".github/workflows/refresh_data.yml",
+        ".github/workflows/verify_canonical_artifacts.yml"
+      ]
+    },
+    "documentation": {
+      "retire_with_candidates": [
+        "reports/pit_validation/08_data_comparison.md",
+        "reports/pit_validation/08_preflight_input_freeze.md",
+        "reports/pit_validation/09_model_prediction_comparison.md",
+        "reports/pit_validation/09b_oos_selection_freeze.md"
+      ],
+      "rewrite_as_archive_discovery": [
+        "docs/ARCHIVE_INVENTORY.md",
+        "docs/CANONICAL_DEPENDENCY_INVENTORY.md",
+        "docs/PIT_ARTIFACT_ARCHIVE.md"
+      ],
+      "retain_as_immutable_history": [
+        "CHANGELOG.md",
+        "docs/CODEX_HANDOFF.md"
+      ]
+    },
+    "imports": {
+      "candidate_external_importers_after_retirement": [],
+      "retired_internal_importers": [
+        "tests/modeling/test_build_session9_oos.py -> modeling/build_session9_oos.py",
+        "tests/modeling/test_freeze_session9b_selection.py -> modeling/freeze_session9b_selection.py"
+      ]
+    },
+    "workflow": {
+      "candidate_references": [],
+      "canonical_entrypoint": "python3 -m workflows.run_us_free_v1"
+    }
+  },
+  "explicit_exclusions": [
+    {
+      "paths": [
+        "artifacts/canonical/corrected_us_annual",
+        "artifacts/canonical/corrected_us_annual_3y_research_model",
+        "artifacts/canonical/corrected_us_annual_3y_product",
+        "data_io/canonical_artifact_pointers/p2.json",
+        "data_io/canonical_artifact_pointers/p3.json",
+        "data_io/canonical_artifact_pointers/p4.json"
+      ],
+      "reason": "P2-P4 and immutable private Hugging Face recovery pointers are canonical"
+    },
+    {
+      "paths": [
+        "artifacts/pit_validation/corrected_step2",
+        "artifacts/pit_validation/contract_aligned_label_inputs",
+        "artifacts/pit_validation/corrected_feature_population",
+        "pipeline/step2_artifact_rebuild.py",
+        "pipeline/build_contract_label_inputs.py",
+        "pipeline/build_corrected_feature_population.py"
+      ],
+      "reason": "corrected source and PIT evidence are retained"
+    },
+    {
+      "paths": [
+        "artifacts/pit_validation/session_v3_1_production_contract",
+        "artifacts/pit_validation/session_v3_2_oos_predictions",
+        "artifacts/pit_validation/session_v3_3_liquidity_holdings",
+        "modeling/freeze_session_v3_1.py",
+        "modeling/build_session_v3_2_oos.py",
+        "portfolio/build_session_v3_3_holdings.py"
+      ],
+      "reason": "fail closed: V3 remains referenced by parity tests and freeze_session_v3_1.py remains pinned by the M1A contract"
+    },
+    {
+      "paths": [
+        "artifacts/canonical_refresh",
+        "artifacts/security_ledger",
+        "artifacts/event_review",
+        "artifacts/performance_inputs",
+        "artifacts/performance",
+        "artifacts/modeling/nested_walk_forward",
+        "artifacts/international",
+        "artifacts/product"
+      ],
+      "reason": "preserve D1, S1, E1, B1, M1, I1, US1A, US1B, and US1C boundaries"
+    },
+    {
+      "paths": [
+        "workflows/run_pipeline.py",
+        "workflows/run_pipeline_br.py",
+        "workflows/run_pipeline_ca.py",
+        "workflows/run_pipeline_eu.py",
+        "workflows/run_pipeline_jp.py",
+        "workflows/run_pipeline_kr.py",
+        "pipeline/step1_fetch_tickers_br.py",
+        "pipeline/step1_fetch_tickers_ca.py",
+        "pipeline/step1_fetch_tickers_eu.py",
+        "pipeline/step1_fetch_tickers_jp.py",
+        "pipeline/step1_fetch_tickers_kr.py"
+      ],
+      "reason": "legacy international/per-market structure remains required for later adapters"
+    },
+    {
+      "paths": [
+        "models",
+        "data",
+        "notebooks",
+        "reports/backtest_tearsheet_summary.md",
+        "reports/feature_ablation_results.json",
+        "reports/feature_ablation_results.md",
+        "reports/proper_split_results.json",
+        "reports/pruned_backtest_results.md",
+        ".jupyter_ystore.db"
+      ],
+      "reason": "historical consumers/replacements are unresolved or ownership is unrelated; preserve"
+    }
+  ],
+  "frozen_preconditions": {
+    "candidate_manifest_sha256": "a639e7bdd40eae8d8b28b0ee802c8de09beb8c05569a20f3996d172db9a7b466",
+    "candidate_manifest_status": "verified",
+    "us1c_command": "python3 -m workflows.run_us_free_v1",
+    "us1c_contract_sha256": "d7098153542afa77ff09e850980362eb957b3e24cd609a4984451289595f1d47",
+    "us1c_status": "pass"
+  },
+  "methodology_boundary": {
+    "external_evidence_collection": false,
+    "methodology_change": false,
+    "model_execution": false,
+    "performance_execution": false,
+    "release": false,
+    "remote_mutation": false,
+    "shortlist_change": false
+  },
+  "pre_action_repository_inventory": {
+    "file_count": 356,
+    "path": "docs/A1_REPOSITORY_INVENTORY_BEFORE.json",
+    "sha256": "bfc3b754b3076ea348eec79b67b90b393df893117112f36254bf4bfe2f99c6f7",
+    "tracked_files": 303,
+    "untracked_files": 53
+  },
+  "retirement_preconditions": [
+    "the frozen contract and pre-action inventory match",
+    "each source manifest, file inventory, byte count, and SHA-256 matches",
+    "the archive package destination is absent",
+    "the archive package is independently extracted into an absent temporary target",
+    "every recovered relative path, byte size, and SHA-256 matches the frozen source inventory",
+    "the retained source stub preserves the exact source manifest and adds only an archive pointer",
+    "all tracked retirements recover byte-identically from codex/legacy-archive",
+    "no surviving import, workflow, CI, or active documentation consumer points to a retired implementation or payload"
+  ],
+  "storage_boundary": {
+    "a1_packages": "local gitignored non-overwriting artifact packages only",
+    "canonical_private_hf_revision": "aaf056ea115067e42ef9abf9fa93ade75cdd4052",
+    "canonical_private_hf_revision_mutated": false,
+    "remote_a1_archive_upload": "prohibited in A1 by the no-publish/no-push boundary; no remote durability is claimed for A1 packages"
+  },
+  "tracked_retirements": [
+    {
+      "path": "quality/compare_corrected_partial.py",
+      "sha256": "161f6c95606d011273a9168131cdee7a2a477fbfcb4714a401953765e34d3994"
+    },
+    {
+      "path": "quality/freeze_corrected_partial_evidence.py",
+      "sha256": "a5bda0369aab59d85080a8390fac0a6a3c25fb81cb7cb42940252bbc6f4bf228"
+    },
+    {
+      "path": "quality/freeze_corrected_step2.py",
+      "sha256": "d0850cc942e4b15d5fc323b404adf081289ebac7ecf640ccac3e0107983d3077"
+    },
+    {
+      "path": "reports/pit_validation/08_data_comparison.md",
+      "sha256": "f1d605e791a1d9d1b05abee85adb8948104a37762621c4f1958634d49d424db7"
+    },
+    {
+      "path": "reports/pit_validation/08_preflight_input_freeze.md",
+      "sha256": "49ae6eb5c90d220e811dec482865496189631ea83585a6a80ad3d8778cd8b3a1"
+    },
+    {
+      "path": "modeling/build_session9_oos.py",
+      "sha256": "c3676c81932fd5a5ba5c591a447c9d23209f299b588558cc2aba92cc92126fc2"
+    },
+    {
+      "path": "modeling/freeze_session9b_selection.py",
+      "sha256": "862165a22cf08ebe9558ef34793b3daff9a40e927f3131136d68cdc3ec524466"
+    },
+    {
+      "path": "tests/modeling/test_build_session9_oos.py",
+      "sha256": "d3f197988753facef54c0357c6cca79cfc8957f05c0bac3553040fd405c0bc9c"
+    },
+    {
+      "path": "tests/modeling/test_freeze_session9b_selection.py",
+      "sha256": "8c6e96f04e3378b6af20c5224452769f84ababbc63d3f52573e65da3615bb493"
+    },
+    {
+      "path": "reports/pit_validation/09_model_prediction_comparison.md",
+      "sha256": "a6d0b79c98b91af124182e7f0cd2ccf73d7c5e65c5bab6be311d0c6dbe52ce0b"
+    },
+    {
+      "path": "reports/pit_validation/09b_oos_selection_freeze.md",
+      "sha256": "977bec744f92fae59f026edd502b3fda8b962b21d9522eee1d76892e6450342e"
+    }
+  ]
+}

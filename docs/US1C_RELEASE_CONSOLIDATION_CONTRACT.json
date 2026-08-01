@@ -1,0 +1,157 @@
+{
+  "artifact_class": "US_FREE_DATA_V1_RELEASE_CANDIDATE_US1C",
+  "artifact_version": "20260801T210000Z-us1c",
+  "chain": [
+    {
+      "artifact_root": "artifacts/canonical/corrected_us_annual",
+      "manifest_sha256": "40e7c716ce98dfece7caf4dfc42739425660b83b7c1ac73d1cbdadfee7a3c2b3",
+      "record_bytes": 436218028,
+      "record_count": 33,
+      "stage": "P2"
+    },
+    {
+      "artifact_root": "artifacts/canonical/corrected_us_annual_3y_research_model",
+      "manifest_sha256": "8ed9e4a514a06ab1b542886abb1d41e727400df711c7f89be8f71cbc549b80f2",
+      "record_bytes": 13694166,
+      "record_count": 141,
+      "stage": "P3"
+    },
+    {
+      "artifact_root": "artifacts/canonical/corrected_us_annual_3y_product",
+      "manifest_sha256": "28ecc946c5c1c3c75ee6e13013fdb1a7eda1e1fd73d70e5d915f3d1edd1aabc7",
+      "record_bytes": 31644764,
+      "record_count": 25,
+      "stage": "P4"
+    },
+    {
+      "artifact_root": "artifacts/product/us_free_v1/20260801T183000Z-us1a",
+      "manifest_sha256": "f27773c0e1fb92a25707e0fec363e13afa7ccb10f8ace7537187c6be58575edf",
+      "record_bytes": 37863802,
+      "record_count": 32,
+      "stage": "US1A"
+    },
+    {
+      "artifact_root": "artifacts/product/us_free_v1_evidence/20260801T193322Z-us1b",
+      "manifest_sha256": "f802ec26358d27afa21c99490e598e13c98a6ad60229705769f3fae1818d9dcd",
+      "record_bytes": 2653162,
+      "record_count": 95,
+      "stage": "US1B"
+    }
+  ],
+  "contract_version": 1,
+  "evidence_boundary": {
+    "all_deterministic_actions": "unresolved",
+    "all_names_require_human_review": true,
+    "approved_unique_urls": 36,
+    "external_attempts": 36,
+    "external_http_200": 36,
+    "external_response_body_bytes": 3681377,
+    "failed_request_name": "HPK",
+    "failed_request_names": 1,
+    "request_plan_sha256": "f1bcfc5d2c740d1626c3d6c11148ee1711ec5d70911165b897daf84f90f9bfbc",
+    "reused_responses": 29,
+    "unresolved_names": 14
+  },
+  "frozen_boundaries": {
+    "b1d_engine_sha256": "880cf13607851dcc1d0947ef7b62ecc798e1add841a707b85a80535cd74d034f",
+    "b1d_test_sha256": "c9cb5b123b7450498a44938c64ebd166164df8a6216764a110e1a95217dee86f",
+    "b1e_manifest_sha256": "23588207812e2e950d3e521c6f2048e7607f20b99b691407c449ceb7752bf37c",
+    "i1_manifest_sha256": "d3f17854cf0839713163e8dda99aefedd6ba064a14a042a886770818a472d9f6",
+    "m1a_manifest_sha256": "a9d4d2eeb06543206e1f2f7d1a9c3000599b69ee5b22db7c89de21fd5330cabc",
+    "m1c_manifest_sha256": "125cb5d6a8012c3b03ee6eab5f00ac944135c39996e992ecf40d8816acdacc58",
+    "m1d_lock_manifest_sha256": "757e19cd9e35290a6b339f79e2c44a0f1ddb47c03b913930b1abda84f0bf74bc",
+    "m1d_manifest_sha256": "b04cea8236da6cd92749410f6186360be5f29dbbbeb00a64f2ed07c180cc72ab",
+    "partial_m1c_attempts": [
+      {
+        "artifact_directory": "20260801T020100Z-m1c",
+        "file_count": 1,
+        "model_file_count": 0,
+        "outer_result_observed": false,
+        "record_bytes": 218714,
+        "records_sha256": "42a6938023d829670ef20308576a6a6486c38ecc73740fa1a649625fc9bcb147"
+      },
+      {
+        "artifact_directory": "20260801T020200Z-m1c",
+        "file_count": 1,
+        "model_file_count": 0,
+        "outer_result_observed": false,
+        "record_bytes": 218714,
+        "records_sha256": "42a6938023d829670ef20308576a6a6486c38ecc73740fa1a649625fc9bcb147"
+      },
+      {
+        "artifact_directory": "20260801T020300Z-m1c",
+        "file_count": 17,
+        "model_file_count": 16,
+        "outer_result_observed": false,
+        "record_bytes": 4271128,
+        "records_sha256": "e9e5c8701e7adbc705b041755a41f12c3768fc7e828b85541cde5c25046a01a5"
+      },
+      {
+        "artifact_directory": "20260801T020500Z-m1c",
+        "file_count": 8,
+        "model_file_count": 7,
+        "outer_result_observed": false,
+        "record_bytes": 1770576,
+        "records_sha256": "39214390c4ebff640f3059520398c4f4718655937c3afe35c9392a4231da2836"
+      },
+      {
+        "artifact_directory": "20260801T120027Z-m1c",
+        "file_count": 17,
+        "model_file_count": 16,
+        "outer_result_observed": false,
+        "record_bytes": 5393476,
+        "records_sha256": "5d786dddec25665f15ff93ab24953de8f62645225083f23eed116151de65094d"
+      }
+    ]
+  },
+  "offline_verification_command": "python3 -m workflows.run_us_free_v1 --us1c-artifact-root artifacts/product/us_free_v1_release_candidate/20260801T210000Z-us1c",
+  "output_contract": {
+    "contents": [
+      "configuration",
+      "parent manifest copies and pointer lineage",
+      "command inventory",
+      "local chain verification evidence",
+      "deterministic reconstruction evidence",
+      "immutable private recovery evidence",
+      "unchanged US1A and US1B shortlist derivatives",
+      "diagnostics",
+      "limitations",
+      "report",
+      "manifest",
+      "offline verification command"
+    ],
+    "manifest_enumerates_every_non_manifest_file": true,
+    "non_overwriting": true,
+    "parent_shortlist_columns_must_match_exactly": true
+  },
+  "prohibitions": [
+    "no external evidence collection or retry",
+    "no data, feature, target, split, model, selection, gate, liquidity, portfolio, event, or performance methodology change",
+    "no model fit, retraining, retuning, rescore, rerank, shortlist change, or performance run",
+    "no mutable Hugging Face revision fallback",
+    "no remote upload, overwrite, delete, repoint, promotion, publication, or visibility change",
+    "no archive, delete, branch, commit, push, tag, A1, or REL1 action"
+  ],
+  "reconstruction_contract": {
+    "clean_scope": "assemble the US1C metadata and unchanged release-critical derivatives from already frozen parents in fresh destinations",
+    "deterministic": true,
+    "model_or_methodology_reexecution": false,
+    "required_fresh_builds": 2,
+    "required_result": "byte-identical manifests and records",
+    "target_policy": "absent destination only"
+  },
+  "recovery_contract": {
+    "artifact_count": 3,
+    "expected_file_count": 202,
+    "expected_total_size_bytes": 481666707,
+    "mutable_revision_fallback": false,
+    "operation": "read_only_download_and_byte_hash_verification",
+    "repository": "ekrash718/stock-screener-data",
+    "repository_type": "dataset",
+    "required_visibility": "private_verified",
+    "revision": "aaf056ea115067e42ef9abf9fa93ade75cdd4052",
+    "target_policy": "absent destination only"
+  },
+  "release_performed": false,
+  "scope": "US1C local release consolidation and recovery verification only"
+}

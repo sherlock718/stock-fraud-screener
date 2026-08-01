@@ -186,6 +186,10 @@ def freeze_calendar(artifact_root: Path) -> None:
 
 
 _thread_local = threading.local()
+_YAHOO_RATE_LOCK = threading.Lock()
+_YAHOO_NEXT_REQUEST_AT = 0.0
+YAHOO_REQUEST_INTERVAL_SECONDS = 0.5
+YAHOO_429_COOLDOWN_SECONDS = 15.0
 
 
 def _session() -> requests.Session:
@@ -196,11 +200,77 @@ def _session() -> requests.Session:
     return _thread_local.session
 
 
-def _fetch_one(symbol: str, artifact_root: Path, params: dict[str, Any], retries: int) -> dict[str, Any]:
+def _yahoo_rate_wait(interval_seconds: float = YAHOO_REQUEST_INTERVAL_SECONDS) -> None:
+    """Globally space request starts across all Yahoo worker threads."""
+    global _YAHOO_NEXT_REQUEST_AT
+    while True:
+        with _YAHOO_RATE_LOCK:
+            now = time.monotonic()
+            wait_seconds = _YAHOO_NEXT_REQUEST_AT - now
+            if wait_seconds <= 0:
+                _YAHOO_NEXT_REQUEST_AT = now + interval_seconds
+                return
+        time.sleep(wait_seconds)
+
+
+def _yahoo_cooldown(seconds: float) -> None:
+    """Extend the shared request gate after any worker receives HTTP 429."""
+    global _YAHOO_NEXT_REQUEST_AT
+    with _YAHOO_RATE_LOCK:
+        _YAHOO_NEXT_REQUEST_AT = max(
+            _YAHOO_NEXT_REQUEST_AT,
+            time.monotonic() + seconds,
+        )
+
+
+def _write_gzip_exclusive(path: Path, content: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("xb") as output:
+        with gzip.GzipFile(
+            filename="",
+            mode="wb",
+            fileobj=output,
+            compresslevel=6,
+            mtime=0,
+        ) as compressed:
+            compressed.write(content)
+
+
+def _store_success_payload(
+    symbol: str,
+    artifact_root: Path,
+    target: Path,
+    content: bytes,
+    attempt: int,
+) -> tuple[Path, bool]:
+    """Store without overwrite, recovering interrupted writes by exact hash."""
+    response_sha256 = hashlib.sha256(content).hexdigest()
+    if target.exists():
+        with gzip.open(target, "rb") as existing:
+            existing_sha256 = hashlib.sha256(existing.read()).hexdigest()
+        if existing_sha256 == response_sha256:
+            return target, True
+        target = (
+            artifact_root
+            / "raw/chart_versions"
+            / f"{symbol}.attempt{attempt}.{time.time_ns()}.json.gz"
+        )
+    _write_gzip_exclusive(target, content)
+    return target, False
+
+
+def _fetch_one(
+    symbol: str,
+    artifact_root: Path,
+    params: dict[str, Any],
+    retries: int,
+    rate_interval_seconds: float,
+) -> dict[str, Any]:
     url = ENDPOINT.format(symbol=symbol)
     target = artifact_root / "raw/chart" / f"{symbol}.json.gz"
     attempts = []
     for attempt in range(1, retries + 1):
+        _yahoo_rate_wait(rate_interval_seconds)
         started = _utc_now()
         try:
             response = _session().get(url, params=params, timeout=45)
@@ -212,29 +282,42 @@ def _fetch_one(symbol: str, artifact_root: Path, params: dict[str, Any], retries
                 chart = parsed.get("chart", {})
                 if chart.get("error") is not None or not chart.get("result"):
                     raise ValueError(f"chart_error:{chart.get('error')}")
-                with gzip.open(target, "wb", compresslevel=6) as f:
-                    f.write(content)
+                stored_path, stored_payload_reused = _store_success_payload(
+                    symbol,
+                    artifact_root,
+                    target,
+                    content,
+                    attempt,
+                )
                 return {
                     "symbol": symbol, "status": "success", "request_url": response.url,
                     "request_params": params, "retrieved_at_utc": _utc_now(),
                     "http_status": response.status_code, "response_size_bytes": len(content),
                     "response_sha256": hashlib.sha256(content).hexdigest(),
-                    "stored_path": target.relative_to(artifact_root).as_posix(),
-                    "stored_size_bytes": target.stat().st_size, "stored_sha256": sha256_file(target),
+                    "stored_path": stored_path.relative_to(artifact_root).as_posix(),
+                    "stored_size_bytes": stored_path.stat().st_size,
+                    "stored_sha256": sha256_file(stored_path),
+                    "stored_payload_reused_after_interruption": stored_payload_reused,
                     "response_headers": {k: response.headers.get(k) for k in ("Date", "ETag", "Last-Modified", "Cache-Control", "Age", "Content-Type") if response.headers.get(k)},
                     "attempts": attempts,
                 }
             failure_dir = artifact_root / "raw/failures"
             failure_dir.mkdir(parents=True, exist_ok=True)
             failure_path = failure_dir / f"{symbol}.attempt{attempt}.{time.time_ns()}.bin.gz"
-            with gzip.open(failure_path, "wb", compresslevel=6) as f:
-                f.write(content)
+            _write_gzip_exclusive(failure_path, content)
             attempt_record.update({
                 "response_sha256": hashlib.sha256(content).hexdigest(),
                 "stored_path": failure_path.relative_to(artifact_root).as_posix(),
                 "stored_size_bytes": failure_path.stat().st_size,
                 "stored_sha256": sha256_file(failure_path),
             })
+            if response.status_code == 429:
+                retry_after = response.headers.get("Retry-After")
+                retry_after_seconds = float(retry_after) if retry_after and retry_after.isdigit() else 0.0
+                _yahoo_cooldown(max(
+                    retry_after_seconds,
+                    YAHOO_429_COOLDOWN_SECONDS * attempt,
+                ))
             if response.status_code not in {408, 429, 500, 502, 503, 504}:
                 break
         except Exception as exc:  # explicit failure is retained; no substitution
@@ -248,7 +331,12 @@ def _fetch_one(symbol: str, artifact_root: Path, params: dict[str, Any], retries
     }
 
 
-def fetch(artifact_root: Path, workers: int, retries: int) -> None:
+def fetch(
+    artifact_root: Path,
+    workers: int,
+    retries: int,
+    rate_interval_seconds: float = YAHOO_REQUEST_INTERVAL_SECONDS,
+) -> None:
     config = json.loads((artifact_root / "configuration/config.json").read_text())
     symbols = json.loads((artifact_root / "checkpoints/symbols.json").read_text())
     manifest_path = artifact_root / "raw/response_manifest.jsonl"
@@ -259,13 +347,46 @@ def fetch(artifact_root: Path, workers: int, retries: int) -> None:
             prior[item["symbol"]] = item
     pending = [s for s in symbols if prior.get(s, {}).get("status") != "success"]
     params = config["request_params"]
-    with manifest_path.open("a", encoding="utf-8") as out, ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = {pool.submit(_fetch_one, s, artifact_root, params, retries): s for s in pending}
-        for future in as_completed(futures):
+    with manifest_path.open("a", encoding="utf-8") as out:
+        pool = ThreadPoolExecutor(max_workers=workers)
+        futures = {
+            pool.submit(
+                _fetch_one,
+                s,
+                artifact_root,
+                params,
+                retries,
+                rate_interval_seconds,
+            ): s
+            for s in pending
+        }
+
+        def record(future) -> None:
             item = future.result()
             out.write(json.dumps(item, sort_keys=True) + "\n")
             out.flush()
             os.fsync(out.fileno())
+
+        recorded = set()
+        try:
+            for future in as_completed(futures):
+                record(future)
+                recorded.add(future)
+        except BaseException:
+            for future in futures:
+                future.cancel()
+            pool.shutdown(wait=True)
+            for future in futures:
+                if (
+                    future not in recorded
+                    and future.done()
+                    and not future.cancelled()
+                ):
+                    record(future)
+                    recorded.add(future)
+            raise
+        else:
+            pool.shutdown(wait=True)
 
 
 def _calendar_frame(artifact_root: Path) -> pd.DataFrame:

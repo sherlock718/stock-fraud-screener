@@ -1,6 +1,6 @@
 # Active Canonical Architecture
 
-Status: Sessions C1-C2 consolidated, published, and privately recoverable
+Status: Session A1 dependency-safe retirement complete; release not performed
 
 ## Supported spine
 
@@ -9,17 +9,20 @@ corrected Step 2 + frozen Session 8E evidence
     -> P2 corrected US annual observed-only features
     -> P3 fold-local selection, preprocessing, models, OOS predictions
     -> P4 gates, candidate-wide liquidity, portfolio, shortlist, report
+    -> accepted M1A/M1C model route through unchanged P4 product rules (US1A)
+    -> frozen-shortlist evidence with unresolved human review (US1B)
+    -> local release-candidate consolidation and recovery proof (US1C)
 ```
 
 The single local entrypoint is:
 
 ```bash
-python3 -m workflows.run_canonical
+python3 -m workflows.run_us_free_v1
 ```
 
-It verifies the accepted manifests in P2 -> P3 -> P4 order. With
-`--build-missing`, it may invoke an absent stage's non-overwriting builder.
-Existing roots are never reused or replaced.
+It verifies P2 -> P3 -> P4 -> US1A -> US1B plus the named supporting frozen
+boundaries without external access. `workflows/run_canonical.py` remains the
+narrower P2 -> P3 -> P4 diagnostic/reconstruction command.
 
 ## Active modules
 
@@ -30,6 +33,11 @@ Existing roots are never reused or replaced.
 - `portfolio/selection_contract.py`: neutral fixed gate/liquidity/portfolio
   constants shared by active P4.
 - `workflows/run_canonical.py`: deterministic local orchestration.
+- `workflows/run_us_free_v1.py`: complete offline US free-data V1
+  verification and US1C candidate verification.
+- `portfolio/build_us_free_product.py`, `portfolio/us1b_frozen_evidence.py`,
+  and `portfolio/us1c_release_consolidation.py`: US1A-US1C product,
+  evidence, and consolidation boundaries.
 - `data_io/canonical_hf.py`: private, content-addressed publication,
   immutable pointer validation, and byte-verified recovery contracts.
 - `data_io/publish_canonical_to_hf.py`: local preparation, authenticated
@@ -37,18 +45,25 @@ Existing roots are never reused or replaced.
 - `data_io/retrieve_canonical_from_hf.py`: clean-checkout recovery pinned to
   full Hugging Face commit revisions.
 - `scripts/publish_canonical`: location-independent publication wrapper.
-- `backtest/monthly_nav.py`: accepted accounting implementation, inactive for
-  official performance until required evidence exists.
+- `backtest/free_data_v1_nav.py`: accepted B1D free-data accounting engine;
+  its results remain research, not provider-certified performance.
 
 Active canonical builders do not import historically named `session_v3_*`
 modules.
 
 ## Preserved legacy boundary
 
-The old six-step workflow, historical `session_*` builders, per-market
-orchestrators, market mappings, and international evidence remain in place.
-They are not active canonical entrypoints and are not deleted or archived by
-C1. They preserve the design needed for later market adapters.
+The old six-step workflow, per-market orchestrators, market mappings,
+international evidence, and still-referenced V3.1-V3.3 builders remain in
+place. They are not active canonical entrypoints and preserve the design and
+lineage needed by later adapters and frozen M1A parity.
+
+Session A1 retired only four confirmed superseded payload groups: corrected
+partial output, its partial inputs, alternative Session 9 OOS output, and the
+Session 9B zero-holdings freeze. The full payloads are recoverable from hashed
+local archive packages; their original roots retain only the exact historical
+manifest and an archive pointer. Eleven associated tracked builders, tests,
+and reports are recoverable byte-for-byte from `codex/legacy-archive`.
 
 The older orientation documents under `docs/architecture/orientation_*.md`
 describe the legacy multi-market implementation unless they explicitly say
@@ -64,10 +79,11 @@ otherwise. The dependency and archive classifications are tracked in
 - Free-source coverage is historically enriched, not comprehensively
   survivorship-free.
 - Frozen Yahoo payloads support liquidity only.
-- Official performance remains fail-closed without the accepted
-  security/action ledger and immutable risk-free vintage.
+- Provider-certified or survivorship-complete performance remains unavailable;
+  B1E/M1D are explicitly free-source research results and the exact risk-free
+  namespace remains unavailable.
 - External refresh, approval-bound Hugging Face publication, archive moves,
-  and performance calculation are outside deterministic reconstruction.
+  and performance execution remain outside deterministic verification.
 - C2 published the exact P2-P4 baseline privately at immutable revision
   `aaf056ea115067e42ef9abf9fa93ade75cdd4052`. The three pointer manifests pin
   all 202 files and 481,666,707 bytes; no mutable revision is accepted.

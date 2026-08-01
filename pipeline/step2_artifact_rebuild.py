@@ -7,7 +7,9 @@ import hashlib
 import json
 import os
 import shutil
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, time as datetime_time, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -27,6 +29,19 @@ EXTRACTION_SCHEMA_VERSION = 2
 CHECKPOINT_EVERY = 250
 SEC_URL = "https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json"
 SOURCE_TZ = ZoneInfo("America/New_York")
+_EDGAR_RATE_LOCK = threading.Lock()
+_EDGAR_NEXT_REQUEST = 0.0
+
+
+def canonical_edgar_rate_wait(interval: float = 0.13) -> None:
+    """Globally limit SEC request starts across concurrent refresh workers."""
+    global _EDGAR_NEXT_REQUEST
+    with _EDGAR_RATE_LOCK:
+        now = time.monotonic()
+        delay = max(0.0, _EDGAR_NEXT_REQUEST - now)
+        _EDGAR_NEXT_REQUEST = max(now, _EDGAR_NEXT_REQUEST) + interval
+    if delay:
+        time.sleep(delay)
 
 
 def sha256_file(path: Path, chunk_size: int = 1024 * 1024) -> str:
@@ -44,14 +59,27 @@ def availability_timestamp(filed_date: str) -> str:
     return local.astimezone(timezone.utc).isoformat()
 
 
-def freeze_universe(source: Path, destination: Path) -> dict:
+def freeze_universe(
+    source: Path,
+    destination: Path,
+    *,
+    expected_ciks: int | None = None,
+) -> dict:
     frame = pd.read_parquet(source)
     required = {"cik", "market"}
     if not required.issubset(frame.columns):
         raise RuntimeError(f"ticker universe missing columns: {sorted(required - set(frame.columns))}")
     ciks = frame["cik"].astype(str)
-    if len(frame) != EXPECTED_US_CIKS or ciks.nunique() != EXPECTED_US_CIKS:
-        raise RuntimeError("ticker universe is not the expected 8,021 unique-CIK population")
+    expected_ciks = EXPECTED_US_CIKS if expected_ciks is None else expected_ciks
+    if frame.empty or ciks.nunique() != len(frame):
+        raise RuntimeError("ticker universe is empty or contains duplicate CIKs")
+    if expected_ciks is not None and (
+        len(frame) != expected_ciks or ciks.nunique() != expected_ciks
+    ):
+        raise RuntimeError(
+            f"ticker universe is not the expected {expected_ciks:,} "
+            "unique-CIK population"
+        )
     if frame["cik"].isna().any() or not ciks.str.fullmatch(r"\d{10}").all():
         raise RuntimeError("ticker universe contains missing or non-10-digit CIKs")
     if set(frame["market"].dropna().unique()) != {"US"}:
@@ -121,11 +149,16 @@ def fetch_response(cik: str, raw_dir: Path, retries: int = 4) -> tuple[dict, dic
     url = SEC_URL.format(cik=cik)
     attempts = []
     for attempt in range(1, retries + 1):
-        edgar_rate_wait()
+        canonical_edgar_rate_wait()
         retrieved = datetime.now(timezone.utc).isoformat()
         try:
             response = requests.get(url, headers=HEADERS, timeout=30, stream=True)
-            attempts.append({"attempt": attempt, "retrieved_at_utc": retrieved, "http_status": response.status_code})
+            attempt_record = {
+                "attempt": attempt,
+                "retrieved_at_utc": retrieved,
+                "http_status": response.status_code,
+            }
+            attempts.append(attempt_record)
             if response.status_code == 200:
                 raw_dir.mkdir(parents=True, exist_ok=True)
                 stored_name = f"CIK{cik}.json.gz"
@@ -141,6 +174,7 @@ def fetch_response(cik: str, raw_dir: Path, retries: int = 4) -> tuple[dict, dic
                                 compressed.write(chunk)
                 record = {
                     "cik": cik, "request_url": url, "retrieved_at_utc": retrieved,
+                    "completed_at_utc": datetime.now(timezone.utc).isoformat(),
                     "http_status": 200, "status": "success", "response_size_bytes": byte_size,
                     "response_sha256": digest.hexdigest(), "stored_name": stored_name,
                     "stored_size_bytes": stored.stat().st_size, "stored_sha256": sha256_file(stored),
@@ -153,6 +187,31 @@ def fetch_response(cik: str, raw_dir: Path, retries: int = 4) -> tuple[dict, dic
                     record["status"] = "invalid_payload"
                     record["failure_reason"] = "invalid_company_facts_json"
                     return record, None
+            payload = response.content
+            failure_dir = raw_dir.parent / "failures"
+            failure_dir.mkdir(parents=True, exist_ok=True)
+            failure_name = (
+                f"CIK{cik}.attempt{attempt}.{time.time_ns()}.bin.gz"
+            )
+            failure_path = failure_dir / failure_name
+            with failure_path.open("xb") as output:
+                with gzip.GzipFile(
+                    filename="",
+                    mode="wb",
+                    fileobj=output,
+                    mtime=0,
+                ) as compressed:
+                    compressed.write(payload)
+            attempt_record.update({
+                "response_size_bytes": len(payload),
+                "response_sha256": hashlib.sha256(payload).hexdigest(),
+                "stored_failure_path": (
+                    Path("raw/failures") / failure_name
+                ).as_posix(),
+                "stored_failure_size_bytes": failure_path.stat().st_size,
+                "stored_failure_sha256": sha256_file(failure_path),
+                "completed_at_utc": datetime.now(timezone.utc).isoformat(),
+            })
             if response.status_code == 404:
                 break
             if response.status_code == 429:
@@ -195,9 +254,15 @@ def run(
     *,
     limit: int | None = None,
     retry_transient: bool = False,
+    expected_ciks: int | None = EXPECTED_US_CIKS,
+    workers: int = 1,
 ) -> dict:
     frozen = artifact_root / "inputs/tickers.parquet"
-    universe_record = freeze_universe(tickers, frozen)
+    universe_record = freeze_universe(
+        tickers,
+        frozen,
+        expected_ciks=expected_ciks,
+    )
     companies = pd.read_parquet(frozen).to_dict("records")
     if limit is not None:
         companies = companies[:limit]
@@ -228,6 +293,37 @@ def run(
         completed -= retry_ciks
         unavailable_rows = [row for row in unavailable_rows if str(row["cik"]) not in retry_ciks]
 
+    if workers < 1:
+        raise ValueError("workers must be positive")
+    pending_fetches = []
+    for company in companies:
+        cik = str(company["cik"])
+        if cik in completed:
+            continue
+        item = records.get(cik)
+        if item is None or (
+            item.get("failure_reason")
+            in {"transport_error", "company_facts_http_error"}
+            or all("error" in attempt for attempt in item.get("attempts", []))
+        ):
+            pending_fetches.append(cik)
+    if pending_fetches:
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = {
+                pool.submit(fetch_response, cik, raw_dir): cik
+                for cik in pending_fetches
+            }
+            for fetched, future in enumerate(as_completed(futures), 1):
+                record, _ = future.result()
+                _append_jsonl(response_manifest, record)
+                records[record["cik"]] = record
+                if fetched % CHECKPOINT_EVERY == 0:
+                    print(
+                        f"prefetched {fetched}/{len(pending_fetches)} "
+                        "Company Facts responses",
+                        flush=True,
+                    )
+
     def save() -> None:
         _atomic_parquet(pd.DataFrame(certified_rows), certified_path)
         _atomic_parquet(pd.DataFrame(excluded_rows), excluded_path)
@@ -250,15 +346,6 @@ def run(
         if record and record["status"] == "success":
             with gzip.open(raw_dir / record["stored_name"], "rt", encoding="utf-8") as handle:
                 facts = json.load(handle)
-        elif record and (
-            record.get("failure_reason") in {"transport_error", "company_facts_http_error"}
-            or all("error" in attempt for attempt in record.get("attempts", []))
-        ):
-            record, facts = fetch_response(cik, raw_dir)
-            _append_jsonl(response_manifest, record)
-            records[cik] = record
-            if facts is None:
-                unavailable_rows.append({"cik": cik, "entity_id": f"US:{cik}", "reason": record["failure_reason"]})
         elif record:
             unavailable_rows.append({"cik": cik, "entity_id": f"US:{cik}", "reason": record["failure_reason"]})
         else:
@@ -303,10 +390,14 @@ def main() -> int:
     parser.add_argument("--artifact-root", type=Path, required=True)
     parser.add_argument("--limit", type=int)
     parser.add_argument("--retry-transient", action="store_true")
+    parser.add_argument("--expected-ciks", type=int, default=EXPECTED_US_CIKS)
+    parser.add_argument("--workers", type=int, default=1)
     args = parser.parse_args()
     print(json.dumps(run(
         args.tickers.resolve(), args.artifact_root.resolve(), limit=args.limit,
         retry_transient=args.retry_transient,
+        expected_ciks=args.expected_ciks,
+        workers=args.workers,
     ), sort_keys=True))
     return 0
 

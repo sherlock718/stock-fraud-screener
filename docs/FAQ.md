@@ -6,18 +6,18 @@ An explainable multi-factor stock screener that produces a ranked shortlist.
 Fraud risk is one factor or safety gate alongside value, quality, momentum, and
 growth.
 
-## Which strategy is production?
+## Which route is authoritative?
 
-The supported local baseline is the canonical US annual observed-only
-three-year route:
+The supported local free-data V1 route is:
 
 ```bash
-python3 -m workflows.run_canonical
+python3 -m workflows.run_us_free_v1
 ```
 
-The command verifies the pinned P2 dataset, P3 row-complete OOS predictions,
-and P4 shortlist artifact in dependency order. Use `--build-missing` only when
-a canonical stage is absent; no existing artifact root is overwritten.
+The command verifies P2 -> P3 -> P4 -> US1A -> US1B plus the named supporting
+B1, M1, I1, and partial-attempt boundaries without external access. The US1C
+candidate remains local and is not a release. `python3 -m
+workflows.run_canonical` remains a narrower P2 -> P3 -> P4 baseline diagnostic.
 
 This is a research-to-screening baseline, not a claim that its historical
 performance is certified or that its shortlist predicts future returns.
@@ -28,15 +28,19 @@ No. They are historical research results and are preserved only as such.
 
 ## Do we need new API credentials now?
 
-No. Deterministic canonical verification/reconstruction is local and uses
-pinned inputs. External US refresh and private artifact publication are later,
-separately authorized sessions.
+No. Deterministic verification is local and uses pinned inputs. D1 already
+provides a separately gated US refresh, and the accepted P2-P4 baseline is
+privately recoverable at one immutable Hugging Face revision. New collection,
+publication, or promotion still requires separate authorization.
 
 ## Why not delete the old work?
 
-Historical reports and artifacts may contain useful evidence. They are kept
-out of the active workflow until the product works, then can be archived more
-aggressively with dependency-aware cleanup. The current classifications and
-proposed destinations are recorded in
+Historical reports and artifacts contain useful evidence. Session A1 moved
+only four dependency-safe partial/Session-9 payload groups into verified local
+archive packages and retired their 11 tracked builders, tests, and reports to
+the existing `codex/legacy-archive` recovery branch. V3.1-V3.3 and every
+canonical, corrected-source, international, B1, M1, I1, and US1 boundary remain
+in place because they are active, pinned, or still referenced. Exact hashes,
+recovery commands, and exclusions are recorded in
 `docs/CANONICAL_DEPENDENCY_INVENTORY.md` and
-`docs/ARCHIVE_INVENTORY.md`; C1 does not move or delete anything.
+`docs/ARCHIVE_INVENTORY.md`.
