@@ -140,10 +140,12 @@ rate or event fallbacks are prohibited. The later B1E artifact calculates only
 the separately labeled free-source V1 research result; it does not alter P4 or
 promote that result to provider-certified performance.
 
-## What to do next
+## Frozen verification and recovery
 
-Session A1 completed dependency-safe retirement after US1C without changing
-the product route. The one authoritative command remains:
+The US free-data V1 research route is complete through DUR1 and this repository
+is now a read-only reference. Do not start another implementation session here;
+build Product v2 in a separate repository. The one authoritative verification
+command remains:
 
 ```bash
 python3 -m workflows.run_us_free_v1
@@ -170,10 +172,10 @@ python3 -m data_io.retrieve_canonical_from_hf
 
 The pointers require this full revision and verify every downloaded byte size
 and SHA-256 before exposing the target. Post-publication reconciliation
-confirmed private visibility and all 202 paths present with zero missing. For
-future separately approved versions, `scripts/publish_canonical` works from
-any current directory and automates preparation through recovery verification.
-See `docs/CANONICAL_ARTIFACT_PUBLICATION.md`.
+confirmed private visibility and all 202 paths present with zero missing. The
+preserved `scripts/publish_canonical` command documents the historical
+publication workflow. See `docs/CANONICAL_ARTIFACT_PUBLICATION.md`; do not use
+it to create a new version in this frozen repository.
 
 D1 completed the versioned US canonical raw-refresh replacement under
 `artifacts/canonical_refresh/us/20260730T110301Z/` and produced a review-only,

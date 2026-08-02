@@ -1,6 +1,6 @@
-# Active Canonical Architecture
+# Frozen Canonical Architecture
 
-Status: Session A1 dependency-safe retirement complete; release not performed
+Status: Session DUR1 immutable artifact durability complete; release not performed
 
 ## Supported spine
 
@@ -12,6 +12,7 @@ corrected Step 2 + frozen Session 8E evidence
     -> accepted M1A/M1C model route through unchanged P4 product rules (US1A)
     -> frozen-shortlist evidence with unresolved human review (US1B)
     -> local release-candidate consolidation and recovery proof (US1C)
+    -> immutable recovery of every required artifact group (DUR1)
 ```
 
 The single local entrypoint is:
@@ -24,7 +25,7 @@ It verifies P2 -> P3 -> P4 -> US1A -> US1B plus the named supporting frozen
 boundaries without external access. `workflows/run_canonical.py` remains the
 narrower P2 -> P3 -> P4 diagnostic/reconstruction command.
 
-## Active modules
+## Frozen modules
 
 - `pipeline/build_corrected_feature_population.py`: P2 construction.
 - `modeling/build_canonical_research_model.py`: P3 construction.
@@ -35,6 +36,8 @@ narrower P2 -> P3 -> P4 diagnostic/reconstruction command.
 - `workflows/run_canonical.py`: deterministic local orchestration.
 - `workflows/run_us_free_v1.py`: complete offline US free-data V1
   verification and US1C candidate verification.
+- `data_io/us_free_v1_durability.py`: DUR1 contract validation and immutable,
+  fail-closed recovery of all required ignored artifacts.
 - `portfolio/build_us_free_product.py`, `portfolio/us1b_frozen_evidence.py`,
   and `portfolio/us1c_release_consolidation.py`: US1A-US1C product,
   evidence, and consolidation boundaries.
@@ -60,10 +63,10 @@ lineage needed by later adapters and frozen M1A parity.
 
 Session A1 retired only four confirmed superseded payload groups: corrected
 partial output, its partial inputs, alternative Session 9 OOS output, and the
-Session 9B zero-holdings freeze. The full payloads are recoverable from hashed
-local archive packages; their original roots retain only the exact historical
-manifest and an archive pointer. Eleven associated tracked builders, tests,
-and reports are recoverable byte-for-byte from `codex/legacy-archive`.
+Session 9B zero-holdings freeze. Their original roots retain the exact
+historical manifests and archive pointers. DUR1 makes the required payloads
+and tracked archive-branch dependencies byte-recoverable from the immutable
+private artifact revision.
 
 The older orientation documents under `docs/architecture/orientation_*.md`
 describe the legacy multi-market implementation unless they explicitly say
@@ -87,5 +90,9 @@ otherwise. The dependency and archive classifications are tracked in
 - C2 published the exact P2-P4 baseline privately at immutable revision
   `aaf056ea115067e42ef9abf9fa93ade75cdd4052`. The three pointer manifests pin
   all 202 files and 481,666,707 bytes; no mutable revision is accepted.
-- The authorized C2 checkpoint includes the recovery code and exact pointers,
-  enabling clean-checkout discovery without a mutable revision.
+- DUR1 published the complete 21-group, 56,092-path, 7,082,517,721-byte
+  durability contract at immutable private revision
+  `a282a1023f321b9bad84ec6f12e5d846345ff833`; no required artifact depends on
+  local-only or mutable state.
+- This architecture is frozen as a research reference. Product v2 belongs in
+  a separate repository.

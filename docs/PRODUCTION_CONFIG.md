@@ -1,8 +1,8 @@
-# Production Configuration
+# Frozen Research Configuration
 
-Status: **US free-data V1 candidate verified locally; no release performed**
+Status: **US free-data V1 verified and immutably recoverable; no release performed**
 
-The supported active configuration preserves the three canonical manifests and
+The frozen configuration preserves the three canonical manifests and
 the unchanged US1A/US1B product/evidence derivatives:
 
 - P2: `artifacts/canonical/corrected_us_annual/manifest.json`
@@ -13,6 +13,8 @@ the unchanged US1A/US1B product/evidence derivatives:
   `artifacts/product/us_free_v1_evidence/20260801T193322Z-us1b/manifest.json`
 - US1C local candidate:
   `artifacts/product/us_free_v1_release_candidate/20260801T210000Z-us1c/manifest.json`
+- DUR1 durability contract: `docs/DUR1_ARTIFACT_DURABILITY_CONTRACT.json`
+- DUR1 remote manifest: `docs/DUR1_REMOTE_ARTIFACT_MANIFEST.json`
 
 Verify the complete local route with:
 
@@ -24,7 +26,13 @@ The command is offline, read-only by default, and fail-closed. The narrower
 `python3 -m workflows.run_canonical` command verifies only P2 -> P3 -> P4 and
 is not the complete free-data V1 route.
 
-## Fixed active contract
+Recover the complete ignored-artifact contract into absent destinations with:
+
+```bash
+python3 -m data_io.us_free_v1_durability --recover --revision a282a1023f321b9bad84ec6f12e5d846345ff833 --target <absent-path> --evidence-output <absent-json>
+```
+
+## Fixed frozen contract
 
 - Output: an explainable ranked stock shortlist.
 - Market/period: US annual.
@@ -49,8 +57,12 @@ P2-P4 bytes at immutable private revision
 `aaf056ea115067e42ef9abf9fa93ade75cdd4052`.
 
 Session A1 retired only the four dependency-safe partial/Session-9 payload
-groups named in `docs/A1_ARCHIVE_CONTRACT.json`. Its packages are local and
-gitignored; no remote archive upload or release occurred.
+groups named in `docs/A1_ARCHIVE_CONTRACT.json`. DUR1 subsequently made every
+required artifact group immutable and byte-recoverable at private revision
+`a282a1023f321b9bad84ec6f12e5d846345ff833`. No release occurred.
+
+This configuration is frozen. Do not refresh, retrain, change policy, promote
+artifacts, or implement Product v2 in this repository.
 
 The historical Session 47b configuration is preserved at
 `docs/archive/LEGACY_PRODUCTION_CONFIG.md`.

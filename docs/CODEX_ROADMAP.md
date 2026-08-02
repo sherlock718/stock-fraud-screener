@@ -354,3 +354,5 @@ E1 lineage inputs absent from a clean checkout.
 
 DUR1 is complete. RATE1, QPOL1, V1.1, `DGS1MO`, evidence or performance
 collection, policy changes, promotion, and release remain out of scope.
+The repository is freeze-ready as a read-only research reference; Product v2
+must be implemented in a separate repository rather than extending this plan.

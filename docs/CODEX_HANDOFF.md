@@ -2028,30 +2028,21 @@ Read these only as needed after the handoff; do not reread the whole docs tree:
 
 ## Current repository state
 
-P2-P4 and C1 are preserved in one reviewed checkpoint on the working branch
-and `codex/legacy-archive`. The three ignored canonical artifact roots retain
-their accepted frozen manifests. A1 later packaged and retired only four
-confirmed superseded partial/Session-9 payload groups plus their 11 associated
-tracked historical files; exact manifests and archive pointers remain at the
-original artifact roots, and tracked recovery is byte-identical from the
-archive branch. No canonical, corrected-source, legacy dataset, historical
-model, prediction, backtest, portfolio, international entrypoint, or retained
-V3 boundary was overwritten. The V3 program remains preserved and paused.
-D1, S1, E1, the E1 live collection,
-retrieved-document extraction, citation adjudication, and the final-shortlist
-presentation, B1C free-data evidence assembly, and B1D synthetic-only NAV and
-metric implementation, plus B1E controlled historical performance/report add
-uncommitted code, tests, documentation, and ignored non-promoted version
-artifacts. M1C adds the neutral nested runner, exact-population cache reuse,
-focused tests, the accepted ignored non-promoted M1C artifact, and five
-preserved partial attempt directories. M1D adds its fail-closed adapter,
-runner, focused tests, and the sole accepted ignored non-promoted M1D artifact;
-there is no failed M1D attempt. Every P2/P3/P4/B1D/B1E/M1A/M1C frozen hash
-remains unchanged. M1, I1, US1C, and A1 are complete; REL1 and deferred V2A
-have not begun. US1C adds one frozen consolidation contract, one local command,
-focused tests, exact read-only recovery evidence, and one ignored non-promoted
-release-candidate artifact. The unrelated untracked `.jupyter_ystore.db`
-remains untouched.
+The US free-data V1 research system is complete and frozen through DUR1. The
+authoritative private durability revision is
+`a282a1023f321b9bad84ec6f12e5d846345ff833`: 21 required groups, 56,092 paths,
+and 7,082,517,721 bytes are immutably recoverable with exact hash validation
+and no mutable fallback. The authoritative offline route and 126 focused tests
+pass; the recorded final full suite is 876 passed, 4 skipped, and 78 existing
+warnings. No required artifact remains dependent on local-only or mutable
+state.
+
+No production release or artifact promotion was performed. US1B still requires
+human review, and provider-certified or survivorship-complete performance
+remains unavailable because the S1 ledger and immutable `DGS1MO` limitations
+remain unresolved. This repository is retained as a read-only research
+reference; Product v2 belongs in a separate repository. The local Jupyter state
+database is preserved and ignored rather than treated as project content.
 
 ## International restoration Session I1 — completed 2026-08-01
 

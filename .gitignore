@@ -1,6 +1,7 @@
 __pycache__/
 *.pyc
 .DS_Store
+.jupyter_ystore.db
 .env
 .claude/
 /.codex/

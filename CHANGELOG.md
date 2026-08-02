@@ -8,6 +8,13 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+- Prepare the completed DUR1 repository for read-only archival by aligning the
+  README and active architecture, configuration, start, handoff, and roadmap
+  documents with the immutable 21-group recovery boundary and recorded final
+  verification. Mark Product v2 as separate-repository work and ignore the
+  preserved local Jupyter state database. No product code, data, model,
+  methodology, artifact, remote state, release, or performance claim changed.
+
 - Complete bounded Session DUR1 artifact durability from checkpoint
   `f104f0554aa1d4ac916aeef4c4a3b1891eb2fa3d`. Preserve the first fail-closed
   revision `33309aeb92a5cca1bb41d5cf76d7330ffc38db0e` unchanged after it exposed
