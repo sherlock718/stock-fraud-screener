@@ -2398,3 +2398,46 @@ The single final clean-worktree full-suite run completed with 828 passed, 5
 skipped, 24 failed, 16 errors, and 78 warnings in 119.07 seconds. Failures
 were fail-closed missing or drifted ignored Session 8E/B1C, corrected-Step-2,
 and E1 lineage inputs; no code, data, model, or methodology change was made.
+
+## Session DUR1 — immutable artifact durability — completed 2026-08-02
+
+Checkpoint/branch/tag are
+`f104f0554aa1d4ac916aeef4c4a3b1891eb2fa3d` / `codex/pit-checkpoint` /
+`rel1-us-free-v1`. The active worktree was never switched, reset, cleaned, or
+overwritten, and `.jupyter_ystore.db` remains untouched. The authoritative
+corrected contract is 59,477,180 bytes with SHA-256
+`2912feeb29c68bf93c5bffe06ba5f684732ba154118fc3ffc207dc1e9f3c08ae`;
+it contains 21 groups, 56,092 files, and 7,082,517,721 bytes. Its deterministic
+transport is 24 upload objects and 6,708,421,820 bytes including the contract.
+
+Preflight passed: all 24 corrective destinations absent; repo private; token
+write scope verified; exact parent
+`33309aeb92a5cca1bb41d5cf76d7330ffc38db0e`; projected logical storage
+14,083,077,603 bytes with 85,916,922,397 configured bytes headroom. The single
+corrective commit is `a282a1023f321b9bad84ec6f12e5d846345ff833`.
+Both the parent and old P2-P4 revision
+`aaf056ea115067e42ef9abf9fa93ade75cdd4052` remain unchanged.
+
+Corrective recovery passed read-only for 56,092 files and 7,082,517,721 bytes.
+It downloaded 227 objects totaling 7,130,615,722 bytes excluding the contract,
+used no mutable fallback, and mutated no remote state. Recovery command:
+
+```bash
+python3 -m data_io.us_free_v1_durability --recover --revision a282a1023f321b9bad84ec6f12e5d846345ff833 --target <absent-path> --evidence-output <absent-json>
+```
+
+Detached worktree `/private/tmp/dur1-corrective-clean-a282a1023f32` contained
+exactly the 56,092 corrected-contract ignored paths and no current-worktree
+artifact. The authoritative US1C route passed, followed by 126 focused tests
+with 13 existing warnings in 218.79 seconds. The single final full suite was
+run exactly once using the same immutable alias bytes before corrective
+publication: 876 passed, 4 skipped, and 78 existing warnings in 518.65
+seconds. Dependency checking, `quality/check_sync.py --warn-only`, and
+`git diff --check` pass.
+
+DUR1 decision: complete. No required artifact remains dependent on local or
+mutable state. The initial fail-closed revision remains immutable but is not
+authoritative; use only corrective revision `a282a102...`. Do not begin
+RATE1/QPOL1, collect `DGS1MO`, revise event policy, start V1.1, or rerun
+performance. US1B remains 14 unresolved names plus failed-request HPK, with
+human review for all 15.

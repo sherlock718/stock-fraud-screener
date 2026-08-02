@@ -1,0 +1,108 @@
+{
+  "artifact_class": "dur1_artifact_durability_result",
+  "artifact_version": "20260802T020320Z-dur1-corrective",
+  "checkpoint": {
+    "branch": "codex/pit-checkpoint",
+    "commit": "f104f0554aa1d4ac916aeef4c4a3b1891eb2fa3d",
+    "tag": "rel1-us-free-v1"
+  },
+  "contract": {
+    "path": "docs/DUR1_ARTIFACT_DURABILITY_CONTRACT.json",
+    "sha256": "2912feeb29c68bf93c5bffe06ba5f684732ba154118fc3ffc207dc1e9f3c08ae",
+    "size_bytes": 59477180,
+    "source_file_count": 56092,
+    "source_group_count": 21,
+    "source_inventory_sha256": "4173a05ac26f3ad30b0103f05b011dd3330ab61fa4ae593ef7fb7fad7d684740",
+    "source_total_size_bytes": 7082517721,
+    "status": "complete_and_published"
+  },
+  "created_at_utc": "2026-08-02T02:18:27Z",
+  "decision": {
+    "artifact_durability_complete": true,
+    "commit_authorized": true,
+    "local_or_mutable_artifact_dependency": false,
+    "status": "pass"
+  },
+  "detached_worktree": {
+    "authoritative_route": "pass",
+    "contracted_ignored_path_count": 56092,
+    "contracted_path_set_exact": true,
+    "focused_boundary": {
+      "duration_seconds": 218.79,
+      "failed": 0,
+      "passed": 126,
+      "status": "pass",
+      "warnings": 13
+    },
+    "path": "/private/tmp/dur1-corrective-clean-a282a1023f32",
+    "single_final_full_suite": {
+      "corrective_recovery_materializes_identical_alias_bytes": true,
+      "diagnostic_alias_source_was_immutable": true,
+      "duration_seconds": 518.65,
+      "failed": 0,
+      "passed": 876,
+      "run_before_corrective_publication": true,
+      "skipped": 4,
+      "status": "pass",
+      "warnings": 78
+    }
+  },
+  "historical_failed_revision": {
+    "contract_sha256": "8b07c5a2b8a76ca6fd77262262a662df7bfd1aba7d6ce635abb9e27810c6e2fd",
+    "contract_source_file_count": 56091,
+    "must_remain_unchanged": true,
+    "omitted_path": "artifacts/pit_validation/calendar_contract/session8b_calendar_contract.json",
+    "revision": "33309aeb92a5cca1bb41d5cf76d7330ffc38db0e",
+    "status": "preserved_immutable_not_authoritative"
+  },
+  "immutable_byte_alias": {
+    "canonical_source_path": "artifacts/canonical/corrected_us_annual/inputs/session8b_calendar_contract.json",
+    "recovery_destination": "artifacts/pit_validation/calendar_contract/session8b_calendar_contract.json",
+    "repository_path": "canonical/corrected_us_annual/40e7c716ce98dfece7caf4dfc42739425660b83b7c1ac73d1cbdadfee7a3c2b3/inputs/session8b_calendar_contract.json",
+    "revision": "aaf056ea115067e42ef9abf9fa93ade75cdd4052",
+    "sha256": "13cd7494aa7f0ff6e3f8a11efa0ee7a9a087968bb20b1fd5a9cb57f380148296",
+    "size_bytes": 4375,
+    "status": "contracted_and_recovered"
+  },
+  "preflight": {
+    "destination_file_count": 24,
+    "destination_paths_absent": true,
+    "local_free_bytes": 54557130752,
+    "local_recovery_headroom_required_bytes": 14165035442,
+    "private_storage_headroom_bytes_after": 85916922397,
+    "private_storage_quota_bytes": 100000000000,
+    "remote_logical_bytes_before": 7374655783,
+    "remote_required_logical_bytes_after": 14083077603,
+    "status": "pass",
+    "token_write_scope_verified": true
+  },
+  "publication": {
+    "non_overwriting": true,
+    "old_p2_p4_revision_mutated": false,
+    "parent_revision": "33309aeb92a5cca1bb41d5cf76d7330ffc38db0e",
+    "parent_revision_mutated": false,
+    "repository": "ekrash718/stock-screener-data",
+    "repository_type": "dataset",
+    "revision": "a282a1023f321b9bad84ec6f12e5d846345ff833",
+    "single_commit": true,
+    "status": "pass",
+    "uploaded_file_count": 24,
+    "uploaded_payload_size_bytes": 6708421820,
+    "visibility": "private_verified"
+  },
+  "recovery": {
+    "contract_sha256": "2912feeb29c68bf93c5bffe06ba5f684732ba154118fc3ffc207dc1e9f3c08ae",
+    "downloaded_file_count": 227,
+    "downloaded_payload_size_bytes_excluding_contract": 7130615722,
+    "mutable_revision_fallback": false,
+    "old_p2_p4_revision_mutated": false,
+    "parent_revision_mutated": false,
+    "remote_state_mutated": false,
+    "source_file_count": 56092,
+    "source_total_size_bytes": 7082517721,
+    "status": "pass",
+    "target": "/private/tmp/dur1-corrective-recovery-a282a1023f321b9bad84ec6f12e5d846345ff833",
+    "visibility": "private_verified"
+  },
+  "schema_version": 2
+}

@@ -1,6 +1,6 @@
 # Canonical Refactor Completion Plan
 
-Status: Session REL1 clean-checkout verification complete; release blocked pending durable sources and explicit authorization
+Status: Session DUR1 immutable artifact durability complete; RATE1/QPOL1 remain unauthorized
 Date: 2026-07-31
 
 ## Decision
@@ -903,6 +903,36 @@ durability. US1B remains 14 unresolved names plus failed-request HPK, all 15
 requiring human review. Provider-certified/survivorship-complete performance
 remains blocked by the S1 ledger gap and missing immutable `DGS1MO` vintage.
 
+### DUR1 — Immutable artifact durability — completed 2026-08-02
+
+- [x] Freeze and rehash the complete 21-group contract: 56,092 files,
+      7,082,517,721 bytes, contract SHA-256
+      `2912feeb29c68bf93c5bffe06ba5f684732ba154118fc3ffc207dc1e9f3c08ae`.
+- [x] Pass authenticated non-overwrite/private/storage preflight and upload one
+      parent-pinned corrective commit:
+      `a282a1023f321b9bad84ec6f12e5d846345ff833`.
+- [x] Preserve old P2-P4 revision
+      `aaf056ea115067e42ef9abf9fa93ade75cdd4052` and failed first revision
+      `33309aeb92a5cca1bb41d5cf76d7330ffc38db0e` unchanged; recover the
+      corrective revision read-only into an absent target.
+- [x] Pass the authoritative route in detached checkpoint worktree
+      `/private/tmp/dur1-corrective-clean-a282a1023f32`.
+- [x] Contract the E1 preservation destination,
+      `artifacts/pit_validation/calendar_contract/session8b_calendar_contract.json`
+      (4,375 bytes, SHA-256
+      `13cd7494aa7f0ff6e3f8a11efa0ee7a9a087968bb20b1fd5a9cb57f380148296`).
+      Map it to the identical immutable canonical P2 object and verify exact
+      recovery without a manual alias.
+- [x] Run the single final full suite with the immutable-object diagnostic
+      alias: 876 passed, 4 skipped, and 78 existing warnings in 518.65 seconds.
+- [x] Pass 126 focused corrective tests with 13 existing warnings in 218.79
+      seconds; retain the single final full-suite result of 876 passed, 4
+      skipped, and 78 existing warnings in 518.65 seconds.
+
+No data, feature, target, model, tuning, score, rank, selection, gate,
+liquidity, portfolio, event policy, shortlist, accepted result, or performance
+methodology changed. Stop at the completed DUR1 boundary.
+
 ## Completion definition
 
 The refactor is complete only when:
@@ -927,8 +957,6 @@ The refactor is complete only when:
 
 ## Exact next-session task
 
-Stop at the REL1 release-decision boundary. No commit, push, tag, publication,
-promotion, upload, or release is authorized until the documentation diff is
-approved and a durable source decision is made for local US1A/US1B/supporting
-and A1 artifacts. Deferred V2A and new evidence/performance work remain out of
-scope.
+Stop at the completed DUR1 boundary. Do not begin RATE1/QPOL1, collect
+`DGS1MO`, change event policy, begin V1.1, rerun performance, push, tag,
+promote, or release without separate authorization.

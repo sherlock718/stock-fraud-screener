@@ -8,6 +8,21 @@ Format: [Semantic Versioning](https://semver.org). Each release section covers t
 
 ## [Unreleased]
 
+- Complete bounded Session DUR1 artifact durability from checkpoint
+  `f104f0554aa1d4ac916aeef4c4a3b1891eb2fa3d`. Preserve the first fail-closed
+  revision `33309aeb92a5cca1bb41d5cf76d7330ffc38db0e` unchanged after it exposed
+  one omitted E1 calendar-contract recovery destination. Freeze the corrected
+  21-group, 56,092-file, 7,082,517,721-byte contract with SHA-256
+  `2912feeb29c68bf93c5bffe06ba5f684732ba154118fc3ffc207dc1e9f3c08ae`,
+  explicitly mapping that 4,375-byte destination to its identical immutable
+  canonical P2 object. Publish one parent-pinned, non-overwriting private
+  corrective revision `a282a1023f321b9bad84ec6f12e5d846345ff833` and recover
+  all 56,092 paths read-only with private visibility, no mutable fallback, and
+  no remote mutation. The clean-checkout authoritative route and 126 focused
+  tests pass; the single final full-suite run remains 876 passed, 4 skipped,
+  and 78 existing warnings in 518.65 seconds. No data, model, methodology,
+  performance, policy, shortlist, promotion, push, tag, or release changed.
+
 - Complete bounded Session REL1 clean-checkout verification from checkpoint
   `0b6fb150ede821eacc7b03f9769fd543390b3c8e` in a detached temporary
   worktree. The authoritative `python3 -m workflows.run_us_free_v1` route

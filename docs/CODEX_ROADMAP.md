@@ -325,3 +325,32 @@ The single final clean-worktree full-suite run completed with 828 passed, 5
 skipped, 24 failed, 16 errors, and 78 warnings in 119.07 seconds because
 broader tests require additional ignored Session 8E/B1C, corrected-Step-2, and
 E1 lineage inputs absent from a clean checkout.
+
+## Session DUR1 — immutable artifact durability — completed 2026-08-02
+
+- [x] Inventory and rehash the complete 21 frozen groups: 56,092 contracted
+      paths and 7,082,517,721 bytes.
+- [x] Freeze contract SHA-256
+      `2912feeb29c68bf93c5bffe06ba5f684732ba154118fc3ffc207dc1e9f3c08ae`
+      and pass collision, symlink, drift, credentials, visibility, storage,
+      and parent-revision preflight.
+- [x] Preserve failed first revision
+      `33309aeb92a5cca1bb41d5cf76d7330ffc38db0e`, then create private
+      non-overwriting corrective revision
+      `a282a1023f321b9bad84ec6f12e5d846345ff833` without changing it or old
+      P2-P4 revision `aaf056ea115067e42ef9abf9fa93ade75cdd4052`.
+- [x] Recover and rehash the published contract read-only; verify no mutable
+      fallback, visibility change, or remote mutation.
+- [x] Pass the authoritative route from a detached checkpoint worktree.
+- [x] Contract the previously omitted
+      4,375-byte recovery destination with SHA-256
+      `13cd7494aa7f0ff6e3f8a11efa0ee7a9a087968bb20b1fd5a9cb57f380148296`.
+      Map it explicitly to its byte-identical immutable canonical P2 object and
+      recover the exact destination from the corrective revision.
+- [x] Run the single final full suite with the explicit diagnostic alias: 876
+      passed, 4 skipped, and 78 existing warnings in 518.65 seconds.
+- [x] Pass the corrective authoritative route and 126 focused tests with 13
+      existing warnings in the detached recovered checkout.
+
+DUR1 is complete. RATE1, QPOL1, V1.1, `DGS1MO`, evidence or performance
+collection, policy changes, promotion, and release remain out of scope.

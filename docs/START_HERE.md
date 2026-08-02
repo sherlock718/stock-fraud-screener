@@ -479,3 +479,37 @@ The single final clean-worktree full-suite run produced 828 passed, 5 skipped,
 24 failed, 16 errors, and 78 warnings in 119.07 seconds. The failures are
 fail-closed missing or drifted ignored Session 8E/B1C, corrected-Step-2, and E1
 lineage inputs outside the restored US1C route.
+
+## Session DUR1 — immutable artifact durability — completed 2026-08-02
+
+DUR1 started from tagged checkpoint
+`f104f0554aa1d4ac916aeef4c4a3b1891eb2fa3d`. The authoritative corrected
+contract at `docs/DUR1_ARTIFACT_DURABILITY_CONTRACT.json` is 59,477,180 bytes
+with SHA-256
+`2912feeb29c68bf93c5bffe06ba5f684732ba154118fc3ffc207dc1e9f3c08ae`;
+it inventories 21 groups, 56,092 paths, and 7,082,517,721 logical source
+bytes. The previously omitted E1 calendar-contract destination is an explicit
+recovery alias to the byte-identical immutable canonical P2 object.
+
+Authenticated collision, visibility, write-scope, quota, parent, and local
+headroom preflight passed. Corrective revision
+`a282a1023f321b9bad84ec6f12e5d846345ff833` is a single non-overwriting
+private commit parented to preserved failed revision
+`33309aeb92a5cca1bb41d5cf76d7330ffc38db0e`; old P2-P4 revision
+`aaf056ea115067e42ef9abf9fa93ade75cdd4052` also remains unchanged.
+
+Read-only recovery passed for all 56,092 paths with private visibility, exact
+hashes, no mutable fallback, and no remote mutation. The exact command is:
+
+```bash
+python3 -m data_io.us_free_v1_durability --recover --revision a282a1023f321b9bad84ec6f12e5d846345ff833 --target <absent-path> --evidence-output <absent-json>
+```
+
+Detached worktree `/private/tmp/dur1-corrective-clean-a282a1023f32` contains
+exactly the 56,092 contracted ignored paths recovered from the corrective
+revision. The authoritative route and 126 focused recovery, E1, US1B,
+shortlist, archive, modeling, and integration tests pass with 13 existing
+warnings. The single final full suite was run exactly once before corrective
+publication using the same immutable alias bytes: 876 passed, 4 skipped, and
+78 existing warnings in 518.65 seconds. DUR1 is complete. Do not begin
+RATE1/QPOL1 without separate authorization.
